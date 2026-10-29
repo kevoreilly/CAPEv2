@@ -8,7 +8,8 @@
 import logging
 import os
 import sys
-from contextlib import suppress
+import time
+from contextlib import contextmanager, suppress
 from typing import Any, Optional
 
 from lib.cuckoo.common.colors import red
@@ -35,8 +36,8 @@ from .data.audits import AuditsMixIn
 # ToDo postgresql+psycopg2 in connection
 try:
     from sqlalchemy.engine import make_url
-    from sqlalchemy import String, create_engine, func, select
-    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy import String, create_engine, event, func, select
+    from sqlalchemy.exc import OperationalError, SQLAlchemyError
     from sqlalchemy.orm import (
         scoped_session,
         sessionmaker,
@@ -68,6 +69,13 @@ def get_count(q, property):
     count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
+
+
+def is_operational_error(exc: BaseException) -> bool:
+    """Return True if exc is a SQLAlchemy or DBAPI OperationalError (including SQLSTATE subclasses)."""
+    return isinstance(exc, OperationalError) or any(
+        cls.__name__ == "OperationalError" for cls in type(exc).__mro__
+    )
 
 
 
@@ -131,16 +139,44 @@ class _Database(TasksMixIn,
 
         # Safe begin context manager to prevent transaction nesting issues
         original_begin = self.session.begin
-        from contextlib import contextmanager
 
         @contextmanager
         def safe_begin(*args, **kwargs):
-            if self.session().in_transaction():
-                yield
-                self.session().flush()
+            sess = self.session()
+            depth = sess.info.get("_safe_begin_depth", 0)
+            if depth > 0:
+                sess.info["_safe_begin_depth"] = depth + 1
+                try:
+                    yield
+                    if sess.in_transaction():
+                        sess.flush()
+                finally:
+                    sess.info["_safe_begin_depth"] = depth
+            elif sess.in_transaction():
+                # An earlier unwrapped query autobegan a dangling transaction on this session
+                sess.info["_safe_begin_depth"] = 1
+                try:
+                    yield sess.get_transaction()
+                    sess.commit()
+                except Exception as e:
+                    if sess.in_transaction():
+                        sess.rollback()
+                    if is_operational_error(e):
+                        self.session.remove()
+                    raise
+                finally:
+                    sess.info["_safe_begin_depth"] = 0
             else:
-                with original_begin(*args, **kwargs) as tx:
-                    yield tx
+                sess.info["_safe_begin_depth"] = 1
+                try:
+                    with original_begin(*args, **kwargs) as tx:
+                        yield tx
+                except Exception as e:
+                    if is_operational_error(e):
+                        self.session.remove()
+                    raise
+                finally:
+                    sess.info["_safe_begin_depth"] = 0
 
         self.session.begin = safe_begin
 
@@ -213,9 +249,34 @@ class _Database(TasksMixIn,
             # A single, clean call to create the engine
             self.engine = create_engine(connection_string, **engine_args)
 
+            if url.drivername.startswith("postgresql"):
+                self._register_postgresql_connect_retry(self.engine)
+
         except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]
             raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
+
+    @staticmethod
+    def _register_postgresql_connect_retry(engine, retry_delays=(1, 2, 4, 5, 5, 5, 5)):
+        @event.listens_for(engine, "do_connect")
+        def receive_do_connect(dialect, conn_rec, cargs, cparams):
+            for attempt, delay in enumerate(retry_delays, start=1):
+                try:
+                    return dialect.connect(*cargs, **cparams)
+                except Exception as e:
+                    if not is_operational_error(e):
+                        raise
+                    log.warning(
+                        "Database connection failed (attempt %d/%d): %s. Retrying in %ds...",
+                        attempt,
+                        len(retry_delays),
+                        e,
+                        delay,
+                    )
+                    time.sleep(delay)
+            return dialect.connect(*cargs, **cparams)
+
+        return receive_do_connect
 
     def _get_or_create(self, model, **kwargs):
         """Get an ORM instance or create it if not exist.

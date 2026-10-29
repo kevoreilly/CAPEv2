@@ -26,7 +26,7 @@ from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, C
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.utils import sanitize_filename
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.database import Database, is_operational_error
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -142,9 +142,23 @@ class GuestManager:
 
     def get_status_from_db(self) -> str:
         # Force SQLAlchemy to dump its cache and look at the real DB
-        with db.session.begin():
-            db.session.expire_all()
-            status = db.guest_get_status(self.task_id)
+        for attempt in (1, 2):
+            try:
+                with db.session.begin():
+                    db.session.expire_all()
+                    status = db.guest_get_status(self.task_id)
+                break
+            except Exception as e:
+                if is_operational_error(e) and attempt == 1:
+                    log.warning(
+                        "Task #%s: DB OperationalError in get_status_from_db, clearing session and retrying: %s",
+                        self.task_label,
+                        e,
+                    )
+                    db.session.remove()
+                    time.sleep(1)
+                    continue
+                raise
 
         # Handle the case where the task was already deleted by race condition
         if status is None:
@@ -153,8 +167,22 @@ class GuestManager:
         return status
 
     def set_status_in_db(self, status: str):
-        with db.session.begin():
-            db.guest_set_status(self.task_id, status)
+        for attempt in (1, 2):
+            try:
+                with db.session.begin():
+                    db.guest_set_status(self.task_id, status)
+                break
+            except Exception as e:
+                if is_operational_error(e) and attempt == 1:
+                    log.warning(
+                        "Task #%s: DB OperationalError in set_status_in_db, clearing session and retrying: %s",
+                        self.task_label,
+                        e,
+                    )
+                    db.session.remove()
+                    time.sleep(1)
+                    continue
+                raise
 
     def post(self, method, *args, **kwargs):
         """Simple wrapper around requests.post()."""
@@ -417,11 +445,12 @@ class GuestManager:
             try:
                 # Re-fetch the task status directly from DB logic
                 current_status = self.get_status_from_db()
-            except Exception:
-                # If the task was deleted, this query might fail.
-                # If it fails, we should ABORT.
-                log.info("Task #%s: Task deleted or DB error. Aborting.", self.task_label)
-                return
+            except Exception as e:
+                # If the DB query fails after retries, log warning and continue waiting rather than aborting.
+                # The hard_limit check will prevent infinite hangs if DB or agent is permanently gone.
+                log.warning("Task #%s: Transient error reading status from DB: %s. Continuing wait...", self.task_label, e)
+                time.sleep(1)
+                continue
 
             if current_status != "running":
                 break

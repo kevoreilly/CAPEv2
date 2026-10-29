@@ -191,16 +191,17 @@ class MachinesMixIn:
         return machine
 
     def set_machine_interface(self, label, interface):
-        stmt = select(Machine).filter_by(label=label)
-        machine = self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).filter_by(label=label)
+            machine = self.session.scalar(stmt)
 
-        if machine is None:
-            log.debug("Database error setting interface: %s not found", label)
-            return
+            if machine is None:
+                log.debug("Database error setting interface: %s not found", label)
+                return
 
-        # This part remains the same
-        machine.interface = interface
-        return machine
+            # This part remains the same
+            machine.interface = interface
+            return machine
 
     def create_guest(self, machine: Machine, manager: str, task: Task) -> Guest:
         guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
@@ -379,18 +380,19 @@ class MachinesMixIn:
         @param include_reserved: include 'reserved' machines in the result, regardless of whether or not a 'label' was provided.
         @return: free virtual machines count
         """
-        stmt = select(func.count(Machine.id)).where(Machine.locked.is_(False))
-        stmt = self.filter_machines_to_task(
-            statement=stmt,
-            label=label,
-            platform=platform,
-            tags=tags,
-            archs=arch,
-            os_version=os_version,
-            include_reserved=include_reserved,
-        )
+        with self.session.begin():
+            stmt = select(func.count(Machine.id)).where(Machine.locked.is_(False))
+            stmt = self.filter_machines_to_task(
+                statement=stmt,
+                label=label,
+                platform=platform,
+                tags=tags,
+                archs=arch,
+                os_version=os_version,
+                include_reserved=include_reserved,
+            )
 
-        return self.session.scalar(stmt)
+            return self.session.scalar(stmt)
 
     def get_available_machines(self) -> List[Machine]:
         """Which machines are available"""
@@ -399,34 +401,39 @@ class MachinesMixIn:
 
     def count_machines_running(self) -> int:
         """Counts how many machines are currently locked (running)."""
-        stmt = select(func.count(Machine.id)).where(Machine.locked.is_(True))
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(func.count(Machine.id)).where(Machine.locked.is_(True))
+            return self.session.scalar(stmt)
 
     def set_machine_status(self, machine_or_label: Union[str, Machine], status):
         """Set status for a virtual machine."""
         try:
-            if isinstance(machine_or_label, str):
-                stmt = select(Machine).where(Machine.label == machine_or_label)
-                with self.session.no_autoflush:
-                    machine = self.session.scalar(stmt)
-            else:
-                machine = machine_or_label
+            with self.session.begin():
+                if isinstance(machine_or_label, str):
+                    stmt = select(Machine).where(Machine.label == machine_or_label)
+                    with self.session.no_autoflush:
+                        machine = self.session.scalar(stmt)
+                else:
+                    machine = machine_or_label
 
-            if machine:
-                machine.status = status
-                machine.status_changed_on = _utcnow_naive()
+                if machine:
+                    machine.status = status
+                    machine.status_changed_on = _utcnow_naive()
         except (OperationalError, SQLAlchemyError):
-            with suppress(Exception):
-                self.session.rollback()
+            if self.session().info.get("_safe_begin_depth", 0) == 0:
+                with suppress(Exception):
+                    self.session.rollback()
             return
             # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def view_machine(self, name: str) -> Optional[Machine]:
         """Shows virtual machine details by name."""
-        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.name == name)
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.name == name)
+            return self.session.scalar(stmt)
 
     def view_machine_by_label(self, label: str) -> Optional[Machine]:
         """Shows virtual machine details by label."""
-        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.label == label)
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.label == label)
+            return self.session.scalar(stmt)

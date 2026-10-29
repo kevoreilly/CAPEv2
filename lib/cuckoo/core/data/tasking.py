@@ -1110,15 +1110,16 @@ class TasksMixIn:
         @return: operation status.
         """
         try:
-            task = self.session.get(Task, task_id)
-            if task is None:
-                return False
-            self.session.delete(task)
-            self.session.commit()
+            with self.session.begin():
+                task = self.session.get(Task, task_id)
+                if task is None:
+                    return False
+                self.session.delete(task)
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting task %s: %s", task_id, str(e))
-            self.session.rollback()
+            if self.session().info.get("_safe_begin_depth", 0) == 0:
+                self.session.rollback()
             return False
 
     def delete_tasks(
@@ -1209,13 +1210,14 @@ class TasksMixIn:
             return True
 
         try:
-            result = self.session.execute(delete_stmt)
-            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
-            self.session.commit()
+            with self.session.begin():
+                result = self.session.execute(delete_stmt)
+                log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
-            self.session.rollback()
+            if self.session().info.get("_safe_begin_depth", 0) == 0:
+                self.session.rollback()
             return False
 
     # ToDo replace with delete_tasks

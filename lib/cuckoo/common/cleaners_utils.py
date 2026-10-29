@@ -339,7 +339,8 @@ def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=F
 
 def fail_job(tid):
     log.info("set %s job to failed", tid)
-    db.set_status(tid, TASK_FAILED_ANALYSIS)
+    with db.session.begin():
+        db.set_status(tid, TASK_FAILED_ANALYSIS)
 
 
 def delete_data(tid):

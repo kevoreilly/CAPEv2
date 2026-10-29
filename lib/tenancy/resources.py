@@ -488,6 +488,22 @@ def _has_option(options_str: str, key: str) -> bool:
     return False
 
 
+def _label_name_allowed(entitlements: "ResourceEntitlements", machine_name_of: Any, label: str) -> bool:
+    try:
+        name = machine_name_of(label)
+    except Exception:
+        return False
+    return bool(name) and entitlements.can_use_machine(name)  # "" would mean "first available"
+
+
+def _option_value(options_str: str, key: str) -> str:
+    for item in (options_str or "").split(","):
+        k, sep, v = item.partition("=")
+        if sep and k.strip().lower() == key:
+            return v.strip().lower()
+    return ""
+
+
 def _has_interactive_option(options_str: str) -> bool:
     return _has_option(options_str, "interactive")
 
@@ -539,6 +555,7 @@ def validate_and_normalize_submission(
     default_timeout: Any = _UNSET,
     vmless: bool = False,
     resolve_omitted_route: bool = True,
+    machine_name_of: Optional[Any] = None,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
     """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`).
 
@@ -571,7 +588,10 @@ def validate_and_normalize_submission(
             if m.lower() == "all":
                 if not entitlements.can_use_machine("all"):
                     return False, "Submitting to all VMs is not permitted for your group.", {}
-            elif not entitlements.can_use_machine(m):
+            elif not entitlements.can_use_machine(m) and not (
+                # The API and scheduler address VMs by label; policies name machines.
+                machine_name_of is not None and _label_name_allowed(entitlements, machine_name_of, m)
+            ):
                 return False, f"Machine '{m}' is not permitted for your group.", {}
     elif not vmless:
         if not entitlements.can_use_machine(""):
@@ -604,10 +624,10 @@ def validate_and_normalize_submission(
         if not (fallback and entitlements.can_use_route(fallback)):
             if not entitlements.can_use_route("none"):
                 return False, "Choose a network route: the default route is not permitted for your group.", {}
-            fallback = "none"
-        # Pin it: the node that runs the task (a dist worker) would apply its own default.
-        route_raw = fallback
-        normalized["route"] = route_raw
+            route_raw = "none"
+            normalized["route"] = route_raw
+        # An allowed default stays unset, as for everyone else: the worker that runs the task
+        # applies its own routing.conf (names there are case-sensitive; exits are per node).
 
     if route_raw and not vmless and not entitlements.can_use_route(route_raw):
         return False, f"Route '{route_raw}' is not permitted for your group.", {}
@@ -615,11 +635,22 @@ def validate_and_normalize_submission(
     all_options = f"{options_str},{lin_options_str}"
     if _has_option(all_options, "netns"):
         return False, "The netns option is not permitted for your group.", {}
-    # These auxiliaries proxy the VM's traffic out through the host's own routing table.
+    # These auxiliaries proxy the VM's traffic out through the host. SSLProxy uses the route's
+    # table for a VPN, and the host's own for every other route; the others always the host's.
     if not vmless and not entitlements.can_use_route("internet"):
-        for proxy in ("sslproxy", "mitmdump", "polarproxy"):
-            if proxy in all_options.lower():
-                return False, f"The {proxy} option needs internet access, which your group does not have.", {}
+        lowered = all_options.lower()
+        requested = [
+            name
+            for name, on in (
+                ("sslproxy", _option_value(all_options, "sslproxy") not in ("", "0", "no", "false")
+                 and "vpn" not in _known_route_types(_norm_token(route_raw))),
+                ("mitmdump", "mitmdump" in lowered),  # Mitmdump enables on the bare substring
+                ("polarproxy", "polarproxy=" in lowered),
+            )
+            if on
+        ]
+        if requested:
+            return False, f"The {requested[0]} option needs internet access, which your group does not have.", {}
 
     tags_raw = str(normalized.get("tags") or "").strip()
     user_tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
@@ -644,8 +675,8 @@ def validate_and_normalize_submission(
         if req_timeout <= 0:
             # 0 runs for cuckoo.conf's default: keep it unless that exceeds the cap.
             dflt = _default_timeout() if default_timeout is _UNSET else int(default_timeout or 0)
-            if dflt <= 0 or dflt > entitlements.max_timeout:
-                normalized["timeout"] = str(entitlements.max_timeout)
+            # Pinned either way: a dist worker would run 0 for its own, possibly longer, default.
+            normalized["timeout"] = str(dflt if 0 < dflt <= entitlements.max_timeout else entitlements.max_timeout)
         elif req_timeout > entitlements.max_timeout:
             normalized["timeout"] = str(entitlements.max_timeout)
         for key in ("options", "lin_options"):
@@ -653,6 +684,24 @@ def validate_and_normalize_submission(
                 normalized[key] = _clamp_option_timeouts(str(normalized[key]), entitlements.max_timeout)
 
     return True, None, normalized
+
+
+def machine_name_by_label(db: Any = None) -> Any:
+    """label -> Machine.name: machine=all and the API address VMs by label, policies by name."""
+
+    def _lookup(label: str) -> Optional[str]:
+        try:
+            if db is None:
+                from lib.cuckoo.core.database import Database
+
+                vm = Database().view_machine_by_label(label)
+            else:
+                vm = db.view_machine_by_label(label)
+        except Exception:
+            return None
+        return getattr(vm, "name", None) if vm is not None else None
+
+    return _lookup
 
 
 def reconcile_idp_groups_to_django_groups(

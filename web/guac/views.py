@@ -89,11 +89,16 @@ def _vm_target_for_task(task_id):
     reach another task's VM by name, and trusting its IP points the guacd RDP tunnel at an
     arbitrary host:3389. The submission views build it from these same fields.
     """
-    task = db.view_task(int(task_id))
-    if not task or not task.machine:
+    task = db.view_task(int(task_id), details=True)
+    if not task:
         return None, None
-    machine = db.view_machine_by_label(task.machine)
-    return task.machine, (getattr(machine, "ip", "") or "")
+    # Only the VM this task is running on: task.machine is what was requested, and that VM may
+    # be running someone else's task while this one is pending.
+    guest = getattr(task, "guest", None)
+    if task.status != "running" or not guest or not guest.label:
+        return "", None
+    machine = db.view_machine_by_label(guest.label)
+    return guest.label, (getattr(machine, "ip", "") or "")
 
 
 @conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
@@ -116,6 +121,8 @@ def index(request, task_id, session_data):
             return _error(request, task_id, str(e))
 
         label, guest_ip = _vm_target_for_task(task_id)
+        if label == "":
+            return render(request, "guac/wait.html", {"task_id": task_id})  # not running yet
         if not label:
             return _error(request, task_id, "No VM is associated with this task")
 

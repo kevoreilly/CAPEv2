@@ -216,14 +216,31 @@ def test_direct_vnc_views_are_admin_only():
     assert _status(tenant_user.process_view(_req("/guac/vnc/10.0.0.1/5900/"), direct_vnc_host_port, (), {"host": "10.0.0.1", "port": "5900"})) == 403
 
 
+def _run_on(db, task_id, label, requested=None):
+    """Mark the task running on VM `label` (a guests row, as the scheduler writes it)."""
+    from lib.cuckoo.core.data.guests import Guest
+
+    with db.session.begin():
+        task = db.view_task(task_id)
+        task.machine = requested or label
+        task.status = "running"
+        guest = Guest(label, label, "windows", "KVM", task_id)
+        guest.status = "running"
+        db.session.add(guest)
+    db.session.expire_all()  # a later request reads it afresh
+
+
 def test_guac_vm_target_comes_from_the_task_not_the_url(db, temp_pe32, monkeypatch):
     import guac.views as guac_views
 
     task_id = db.add_path(str(temp_pe32))
     monkeypatch.setattr(guac_views, "db", db)
+    monkeypatch.setattr(db, "view_machine_by_label", lambda label: types.SimpleNamespace(ip="192.168.122.10") if label == "win10-1" else None)
     with db.session.begin():
         db.view_task(task_id).machine = "win10-1"
-    monkeypatch.setattr(db, "view_machine_by_label", lambda label: types.SimpleNamespace(ip="192.168.122.10") if label == "win10-1" else None)
+    # Pending: the requested VM may be running another tenant's task.
+    assert guac_views._vm_target_for_task(task_id) == ("", None)
+    _run_on(db, task_id, "win10-1")
     assert guac_views._vm_target_for_task(task_id) == ("win10-1", "192.168.122.10")
 
 
@@ -494,8 +511,7 @@ def test_guac_console_targets_the_tasks_vm_whatever_the_session_data_says(db, te
     import guac.views as guac_views
 
     task_id = db.add_path(str(temp_pe32))
-    with db.session.begin():
-        db.view_task(task_id).machine = "win10-1"
+    _run_on(db, task_id, "win10-1")
     monkeypatch.setattr(guac_views, "db", db)
     monkeypatch.setattr(db, "view_machine_by_label", lambda label: types.SimpleNamespace(ip="192.168.122.10") if label == "win10-1" else None)
     looked_up, sessions = [], []
@@ -1349,7 +1365,7 @@ def test_an_omitted_route_is_checked_against_the_global_default():
     ok, _, norm = validate_and_normalize_submission({}, ent, global_route="internet")
     assert ok and norm["route"] == "none"
     ok, _, norm = validate_and_normalize_submission({}, ent, global_route="inetsim")
-    assert ok and norm["route"] == "inetsim"  # pinned: a dist worker would apply its own default
+    assert ok and "route" not in norm  # left to the node that runs it, as for everyone else
     assert validate_and_normalize_submission({}, _ent(allowed_routes=frozenset({"inetsim"})), global_route="internet")[0] is False
     assert validate_and_normalize_submission({}, _ent(allowed_routes=frozenset({"inetsim"})), global_route=None)[0] is False
 
@@ -1469,7 +1485,7 @@ def test_option_timeouts_are_capped_and_an_omitted_timeout_keeps_the_default():
 
     ent = _ent(max_timeout=120)
     ok, _, norm = validate_and_normalize_submission({"options": "foo=1,timeout=99999"}, ent, global_route="none", default_timeout=60)
-    assert ok and norm["options"] == "foo=1,timeout=120" and "timeout" not in norm
+    assert ok and norm["options"] == "foo=1,timeout=120" and norm["timeout"] == "60"  # pinned for dist
     ok, _, norm = validate_and_normalize_submission({}, ent, global_route="none", default_timeout=300)
     assert norm["timeout"] == "120"
 
@@ -1649,3 +1665,243 @@ def test_the_middleware_leaves_an_omitted_route_to_random_vpn_and_the_final_chec
     ent = _ent(allowed_routes=frozenset({"none", "vpn:vpn_uk"}))
     ok, _, norm = validate_and_normalize_submission({}, ent, global_route="none", resolve_omitted_route=False)
     assert ok and "route" not in norm
+
+
+def test_early_from_imports_of_the_mongo_helpers_are_rebound(monkeypatch):
+    # web_utils did `from dev_utils.mongodb import mongo_aggregate` before tenancy wrapped it, so
+    # statistics/top_detections aggregated every tenant's reports.
+    import sys
+
+    from lib.tenancy import hooks
+
+    fake = types.ModuleType("fake_mongodb")
+    fake.mongo_find = lambda *a, **k: []
+    fake.mongo_find_one = lambda *a, **k: None
+    fake.mongo_aggregate = lambda coll, pipeline, *a, **k: pipeline
+    early = types.ModuleType("fake_early_importer")
+    early.mongo_aggregate = fake.mongo_aggregate
+    monkeypatch.setitem(sys.modules, "fake_mongodb", fake)
+    monkeypatch.setitem(sys.modules, "fake_early_importer", early)
+    monkeypatch.setattr(hooks, "_patched_modules", set())
+    hooks.wrap_mongodb_module(fake)
+    assert early.mongo_aggregate is fake.mongo_aggregate
+    assert getattr(early.mongo_aggregate, "_cape_tenancy_wrapped", False)
+
+
+def test_cached_dashboard_aggregates_are_not_shared_with_restricted_viewers(monkeypatch):
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    wu = types.SimpleNamespace()
+    calls = []
+
+    def top_detections():
+        if hasattr(wu.top_detections, "cache"):
+            return wu.top_detections.cache
+        calls.append(1)
+        wu.top_detections.cache = f"result{len(calls)}"
+        return wu.top_detections.cache
+
+    wu.top_detections = top_detections
+    stub = types.SimpleNamespace()
+    wrap_submission_and_web_utils(tasking_cls=stub, machines_cls=stub, web_utils_mod=wu, submission_views_mod=stub)
+    admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_authenticated=True)
+    set_current_viewer(admin)
+    assert wu.top_detections() == "result1"
+    set_current_viewer(_viewer(8, 2))
+    assert wu.top_detections() == "result2"  # not the admin's cached result
+    set_current_viewer(admin)
+    assert wu.top_detections() == "result3"  # nor does the restricted one stay cached
+
+
+@pytest.mark.parametrize(
+    "posted",
+    ["https://vt.example/file/{sha}/", "{sha512}", "{a} {b},x"],
+)
+def test_posted_hashes_are_parsed_as_the_views_parse_them(posted):
+    sha, sha512 = "c" * 64, "d" * 128
+    value = posted.format(sha=sha, sha512=sha512, a=sha[:30], b=sha[30:])
+    checked = []
+
+    def tasks_create_download_services(request):
+        pass
+
+    viewer = _viewer(8, 2)
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/download_services/", method="POST", user=object(), viewer=viewer, entitlements=None, POST={"hashes": value})
+    mw = TenancyMiddleware(
+        lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: _ent(allowed_machines=frozenset({"*"}), allowed_routes=frozenset({"*"})),
+        sample_access_checker=lambda v, f: checked.append(f) and False, sample_exists_checker=lambda f: True,
+    )
+    assert _status(mw.process_view(req, tasks_create_download_services, (), {})) == 404
+    assert any(f in ({"sha256": sha}, {"sha512": sha512}) for f in checked)
+
+
+def test_a_recovered_tasks_redirect_target_is_authorized_too():
+    # validate_task/tasks_view follow custom "Recovery_<id>" to task <id>.
+    from lib.tenancy.policy import ResourceScope
+
+    scopes = {1: ResourceScope(owner_id=8, tenant_id=2, visibility=PRIVATE), 2: ResourceScope(owner_id=7, tenant_id=1, visibility=PRIVATE)}
+    mw = TenancyMiddleware(
+        lambda r: None, viewer_resolver=lambda u: _viewer(8, 2), task_scope_resolver=scopes.get,
+        recovery_target_resolver=lambda tid: 2 if tid == 1 else None,
+    )
+
+    def tasks_report(request, task_id):
+        pass
+
+    assert _status(mw.process_view(_req("/apiv2/tasks/get/report/1/"), tasks_report, (), {"task_id": 1})) == 404
+
+
+def test_untrusted_submitters_cannot_set_a_recovery_custom(monkeypatch):
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import _strip_untrusted_broker_job_id
+
+    set_current_viewer(_viewer(8, 2))
+    assert _strip_untrusted_broker_job_id("Recovery_5") == ""
+    assert _strip_untrusted_broker_job_id("note") == "note"
+
+
+@pytest.mark.parametrize("view_name", ["statistics_data", "yara_uploader"])
+def test_deployment_wide_views_are_admin_only(view_name):
+    view = types.FunctionType((lambda request: None).__code__, {}, view_name)
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("/x/"), view, (), {})) == 403
+    admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
+    assert _status(_mw(admin).process_view(_req("/x/"), view, (), {})) is None
+
+
+def test_path_like_filename_kwargs_are_refused():
+    # vtupload joins <filename> onto the task directory: ../ reaches other tasks and binaries.
+    def vtupload(request, **kw):
+        pass
+
+    req = _req("/vtupload/dropped/1/x/y/")
+    kwargs = {"category": "dropped", "task_id": 1, "filename": "../../binaries/" + "a" * 64, "dlfile": "y"}
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: _viewer(8, 2), task_scope_resolver=lambda t: types.SimpleNamespace(owner_id=8, tenant_id=2, visibility=PRIVATE), recovery_target_resolver=lambda t: None)
+    assert _status(mw.process_view(req, vtupload, (), kwargs)) == 404
+
+
+def test_finishing_a_task_through_tasks_status_needs_manage_rights():
+    from lib.tenancy.policy import PUBLIC, ResourceScope
+
+    def tasks_status(request, task_id):
+        pass
+
+    mw = TenancyMiddleware(
+        lambda r: None, viewer_resolver=lambda u: _viewer(8, 2),
+        task_scope_resolver=lambda t: ResourceScope(owner_id=7, tenant_id=1, visibility=PUBLIC), recovery_target_resolver=lambda t: None,
+    )
+    req = _req("/apiv2/tasks/status/1/")
+    assert _status(mw.process_view(req, tasks_status, (), {"task_id": 1})) is None
+    req.method = "POST"
+    assert _status(mw.process_view(req, tasks_status, (), {"task_id": 1})) == 404
+
+
+def test_dlnexec_needs_internet():
+    # The web host fetches the URL itself, outside any VM route.
+    viewer = _viewer(8, 2)
+    ent = _ent()
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_dlnexec(request):
+        pass
+
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/dlnexec/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={"dlnexec": "http://127.0.0.1/"})
+    assert _status(mw.process_view(req, tasks_create_dlnexec, (), {})) == 403
+
+
+def test_unreadable_submission_bodies_are_refused():
+    from django.test import RequestFactory
+
+    viewer = _viewer(8, 2)
+    ent = _ent()
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_url(request):
+        pass
+
+    req = RequestFactory().post("/apiv2/tasks/create/url/", "url=http://a&machine=all", content_type="*/x-www-form-urlencoded")
+    req.user, req.viewer, req.entitlements = object(), viewer, ent
+    assert _status(mw.process_view(req, tasks_create_url, (), {})) == 403
+
+
+@pytest.mark.parametrize(
+    "options,route,allowed",
+    [("sslproxy=1", "vpn_uk", True), ("sslproxy=0", "", True), ("filename=polarproxy_setup.exe", "", True), ("sslproxy=1", "", False)],
+)
+def test_sslproxy_follows_a_vpn_route(monkeypatch, options, route, allowed):
+    import lib.tenancy.resources as res
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    monkeypatch.setattr(res, "_known_route_types", lambda name: frozenset({"vpn"}) if name == "vpn_uk" else frozenset())
+    ent = _ent(allowed_routes=frozenset({"none", "vpn:*"}))
+    assert validate_and_normalize_submission({"options": options, "route": route}, ent, global_route="none")[0] is allowed
+
+
+def test_the_middleware_accepts_a_permitted_machine_by_its_label():
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_machines=frozenset({"win10_alpha_*"}))
+    lookup = {"i-0abc": "win10_alpha_1"}.get
+    assert validate_and_normalize_submission({"machine": "i-0abc"}, ent, global_route="none", machine_name_of=lookup)[0] is True
+    assert validate_and_normalize_submission({"machine": "i-0def"}, ent, global_route="none", machine_name_of=lookup)[0] is False
+
+
+def test_a_refused_reschedule_copy_leaves_its_source_as_it_was(monkeypatch):
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "none")
+    session, tasking = _reschedule_rig(monkeypatch)
+    src = types.SimpleNamespace(id=10, user_id=7, status="reported", custom="job_id=ui-1")
+    rows = {10: src}
+
+    def reschedule(self, task_id):
+        rows[task_id].status = "recovered"  # as TasksMixIn.reschedule does before add()
+        new_id = self.add("x", machine="win10_beta_1", user_id=8)
+        rows[task_id].custom = f"Recovery_{new_id}"
+        return new_id
+
+    monkeypatch.setattr(tasking, "reschedule", reschedule)
+    monkeypatch.setattr(tasking, "view_task", lambda self, tid: rows.get(int(tid)))
+    wrap_submission_and_web_utils(tasking_cls=tasking)
+    t = tasking(session)
+    monkeypatch.setattr(type(session), "get", lambda self, model, tid: rows.get(int(tid)), raising=False)
+    set_current_viewer(_viewer(8, 2))
+    set_current_entitlements(_ent(allowed_machines=frozenset({"win10_alpha_*"})))
+    assert t.reschedule(10) is None
+    assert (src.status, src.custom) == ("reported", "job_id=ui-1")
+
+
+def test_task_file_stream_stays_inside_the_tasks_own_directory(db, temp_pe32, temp_pe64, tmp_path, monkeypatch):
+    # filepath=../<other task>/reports/report.json passed the old storage/-prefix check.
+    import apiv2.views as v
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    root = tmp_path / "cape"
+    storage = root / "storage"
+    monkeypatch.setattr(v, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(v, "ANALYSIS_BASE_PATH", str(storage))
+    victim = db.add_path(str(temp_pe32), user_id=7)
+    own = db.add_path(str(temp_pe64), user_id=8)
+    with db.session.begin():
+        m = db.add_machine(
+            name="win1", label="win1", arch="x64", ip="127.0.0.1", platform="windows", tags="", interface="eth0",
+            snapshot=None, resultserver_ip="1.1.1.1", resultserver_port=2042, reserved=False,
+        )
+        db.create_guest(m, "kvm", db.session.get(v.Task, own))
+    with db.session.begin():
+        db.set_machine_status("win1", "running")
+    (storage / "analyses" / str(victim) / "reports").mkdir(parents=True)
+    (storage / "analyses" / str(victim) / "reports" / "report.json").write_bytes(b"VICTIM")
+    (storage / "analyses" / str(own) / "logs").mkdir(parents=True)
+    (storage / "analyses" / str(own) / "logs" / "a.log").write_bytes(b"OWN")
+    user = types.SimpleNamespace(id=8, is_authenticated=True, is_staff=False, is_superuser=False)
+
+    def stream(filepath):
+        req = APIRequestFactory().post(f"/apiv2/tasks/get/stream/{own}/", {"filepath": filepath, "is_local": "1"})
+        force_authenticate(req, user=user)
+        return v.tasks_file_stream(req, task_id=str(own))
+
+    assert next(iter(stream("logs/a.log").streaming_content)) == b"OWN"  # it tails while the VM runs
+    resp = stream(f"../{victim}/reports/report.json")
+    assert not hasattr(resp, "streaming_content") and resp.data["error"] is True

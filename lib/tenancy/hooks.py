@@ -18,6 +18,8 @@ import functools
 import json
 import logging
 import os
+import re
+import sys
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
@@ -43,6 +45,7 @@ from lib.tenancy.policy import (
 from lib.tenancy.resources import (
     ResourceEntitlements,
     filter_submission_form_context,
+    machine_name_by_label,
     validate_and_normalize_submission,
 )
 
@@ -52,6 +55,10 @@ log = logging.getLogger(__name__)
 _rescheduled_from: contextvars.ContextVar[Optional[ResourceScope]] = contextvars.ContextVar(
     "cape_tenancy_rescheduled_from", default=None
 )
+
+
+# Set by the wrapped reschedule: whether the wrapped add refused the copy.
+_copy_denied: contextvars.ContextVar[Optional[list]] = contextvars.ContextVar("cape_tenancy_copy_denied", default=None)
 
 
 @contextlib.contextmanager
@@ -119,14 +126,6 @@ def _enforce_task_entitlements(
         kept_tags = ",".join(t for t in parts if t.strip().lower() in ("x86", "x64"))
         tags = ",".join(t for t in parts if t.strip().lower() not in ("x86", "x64"))
     machine = kwargs.get("machine") or ""
-    if machine and not ent.can_use_machine(machine):
-        # machine=all expands to labels, which the scheduler matches; policies name machines.
-        try:
-            vm = db.view_machine_by_label(machine) if db is not None else None
-        except Exception:
-            vm = None
-        if vm is not None and getattr(vm, "name", None):
-            machine = vm.name
     params = {
         "machine": machine,
         "route": kwargs.get("route") or "",
@@ -134,7 +133,9 @@ def _enforce_task_entitlements(
         "timeout": kwargs.get("timeout") or 0,
         "options": kwargs.get("options") or "",
     }
-    allowed, err, normalized = validate_and_normalize_submission(params, ent, vmless=vmless)
+    allowed, err, normalized = validate_and_normalize_submission(
+        params, ent, vmless=vmless, machine_name_of=machine_name_by_label(db)
+    )
     if not allowed:
         return err or "Submission denied by group policy"
     if normalized.get("route"):
@@ -180,6 +181,9 @@ def _strip_untrusted_broker_job_id(custom: Any) -> Any:
     """
     if not custom or not isinstance(custom, str) or _trusted_submitter():
         return custom
+    if re.match(r"^\s*Recovery_\d+\s*$", custom):
+        # A recovered task's custom "Recovery_<id>" sends apiv2's artifact views to task <id>.
+        return ""
     return ",".join(f for f in custom.split(",") if not f.strip().startswith("job_id="))
 
 
@@ -346,6 +350,16 @@ def apply_mongo_filters(
     return out
 
 
+def _rebind_from_imports(name: str, replaced: Dict[int, Any]) -> None:
+    """Point every loaded module's `name` that is a replaced original at its wrapper."""
+    if not replaced:
+        return
+    for mod in list(sys.modules.values()):
+        held = getattr(mod, name, None) if mod is not None else None
+        if held is not None and id(held) in replaced:
+            setattr(mod, name, replaced[id(held)])
+
+
 def wrap_mongodb_module(mongodb_mod: Any) -> None:
     """Wrap `dev_utils.mongodb` functions in-place so `'analysis'` queries are auto-scoped."""
     mod_id = getattr(mongodb_mod, "__name__", str(id(mongodb_mod)))
@@ -355,6 +369,7 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
     if not _mongo_filters:
         register_mongo_filter(default_mongo_analysis_filter)
 
+    replaced: Dict[int, Any] = {}  # id(original) -> wrapper
     for fn_name in ("mongo_find", "mongo_find_one"):
         orig = getattr(mongodb_mod, fn_name, None)
         if orig is None or getattr(orig, "_cape_tenancy_wrapped", False):
@@ -367,6 +382,7 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
 
         _wrapped._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
         setattr(mongodb_mod, fn_name, _wrapped)
+        replaced[id(orig)] = _wrapped
 
     orig_agg = getattr(mongodb_mod, "mongo_aggregate", None)
     if orig_agg is not None and not getattr(orig_agg, "_cape_tenancy_wrapped", False):
@@ -380,6 +396,12 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
 
         _wrapped_agg._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
         setattr(mongodb_mod, "mongo_aggregate", _wrapped_agg)
+        replaced[id(orig_agg)] = _wrapped_agg
+
+    # Modules imported before this ran (web_utils, via the core hooks) did
+    # `from dev_utils.mongodb import mongo_aggregate` and still hold the unscoped originals.
+    for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
+        _rebind_from_imports(name, replaced)
 
     _patched_modules.add(mod_id)
 
@@ -412,6 +434,9 @@ def wrap_submission_and_web_utils(
                 denied = _enforce_task_entitlements(kwargs, self, vmless=vmless, copy=inherited is not None)
                 if denied:
                     log.warning("tenancy: task not added: %s", denied)
+                    flag = _copy_denied.get()
+                    if flag is not None and inherited is not None:
+                        flag[0] = True
                     return None
                 if inherited is None:  # a copy keeps its source's fields
                     if kwargs.get("attributes"):
@@ -473,8 +498,26 @@ def wrap_submission_and_web_utils(
 
             @functools.wraps(orig_reschedule)
             def _wrapped_reschedule(self: Any, task_id: Any, *args: Any, _orig=orig_reschedule, **kwargs: Any):
-                with inherit_task_scope(self, task_id):
-                    return _orig(self, task_id, *args, **kwargs)
+                # reschedule() marks the source recovered before add(); a copy the entitlements
+                # refuse must leave the source as it was, not "recovered" with custom Recovery_None.
+                try:
+                    src = self.view_task(task_id)
+                    before = (src.status, src.custom) if src is not None else None
+                except Exception:
+                    before = None
+                denied = _copy_denied.set([False])
+                try:
+                    with inherit_task_scope(self, task_id):
+                        new_id = _orig(self, task_id, *args, **kwargs)
+                    if not new_id and _copy_denied.get()[0] and before is not None:
+                        from lib.cuckoo.core.data.task import Task
+
+                        row = self.session.get(Task, int(task_id))
+                        if row is not None:
+                            row.status, row.custom = before
+                    return new_id
+                finally:
+                    _copy_denied.reset(denied)
 
             _wrapped_reschedule._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             setattr(tasking_cls, "reschedule", _wrapped_reschedule)
@@ -529,6 +572,32 @@ def wrap_submission_and_web_utils(
 
             _wrapped_load_vms_exits._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             setattr(web_utils_mod, "load_vms_exits", _wrapped_load_vms_exits)
+
+        # These cache their (now viewer-scoped) aggregation on the function, process-wide: a
+        # restricted viewer must neither be served nor leave behind another viewer's result.
+        for cached_name in ("top_detections", "top_asn"):
+            orig_cached = getattr(web_utils_mod, cached_name, None)
+            if orig_cached is None or getattr(orig_cached, "_cape_tenancy_wrapped", False):
+                continue
+
+            @functools.wraps(orig_cached)
+            def _uncached_for_restricted(*args: Any, _orig=orig_cached, _name=cached_name, **kwargs: Any):
+                viewer = get_current_viewer()
+                if viewer is None or getattr(viewer, "see_all", False):
+                    return _orig(*args, **kwargs)
+                holders = (getattr(web_utils_mod, _name, None), _orig)
+                for holder in holders:
+                    getattr(holder, "__dict__", {}).pop("cache", None)
+                try:
+                    return _orig(*args, **kwargs)
+                finally:
+                    for holder in holders:
+                        getattr(holder, "__dict__", {}).pop("cache", None)
+
+            _uncached_for_restricted.__dict__.pop("cache", None)
+            _uncached_for_restricted._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            setattr(web_utils_mod, cached_name, _uncached_for_restricted)
+            _rebind_from_imports(cached_name, {id(orig_cached): _uncached_for_restricted})
 
     if submission_views_mod is None:
         try:

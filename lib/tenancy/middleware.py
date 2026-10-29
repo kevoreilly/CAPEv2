@@ -31,6 +31,7 @@ from lib.tenancy.policy import (
     multitenancy_config,
 )
 from lib.tenancy.resources import (
+    machine_name_by_label,
     ResourceEntitlements,
     resolve_user_entitlements,
     validate_and_normalize_submission,
@@ -53,6 +54,13 @@ _BODY_TASK_ID_FIELDS = {"tasks_delete_many": "ids", "tag_tasks": "task_ids"}
 _BODY_LIST_ONLY_VIEWS = ("tag_tasks",)
 # Upper bound on ids expanded from a "start-end" range kwarg (tasks/delete/1-5/).
 _MAX_TASK_ID_RANGE = 1000
+# Deployment-wide views a tenant-scoped viewer must not reach: statistics aggregates every
+# tenant's tasks with raw SQL, yara_uploader writes rules every tenant's analyses (and guests) use.
+_ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader")
+# Views that only read on GET but change the task on POST (tasks/status: status=finish stops it).
+_MANAGE_ON_POST_VIEW_NAMES = ("tasks_status",)
+# Route kwargs joined onto a task directory as a path: a separator walks out of it.
+_PATH_KWARGS = ("filename",)
 _SUBMISSION_VIEW_NAMES = (
     "tasks_create_file",
     "tasks_create_url",
@@ -365,6 +373,7 @@ class TenancyMiddleware:
         task_scope_resolver: Optional[Callable[[int], Optional[ResourceScope]]] = None,
         sample_access_checker: Optional[Callable[[ViewerContext, Dict[str, Any]], bool]] = None,
         sample_exists_checker: Optional[Callable[[Dict[str, Any]], bool]] = None,
+        recovery_target_resolver: Optional[Callable[[int], Optional[int]]] = None,
         deny_response_factory: Optional[Callable[[Any, str], Any]] = None,
         forbidden_response_factory: Optional[Callable[[Any, str], Any]] = None,
     ) -> None:
@@ -376,6 +385,7 @@ class TenancyMiddleware:
         self.task_scope_resolver = task_scope_resolver or default_task_scope_resolver
         self.sample_access_checker = sample_access_checker or default_sample_access_checker
         self.sample_exists_checker = sample_exists_checker or default_sample_exists_checker
+        self.recovery_target_resolver = recovery_target_resolver or default_recovery_target_resolver
         self.deny_response_factory = deny_response_factory or self._default_deny_response
         self.forbidden_response_factory = forbidden_response_factory or self._default_forbidden_response
 
@@ -448,6 +458,14 @@ class TenancyMiddleware:
         ):
             return self.forbidden_response_factory(request, "Interactive sessions are not permitted for your group")
 
+        if not viewer.see_all and _view_name(view_func) in _ADMIN_ONLY_VIEW_NAMES:
+            return self.forbidden_response_factory(request, "Restricted to administrators")
+
+        for key in _PATH_KWARGS:
+            value = str(view_kwargs.get(key) or "")
+            if "/" in value or "\\" in value or ".." in value:
+                return self.deny_response_factory(request, "File not found")
+
         if _is_machine_view(request, view_func, view_kwargs):
             if entitlements is not None and not entitlements.unrestricted:
                 machine_name = str(view_kwargs.get("name") or "")
@@ -456,6 +474,15 @@ class TenancyMiddleware:
 
         if _is_submission_post(request, view_func):
             raw_params = _extract_submission_params(request)
+            if (
+                not raw_params
+                and not viewer.see_all
+                and _has_body(request)
+                and not getattr(request, "FILES", None)
+            ):
+                # A body the middleware can't read (an exotic Content-Type, an oversized JSON body)
+                # that DRF may still parse: nothing here could be checked, so refuse it.
+                return self.forbidden_response_factory(request, "Unsupported submission encoding")
             vis_ok, vis_err, resolved_vis = resolve_submission_visibility(raw_params, viewer, entitlements)
             if not vis_ok:
                 return self.forbidden_response_factory(request, vis_err or "Invalid submission visibility")
@@ -467,9 +494,14 @@ class TenancyMiddleware:
                     entitlements,
                     vmless=_is_vmless_submission(request, view_func, raw_params),
                     resolve_omitted_route=False,
+                    machine_name_of=machine_name_by_label(),
                 )
                 if not allowed:
                     return self.forbidden_response_factory(request, err_msg or "Submission denied by group policy")
+                dlnexec = _view_name(view_func) == "tasks_create_dlnexec" or str(raw_params.get("dlnexec") or "").strip()
+                if dlnexec and not entitlements.can_use_route("internet"):
+                    # The web host itself fetches a dlnexec URL, outside any VM route.
+                    return self.forbidden_response_factory(request, "Download & execute needs internet access, which your group does not have.")
                 _apply_normalized_submission_params(request, normalized)
             if not viewer.see_all and not self._posted_hashes_visible(viewer, raw_params):
                 return self.deny_response_factory(request, "Sample not found in database")
@@ -478,6 +510,9 @@ class TenancyMiddleware:
             raw_task_ids = _task_ids_from_kwargs(view_kwargs) + _task_ids_from_body(request, view_func)
             if raw_task_ids:
                 action = classify_view_action(getattr(request, "path", ""), view_func)
+                method = str(getattr(request, "method", "") or "").upper()
+                if action == "read" and method == "POST" and _view_name(view_func) in _MANAGE_ON_POST_VIEW_NAMES:
+                    action = "manage"
             for raw in raw_task_ids:
                 try:
                     task_id = int(raw)
@@ -488,6 +523,14 @@ class TenancyMiddleware:
                 except Exception:
                     scope = None  # fail closed: an unresolvable scope is indistinguishable from a hidden task
                 if scope is None or not self._check_action(viewer, scope, action):
+                    return self.deny_response_factory(request, "Task not found")
+                try:
+                    # apiv2's validate_task / tasks_view serve a recovered task's Recovery_<id> copy.
+                    redirect = self.recovery_target_resolver(task_id)
+                    redirect_scope = self.task_scope_resolver(redirect) if redirect else None
+                except Exception:
+                    redirect, redirect_scope = None, None  # the redirecting view can't read it either
+                if redirect and (redirect_scope is None or not self._check_action(viewer, redirect_scope, action)):
                     return self.deny_response_factory(request, "Task not found")
 
             # Routes that address a task are covered by the task check above; their hash kwargs
@@ -512,7 +555,7 @@ class TenancyMiddleware:
         re-analysed as theirs. A download-service hash that isn't stored is fetched from outside.
         """
         for field, must_exist in (("hash", True), ("hashes", False)):
-            for value in str(params.get(field) or "").replace(",", " ").split():
+            for value in _posted_hash_tokens(str(params.get(field) or "")):
                 hash_field = _HASH_FIELD_BY_LEN.get(len(value)) or ("sha512" if len(value) == 128 else None)
                 if not hash_field:
                     continue  # not a hash: the view rejects it
@@ -703,6 +746,41 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
     rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds)))
     # Stops at the first readable task; most lookups are by the sample's own submitter.
     return any(can_read(viewer, resolve_task_scope(session, tid, fallback_user_id=uid)) for tid, uid in rows)
+
+
+def _posted_hash_tokens(text: str) -> set:
+    """Every token the views may read as a hash: theirs (get_hash_list) and a plain split."""
+    tokens = set(text.replace(",", " ").split())
+    try:
+        from lib.cuckoo.common.web_utils import get_hash_list
+
+        tokens.update(get_hash_list(text))
+    except Exception:
+        pass
+    for token in list(tokens):  # get_hash_list's URL form keeps only 32/40/64; take 128 too
+        if token.startswith("http") and token.endswith("/"):
+            tokens.add(token.split("/")[-2])
+    return {t.strip() for t in tokens if t.strip()}
+
+
+def _has_body(request: Any) -> bool:
+    try:
+        return int((getattr(request, "META", None) or {}).get("CONTENT_LENGTH") or 0) > 0
+    except (TypeError, ValueError):
+        return True
+
+
+def default_recovery_target_resolver(task_id: int) -> Optional[int]:
+    """The task a RECOVERED task's custom "Recovery_<id>" points apiv2's artifact views at."""
+    import re
+
+    from lib.cuckoo.core.database import Database
+
+    task = Database().view_task(int(task_id))
+    if task is None or getattr(task, "status", None) != "recovered":
+        return None
+    m = re.match(r"^Recovery_(\d+)$", str(getattr(task, "custom", "") or ""))
+    return int(m.group(1)) if m else None
 
 
 def default_sample_exists_checker(sample_filter: Dict[str, Any]) -> bool:

@@ -1436,8 +1436,8 @@ class StatusThread(threading.Thread):
                             elif requested_node != node.name:
                                 # otherwise keep looping
                                 continue
-                        if "timeout=" in t.options:
-                            t.timeout = options.get("timeout", 0)
+                        if options.get("timeout"):  # a timeout= option, not any "...timeout=" text
+                            t.timeout = options["timeout"]
                     except Exception as e:
                         log.exception(e)
                     # wtf are you doing in pendings?

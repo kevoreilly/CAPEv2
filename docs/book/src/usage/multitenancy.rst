@@ -132,6 +132,14 @@ Entitlements are checked twice: by the middleware on the submitted form or JSON
 body (an early ``403``), and on the final ``Database.add`` arguments, which is
 authoritative. In ``locked`` mode a user no active policy covers gets no
 resources unless ``CAPE_TENANCY_UNASSIGNED_GROUP_POLICY = "allow"``.
+Download & execute (the web host fetches the URL) and the ``sslproxy`` (except
+over a VPN route), ``mitmdump`` and ``polarproxy`` options need the ``internet``
+route; ``netns=`` is refused. The statistics pages and ``yara_uploader`` span
+every tenant and are limited to local administrators.
+
+On a distributed worker where ``lib.tenancy`` is active, the main server's dist
+API key must belong to a superuser or local administrator: ``main_task_id``,
+``parent_sample`` and ``task_acl`` attributes from anyone else are dropped.
 
 Task Visibility Levels: ``private`` vs. ``tenant`` (Group) vs. ``public``
 -------------------------------------------------------------------------

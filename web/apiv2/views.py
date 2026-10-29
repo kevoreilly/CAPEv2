@@ -35,6 +35,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.hooks import apply_route_filter
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
@@ -2452,8 +2453,8 @@ def exit_nodes_list(request):
     resp = {}
     resp["data"] = []
     resp["error"] = []
-    resp["data"] += ["socks:" + sock5 for sock5 in _load_socks5_operational() or []]
-    resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
+    resp["data"] += ["socks:" + sock5 for sock5 in apply_route_filter(list(_load_socks5_operational() or []), "socks5")]
+    resp["data"] += ["vpn:" + vpn for vpn in apply_route_filter(list(vpns.keys()), "vpn")]
     if routing_conf.tor.enabled:
         resp["data"].append("tor")
     if routing_conf.inetsim.enabled:
@@ -2885,8 +2886,10 @@ def tasks_file_stream(request, task_id):
         if filepath.startswith(("/", r"\/")):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
-        filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
-        if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
+        task_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}")
+        filepath = os.path.join(task_dir, filepath)
+        # Inside this task's own directory: "../<other id>/" is another task's (tenant's) files.
+        if not os.path.realpath(filepath).startswith(os.path.realpath(task_dir) + os.sep):
             resp = {"error": True, "error_value": "Path traversal detected"}
             return Response(resp)
         if not os.path.isfile(filepath):

@@ -49,6 +49,8 @@ _HASH_FIELD_BY_LEN = {32: "md5", 40: "sha1", 64: "sha256"}
 _STORED_BINARY_CATEGORIES = ("sample", "static", "staticzip")
 # Views that take their task ids from the POST body instead of the route.
 _BODY_TASK_ID_FIELDS = {"tasks_delete_many": "ids", "tag_tasks": "task_ids"}
+# Views that iterate their JSON field as a list: a string there means its characters, not a list of ids.
+_BODY_LIST_ONLY_VIEWS = ("tag_tasks",)
 # Upper bound on ids expanded from a "start-end" range kwarg (tasks/delete/1-5/).
 _MAX_TASK_ID_RANGE = 1000
 _SUBMISSION_VIEW_NAMES = (
@@ -556,16 +558,24 @@ def _late_authenticated_user(request: Any, view_func: Callable[..., Any], user: 
 
 
 def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
-    field = _BODY_TASK_ID_FIELDS.get(_view_name(view_func))
+    """Task ids a view takes from its body; an entry that is not an int makes the caller deny."""
+    view_name = _view_name(view_func)
+    field = _BODY_TASK_ID_FIELDS.get(view_name)
     if not field:
         return []
     post = getattr(request, "POST", None)
     raw = post.get(field, "") if post is not None and hasattr(post, "get") else ""
     if not raw:
         try:  # hunt/tag/ posts JSON: {"task_ids": [...], "tag": ...}
-            raw = json.loads(getattr(request, "body", b"") or b"{}").get(field, "")
+            body = getattr(request, "body", b"")
+        except Exception:  # the stream was already consumed (multipart read by an earlier middleware)
+            return ["<unreadable body>"]
+        try:
+            raw = json.loads(body or b"{}").get(field, "")
         except (ValueError, AttributeError, TypeError):
-            raw = ""  # malformed: the view itself rejects it
+            return []  # malformed: the view itself rejects it
+        if raw and view_name in _BODY_LIST_ONLY_VIEWS and not isinstance(raw, list):
+            return ["<not a list>"]  # "12" would mean tasks 1 and 2
     if isinstance(raw, (list, tuple)):
         return [str(part).strip() for part in raw if str(part).strip()]
     return [part.strip() for part in str(raw).split(",") if part.strip()]

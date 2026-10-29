@@ -1028,3 +1028,70 @@ def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
         "visibility": PRIVATE,
         "visibility_seq": stamp.visibility_seq,
     }
+
+
+def test_hunt_tag_task_ids_must_be_a_list(db, private_task):
+    # tag_tasks iterates task_ids: a string "12" tags tasks 1 and 2, not the caller's task 12.
+    import json
+
+    own = [db.add_url(f"http://example.com/{i}", user_id=8) for i in range(12)][-1]
+    with db.session.begin():
+        set_task_acl(db.session, own, user_id=8, tenant_id=2, visibility=PRIVATE)
+    assert own >= 10
+
+    def tag_tasks(request):
+        pass
+
+    r = _req("/analysis/hunt/tag/")
+    r.method, r.POST = "POST", {}
+    r.body = json.dumps({"task_ids": str(own), "tag": "x"}).encode()
+    assert _status(_mw(_viewer(8, 2)).process_view(r, tag_tasks, (), {})) == 404
+
+
+def test_unreadable_body_denies_instead_of_erroring(mt_enabled):
+    from django.test import RequestFactory
+    from rest_framework.decorators import api_view
+
+    @api_view(["POST"])
+    def tasks_delete_many(request):
+        pass
+
+    req = RequestFactory().post("/apiv2/tasks/delete_many/", {"delete_mongo": "1"})
+    req.user = types.SimpleNamespace(id=8, is_authenticated=True)
+    _ = req.POST  # an earlier middleware consumed the multipart stream; .body now raises
+    assert _status(_mw(_viewer(8, 2)).process_view(req, tasks_delete_many, (), {})) == 404
+
+
+def test_central_staticzip_only_stages_the_route_tasks_own_sample(db, tmp_path, mt_enabled, monkeypatch):
+    # /file/staticzip/<own task>/<another sample's sha256>/ staged the route task's binary as
+    # storage/binaries/<that sha256>: the first write sticks, poisoning the cache for everyone.
+    import sys
+
+    from django.http import Http404
+    from rest_framework.decorators import api_view
+
+    from lib.tenancy import views as tviews
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage import views as storage_views
+
+    root = tmp_path / "cuckoo"
+    (root / "storage" / "binaries").mkdir(parents=True)
+    fake = types.ModuleType("analysis.views")
+    fake.ANALYSIS_BASE_PATH, fake.CUCKOO_ROOT, fake.zip_categories = str(root / "analyses"), str(root), ("staticzip",)
+    monkeypatch.setitem(sys.modules, "analysis", types.ModuleType("analysis"))
+    monkeypatch.setitem(sys.modules, "analysis.views", fake)
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    staged = []
+    monkeypatch.setattr(storage_views, "central_stage_one", lambda *a: staged.append(a))
+    monkeypatch.setattr(storage_views, "_task_sample_sha256", lambda request, task_id: "a" * 64)
+
+    @api_view(["GET"])
+    def file(request, category, task_id, dlfile):
+        pass
+
+    req = types.SimpleNamespace(path="/file/staticzip/5/x/", user=None)
+    with pytest.raises(Http404):
+        tviews.dispatch_object_storage_view(req, file, (), {"category": "staticzip", "task_id": "5", "dlfile": "b" * 64})
+    assert staged == []
+    assert tviews.dispatch_object_storage_view(req, file, (), {"category": "staticzip", "task_id": "5", "dlfile": "A" * 64}) is None
+    assert len(staged) == 1

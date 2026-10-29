@@ -254,8 +254,10 @@ def sync_stamp_to_mongo(
 
 def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[dict, dict], Any]) -> Any:
     """Restamp the Elasticsearch analysis document, which the ES search filter scopes on, monotonically."""
-    id_clause = (
-        {"term": {"info.job_id": stamp.external_job_id}} if stamp.external_job_id else {"term": {"info.id": int(stamp.task_id)}}
+    id_clause = (  # job_id is dynamically mapped as text: a term query on it matches nothing
+        {"match_phrase": {"info.job_id": stamp.external_job_id}}
+        if stamp.external_job_id
+        else {"term": {"info.id": int(stamp.task_id)}}
     )
     query = {
         "bool": {

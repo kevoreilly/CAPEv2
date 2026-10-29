@@ -109,7 +109,9 @@ def _default_es_update_by_query() -> Optional[Callable[[dict, dict], Any]]:
         return None
 
     def _update(query: dict, script: dict) -> Any:
-        return elastic_handler.update_by_query(index=get_analysis_index(), query=query, script=script, refresh=True)
+        return elastic_handler.update_by_query(
+            index=get_analysis_index(), query=query, script=script, refresh=True, conflicts="proceed"
+        )
 
     return _update
 
@@ -292,6 +294,11 @@ def dispatch_object_storage_view(
                 dest = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "memory", f"{dlfile}.dmp")
                 storage_views.central_stage_one(request, task_id, f"memory/{dlfile}.dmp", dest)
             elif category == "staticzip" and dlfile and CUCKOO_ROOT:
+                # Staged under binaries/<dlfile> for every later reader: it must be this task's sample.
+                if storage_views._task_sample_sha256(request, task_id) != str(dlfile).lower():
+                    from django.http import Http404
+
+                    raise Http404("File not found")
                 dest = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(dlfile))
                 storage_views.central_stage_one(request, task_id, "binary", dest)
             else:

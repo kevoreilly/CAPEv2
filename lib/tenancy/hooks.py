@@ -86,14 +86,19 @@ def inherit_task_scope(db: Any, task_id: Any):
         _rescheduled_from.reset(token)
 
 
+def _trusted_submitter() -> bool:
+    """Internal callers (no request viewer) and superusers, e.g. a dist node's or broker's account."""
+    viewer = get_current_viewer()
+    return viewer is None or bool(getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False))
+
+
 def _strip_untrusted_task_acl(attributes: Any) -> Any:
-    """Drop `task_acl` from submitted attributes unless the submitter is internal or a superuser.
+    """Drop `task_acl` from submitted attributes unless the submitter is trusted.
 
     dist hands a worker the main server's ACL as attributes.task_acl, and the reporters copy it into
     the report; from an ordinary API submitter it would be a forged owner, visibility and seq.
     """
-    viewer = get_current_viewer()
-    if viewer is None or getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False):
+    if _trusted_submitter():
         return attributes
     if isinstance(attributes, str):
         try:
@@ -103,6 +108,17 @@ def _strip_untrusted_task_acl(attributes: Any) -> Any:
     if isinstance(attributes, dict) and "task_acl" in attributes:
         attributes = {k: v for k, v in attributes.items() if k != "task_acl"}
     return attributes
+
+
+def _strip_untrusted_broker_job_id(custom: Any) -> Any:
+    """Drop a `job_id=` field from `custom` unless the submitter is trusted.
+
+    Object-storage reporting takes the broker job id from it; "job_id=ui-N" renumbers the report
+    to task N, stamps it with N's ACL and overwrites N's stored artifacts and Mongo report.
+    """
+    if not custom or not isinstance(custom, str) or _trusted_submitter():
+        return custom
+    return ",".join(f for f in custom.split(",") if not f.strip().startswith("job_id="))
 
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
@@ -326,9 +342,12 @@ def wrap_submission_and_web_utils(
 
             @functools.wraps(orig_add)
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
-                if kwargs.get("attributes"):
-                    kwargs["attributes"] = _strip_untrusted_task_acl(kwargs["attributes"])
                 inherited = _rescheduled_from.get()
+                if inherited is None:  # a copy keeps its source's fields
+                    if kwargs.get("attributes"):
+                        kwargs["attributes"] = _strip_untrusted_task_acl(kwargs["attributes"])
+                    if kwargs.get("custom"):
+                        kwargs["custom"] = _strip_untrusted_broker_job_id(kwargs["custom"])
                 if inherited is not None and inherited.owner_id is not None and not kwargs.get("user_id"):
                     kwargs["user_id"] = inherited.owner_id  # tasks.user_id still keys bans and listings
                 task_id = _orig(self, *args, **kwargs)

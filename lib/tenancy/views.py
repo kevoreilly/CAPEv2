@@ -254,7 +254,7 @@ def dispatch_object_storage_view(
 
     if view_name == "filereport":
         task_id = view_kwargs.get("task_id") or (view_args[0] if len(view_args) > 0 else None)
-        key = view_kwargs.get("key") or (view_args[1] if len(view_args) > 1 else None)
+        key = view_kwargs.get("category") or view_kwargs.get("key") or (view_args[1] if len(view_args) > 1 else None)
         formats = {
             "json": "report.json",
             "html": "report.html",
@@ -279,7 +279,7 @@ def dispatch_object_storage_view(
             ("memory.dmp.strings.zip", "memory.dmp.strings"),
         )
 
-    if view_name == "file":
+    if view_name == "file" and ("category" in view_kwargs or view_args):  # not apiv2's files/get "file"
         category = view_kwargs.get("category") or (view_args[0] if len(view_args) > 0 else None)
         task_id = view_kwargs.get("task_id") or (view_args[1] if len(view_args) > 1 else None)
         dlfile = view_kwargs.get("dlfile") or (view_args[2] if len(view_args) > 2 else None)

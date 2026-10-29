@@ -1164,3 +1164,63 @@ def test_reprocess_with_only_a_tenant_keeps_the_visibility():
         row = set_task_acl(session, 5, tenant_id=2, visibility=None)
         assert (row.user_id, row.tenant_id, row.visibility) == (7, 2, "public")
         assert set_task_acl(session, 6, user_id=7, visibility=None).visibility == PRIVATE
+
+
+def test_central_dispatch_leaves_the_api_files_view_alone(monkeypatch):
+    # apiv2's files/get view is also named "file" (stype/value kwargs): it is not analysis.views.file.
+    from rest_framework.decorators import api_view
+
+    from lib.tenancy import views as tviews
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage import views as storage_views
+
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr(storage_views, "central_file", lambda *a, **k: "CENTRAL")
+
+    @api_view(["GET"])
+    def file(request, stype, value):
+        pass
+
+    req = types.SimpleNamespace(path="/apiv2/files/get/sha256/x/", user=None)
+    assert tviews.dispatch_object_storage_view(req, file, (), {"stype": "sha256", "value": "a" * 64}) is None
+
+
+def test_central_filereport_serves_the_requested_format(monkeypatch):
+    from lib.tenancy import views as tviews
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage import views as storage_views
+
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr(storage_views, "central_filereport", lambda request, task_id, fname: fname)
+
+    def filereport(request, task_id, category):
+        pass
+
+    req = types.SimpleNamespace(path="/filereport/5/pdf/", user=None)
+    assert tviews.dispatch_object_storage_view(req, filereport, (), {"task_id": "5", "category": "pdf"}) == "report.pdf"
+
+
+@pytest.mark.parametrize("custom", ["job_id=ui-5", "job_id=ui-5,foo=bar", "  job_id=ui-5"])
+def test_submitters_cannot_claim_a_broker_job_id(monkeypatch, custom):
+    # custom "job_id=ui-N" renumbers the report to task N, stamps it with N's ACL, overwrites N's
+    # object-storage prefix and replaces N's Mongo report: only a broker/superuser may send it.
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+
+    session, tasking = _reschedule_rig(monkeypatch)
+    customs = []
+    orig = tasking.add
+
+    def add(self, obj, custom="", **kw):
+        customs.append(custom)
+        return orig(self, obj, **kw)
+
+    monkeypatch.setattr(tasking, "add", add)
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    wrap_submission_and_web_utils(tasking_cls=tasking)
+    token = set_current_viewer(_viewer(8, 2))
+    try:
+        tasking(session).add("target", custom=custom, user_id=8)
+    finally:
+        reset_current_viewer(token)
+    assert "job_id" not in customs[-1]

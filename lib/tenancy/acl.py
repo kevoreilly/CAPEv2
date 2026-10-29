@@ -166,6 +166,7 @@ def toggle_task_visibility_cas(
     mongo_update_one: Optional[Callable[[str, dict, dict], Any]] = None,
     owner_id: Optional[int] = None,
     tenant_id: Optional[int] = None,
+    es_update_by_query: Optional[Callable[[dict, dict], Any]] = None,
 ) -> VisibilityStamp:
     """Atomically advance `visibility_seq` in SQL and apply a monotonic CAS update to MongoDB.
 
@@ -209,6 +210,8 @@ def toggle_task_visibility_cas(
 
     if mongo_update_one is not None:
         sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)
+    if es_update_by_query is not None:
+        sync_stamp_to_es(stamp, es_update_by_query=es_update_by_query)
 
     return stamp
 
@@ -246,3 +249,31 @@ def sync_stamp_to_mongo(
         }
     }
     return mongo_update_one(collection, cas_filter, update_doc)
+
+
+def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[dict, dict], Any]) -> Any:
+    """Restamp the Elasticsearch analysis document, which the ES search filter scopes on, monotonically."""
+    id_clause = (
+        {"term": {"info.job_id": stamp.external_job_id}} if stamp.external_job_id else {"term": {"info.id": int(stamp.task_id)}}
+    )
+    query = {
+        "bool": {
+            "filter": [id_clause],
+            "should": [
+                {"range": {"info.visibility_seq": {"lte": int(stamp.visibility_seq)}}},
+                {"bool": {"must_not": {"exists": {"field": "info.visibility_seq"}}}},
+            ],
+            "minimum_should_match": 1,
+        }
+    }
+    script = {
+        "lang": "painless",
+        "source": "for (e in params.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); }",
+        "params": {
+            "user_id": stamp.user_id,
+            "tenant_id": stamp.tenant_id,
+            "visibility": stamp.visibility,
+            "visibility_seq": int(stamp.visibility_seq),
+        },
+    }
+    return es_update_by_query(query, script)

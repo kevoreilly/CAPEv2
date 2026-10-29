@@ -20,7 +20,7 @@ from lib.tenancy.acl import (
     resolve_task_scope,
     toggle_task_visibility_cas,
 )
-from lib.tenancy.middleware import default_viewer_resolver
+from lib.tenancy.middleware import _view_name, default_viewer_resolver
 from lib.tenancy.policy import (
     TENANT,
     VISIBILITIES,
@@ -97,6 +97,23 @@ def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tupl
     return user, None
 
 
+def _default_es_update_by_query() -> Optional[Callable[[dict, dict], Any]]:
+    """An ES restamper when Elasticsearch holds report copies, else None."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        if not Config("reporting").elasticsearchdb.enabled:
+            return None
+        from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+    except Exception:
+        return None
+
+    def _update(query: dict, script: dict) -> Any:
+        return elastic_handler.update_by_query(index=get_analysis_index(), query=query, script=script, refresh=True)
+
+    return _update
+
+
 def _authenticate_api_caller(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:
     """Return `(user, denial)` the way /apiv2/ authenticates: API key first, session + CSRF only where enabled."""
     try:
@@ -126,6 +143,7 @@ def tasks_set_visibility(
     viewer_resolver: Callable[[Any], ViewerContext] = default_viewer_resolver,
     scope_loader: Optional[Callable[[int], tuple[Any, Optional[ResourceScope]]]] = None,
     mongo_update_one: Optional[Callable[[str, dict, dict], Any]] = None,
+    es_update_by_query: Optional[Callable[[dict, dict], Any]] = None,
 ) -> Any:
     """Handle `POST /apiv2/tasks/visibility/<task_id>/`."""
     method = getattr(request, "method", "POST")
@@ -180,6 +198,7 @@ def tasks_set_visibility(
                 mongo_update_one=updater,
                 owner_id=scope.owner_id,
                 tenant_id=scope.tenant_id,
+                es_update_by_query=es_update_by_query or _default_es_update_by_query(),
             )
         except VisibilityConflictError:
             return _json_response(
@@ -218,7 +237,7 @@ def dispatch_object_storage_view(
     except Exception:
         return None
 
-    view_name = getattr(view_func, "__name__", "")
+    view_name = _view_name(view_func)  # DRF's @api_view wrapper is named "view"
     if not view_name:
         return None
 

@@ -295,6 +295,26 @@ def test_hunt_tag_body_task_ids_are_gated_as_a_task_change(private_task):
     assert _mw(_viewer(8, 2)).process_view(malformed, tag_tasks, (), {}) is None  # the view answers 400
 
 
+def test_central_storage_dispatch_matches_drf_wrapped_views(monkeypatch):
+    # analysis.views.file / file_nl are @api_view: their __name__ is "view", so matching on it
+    # never routed them to the object-storage handlers (and their sample/task binding check).
+    from rest_framework.decorators import api_view
+
+    from lib.tenancy import views as tviews
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage import views as storage_views
+
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr(storage_views, "central_file", lambda *a, **k: "CENTRAL")
+
+    @api_view(["GET"])
+    def file(request, category, task_id, dlfile):
+        pass
+
+    kw = {"category": "sample", "task_id": "5", "dlfile": "a" * 64}
+    assert tviews.dispatch_object_storage_view(types.SimpleNamespace(path="/file/x/", user=None), file, (), kw) == "CENTRAL"
+
+
 def test_task_id_lists_and_ranges_are_checked_per_task(private_task):
     task_id, _ = private_task
 
@@ -853,3 +873,35 @@ def test_gcs_refetch_banned_adds_copies_inside_the_task_copy_scope():
 
     src = _inspect.getsource(gcp.gcs_refetch_banned)
     assert 'task_copy_scope(db, task["id"])' in src
+
+
+def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
+    # The ES filter scopes on the ES document's own info.visibility stamp: a toggle that only
+    # updated SQL and Mongo left ES-backed search serving the old visibility until a reprocess.
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    from lib.tenancy.acl import toggle_task_visibility_cas
+
+    engine = sa.create_engine("sqlite://")
+    ensure_acl_schema(engine)
+    calls = []
+    with Session(engine) as session:
+        set_task_acl(session, 42, user_id=7, tenant_id=1, visibility="public")
+        session.commit()
+        stamp = toggle_task_visibility_cas(
+            session,
+            42,
+            PRIVATE,
+            mongo_update_one=lambda *a: None,
+            es_update_by_query=lambda query, script: calls.append((query, script)),
+        )
+    assert len(calls) == 1
+    query, script = calls[0]
+    assert {"term": {"info.id": 42}} in query["bool"]["filter"]
+    assert script["params"] == {
+        "user_id": 7,
+        "tenant_id": 1,
+        "visibility": PRIVATE,
+        "visibility_seq": stamp.visibility_seq,
+    }

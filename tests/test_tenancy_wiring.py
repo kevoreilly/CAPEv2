@@ -236,6 +236,8 @@ def _post_req(path, **post):
 
 def test_body_task_ids_are_gated(private_task):
     # The real view is DRF-decorated: @api_view renames the callable to "view".
+    import json
+
     from rest_framework.decorators import api_view
 
     task_id, _ = private_task
@@ -249,6 +251,15 @@ def test_body_task_ids_are_gated(private_task):
     req = lambda: _post_req("/apiv2/tasks/delete_many/", ids=f"{task_id}")  # noqa: E731
     assert _status(_mw(_viewer(8, 2)).process_view(req(), tasks_delete_many, (), {})) == 404
     assert _mw(_viewer(7, 1)).process_view(req(), tasks_delete_many, (), {}) is None
+
+    def json_req(ids):
+        r = _post_req("/apiv2/tasks/delete_many/")
+        r.body = json.dumps({"ids": ids}).encode()  # DRF's JSONParser never fills request.POST
+        return r
+
+    for ids in (f"{task_id}", [task_id]):
+        assert _status(_mw(_viewer(8, 2)).process_view(json_req(ids), tasks_delete_many, (), {})) == 404
+        assert _mw(_viewer(7, 1)).process_view(json_req(ids), tasks_delete_many, (), {}) is None
 
 
 @pytest.mark.parametrize("view_name, extra", [("file", {}), ("vtupload", {"filename": "x.exe"})])

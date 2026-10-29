@@ -85,24 +85,38 @@ def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict)
     return mongo_update_one(collection, filter_q, update_doc)
 
 
-def _authenticate_api_caller(request: Any, user: Any) -> tuple[Any, Optional[str]]:
-    """Return `(user, denial)` from the /apiv2/ authenticator chain (API key first; session + CSRF only where enabled)."""
+def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:
+    if not getattr(user, "is_authenticated", False):
+        return user, None
+    from django.middleware.csrf import CsrfViewMiddleware
+
+    check = CsrfViewMiddleware(lambda _request: None)
+    check.process_request(request)
+    if check.process_view(request, None, (), {}) is not None:
+        return None, (403, "CSRF verification failed")
+    return user, None
+
+
+def _authenticate_api_caller(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:
+    """Return `(user, denial)` the way /apiv2/ authenticates: API key first, session + CSRF only where enabled."""
     try:
-        from rest_framework.exceptions import APIException
+        from rest_framework.exceptions import APIException, ParseError
         from rest_framework.request import Request
         from rest_framework.settings import api_settings
     except ImportError:
-        return user, None
+        return _session_user_with_csrf(request, user)
+    authenticators = [a() for a in api_settings.DEFAULT_AUTHENTICATION_CLASSES]
+    if not authenticators:
+        # token_auth_enabled = no: /apiv2/ runs on the Django session, but this endpoint still needs CSRF.
+        return _session_user_with_csrf(request, user)
     getattr(request, "body", None)  # cache it: the CSRF check may parse the stream before the view reads it
-    drf_request = Request(
-        request,
-        parsers=[p() for p in api_settings.DEFAULT_PARSER_CLASSES],
-        authenticators=[a() for a in api_settings.DEFAULT_AUTHENTICATION_CLASSES],
-    )
+    drf_request = Request(request, parsers=[p() for p in api_settings.DEFAULT_PARSER_CLASSES], authenticators=authenticators)
     try:
         return drf_request.user, None
+    except ParseError as e:
+        return None, (400, str(getattr(e, "detail", e)))
     except APIException as e:
-        return None, str(getattr(e, "detail", e))
+        return None, (403, str(getattr(e, "detail", e)))
 
 
 def tasks_set_visibility(
@@ -132,7 +146,7 @@ def tasks_set_visibility(
         # nor CsrfViewMiddleware has run, so authenticate here as the other /apiv2/ views do.
         user, denied = _authenticate_api_caller(request, user)
         if denied:
-            return _json_response({"error": True, "error_value": denied}, status=403)
+            return _json_response({"error": True, "error_value": denied[1]}, status=denied[0])
         viewer = viewer_resolver(user)
     else:
         viewer = getattr(request, "viewer", None) or viewer_resolver(None)

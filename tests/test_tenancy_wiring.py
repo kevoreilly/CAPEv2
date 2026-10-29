@@ -552,18 +552,19 @@ def test_visibility_toggle_on_task_without_acl_row_keeps_its_owner(monkeypatch):
     assert res.status_code == 200  # the owner can still take it back
 
 
-@pytest.mark.parametrize("sso", [False, True])
-def test_visibility_endpoint_authenticates_like_the_api(sso):
+@pytest.mark.parametrize("chain", ["key+session", "sso", "token_auth_off"])
+def test_visibility_endpoint_authenticates_like_the_api(chain):
     # The middleware serves /apiv2/tasks/visibility/ before URL routing, so neither DRF auth (API
     # keys) nor CsrfViewMiddleware ever ran: key holders got 404, session callers skipped CSRF.
-    # It must follow the /apiv2/ chain: key first, and no session at all under SSO.
+    # It must follow the /apiv2/ chain: key first, and no session at all under SSO. With token auth
+    # off (the default) the chain is empty and /apiv2/ runs on the session, so CSRF is still required.
     pytest.importorskip("django")
     pytest.importorskip("rest_framework")
     import os
     import subprocess
     import sys
 
-    script = f"SSO = {sso!r}\n"
+    script = f"CHAIN = {chain!r}\n"
     script += """
 import json
 import django
@@ -572,8 +573,11 @@ settings.configure(
     INSTALLED_APPS=["django.contrib.auth", "django.contrib.contenttypes", "rest_framework"],
     DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
     DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
-    REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES": ["__main__.HeaderKeyAuth"] + (
-        [] if SSO else ["rest_framework.authentication.SessionAuthentication"])},
+    REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES": {
+        "key+session": ["__main__.HeaderKeyAuth", "rest_framework.authentication.SessionAuthentication"],
+        "sso": ["__main__.HeaderKeyAuth"],
+        "token_auth_off": [],
+    }[CHAIN]},
 )
 django.setup()
 import types
@@ -620,6 +624,8 @@ out = {
     "session_csrf": call(with_csrf(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"})), session_user()),
     "key_and_session_no_csrf": call(
         rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}, HTTP_AUTHORIZATION="Token good"), session_user()),
+    "session_csrf_bad_json": call(with_csrf(rf.post("/apiv2/tasks/visibility/42/", "{nope", content_type="application/json")),
+                                  session_user()),
 }
 print(json.dumps(out))
 """
@@ -628,17 +634,19 @@ print(json.dumps(out))
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     import json
 
+    sso, off = chain == "sso", chain == "token_auth_off"
     assert json.loads(res.stdout.strip().splitlines()[-1]) == {
-        "api_key": 200,
-        "bad_key": 403,
+        "api_key": 404 if off else 200,  # no key authenticator: anonymous, the private task stays hidden
+        "bad_key": 404 if off else 403,
         # Under SSO the cookie authenticates nobody: the caller is anonymous and the private task hidden.
         "session_no_csrf": 404 if sso else 403,
         "session_csrf": 404 if sso else 200,
-        "key_and_session_no_csrf": 200,
+        "key_and_session_no_csrf": 403 if off else 200,
+        "session_csrf_bad_json": 404 if sso else 400,
     }
 
 
-def _reschedule_rig(monkeypatch, *, acl_table=True, source_acl=False):
+def _reschedule_rig(monkeypatch, *, acl_table=True, source_acl=False, url="sqlite://"):
     """A shared-mode tasking class wrapped by the hooks, on CAPE's scoped session + `safe_begin`."""
     import contextlib
 
@@ -650,7 +658,7 @@ def _reschedule_rig(monkeypatch, *, acl_table=True, source_acl=False):
     cfg = lambda: policy.MTConfig(enabled=True, mode="shared", default_visibility="", local_admins_manage_all_tenants=True)  # noqa: E731
     monkeypatch.setattr("lib.tenancy.hooks.multitenancy_config", cfg)
     monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", cfg)
-    engine = sa.create_engine("sqlite://")
+    engine = sa.create_engine(url)
     if acl_table:
         ensure_acl_schema(engine)
     session = scoped_session(sessionmaker(bind=engine, expire_on_commit=False, future=True))
@@ -692,6 +700,42 @@ def _reschedule_rig(monkeypatch, *, acl_table=True, source_acl=False):
 
     wrap_submission_and_web_utils(tasking_cls=DummyTasking)
     return session, DummyTasking
+
+
+def test_task_copy_scope_commits_the_copies(monkeypatch, tmp_path):
+    # Reading the source scope outside a transaction autobegan one that nothing closed: every later
+    # begin() only flushed (safe_begin), and gcs_refetch_banned's copies were never committed.
+    import sqlalchemy as sa
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.hooks import inherit_task_scope
+
+    url = f"sqlite:///{tmp_path / 'cape.db'}"
+    session, tasking = _reschedule_rig(monkeypatch, source_acl=True, url=url)
+    db = tasking(session)
+    core_hooks.clear_all_hooks()
+    core_hooks.register_task_copy_scope_hook(inherit_task_scope)
+    try:
+        with core_hooks.task_copy_scope(db, 10):
+            assert db.add("target") == 11
+    finally:
+        core_hooks.clear_all_hooks()
+    assert not session().in_transaction()
+    with sa.create_engine(url).connect() as other:
+        assert other.execute(sa.text("SELECT user_id, visibility FROM task_acl WHERE task_id = 11")).all() == [(7, PRIVATE)]
+
+
+def test_reschedule_reads_the_source_scope_in_a_savepoint(monkeypatch):
+    # init_tasks reschedules inside an open transaction; on Postgres a failed ACL read would abort it
+    # unless the read is isolated in a savepoint.
+    import sqlalchemy as sa
+
+    session, tasking = _reschedule_rig(monkeypatch)
+    statements = []
+    sa.event.listen(session.get_bind(), "before_cursor_execute", lambda c, cur, st, *a: statements.append(st))
+    with session.begin():
+        assert tasking(session).reschedule(10) == 11
+    assert any(st.startswith("SAVEPOINT") for st in statements)
 
 
 @pytest.mark.parametrize("source_acl", [True, False])

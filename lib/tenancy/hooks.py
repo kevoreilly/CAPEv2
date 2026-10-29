@@ -59,17 +59,19 @@ def inherit_task_scope(db: Any, task_id: Any):
     Copies (reschedule, banned-task refetch) are added outside any submission, so `add` would
     otherwise stamp the deployment default. Fails closed to owner-only when the scope is unreadable.
     """
-    owner_id = None
-    try:
-        owner_id = getattr(db.view_task(task_id), "user_id", None) or None
-    except Exception:
-        log.exception("tenancy: cannot read task %s before copying it", task_id)
-    src_scope = ResourceScope(owner_id=owner_id, tenant_id=None, visibility=PRIVATE)
+    src_scope = ResourceScope(owner_id=None, tenant_id=None, visibility=PRIVATE)
     sess = getattr(db, "session", None)
-    if sess is not None:
+    raw = sess() if callable(sess) else sess  # the scoped_session proxy has no in_transaction()
+    if raw is not None:
         try:
-            ensure_acl_schema_once(sess.get_bind())
-            src_scope = resolve_task_scope(sess, int(task_id), fallback_user_id=owner_id)
+            ensure_acl_schema_once(raw.get_bind())
+            # Inside the caller's transaction (init_tasks) a savepoint keeps a failed read from
+            # aborting it on Postgres; otherwise a short transaction of our own, so the reads don't
+            # autobegin one that turns every later begin() into a bare flush.
+            with raw.begin_nested() if raw.in_transaction() else raw.begin():
+                owner_id = getattr(db.view_task(task_id), "user_id", None) or None
+                src_scope = ResourceScope(owner_id=owner_id, tenant_id=None, visibility=PRIVATE)
+                src_scope = resolve_task_scope(raw, int(task_id), fallback_user_id=owner_id)
         except Exception:
             log.exception("tenancy: cannot resolve the scope of task %s; its copy stays owner-only", task_id)
     token = _rescheduled_from.set(src_scope)

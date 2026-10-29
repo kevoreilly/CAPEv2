@@ -149,11 +149,16 @@ def _enforce_task_entitlements(
     return None
 
 
-def _strip_untrusted_task_acl(attributes: Any) -> Any:
-    """Drop `task_acl` from submitted attributes unless the submitter is trusted.
+# Attributes only dist sets when it hands a task to a worker.
+_DIST_ONLY_ATTRIBUTES = ("task_acl", "main_task_id", "parent_sample")
 
-    dist hands a worker the main server's ACL as attributes.task_acl, and the reporters copy it into
-    the report; from an ordinary API submitter it would be a forged owner, visibility and seq.
+
+def _strip_untrusted_task_acl(attributes: Any) -> Any:
+    """Drop the dist-only attributes from submitted attributes unless the submitter is trusted.
+
+    The reporters copy attributes.task_acl into the report and file it under attributes.main_task_id
+    (replacing that task's report); from an ordinary API submitter they would be a forged owner,
+    visibility and seq, and an overwrite of any other task's report.
     """
     if _trusted_submitter():
         return attributes
@@ -162,8 +167,8 @@ def _strip_untrusted_task_acl(attributes: Any) -> Any:
             attributes = json.loads(attributes)
         except ValueError:
             return attributes  # add() discards invalid JSON itself
-    if isinstance(attributes, dict) and "task_acl" in attributes:
-        attributes = {k: v for k, v in attributes.items() if k != "task_acl"}
+    if isinstance(attributes, dict) and any(k in attributes for k in _DIST_ONLY_ATTRIBUTES):
+        attributes = {k: v for k, v in attributes.items() if k not in _DIST_ONLY_ATTRIBUTES}
     return attributes
 
 

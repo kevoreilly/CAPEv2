@@ -1126,20 +1126,21 @@ def test_default_es_restamp_sends_a_body_the_7x_client_accepts(monkeypatch):
 @pytest.mark.parametrize("as_json", [False, True])
 def test_submitters_cannot_supply_their_own_task_acl_attribute(monkeypatch, as_json):
     # attributes.task_acl is how dist hands a worker the main server's ACL; the reporters copy it into
-    # the report's info. From an ordinary API submitter it is a forged owner/visibility/seq.
+    # the report's info. From an ordinary API submitter it is a forged owner/visibility/seq, and
+    # main_task_id makes mongodb reporting replace that task's report with this one.
     import json
 
     from lib.tenancy.context import reset_current_viewer, set_current_viewer
 
     session, tasking = _reschedule_rig(monkeypatch)
-    forged = {"task_acl": {"visibility": "public", "visibility_seq": 10**9}, "main_task_id": 3}
+    forged = {"task_acl": {"visibility": "public", "visibility_seq": 10**9}, "main_task_id": 3, "note": "x"}
     attrs = json.dumps(forged) if as_json else dict(forged)
     token = set_current_viewer(_viewer(8, 2))
     try:
         tasking(session).add("target", user_id=8, attributes=attrs)
     finally:
         reset_current_viewer(token)
-    assert tasking.added_attributes[-1] == {"main_task_id": 3}
+    assert tasking.added_attributes[-1] == {"note": "x"}
 
     trusted = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_authenticated=True)
     token = set_current_viewer(trusted)  # e.g. the dist node's service account

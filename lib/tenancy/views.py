@@ -86,26 +86,23 @@ def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict)
 
 
 def _authenticate_api_caller(request: Any, user: Any) -> tuple[Any, Optional[str]]:
-    """Return `(user, denial)`: session users must pass CSRF; others replay the API authenticators."""
-    if getattr(user, "is_authenticated", False):
-        from django.middleware.csrf import CsrfViewMiddleware
-
-        check = CsrfViewMiddleware(lambda _request: None)
-        check.process_request(request)
-        if check.process_view(request, None, (), {}) is not None:
-            return None, "CSRF verification failed"
-        return user, None
+    """Return `(user, denial)` from the /apiv2/ authenticator chain (API key first; session + CSRF only where enabled)."""
     try:
         from rest_framework.exceptions import APIException
         from rest_framework.request import Request
         from rest_framework.settings import api_settings
     except ImportError:
         return user, None
+    getattr(request, "body", None)  # cache it: the CSRF check may parse the stream before the view reads it
+    drf_request = Request(
+        request,
+        parsers=[p() for p in api_settings.DEFAULT_PARSER_CLASSES],
+        authenticators=[a() for a in api_settings.DEFAULT_AUTHENTICATION_CLASSES],
+    )
     try:
-        api_user = Request(request, authenticators=[a() for a in api_settings.DEFAULT_AUTHENTICATION_CLASSES]).user
+        return drf_request.user, None
     except APIException as e:
         return None, str(getattr(e, "detail", e))
-    return (api_user if getattr(api_user, "is_authenticated", False) else user), None
 
 
 def tasks_set_visibility(

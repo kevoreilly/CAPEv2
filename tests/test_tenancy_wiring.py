@@ -773,7 +773,9 @@ def test_reschedule_fails_closed_when_the_source_scope_is_unreadable(monkeypatch
         raise RuntimeError("transient")
 
     monkeypatch.setattr("lib.tenancy.hooks.resolve_task_scope", _boom)
+    monkeypatch.setattr("lib.tenancy.hooks.ensure_acl_schema_once", _boom)
     assert tasking(session).reschedule(10) == 11
+    assert tasking.added_user_ids == [7]
     scope = resolve_task_scope(session, 11)
     assert (scope.owner_id, scope.visibility) == (7, PRIVATE)
 

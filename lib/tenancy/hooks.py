@@ -63,14 +63,18 @@ def inherit_task_scope(db: Any, task_id: Any):
     sess = getattr(db, "session", None)
     raw = sess() if callable(sess) else sess  # the scoped_session proxy has no in_transaction()
     if raw is not None:
+        # Inside the caller's transaction (init_tasks) a savepoint keeps a failed read from aborting
+        # it on Postgres; otherwise a short transaction of our own, so the reads don't autobegin one
+        # that turns every later begin() into a bare flush.
+        def _txn():
+            return raw.begin_nested() if raw.in_transaction() else raw.begin()
+
         try:
-            ensure_acl_schema_once(raw.get_bind())
-            # Inside the caller's transaction (init_tasks) a savepoint keeps a failed read from
-            # aborting it on Postgres; otherwise a short transaction of our own, so the reads don't
-            # autobegin one that turns every later begin() into a bare flush.
-            with raw.begin_nested() if raw.in_transaction() else raw.begin():
+            with _txn():
                 owner_id = getattr(db.view_task(task_id), "user_id", None) or None
-                src_scope = ResourceScope(owner_id=owner_id, tenant_id=None, visibility=PRIVATE)
+            src_scope = ResourceScope(owner_id=owner_id, tenant_id=None, visibility=PRIVATE)
+            ensure_acl_schema_once(raw.get_bind())
+            with _txn():
                 src_scope = resolve_task_scope(raw, int(task_id), fallback_user_id=owner_id)
         except Exception:
             log.exception("tenancy: cannot resolve the scope of task %s; its copy stays owner-only", task_id)
@@ -79,6 +83,7 @@ def inherit_task_scope(db: Any, task_id: Any):
         yield src_scope
     finally:
         _rescheduled_from.reset(token)
+
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
 SqlFilterFn = Callable[[Any, Any, Optional[ViewerContext]], Any]

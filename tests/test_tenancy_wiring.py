@@ -1688,7 +1688,7 @@ def test_early_from_imports_of_the_mongo_helpers_are_rebound(monkeypatch):
     assert getattr(early.mongo_aggregate, "_cape_tenancy_wrapped", False)
 
 
-def test_cached_dashboard_aggregates_are_not_shared_with_restricted_viewers(monkeypatch):
+def test_cached_dashboard_aggregates_are_cached_per_viewer_scope(monkeypatch):
     from lib.tenancy.context import set_current_viewer
     from lib.tenancy.hooks import wrap_submission_and_web_utils
 
@@ -1705,13 +1705,16 @@ def test_cached_dashboard_aggregates_are_not_shared_with_restricted_viewers(monk
     wu.top_detections = top_detections
     stub = types.SimpleNamespace()
     wrap_submission_and_web_utils(tasking_cls=stub, machines_cls=stub, web_utils_mod=wu, submission_views_mod=stub)
-    admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_authenticated=True)
+    admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
     set_current_viewer(admin)
     assert wu.top_detections() == "result1"
     set_current_viewer(_viewer(8, 2))
     assert wu.top_detections() == "result2"  # not the admin's cached result
+    assert wu.top_detections() == "result2"  # its own, cached
+    set_current_viewer(_viewer(9, 3))
+    assert wu.top_detections() == "result3"  # not tenant 2's
     set_current_viewer(admin)
-    assert wu.top_detections() == "result3"  # nor does the restricted one stay cached
+    assert wu.top_detections() == "result1"
 
 
 @pytest.mark.parametrize(
@@ -1764,9 +1767,13 @@ def test_untrusted_submitters_cannot_set_a_recovery_custom(monkeypatch):
 @pytest.mark.parametrize("view_name", ["statistics_data", "yara_uploader"])
 def test_deployment_wide_views_are_admin_only(view_name, monkeypatch):
     view = types.FunctionType((lambda request: None).__code__, {}, view_name)
-    # Object storage alone installs the middleware too: no tenants, nothing to hide.
+    # Object storage alone installs the middleware too: without auth everything is public...
     monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+    monkeypatch.setattr("lib.tenancy.middleware._web_authentication_enabled", lambda: False)
     assert _status(_mw(_viewer(8, 2)).process_view(_req("/x/"), view, (), {})) is None
+    # ...with auth, each user's tasks are PRIVATE, which statistics' raw SQL would list.
+    monkeypatch.setattr("lib.tenancy.middleware._web_authentication_enabled", lambda: True)
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("/x/"), view, (), {})) == 403
     monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
     assert _status(_mw(_viewer(8, 2)).process_view(_req("/x/"), view, (), {})) == 403
     admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
@@ -1989,9 +1996,6 @@ def test_recovery_redirects_are_checked_on_apiv2_and_only_to_existing_copies(db,
         task = db.view_task(src)
         task.status, task.custom = "recovered", f"Recovery_{copy}"
     assert default_recovery_target_resolver(src) == copy
-    with db.session.begin():
-        db.view_task(src).custom = "Recovery_999999"  # the copy was deleted
-    assert default_recovery_target_resolver(src) is None
 
     scopes = {1: ResourceScope(owner_id=8, tenant_id=2, visibility=PRIVATE), 2: ResourceScope(owner_id=7, tenant_id=1, visibility=PRIVATE)}
     mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: _viewer(8, 2), task_scope_resolver=scopes.get, recovery_target_resolver=lambda t: 2)
@@ -2037,7 +2041,9 @@ def test_a_job_id_field_does_not_smuggle_a_recovery_custom():
     assert _strip_untrusted_broker_job_id("Recovery_5,job_id=x") == ""
 
 
-def test_dlnexec_through_a_permitted_tor_route_is_allowed():
+def test_dlnexec_through_tor_still_needs_internet():
+    # _download_file compares the route exactly ("TOR" fetches directly) and DRF may decode the body
+    # differently: the middleware can't tell a proxied fetch from a direct one.
     viewer = _viewer(8, 2)
     ent = _ent(allowed_routes=frozenset({"tor"}))
     mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
@@ -2045,8 +2051,8 @@ def test_dlnexec_through_a_permitted_tor_route_is_allowed():
     def tasks_create_dlnexec(request):
         pass
 
-    req = types.SimpleNamespace(path="/apiv2/tasks/create/dlnexec/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={"dlnexec": "http://a/x.exe", "route": "tor"})
-    assert _status(mw.process_view(req, tasks_create_dlnexec, (), {})) is None
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/dlnexec/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={"dlnexec": "http://a/x.exe", "route": "TOR"})
+    assert _status(mw.process_view(req, tasks_create_dlnexec, (), {})) == 403
 
 
 def test_dotted_file_names_are_not_path_traversal():
@@ -2077,3 +2083,72 @@ def test_exitnodes_lists_only_permitted_routes(monkeypatch):
     req = APIRequestFactory().get("/apiv2/exitnodes/")
     force_authenticate(req, user=types.SimpleNamespace(id=8, is_authenticated=True))
     assert v.exit_nodes_list(req).data["data"] == ["inetsim"]
+
+
+def test_the_middleware_leaves_an_omitted_route_unset_for_random_vpn(monkeypatch):
+    # download_file runs random_vpn only for an empty route: pinning "none" into request.POST
+    # (routing.conf's default is not allowed) would switch it off.
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "internet")
+    viewer = _viewer(8, 2)
+    ent = _ent(allowed_routes=frozenset({"none", "vpn:vpn_uk"}))
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_file(request):
+        pass
+
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/file/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={"machine": ""})
+    assert _status(mw.process_view(req, tasks_create_file, (), {})) is None
+    assert "route" not in req.POST
+
+
+@pytest.mark.parametrize(
+    "route,conf_route,expected",
+    [("vpn0", "none", "tun0"), ("socks_ch", "none", ""), ("", "vpn0", "tun0"), ("tun5", "none", "tun5"), ("internet", "none", "")],
+)
+def test_sslproxy_routing_table_is_looked_up_as_sslproxy_does(monkeypatch, route, conf_route, expected):
+    from lib.tenancy.resources import _sslproxy_rt_table
+
+    class Routing:
+        routing = types.SimpleNamespace(route=conf_route)
+        vpn0 = types.SimpleNamespace(rt_table="tun0")
+
+        def get(self, name):
+            return getattr(self, name)
+
+    monkeypatch.setattr("lib.cuckoo.common.config.Config", lambda name: Routing())
+    assert _sslproxy_rt_table(route) == expected
+
+
+def test_a_refused_reschedule_copy_does_not_undo_a_later_status(monkeypatch):
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "none")
+    session, tasking = _reschedule_rig(monkeypatch)
+    src = types.SimpleNamespace(id=10, user_id=7, status="reported", custom="")
+    rows = {10: src}
+
+    def reschedule(self, task_id):
+        rows[task_id].status = "recovered"
+        new_id = self.add("x", machine="win10_beta_1", user_id=8)
+        rows[task_id].status = "running"  # something else moved it on meanwhile
+        return new_id
+
+    monkeypatch.setattr(tasking, "reschedule", reschedule)
+    monkeypatch.setattr(tasking, "view_task", lambda self, tid: rows.get(int(tid)))
+    wrap_submission_and_web_utils(tasking_cls=tasking)
+    monkeypatch.setattr(type(session), "get", lambda self, model, tid: rows.get(int(tid)), raising=False)
+    set_current_viewer(_viewer(8, 2))
+    set_current_entitlements(_ent(allowed_machines=frozenset({"win10_alpha_*"})))
+    assert tasking(session).reschedule(10) is None
+    assert src.status == "running"
+
+
+def test_bodies_in_another_charset_are_left_unread():
+    # DRF decodes with the declared charset ("rout+AGU-" is "route" in UTF-7); this reading wouldn't.
+    from django.test import RequestFactory
+
+    from lib.tenancy.middleware import _extract_submission_params
+
+    req = RequestFactory().post("/apiv2/tasks/create/url/", b'{"route":"tor","rout+AGU-":"internet"}', content_type="application/json; charset=utf-7")
+    assert _extract_submission_params(req) == {}

@@ -135,7 +135,12 @@ resources unless ``CAPE_TENANCY_UNASSIGNED_GROUP_POLICY = "allow"``.
 Download & execute (the web host fetches the URL) and the ``sslproxy`` (except
 over a VPN route), ``mitmdump`` and ``polarproxy`` options need the ``internet``
 route; ``netns=`` is refused. The statistics pages and ``yara_uploader`` span
-every tenant and are limited to local administrators.
+every tenant (and every user's private tasks) and are limited to local
+administrators whenever multitenancy or web authentication is on.
+
+In distributed mode a task submitted without a route runs with the default
+route of the worker that executes it. Give each group a ``default_route`` (it
+is submitted explicitly) or keep the workers' default route at ``none``.
 
 On a distributed worker where ``lib.tenancy`` is active, the main server's dist
 API key must belong to a superuser or local administrator: ``main_task_id``,

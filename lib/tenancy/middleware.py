@@ -292,7 +292,11 @@ def _extract_submission_params(request: Any) -> Dict[str, Any]:
             except Exception:
                 pass
     content_type = str(getattr(request, "content_type", "") or (getattr(request, "META", None) or {}).get("CONTENT_TYPE", ""))
-    if not params and content_type:
+    full_type = str((getattr(request, "META", None) or {}).get("CONTENT_TYPE", "") or content_type)
+    charset = str(getattr(request, "encoding", None) or full_type.lower().partition("charset=")[2].split(";")[0])
+    charset = charset.strip().strip('"').lower()
+    if not params and content_type and charset in ("", "utf-8", "utf8", "us-ascii", "ascii"):
+        # Another charset: DRF decodes with it, this would not; leave it unread (refused).
         # request.POST is empty for anything but the two standard form types; DRF's request.data
         # parses the body with the first of its parsers whose media type matches, so read it the
         # same way (JSON, then form) and leave the rest unread (refused by the caller).
@@ -315,17 +319,6 @@ def _drf_media_match(parser_type: str, content_type: str) -> bool:
     p_main, _, p_sub = parser_type.partition("/")
     return main in ("*", p_main) and sub in ("*", p_sub)
 
-
-def _dlnexec_fetch_is_proxied(params: Dict[str, Any], entitlements: ResourceEntitlements) -> bool:
-    """_download_file fetches through Tor for route=tor and through the proxy of a socks5 route."""
-    route = str(params.get("route") or "").strip()
-    if not route or not entitlements.can_use_route(route):
-        return False
-    if route.lower() == "tor":
-        return True
-    from lib.tenancy.resources import _known_route_types
-
-    return "socks5" in _known_route_types(route.lower())
 
 
 def _apply_normalized_submission_params(request: Any, normalized: Dict[str, Any]) -> None:
@@ -482,7 +475,11 @@ class TenancyMiddleware:
         ):
             return self.forbidden_response_factory(request, "Interactive sessions are not permitted for your group")
 
-        if not viewer.see_all and _view_name(view_func) in _ADMIN_ONLY_VIEW_NAMES and multitenancy_config().enabled:
+        if (
+            not viewer.see_all
+            and _view_name(view_func) in _ADMIN_ONLY_VIEW_NAMES
+            and (multitenancy_config().enabled or _web_authentication_enabled())  # per-user PRIVATE tasks too
+        ):
             return self.forbidden_response_factory(request, "Restricted to administrators")
 
         for key in _PATH_KWARGS:
@@ -523,7 +520,7 @@ class TenancyMiddleware:
                 if not allowed:
                     return self.forbidden_response_factory(request, err_msg or "Submission denied by group policy")
                 dlnexec = _view_name(view_func) == "tasks_create_dlnexec" or str(raw_params.get("dlnexec") or "").strip()
-                if dlnexec and not entitlements.can_use_route("internet") and not _dlnexec_fetch_is_proxied(raw_params, entitlements):
+                if dlnexec and not entitlements.can_use_route("internet"):
                     # The web host itself fetches a dlnexec URL, outside any VM route.
                     return self.forbidden_response_factory(request, "Download & execute needs internet access, which your group does not have.")
                 _apply_normalized_submission_params(request, normalized)
@@ -806,9 +803,7 @@ def default_recovery_target_resolver(task_id: int) -> Optional[int]:
     if task is None or getattr(task, "status", None) != "recovered":
         return None
     m = re.match(r"^Recovery_(\d+)$", str(getattr(task, "custom", "") or ""))
-    if not m or Database().view_task(int(m.group(1))) is None:
-        return None  # a deleted copy: the views can't serve it, so the source stays reachable
-    return int(m.group(1))
+    return int(m.group(1)) if m else None
 
 
 def default_sample_exists_checker(sample_filter: Dict[str, Any]) -> bool:

@@ -20,7 +20,6 @@ import logging
 import os
 import re
 import sys
-import threading
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
@@ -419,6 +418,43 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
     _patched_modules.add(mod_id)
 
 
+class _ViewerScopedCacheFunction:
+    """Stand-in for web_utils.top_detections/top_asn whose `cache` attribute is per viewer scope.
+
+    The originals read and write `<their module global>.cache`, which names this object once it
+    replaces them, so each scope (local admins share one) gets its own cached result.
+    """
+
+    _cape_tenancy_wrapped = True
+
+    def __init__(self, fn: Callable[..., Any]) -> None:
+        functools.update_wrapper(self, fn)
+        self.__dict__.pop("cache", None)
+        self._orig = fn
+        self._caches: Dict[Any, Any] = {}
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._orig(*args, **kwargs)
+
+    @staticmethod
+    def _scope() -> Any:
+        viewer = get_current_viewer()
+        if viewer is None or getattr(viewer, "see_all", False):
+            return None
+        return (viewer.user_id, tuple(viewer.tenant_ids or ()), tuple(viewer.admin_tenant_ids or ()))
+
+    @property
+    def cache(self) -> Any:
+        try:
+            return self._caches[self._scope()]
+        except KeyError:
+            raise AttributeError("cache") from None
+
+    @cache.setter
+    def cache(self, value: Any) -> None:
+        self._caches[self._scope()] = value
+
+
 def wrap_submission_and_web_utils(
     *,
     machines_cls: Any = None,
@@ -586,37 +622,16 @@ def wrap_submission_and_web_utils(
             _wrapped_load_vms_exits._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             setattr(web_utils_mod, "load_vms_exits", _wrapped_load_vms_exits)
 
-        # These cache their (now viewer-scoped) aggregation on the function, process-wide: a
-        # restricted viewer must neither be served nor leave behind another viewer's result.
+        # These cache their (now viewer-scoped) aggregation on the function object they look up
+        # by their module global, process-wide: give each viewer scope its own cache.
         for cached_name in ("top_detections", "top_asn"):
             orig_cached = getattr(web_utils_mod, cached_name, None)
             if orig_cached is None or getattr(orig_cached, "_cape_tenancy_wrapped", False):
                 continue
 
-            @functools.wraps(orig_cached)
-            def _uncached_for_restricted(
-                *args: Any, _orig=orig_cached, _name=cached_name, _lock=threading.Lock(), **kwargs: Any
-            ):
-                viewer = get_current_viewer()
-                restricted = viewer is not None and not getattr(viewer, "see_all", False)
-                holders = (getattr(web_utils_mod, _name, None), _orig)
-                # One call at a time: the cache is process-wide, and a restricted call must not read
-                # what another thread's unscoped call stores mid-way.
-                with _lock:
-                    if not restricted:
-                        return _orig(*args, **kwargs)
-                    for holder in holders:
-                        getattr(holder, "__dict__", {}).pop("cache", None)
-                    try:
-                        return _orig(*args, **kwargs)
-                    finally:
-                        for holder in holders:
-                            getattr(holder, "__dict__", {}).pop("cache", None)
-
-            _uncached_for_restricted.__dict__.pop("cache", None)
-            _uncached_for_restricted._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
-            setattr(web_utils_mod, cached_name, _uncached_for_restricted)
-            _rebind_from_imports(cached_name, {id(orig_cached): _uncached_for_restricted})
+            scoped = _ViewerScopedCacheFunction(orig_cached)
+            setattr(web_utils_mod, cached_name, scoped)
+            _rebind_from_imports(cached_name, {id(orig_cached): scoped})
 
     if submission_views_mod is None:
         try:

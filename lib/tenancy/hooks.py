@@ -452,6 +452,8 @@ class _ViewerScopedCacheFunction:
 
     @cache.setter
     def cache(self, value: Any) -> None:
+        if len(self._caches) >= 256:  # one entry per scope that loaded the dashboard; stay bounded
+            self._caches.clear()
         self._caches[self._scope()] = value
 
 

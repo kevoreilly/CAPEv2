@@ -138,9 +138,10 @@ route; ``netns=`` is refused. The statistics pages and ``yara_uploader`` span
 every tenant (and every user's private tasks) and are limited to local
 administrators whenever multitenancy or web authentication is on.
 
-In distributed mode a task submitted without a route runs with the default
-route of the worker that executes it. Give each group a ``default_route`` (it
-is submitted explicitly) or keep the workers' default route at ``none``.
+In distributed mode a task submitted without a route runs with the routing of
+the worker that executes it: its default route, or a route its ``random_vpn`` /
+``random_socks5`` picks. Give each group a ``default_route``, which is submitted
+explicitly.
 
 On a distributed worker where ``lib.tenancy`` is active, the main server's dist
 API key must belong to a superuser or local administrator: ``main_task_id``,

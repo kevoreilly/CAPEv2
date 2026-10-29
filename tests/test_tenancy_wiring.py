@@ -1986,7 +1986,7 @@ def test_early_importers_of_top_detections_get_the_wrapper(monkeypatch):
     assert dashboard.top_detections is wu.top_detections and getattr(wu.top_detections, "_cape_tenancy_wrapped", False)
 
 
-def test_recovery_redirects_are_checked_on_apiv2_and_only_to_existing_copies(db, temp_pe32, mt_enabled):
+def test_recovery_redirects_are_checked_on_the_apiv2_views_that_follow_them(db, temp_pe32, mt_enabled):
     from lib.tenancy.middleware import default_recovery_target_resolver
     from lib.tenancy.policy import ResourceScope
 
@@ -2000,11 +2000,16 @@ def test_recovery_redirects_are_checked_on_apiv2_and_only_to_existing_copies(db,
     scopes = {1: ResourceScope(owner_id=8, tenant_id=2, visibility=PRIVATE), 2: ResourceScope(owner_id=7, tenant_id=1, visibility=PRIVATE)}
     mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: _viewer(8, 2), task_scope_resolver=scopes.get, recovery_target_resolver=lambda t: 2)
 
-    def report(request, task_id):
+    def tasks_report(request, task_id):
         pass
 
-    assert _status(mw.process_view(_req("/analysis/1/"), report, (), {"task_id": 1})) is None  # serves task 1 itself
-    assert _status(mw.process_view(_req("/apiv2/tasks/get/report/1/"), report, (), {"task_id": 1})) == 404
+    def tasks_status(request, task_id):
+        pass
+
+    assert _status(mw.process_view(_req("/analysis/1/"), tasks_report, (), {"task_id": 1})) is None  # serves task 1 itself
+    assert _status(mw.process_view(_req("/apiv2/tasks/get/report/1/"), tasks_report, (), {"task_id": 1})) == 404
+    # tasks/status, reschedule, reprocess act on task 1 itself: its owner keeps them.
+    assert _status(mw.process_view(_req("/apiv2/tasks/status/1/"), tasks_status, (), {"task_id": 1})) is None
 
 
 def test_the_middleware_resolves_machine_labels(monkeypatch):
@@ -2144,11 +2149,54 @@ def test_a_refused_reschedule_copy_does_not_undo_a_later_status(monkeypatch):
     assert src.status == "running"
 
 
-def test_bodies_in_another_charset_are_left_unread():
+@pytest.mark.parametrize("charset,readable", [("utf-7", False), ("ISO-8859-1", True), ("utf_8", True), ("utf-8-sig", True)])
+def test_bodies_in_another_charset_are_left_unread(charset, readable):
     # DRF decodes with the declared charset ("rout+AGU-" is "route" in UTF-7); this reading wouldn't.
     from django.test import RequestFactory
 
     from lib.tenancy.middleware import _extract_submission_params
 
-    req = RequestFactory().post("/apiv2/tasks/create/url/", b'{"route":"tor","rout+AGU-":"internet"}', content_type="application/json; charset=utf-7")
-    assert _extract_submission_params(req) == {}
+    req = RequestFactory().post("/apiv2/tasks/create/url/", b'{"route":"tor","rout+AGU-":"internet"}', content_type=f"application/json; charset={charset}")
+    assert bool(_extract_submission_params(req)) is readable
+
+
+def test_logged_out_users_reach_the_login_redirect_of_admin_views(monkeypatch):
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
+
+    def statistics_data(request, days):
+        pass
+
+    anonymous = ViewerContext(user_id=None, tenant_id=None, is_authenticated=False)
+    assert _status(_mw(anonymous).process_view(_req("/statistics/7/"), statistics_data, (), {"days": 7})) is None
+
+
+def test_the_scoped_dashboard_cache_stays_bounded():
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import _ViewerScopedCacheFunction
+
+    fn = _ViewerScopedCacheFunction(lambda: None)
+    for uid in range(1000):
+        set_current_viewer(_viewer(uid, 1))
+        fn.cache = uid
+    assert len(fn._caches) <= 256 and fn.cache == 999
+
+
+@pytest.mark.parametrize("route", ["vpn0", "socks_ch", "tun5", "", "none", "inetsim"])
+def test_the_sslproxy_table_lookup_matches_sslproxy_itself(monkeypatch, route):
+    # The exemption is only safe while it agrees with modules/auxiliary/SSLProxy.py.
+    from lib.tenancy.resources import _sslproxy_rt_table
+
+    sslproxy = pytest.importorskip("modules.auxiliary.SSLProxy")
+
+    class Routing:
+        routing = types.SimpleNamespace(route="vpn0", rt_table="main")
+        vpn0 = types.SimpleNamespace(rt_table="tun0")
+
+        def get(self, name):
+            return getattr(self, name)
+
+    monkeypatch.setattr("lib.cuckoo.common.config.Config", lambda name: Routing())
+    monkeypatch.setattr(sslproxy, "Config", lambda name: Routing())
+    monkeypatch.setattr(sslproxy, "sslproxy_cfg", types.SimpleNamespace(cfg={}), raising=False)
+    thread = sslproxy.SSLProxyThread(types.SimpleNamespace(id=1, route=route), types.SimpleNamespace(resultserver_port=2042))
+    assert _sslproxy_rt_table(route) == thread.rt_table

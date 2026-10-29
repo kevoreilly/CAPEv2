@@ -61,6 +61,13 @@ _ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader")
 _MANAGE_ON_POST_VIEW_NAMES = ("tasks_status",)
 # Route kwargs joined onto a task directory as a path: a separator walks out of it.
 _PATH_KWARGS = ("filename",)
+# apiv2 views that follow a recovered task's custom "Recovery_<id>" to that copy (validate_task,
+# tasks_view); the others act on the task named in the route.
+_RECOVERY_FOLLOWING_VIEW_NAMES = (
+    "tasks_view", "tasks_report", "tasks_iocs", "tasks_screenshot", "tasks_pcap", "tasks_evtx", "tasks_dropped",
+    "tasks_selfextracted", "tasks_surifile", "tasks_mitmdump", "tasks_payloadfiles", "tasks_procdumpfiles",
+    "tasks_procmemory", "tasks_fullmemory", "tasks_config", "tasks_delete", "file",
+)
 _SUBMISSION_VIEW_NAMES = (
     "tasks_create_file",
     "tasks_create_url",
@@ -294,8 +301,7 @@ def _extract_submission_params(request: Any) -> Dict[str, Any]:
     content_type = str(getattr(request, "content_type", "") or (getattr(request, "META", None) or {}).get("CONTENT_TYPE", ""))
     full_type = str((getattr(request, "META", None) or {}).get("CONTENT_TYPE", "") or content_type)
     charset = str(getattr(request, "encoding", None) or full_type.lower().partition("charset=")[2].split(";")[0])
-    charset = charset.strip().strip('"').lower()
-    if not params and content_type and charset in ("", "utf-8", "utf8", "us-ascii", "ascii"):
+    if not params and content_type and _decodes_like_utf8(charset.strip().strip('"'), request):
         # Another charset: DRF decodes with it, this would not; leave it unread (refused).
         # request.POST is empty for anything but the two standard form types; DRF's request.data
         # parses the body with the first of its parsers whose media type matches, so read it the
@@ -311,6 +317,26 @@ def _extract_submission_params(request: Any) -> Dict[str, Any]:
         except Exception:
             params = {}
     return params
+
+
+def _decodes_like_utf8(charset: str, request: Any) -> bool:
+    """Whether DRF, decoding with `charset`, reads the body as this UTF-8 reading does."""
+    if not charset:
+        return True
+    import codecs
+
+    try:
+        name = codecs.lookup(charset).name
+    except LookupError:
+        return False
+    if name in ("utf-8", "utf-8-sig"):
+        return True
+    if name not in ("ascii", "iso8859-1", "cp1252"):
+        return False  # utf-7 & co. read ASCII bytes differently ("rout+AGU-" is "route")
+    try:
+        return bytes(getattr(request, "body", b"") or b"").isascii()
+    except Exception:
+        return False
 
 
 def _drf_media_match(parser_type: str, content_type: str) -> bool:
@@ -477,6 +503,7 @@ class TenancyMiddleware:
 
         if (
             not viewer.see_all
+            and viewer.is_authenticated  # anonymous: the view's own login check redirects
             and _view_name(view_func) in _ADMIN_ONLY_VIEW_NAMES
             and (multitenancy_config().enabled or _web_authentication_enabled())  # per-user PRIVATE tasks too
         ):
@@ -545,8 +572,11 @@ class TenancyMiddleware:
                     scope = None  # fail closed: an unresolvable scope is indistinguishable from a hidden task
                 if scope is None or not self._check_action(viewer, scope, action):
                     return self.deny_response_factory(request, "Task not found")
-                if not str(getattr(request, "path", "") or "").startswith("/apiv2/"):
-                    continue  # only apiv2's validate_task / tasks_view follow the redirect
+                if not (
+                    str(getattr(request, "path", "") or "").startswith("/apiv2/")
+                    and _view_name(view_func) in _RECOVERY_FOLLOWING_VIEW_NAMES
+                ):
+                    continue  # the others serve or act on the task named in the route
                 try:
                     # apiv2's validate_task / tasks_view serve a recovered task's Recovery_<id> copy.
                     redirect = self.recovery_target_resolver(task_id)

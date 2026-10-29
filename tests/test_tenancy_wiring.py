@@ -1026,10 +1026,8 @@ def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
     query, script = calls[0]
     assert {"term": {"info.id": 42}} in query["bool"]["filter"]
     assert script["params"] == {
-        "user_id": 7,
-        "tenant_id": 1,
-        "visibility": PRIVATE,
-        "visibility_seq": stamp.visibility_seq,
+        "job_id": None,
+        "stamp": {"user_id": 7, "tenant_id": 1, "visibility": PRIVATE, "visibility_seq": stamp.visibility_seq},
     }
 
 
@@ -1108,7 +1106,7 @@ def test_default_es_restamp_sends_a_body_the_7x_client_accepts(monkeypatch):
 
     calls = []
     fake_es = types.ModuleType("dev_utils.elasticsearchdb")
-    fake_es.elastic_handler = types.SimpleNamespace(update_by_query=lambda **kw: calls.append(kw))
+    fake_es.elastic_handler = types.SimpleNamespace(update_by_query=lambda **kw: calls.append(kw) or {"updated": 1})
     fake_es.get_analysis_index = lambda: "cuckoo-analysis-*"
     monkeypatch.setitem(sys.modules, "dev_utils.elasticsearchdb", fake_es)
     monkeypatch.setattr(
@@ -1224,3 +1222,24 @@ def test_submitters_cannot_claim_a_broker_job_id(monkeypatch, custom):
     finally:
         reset_current_viewer(token)
     assert "job_id" not in customs[-1]
+
+
+def test_es_restamp_retries_version_conflicts_then_fails_the_toggle(monkeypatch):
+    # conflicts=proceed skips a doc a concurrent write touched: reporting success would leave a
+    # revoked report searchable under its old visibility.
+    import sys
+
+    from lib.tenancy import views as tviews
+
+    responses = iter([{"version_conflicts": 1}, {"version_conflicts": 0, "updated": 1}])
+    fake_es = types.ModuleType("dev_utils.elasticsearchdb")
+    fake_es.elastic_handler = types.SimpleNamespace(update_by_query=lambda **kw: next(responses))
+    fake_es.get_analysis_index = lambda: "cuckoo-analysis-*"
+    monkeypatch.setitem(sys.modules, "dev_utils.elasticsearchdb", fake_es)
+    monkeypatch.setattr(
+        "lib.cuckoo.common.config.Config", lambda name: types.SimpleNamespace(elasticsearchdb=types.SimpleNamespace(enabled=True))
+    )
+    assert tviews._default_es_update_by_query()({}, {})["updated"] == 1
+    fake_es.elastic_handler = types.SimpleNamespace(update_by_query=lambda **kw: {"version_conflicts": 1})
+    with pytest.raises(RuntimeError):
+        tviews._default_es_update_by_query()({}, {})

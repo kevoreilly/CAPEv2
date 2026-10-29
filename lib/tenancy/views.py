@@ -109,10 +109,16 @@ def _default_es_update_by_query() -> Optional[Callable[[dict, dict], Any]]:
         return None
 
     def _update(query: dict, script: dict) -> Any:
-        # body=, not query=/script=: CAPE's client is elasticsearch-py 7.x (see dev_utils.elasticsearchdb).
-        return elastic_handler.update_by_query(
-            index=get_analysis_index(), body={"query": query, "script": script}, refresh=True, conflicts="proceed"
-        )
+        # A concurrent write (e.g. a comment) makes update_by_query skip the doc as a version conflict;
+        # retry, and fail the toggle rather than report success with the old stamp still searchable.
+        for _ in range(3):
+            # body=, not query=/script=: CAPE's client is elasticsearch-py 7.x (see dev_utils.elasticsearchdb).
+            resp = elastic_handler.update_by_query(
+                index=get_analysis_index(), body={"query": query, "script": script}, refresh=True, conflicts="proceed"
+            )
+            if not (resp or {}).get("version_conflicts"):
+                return resp
+        raise RuntimeError("Elasticsearch restamp kept hitting version conflicts")
 
     return _update
 

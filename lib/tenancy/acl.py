@@ -258,7 +258,9 @@ def sync_stamp_to_mongo(
 
 def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[dict, dict], Any]) -> Any:
     """Restamp the Elasticsearch analysis document, which the ES search filter scopes on, monotonically."""
-    id_clause = (  # job_id is dynamically mapped as text: a term query on it matches nothing
+    # job_id is dynamically mapped as text, so the query only narrows by phrase ("job-7" also hits
+    # "job-7-extra"); the script compares it exactly before writing.
+    id_clause = (
         {"match_phrase": {"info.job_id": stamp.external_job_id}}
         if stamp.external_job_id
         else {"term": {"info.id": int(stamp.task_id)}}
@@ -275,12 +277,18 @@ def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[di
     }
     script = {
         "lang": "painless",
-        "source": "for (e in params.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); }",
+        "source": (
+            "if (params.job_id != null && ctx._source.info.job_id != params.job_id) { ctx.op = 'noop'; }"
+            " else { for (e in params.stamp.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); } }"
+        ),
         "params": {
-            "user_id": stamp.user_id,
-            "tenant_id": stamp.tenant_id,
-            "visibility": stamp.visibility,
-            "visibility_seq": int(stamp.visibility_seq),
+            "job_id": stamp.external_job_id or None,
+            "stamp": {
+                "user_id": stamp.user_id,
+                "tenant_id": stamp.tenant_id,
+                "visibility": stamp.visibility,
+                "visibility_seq": int(stamp.visibility_seq),
+            },
         },
     }
     return es_update_by_query(query, script)

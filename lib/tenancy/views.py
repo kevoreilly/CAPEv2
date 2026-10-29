@@ -109,8 +109,9 @@ def _default_es_update_by_query() -> Optional[Callable[[dict, dict], Any]]:
         return None
 
     def _update(query: dict, script: dict) -> Any:
+        # body=, not query=/script=: CAPE's client is elasticsearch-py 7.x (see dev_utils.elasticsearchdb).
         return elastic_handler.update_by_query(
-            index=get_analysis_index(), query=query, script=script, refresh=True, conflicts="proceed"
+            index=get_analysis_index(), body={"query": query, "script": script}, refresh=True, conflicts="proceed"
         )
 
     return _update

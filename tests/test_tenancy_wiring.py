@@ -1095,3 +1095,28 @@ def test_central_staticzip_only_stages_the_route_tasks_own_sample(db, tmp_path, 
     assert staged == []
     assert tviews.dispatch_object_storage_view(req, file, (), {"category": "staticzip", "task_id": "5", "dlfile": "A" * 64}) is None
     assert len(staged) == 1
+
+
+def test_default_es_restamp_sends_a_body_the_7x_client_accepts(monkeypatch):
+    # dev_utils.elasticsearchdb builds an elasticsearch-py 7.x client: no query=/script= kwargs there.
+    import sys
+
+    from lib.tenancy import views as tviews
+
+    calls = []
+    fake_es = types.ModuleType("dev_utils.elasticsearchdb")
+    fake_es.elastic_handler = types.SimpleNamespace(update_by_query=lambda **kw: calls.append(kw))
+    fake_es.get_analysis_index = lambda: "cuckoo-analysis-*"
+    monkeypatch.setitem(sys.modules, "dev_utils.elasticsearchdb", fake_es)
+    monkeypatch.setattr(
+        "lib.cuckoo.common.config.Config", lambda name: types.SimpleNamespace(elasticsearchdb=types.SimpleNamespace(enabled=True))
+    )
+    tviews._default_es_update_by_query()({"term": {"info.id": 1}}, {"source": "x"})
+    assert calls == [
+        {
+            "index": "cuckoo-analysis-*",
+            "body": {"query": {"term": {"info.id": 1}}, "script": {"source": "x"}},
+            "refresh": True,
+            "conflicts": "proceed",
+        }
+    ]

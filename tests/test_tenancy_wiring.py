@@ -1348,7 +1348,7 @@ def test_an_omitted_route_is_checked_against_the_global_default():
     ok, _, norm = validate_and_normalize_submission({}, ent, global_route="internet")
     assert ok and norm["route"] == "none"
     ok, _, norm = validate_and_normalize_submission({}, ent, global_route="inetsim")
-    assert ok and "route" not in norm
+    assert ok and norm["route"] == "inetsim"  # pinned: a dist worker would apply its own default
     assert validate_and_normalize_submission({}, _ent(allowed_routes=frozenset({"inetsim"})), global_route="internet")[0] is False
     assert validate_and_normalize_submission({}, _ent(allowed_routes=frozenset({"inetsim"})), global_route=None)[0] is False
 
@@ -1397,9 +1397,10 @@ def test_task_add_enforces_entitlements_on_the_final_kwargs(monkeypatch):
     assert calls == []
     assert t.add("x", timeout=99999, user_id=8)
     assert calls[-1]["timeout"] == 120 and calls[-1]["tags"] == "pool_alpha" and calls[-1]["route"] == "none"
-    with inherit_task_scope(t, 10):  # a reschedule copy keeps its source's fields
-        t.add("x", machine="win10_beta_1", user_id=8)
-    assert calls[-1]["machine"] == "win10_beta_1"
+    with inherit_task_scope(t, 10):  # a copy is checked against the current entitlements too
+        assert t.add("x", machine="win10_beta_1", user_id=8) is None
+        assert t.add("x", machine="win10_alpha_1", tags="x64", route="none", user_id=8)
+    assert calls[-1]["tags"] == "x64"  # add()'s own arch tags on the source are not the submitter's
 
 
 def test_json_submission_bodies_are_checked_by_the_middleware():
@@ -1579,3 +1580,62 @@ def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monke
     dist.node_submit_task(1, 1, 5, db=fake_db)
     assert posted["url"] == "http://a.test/"
     assert (posted["tags"], posted["route"], posted["timeout"]) == ("pool_alpha", "none", 120)
+
+
+def test_a_tags_list_goes_back_to_add_as_a_string(monkeypatch):
+    # add() only splits a str: a JSON list of tags was dropped, so first-available ran anywhere.
+    from lib.tenancy.context import set_current_entitlements
+    from lib.tenancy.hooks import _enforce_task_entitlements
+
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "none")
+    set_current_entitlements(_ent(allowed_machines=frozenset({"win10_alpha_*"}), allowed_tags=frozenset({"pool_alpha"}), forced_machine_tags=frozenset({"pool_alpha"})))
+    kw = {"machine": "", "tags": ["pool_alpha"]}
+    assert _enforce_task_entitlements(kw) is None
+    assert kw["tags"] == "pool_alpha"
+
+
+@pytest.mark.parametrize("route", ["none ", " none", "NONE", "None"])
+def test_builtin_routes_are_stored_as_analysis_manager_compares_them(route):
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ok, _, norm = validate_and_normalize_submission({"route": route}, _ent(), global_route="none")
+    assert ok and norm["route"] == "none"
+
+
+@pytest.mark.parametrize("options", ["netns=cape", "sslproxy=1", "mitmdump=1", "polarproxy=1"])
+def test_host_proxy_and_netns_options_need_internet(options):
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    assert validate_and_normalize_submission({"options": options}, _ent(), global_route="none")[0] is False
+    with_internet = _ent(allowed_routes=frozenset({"none", "internet"}))
+    assert validate_and_normalize_submission({"options": options}, with_internet, global_route="none")[0] is (options != "netns=cape")
+
+
+def test_json_bodies_are_read_for_any_content_type_drf_parses_as_json():
+    import json
+
+    from django.test import RequestFactory
+
+    from lib.tenancy.middleware import _extract_submission_params
+
+    req = RequestFactory().post("/apiv2/tasks/create/url/", json.dumps({"machine": "all"}), content_type="application/*")
+    assert _extract_submission_params(req) == {"machine": "all"}
+
+
+@pytest.mark.parametrize("field", ["hash", "hashes"])
+def test_posted_sample_hashes_need_sample_access(field):
+    # /submit/ hash= and download services read storage/binaries/<hash> first.
+    sha = "a" * 64
+
+    def tasks_create_download_services(request):
+        pass
+
+    viewer = _viewer(8, 2)
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/download_services/", method="POST", user=object(), viewer=viewer, entitlements=None, POST={field: sha})
+    mw = TenancyMiddleware(
+        lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: _ent(allowed_machines=frozenset({"*"}), allowed_routes=frozenset({"*"})),
+        sample_access_checker=lambda v, f: False, sample_exists_checker=lambda f: True,
+    )
+    assert _status(mw.process_view(req, tasks_create_download_services, (), {})) == 404
+    mw.sample_exists_checker = lambda f: False  # not stored: a download service fetches it from outside
+    assert _status(mw.process_view(req, tasks_create_download_services, (), {})) == (404 if field == "hash" else None)

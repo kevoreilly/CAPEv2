@@ -284,8 +284,9 @@ def _extract_submission_params(request: Any) -> Dict[str, Any]:
             except Exception:
                 pass
     content_type = str(getattr(request, "content_type", "") or (getattr(request, "META", None) or {}).get("CONTENT_TYPE", ""))
-    if not params and "json" in content_type.lower():
-        # request.POST is empty for JSON; the API view reads the same body through DRF's request.data.
+    if not params and not content_type.lower().startswith(("multipart/", "application/x-www-form-urlencoded")):
+        # request.POST is empty for JSON; DRF's request.data parses the same body as JSON for any
+        # Content-Type its JSONParser matches (application/json, application/*, */*).
         try:
             body = json.loads(getattr(request, "body", b"") or b"{}")
         except Exception:
@@ -363,6 +364,7 @@ class TenancyMiddleware:
         entitlements_resolver: Callable[[Any], ResourceEntitlements] = resolve_user_entitlements,
         task_scope_resolver: Optional[Callable[[int], Optional[ResourceScope]]] = None,
         sample_access_checker: Optional[Callable[[ViewerContext, Dict[str, Any]], bool]] = None,
+        sample_exists_checker: Optional[Callable[[Dict[str, Any]], bool]] = None,
         deny_response_factory: Optional[Callable[[Any, str], Any]] = None,
         forbidden_response_factory: Optional[Callable[[Any, str], Any]] = None,
     ) -> None:
@@ -373,6 +375,7 @@ class TenancyMiddleware:
         # defaults must live here; leaving them None would skip every per-task check.
         self.task_scope_resolver = task_scope_resolver or default_task_scope_resolver
         self.sample_access_checker = sample_access_checker or default_sample_access_checker
+        self.sample_exists_checker = sample_exists_checker or default_sample_exists_checker
         self.deny_response_factory = deny_response_factory or self._default_deny_response
         self.forbidden_response_factory = forbidden_response_factory or self._default_forbidden_response
 
@@ -465,6 +468,8 @@ class TenancyMiddleware:
                 if not allowed:
                     return self.forbidden_response_factory(request, err_msg or "Submission denied by group policy")
                 _apply_normalized_submission_params(request, normalized)
+            if not viewer.see_all and not self._posted_hashes_visible(viewer, raw_params):
+                return self.deny_response_factory(request, "Sample not found in database")
 
         if not viewer.see_all:
             raw_task_ids = _task_ids_from_kwargs(view_kwargs) + _task_ids_from_body(request, view_func)
@@ -496,6 +501,27 @@ class TenancyMiddleware:
         from lib.tenancy.views import dispatch_object_storage_view
 
         return dispatch_object_storage_view(request, view_func, view_args, view_kwargs)
+
+    def _posted_hashes_visible(self, viewer: ViewerContext, params: Dict[str, Any]) -> bool:
+        """Hashes a submission names in its body: resubmit (`hash`) and download services (`hashes`).
+
+        Both read storage/binaries/<hash> first, so a stored sample the viewer cannot read would be
+        re-analysed as theirs. A download-service hash that isn't stored is fetched from outside.
+        """
+        for field, must_exist in (("hash", True), ("hashes", False)):
+            for value in str(params.get(field) or "").replace(",", " ").split():
+                hash_field = _HASH_FIELD_BY_LEN.get(len(value))
+                if not hash_field:
+                    continue  # not a hash: the view rejects it
+                flt = {hash_field: value.lower()}
+                try:
+                    if not must_exist and not self.sample_exists_checker(flt):
+                        continue
+                    if not self.sample_access_checker(viewer, flt):
+                        return False
+                except Exception:
+                    return False
+        return True
 
     @staticmethod
     def _check_action(viewer: ViewerContext, scope: ResourceScope, action: str) -> bool:
@@ -674,6 +700,16 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
     rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds)))
     # Stops at the first readable task; most lookups are by the sample's own submitter.
     return any(can_read(viewer, resolve_task_scope(session, tid, fallback_user_id=uid)) for tid, uid in rows)
+
+
+def default_sample_exists_checker(sample_filter: Dict[str, Any]) -> bool:
+    from sqlalchemy import and_, select
+
+    from lib.cuckoo.core.data.samples import Sample
+    from lib.cuckoo.core.database import Database
+
+    conds = [getattr(Sample, k) == str(v).lower() for k, v in sample_filter.items() if k in ("md5", "sha1", "sha256")]
+    return bool(conds) and Database().session.scalar(select(Sample.id).where(and_(*conds)).limit(1)) is not None
 
 
 def tenancy_exempt(view_func: Callable[..., Any]) -> Callable[..., Any]:

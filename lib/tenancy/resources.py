@@ -578,6 +578,10 @@ def validate_and_normalize_submission(
             return False, "Choose an analysis VM: your group has no default machine pool.", {}
 
     route_raw = str(normalized.get("route") or "").strip()
+    if route_raw:
+        # analysis_manager compares routes exactly: "none " or "NONE" would install no drop rules.
+        route_raw = _norm_token(route_raw) if _norm_token(route_raw) in _BUILTIN_ROUTES else route_raw
+        normalized["route"] = route_raw
     tor_flag = (
         _norm_token(normalized.get("tor"))
         or _has_option(options_str, "tor")
@@ -597,11 +601,22 @@ def validate_and_normalize_submission(
         if not (fallback and entitlements.can_use_route(fallback)):
             if not entitlements.can_use_route("none"):
                 return False, "Choose a network route: the default route is not permitted for your group.", {}
-            route_raw = "none"
-            normalized["route"] = route_raw
+            fallback = "none"
+        # Pin it: the node that runs the task (a dist worker) would apply its own default.
+        route_raw = fallback
+        normalized["route"] = route_raw
 
     if route_raw and not vmless and not entitlements.can_use_route(route_raw):
         return False, f"Route '{route_raw}' is not permitted for your group.", {}
+
+    all_options = f"{options_str},{lin_options_str}"
+    if _has_option(all_options, "netns"):
+        return False, "The netns option is not permitted for your group.", {}
+    # These auxiliaries proxy the VM's traffic out through the host's own routing table.
+    if not vmless and not entitlements.can_use_route("internet"):
+        for proxy in ("sslproxy", "mitmdump", "polarproxy"):
+            if proxy in all_options.lower():
+                return False, f"The {proxy} option needs internet access, which your group does not have.", {}
 
     tags_raw = str(normalized.get("tags") or "").strip()
     user_tags = [t.strip() for t in tags_raw.split(",") if t.strip()]

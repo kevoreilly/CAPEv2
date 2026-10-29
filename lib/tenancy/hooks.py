@@ -97,7 +97,9 @@ def _trusted_submitter() -> bool:
 _VMLESS_TASK_OBJECTS = ("PCAP", "Static")
 
 
-def _enforce_task_entitlements(kwargs: Dict[str, Any], db: Any = None, *, vmless: bool = False) -> Optional[str]:
+def _enforce_task_entitlements(
+    kwargs: Dict[str, Any], db: Any = None, *, vmless: bool = False, copy: bool = False
+) -> Optional[str]:
     """Check the final `add` kwargs against the request's entitlements; normalize them in place.
 
     The middleware checks the submitted form early, but API bodies (JSON, re-parsed urlencoded)
@@ -109,6 +111,13 @@ def _enforce_task_entitlements(kwargs: Dict[str, Any], db: Any = None, *, vmless
     tags = kwargs.get("tags")
     if isinstance(tags, (list, tuple, set)):
         tags = ",".join(str(t) for t in tags)
+    tags = tags or ""
+    kept_tags = ""
+    if copy and tags:
+        # A copy carries the arch tags add() appended to its source; the submitter never chose them.
+        parts = [t for t in tags.split(",") if t.strip()]
+        kept_tags = ",".join(t for t in parts if t.strip().lower() in ("x86", "x64"))
+        tags = ",".join(t for t in parts if t.strip().lower() not in ("x86", "x64"))
     machine = kwargs.get("machine") or ""
     if machine and not ent.can_use_machine(machine):
         # machine=all expands to labels, which the scheduler matches; policies name machines.
@@ -121,17 +130,18 @@ def _enforce_task_entitlements(kwargs: Dict[str, Any], db: Any = None, *, vmless
     params = {
         "machine": machine,
         "route": kwargs.get("route") or "",
-        "tags": tags or "",
+        "tags": tags,
         "timeout": kwargs.get("timeout") or 0,
         "options": kwargs.get("options") or "",
     }
     allowed, err, normalized = validate_and_normalize_submission(params, ent, vmless=vmless)
     if not allowed:
         return err or "Submission denied by group policy"
-    if normalized.get("route") and not kwargs.get("route"):
+    if normalized.get("route"):
         kwargs["route"] = normalized["route"]
-    if normalized.get("tags") != params["tags"]:
-        kwargs["tags"] = normalized["tags"]
+    if normalized.get("tags") != params["tags"] or not isinstance(kwargs.get("tags"), (str, type(None))):
+        # add() drops a list of tags, so the checked tags always go back as a string.
+        kwargs["tags"] = ",".join(t for t in (normalized.get("tags") or "", kept_tags) if t)
     if str(normalized.get("timeout")) != str(params["timeout"]):
         kwargs["timeout"] = int(normalized["timeout"])
     if normalized.get("options") != params["options"]:
@@ -390,13 +400,15 @@ def wrap_submission_and_web_utils(
             @functools.wraps(orig_add)
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
                 inherited = _rescheduled_from.get()
+                # A copy (reschedule) is checked against the current submitter's entitlements too:
+                # the source ran under older ones, or another member's.
+                obj = args[0] if args else kwargs.get("obj")
+                vmless = type(obj).__name__ in _VMLESS_TASK_OBJECTS
+                denied = _enforce_task_entitlements(kwargs, self, vmless=vmless, copy=inherited is not None)
+                if denied:
+                    log.warning("tenancy: task not added: %s", denied)
+                    return None
                 if inherited is None:  # a copy keeps its source's fields
-                    obj = args[0] if args else kwargs.get("obj")
-                    vmless = type(obj).__name__ in _VMLESS_TASK_OBJECTS
-                    denied = _enforce_task_entitlements(kwargs, self, vmless=vmless)
-                    if denied:
-                        log.warning("tenancy: task not added: %s", denied)
-                        return None
                     if kwargs.get("attributes"):
                         kwargs["attributes"] = _strip_untrusted_task_acl(kwargs["attributes"])
                     if kwargs.get("custom"):

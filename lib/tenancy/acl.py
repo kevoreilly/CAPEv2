@@ -110,6 +110,7 @@ def resolve_task_scope(session: Session, task_id: int, fallback_user_id: Optiona
     """
     from lib.tenancy.policy import PUBLIC, multitenancy_config
 
+    fallback_user_id = fallback_user_id or None  # tasks.user_id 0 is add()'s "no owner"
     row = get_task_acl(session, task_id)
     if row is not None:
         scope = row.to_scope()

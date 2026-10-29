@@ -436,6 +436,74 @@ def test_untyped_hash_is_checked_even_on_task_routes(private_task, db, temp_pe64
     assert _status(_mw(_viewer(8, 2)).process_view(_req(f"/compare/{own_task}/{victim_sha256}/"), hash, (), kwargs)) == 404
 
 
+def test_compare_checks_the_right_task_too(private_task, db, temp_pe64):
+    victim_task, _ = private_task
+    own_task = db.add_path(str(temp_pe64), user_id=8)
+
+    def compare_left_right(request, left_id, right_id):
+        pass
+
+    kwargs = {"left_id": own_task, "right_id": victim_task}
+    path = f"/compare/{own_task}/{victim_task}/"
+    assert _status(_mw(_viewer(8, 2)).process_view(_req(path), compare_left_right, (), kwargs)) == 404
+
+
+def test_remote_session_is_a_task_action_not_a_read():
+    from lib.tenancy.middleware import classify_view_action
+
+    def remote_session(request, task_id):
+        pass
+
+    assert classify_view_action("/analysis/remote_session/5/", remote_session) == "manage"
+
+
+def test_sample_access_fails_closed_when_the_checker_raises(private_task):
+    _, sha256 = private_task
+
+    def boom(viewer, flt):
+        raise RuntimeError("db down")
+
+    mw = TenancyMiddleware(lambda request: None, viewer_resolver=lambda user: _viewer(7, 1), sample_access_checker=boom)
+    got = mw.process_view(_req(f"/apiv2/files/get/sha256/{sha256}/"), _view, (), {"stype": "sha256", "value": sha256})
+    assert _status(got) == 404
+
+
+def test_guac_web_bootstraps_tenancy():
+    # guac-web is its own ASGI process on web.guac_settings; without this it had no TenancyMiddleware.
+    import pathlib
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "web" / "web" / "guac_settings.py").read_text()
+    assert 'bootstrap_tenancy(_CapeConfig("cuckoo"), settings_globals=globals())' in src
+    assert "TENANCY_REQUEST_USER_RESOLVER" in src
+
+
+def test_guac_console_targets_the_tasks_vm_whatever_the_session_data_says(db, temp_pe32, monkeypatch):
+    import base64
+
+    import guac.views as guac_views
+
+    task_id = db.add_path(str(temp_pe32))
+    with db.session.begin():
+        db.view_task(task_id).machine = "win10-1"
+    monkeypatch.setattr(guac_views, "db", db)
+    monkeypatch.setattr(db, "view_machine_by_label", lambda label: types.SimpleNamespace(ip="192.168.122.10") if label == "win10-1" else None)
+    looked_up, sessions = [], []
+    dom = types.SimpleNamespace(state=lambda flags=0: [1])
+    conn = types.SimpleNamespace(lookupByName=lambda name: looked_up.append(name) or dom, close=lambda: None)
+    monkeypatch.setattr(guac_views, "LIBVIRT_AVAILABLE", True)
+    monkeypatch.setattr(guac_views, "libvirt", types.SimpleNamespace(open=lambda dsn: conn), raising=False)
+    monkeypatch.setattr(guac_views, "machinery", "kvm")
+    monkeypatch.setattr(db, "create_guac_session", lambda **kw: sessions.append(kw) or types.SimpleNamespace(**kw))
+    monkeypatch.setattr(guac_views, "render", lambda request, tpl, ctx=None: types.SimpleNamespace(set_cookie=lambda *a, **k: None))
+    forged = base64.urlsafe_b64encode(b"sid|other-tenant-vm|10.9.9.9").decode()
+    req = types.SimpleNamespace(
+        user=types.SimpleNamespace(is_authenticated=True), method="GET", path="/guac/", is_secure=lambda: False
+    )
+    guac_views.index(req, task_id, forged)
+    assert looked_up == ["win10-1"]
+    assert [(s["vm_label"], s["guest_ip"]) for s in sessions] == [("win10-1", "192.168.122.10")]
+
+
 def test_late_identity_does_not_outlive_the_request(private_task):
     from rest_framework.authentication import BaseAuthentication
     from rest_framework.decorators import api_view, authentication_classes
@@ -455,8 +523,15 @@ def test_late_identity_does_not_outlive_the_request(private_task):
 
     mw = _identity_mw()
     req = _anon_req(f"/apiv2/tasks/view/{task_id}/")
-    mw.get_response = lambda request: mw.process_view(request, tasks_view, (), {"task_id": task_id})
+    seen = []
+
+    def get_response(request):
+        mw.process_view(request, tasks_view, (), {"task_id": task_id})
+        seen.append(get_current_viewer())  # what the view's list/search filters will scope by
+
+    mw.get_response = get_response
     mw(req)
+    assert [getattr(v, "user_id", None) for v in seen] == [7]
     assert get_current_viewer() is None
 
 
@@ -842,6 +917,43 @@ def test_reschedule_fails_closed_when_the_source_scope_is_unreadable(monkeypatch
     assert tasking.added_user_ids == [7]
     scope = resolve_task_scope(session, 11)
     assert (scope.owner_id, scope.visibility) == (7, PRIVATE)
+
+
+def test_task_copy_stays_private_when_the_source_task_cannot_be_read(monkeypatch):
+    from lib.tenancy.acl import resolve_task_scope
+
+    session, tasking = _reschedule_rig(monkeypatch)
+
+    def _boom(self, task_id):
+        raise RuntimeError("db down")
+
+    import lib.tenancy.hooks as hooks
+
+    # Pin the non-inherited path to a public default, so falling back to it can't pass for private.
+    monkeypatch.setattr(hooks, "get_current_viewer", lambda: None)
+    monkeypatch.setattr(hooks, "get_current_entitlements", lambda: None)
+    monkeypatch.setattr(hooks, "get_current_submission_visibility", lambda: None)
+    monkeypatch.setattr(hooks, "resolve_default_visibility", lambda cfg: "public")
+    monkeypatch.setattr(tasking, "view_task", _boom)
+    with hooks.inherit_task_scope(tasking(session), 10):
+        assert tasking(session).add("target") == 11
+    assert resolve_task_scope(session, 11).visibility == PRIVATE
+
+
+def test_ownerless_tasks_stay_public_with_multitenancy_off(monkeypatch):
+    # tasks.user_id 0 is CAPE's "no owner" (add()'s default), not a user.
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    from lib.tenancy.acl import resolve_task_scope
+
+    off = lambda: policy.MTConfig(enabled=False, mode="shared", default_visibility="", local_admins_manage_all_tenants=True)  # noqa: E731
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", off)
+    engine = sa.create_engine("sqlite://")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        scope = resolve_task_scope(session, 5, fallback_user_id=0)
+    assert (scope.owner_id, scope.visibility) == (None, "public")
 
 
 def test_task_copy_scope_hook_makes_refetched_copies_inherit(monkeypatch):

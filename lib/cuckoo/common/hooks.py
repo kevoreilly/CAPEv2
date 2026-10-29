@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from typing import Any, Callable, ContextManager, MutableMapping, Optional
+from typing import Any, Callable, MutableMapping, Optional
 
 MongoFilterHook = Callable[[str, dict[str, Any]], dict[str, Any]]
 SqlTaskFilterHook = Callable[[Any], Any]
@@ -18,7 +18,7 @@ TagFilterHook = Callable[[list[Any]], list[Any]]
 RouteFilterHook = Callable[[list[Any], str | None], list[Any]]
 SubmissionContextFilterHook = Callable[[MutableMapping[str, Any]], MutableMapping[str, Any]]
 LoginGroupsHook = Callable[[Any, set], None]
-TaskCopyScopeHook = Callable[[Any, int], ContextManager[Any]]
+TaskCopyScopeHook = Callable[[Any, int], contextlib.AbstractContextManager[Any]]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []

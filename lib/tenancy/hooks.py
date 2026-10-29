@@ -97,7 +97,7 @@ def _trusted_submitter() -> bool:
 _VMLESS_TASK_OBJECTS = ("PCAP", "Static")
 
 
-def _enforce_task_entitlements(kwargs: Dict[str, Any]) -> Optional[str]:
+def _enforce_task_entitlements(kwargs: Dict[str, Any], db: Any = None, *, vmless: bool = False) -> Optional[str]:
     """Check the final `add` kwargs against the request's entitlements; normalize them in place.
 
     The middleware checks the submitted form early, but API bodies (JSON, re-parsed urlencoded)
@@ -109,14 +109,23 @@ def _enforce_task_entitlements(kwargs: Dict[str, Any]) -> Optional[str]:
     tags = kwargs.get("tags")
     if isinstance(tags, (list, tuple, set)):
         tags = ",".join(str(t) for t in tags)
+    machine = kwargs.get("machine") or ""
+    if machine and not ent.can_use_machine(machine):
+        # machine=all expands to labels, which the scheduler matches; policies name machines.
+        try:
+            vm = db.view_machine_by_label(machine) if db is not None else None
+        except Exception:
+            vm = None
+        if vm is not None and getattr(vm, "name", None):
+            machine = vm.name
     params = {
-        "machine": kwargs.get("machine") or "",
+        "machine": machine,
         "route": kwargs.get("route") or "",
         "tags": tags or "",
         "timeout": kwargs.get("timeout") or 0,
         "options": kwargs.get("options") or "",
     }
-    allowed, err, normalized = validate_and_normalize_submission(params, ent)
+    allowed, err, normalized = validate_and_normalize_submission(params, ent, vmless=vmless)
     if not allowed:
         return err or "Submission denied by group policy"
     if normalized.get("route") and not kwargs.get("route"):
@@ -125,6 +134,8 @@ def _enforce_task_entitlements(kwargs: Dict[str, Any]) -> Optional[str]:
         kwargs["tags"] = normalized["tags"]
     if str(normalized.get("timeout")) != str(params["timeout"]):
         kwargs["timeout"] = int(normalized["timeout"])
+    if normalized.get("options") != params["options"]:
+        kwargs["options"] = normalized["options"]
     return None
 
 
@@ -382,7 +393,7 @@ def wrap_submission_and_web_utils(
                 if inherited is None:  # a copy keeps its source's fields
                     obj = args[0] if args else kwargs.get("obj")
                     vmless = type(obj).__name__ in _VMLESS_TASK_OBJECTS
-                    denied = None if vmless else _enforce_task_entitlements(kwargs)
+                    denied = _enforce_task_entitlements(kwargs, self, vmless=vmless)
                     if denied:
                         log.warning("tenancy: task not added: %s", denied)
                         return None

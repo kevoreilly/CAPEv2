@@ -104,8 +104,9 @@ In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
      ``["win10", "x64", "office*"]`` or ``["*"]``).
    * ``allowed_routes``: list of allowed routing options (e.g.
      ``["none", "inetsim", "tor", "internet", "vpn:vpn_uk", "socks5:*", "exit:*"]``
-     or ``["*"]``). A typed pattern such as ``vpn:*`` covers VPN names only,
-     never the built-in ``none``/``drop``/``internet``/``inetsim``/``tor`` routes.
+     or ``["*"]``). A typed pattern such as ``vpn:*`` covers the routes configured
+     as that type only (VPNs here), never the built-in ``none``/``drop``/``internet``/
+     ``inetsim``/``tor`` routes or the nexthop ``random``/``roundrobin`` tokens.
    * ``default_route``: default route pre-selected in the submission UI and
      injected when ``route`` is omitted on ``POST /submit/`` or
      ``POST /apiv2/tasks/create/*``. Without one, an omitted route must be

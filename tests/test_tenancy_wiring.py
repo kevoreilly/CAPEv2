@@ -1274,11 +1274,16 @@ def _policy(pid, priority=0, **kw):
     return types.SimpleNamespace(**base)
 
 
-@pytest.mark.parametrize("route", ["internet", "tor", "inetsim", "drop"])
-def test_typed_route_wildcard_does_not_cover_builtin_routes(route):
-    # "vpn:*" means any VPN exit; it must not let a bare route=internet through.
+@pytest.mark.parametrize(
+    "route", ["internet", "tor", "inetsim", "drop", "nexthop", "random", "roundrobin", "gw_b", "socks_nl", "tun9"]
+)
+def test_typed_route_wildcard_covers_only_routes_of_that_type(monkeypatch, route):
+    # "vpn:*" means any VPN exit: not internet, a nexthop gateway, a socks5 proxy or a raw tun.
+    import lib.tenancy.resources as res
     from lib.tenancy.resources import validate_and_normalize_submission
 
+    types = {"vpn_uk": {"vpn"}, "gw_b": {"gw"}, "socks_nl": {"socks5", "socks"}}
+    monkeypatch.setattr(res, "_known_route_types", lambda name: frozenset(types.get(name, ())))
     ent = _ent(allowed_routes=frozenset({"none", "vpn:*"}))
     assert ent.can_use_route("vpn_uk") is True
     assert ent.can_use_route(route) is False
@@ -1320,11 +1325,13 @@ def test_any_truthy_interactive_value_is_checked(params):
     assert validate_and_normalize_submission(params, _ent(), global_route="none")[0] is False
 
 
-@pytest.mark.parametrize("params", [{"interactive": "0"}, {"interactive": ""}, {"options": "interactive=0"}])
-def test_false_interactive_values_pass(params):
+@pytest.mark.parametrize("params", [{"interactive": "0"}, {"options": "interactive=0"}, {"options": "interactive=no"}])
+def test_interactive_zero_is_still_interactive(params):
+    # The guest checks options.get("interactive") for truthiness: "0" and "no" turn it on.
     from lib.tenancy.resources import validate_and_normalize_submission
 
-    assert validate_and_normalize_submission(params, _ent(), global_route="none")[0] is True
+    assert validate_and_normalize_submission(params, _ent(), global_route="none")[0] is False
+    assert validate_and_normalize_submission({"interactive": ""}, _ent(), global_route="none")[0] is True
 
 
 @pytest.mark.parametrize("params", [{"tor": "y"}, {"tor": "on"}, {"options": "tor=yes"}])
@@ -1452,3 +1459,123 @@ def test_vmless_tasks_skip_machine_and_route_entitlements(monkeypatch):
 
     req = types.SimpleNamespace(path="/apiv2/tasks/create/static/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={})
     assert _status(mw.process_view(req, tasks_create_static, (), {})) != 403
+
+
+def test_option_timeouts_are_capped_and_an_omitted_timeout_keeps_the_default():
+    # dist copies options' timeout= into the task timeout it forwards to a worker.
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(max_timeout=120)
+    ok, _, norm = validate_and_normalize_submission({"options": "foo=1,timeout=99999"}, ent, global_route="none", default_timeout=60)
+    assert ok and norm["options"] == "foo=1,timeout=120" and "timeout" not in norm
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="none", default_timeout=300)
+    assert norm["timeout"] == "120"
+
+
+def test_vmless_submissions_keep_the_all_vms_check():
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_machines=frozenset({"win10_alpha_*"}), allowed_routes=frozenset())
+    assert validate_and_normalize_submission({}, ent, vmless=True)[0] is True
+    assert validate_and_normalize_submission({"machine": "all"}, ent, vmless=True)[0] is False
+
+
+def test_machine_labels_are_checked_by_the_machine_name(monkeypatch):
+    # machine=all expands to labels (AWS: the instance id); policies list machine names.
+    from lib.tenancy.context import set_current_entitlements
+    from lib.tenancy.hooks import _enforce_task_entitlements
+
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "none")
+    set_current_entitlements(_ent(allowed_machines=frozenset({"win10_alpha_*"})))
+    db = types.SimpleNamespace(view_machine_by_label=lambda label: types.SimpleNamespace(name="win10_alpha_1") if label == "i-0abc" else None)
+    assert _enforce_task_entitlements({"machine": "i-0abc"}, db) is None
+    assert _enforce_task_entitlements({"machine": "i-0def"}, db)
+
+
+def test_locked_mode_keeps_superusers_without_a_group(monkeypatch):
+    import lib.tenancy.resources as res
+
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", allow_superuser_all=False))
+    user = types.SimpleNamespace(is_authenticated=True, is_superuser=True, groups=[])
+    assert res.resolve_user_entitlements(user).unrestricted is True
+
+
+def _wrap_real_tasking(monkeypatch):
+    # The real TasksMixIn.add, wrapped for this test only (monkeypatch restores the original).
+    from lib.cuckoo.core.data.tasking import TasksMixIn
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    monkeypatch.setattr(TasksMixIn, "add", TasksMixIn.add)
+    monkeypatch.setattr(TasksMixIn, "reschedule", TasksMixIn.reschedule)
+    stub = types.SimpleNamespace()
+    wrap_submission_and_web_utils(tasking_cls=TasksMixIn, machines_cls=stub, web_utils_mod=stub, submission_views_mod=stub)
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "none")
+
+
+def test_random_vpn_picks_only_routes_the_submitter_may_use(db, temp_pe32, monkeypatch):
+    # routing.conf random_vpn ran after the middleware: an unpermitted pick dropped the task.
+    import lib.cuckoo.common.web_utils as wu
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+    from lib.tenancy.hooks import default_route_list_filter
+
+    _wrap_real_tasking(monkeypatch)
+    monkeypatch.setattr(core_hooks, "_route_filters", [default_route_list_filter])
+    monkeypatch.setattr(
+        wu, "routing_conf", types.SimpleNamespace(socks5=types.SimpleNamespace(random_socks5=False), vpn=types.SimpleNamespace(random_vpn=True))
+    )
+    monkeypatch.setattr(wu, "vpns", {"vpn_uk": object(), "vpn_de": object()})
+    monkeypatch.setattr(wu, "_load_socks5_operational", lambda: {})
+    monkeypatch.setattr(wu, "choice", lambda seq: "vpn_de" if "vpn_de" in seq else seq[0])
+    monkeypatch.setattr(wu, "load_vms_exits", lambda: {})
+    monkeypatch.setattr(wu, "DYNAMIC_PLATFORM_DETERMINATION", False)
+    monkeypatch.setattr(wu, "save_script_to_storage", lambda *a, **k: None)
+    monkeypatch.setattr("lib.tenancy.resources._known_route_types", lambda name: frozenset({"vpn"}) if name.startswith("vpn_") else frozenset())
+    set_current_viewer(_viewer(8, 2))
+    set_current_entitlements(_ent(allowed_routes=frozenset({"none", "vpn:vpn_uk"})))
+    req = types.SimpleNamespace(POST={"machine": "", "platform": "", "route": ""}, FILES=[object()])
+    status, result = wu.download_file(
+        request=req, content=open(temp_pe32, "rb").read(), path=temp_pe32, service="t",
+        options="", task_ids=[], errors=[], url=False, fhash=False, user_id=8,
+    )
+    assert status == "ok" and result["task_ids"]
+    assert [db.view_task(t).route for t in result["task_ids"]] == ["vpn_uk"]
+
+
+def test_machine_all_expansion_by_label_is_kept(db, temp_pe32, monkeypatch):
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+
+    _wrap_real_tasking(monkeypatch)
+    db.add_machine(
+        name="win10_alpha_1", label="i-0abc123", arch="x64", ip="192.168.56.101", platform="windows", tags="",
+        interface="virbr0", snapshot=None, resultserver_ip="192.168.56.1", resultserver_port=2042, reserved=False,
+    )
+    set_current_viewer(_viewer(8, 2))
+    set_current_entitlements(_ent(allowed_machines=frozenset({"win10_alpha_*"}), allow_all_vms=True))
+    ids, _ = db.demux_sample_and_add_to_db(temp_pe32, machine="all", platform="windows", user_id=8)
+    assert [db.view_task(i).machine for i in ids] == ["i-0abc123"]
+
+
+def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monkeypatch):
+    # The main node's add() applied the group's pool tag, route and timeout cap; the worker's
+    # dist account is unrestricted, so dropping them ran the URL anywhere, with any route.
+    import requests
+
+    dist = pytest.importorskip("utils.dist")
+    node = types.SimpleNamespace(name="worker1", url="http://worker1/apiv2/", apikey="k")
+    task = types.SimpleNamespace(
+        tags="pool_alpha", main_task_id=5, category="url", path="http://a.test/", package="", timeout=120,
+        priority=1, options="", machine="", platform="", custom="", clock=None, memory=False,
+        enforce_timeout=False, route="none", tlp=None,
+    )
+    fake_db = types.SimpleNamespace(scalar=lambda q: node, get=lambda model, tid: task, close=lambda: None)
+    posted = {}
+
+    def post(url, data=None, **kw):
+        posted.update(data)
+        raise requests.RequestException("stop here")
+
+    monkeypatch.setattr(dist.requests, "post", post)
+    dist.node_submit_task(1, 1, 5, db=fake_db)
+    assert posted["url"] == "http://a.test/"
+    assert (posted["tags"], posted["route"], posted["timeout"]) == ("pool_alpha", "none", 120)

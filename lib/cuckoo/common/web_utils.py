@@ -20,7 +20,7 @@ from django.http import HttpResponse
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter
+from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
@@ -205,7 +205,6 @@ def load_vms_exits(force: bool = False):
                     print(e)
 
         cached_exits = dict(_all_nodes_exits)
-    from lib.cuckoo.common.hooks import apply_route_filter
 
     allowed_exits = set(apply_route_filter(list(cached_exits.keys()), "exit"))
     return {k: v for k, v in cached_exits.items() if k in allowed_exits}
@@ -823,11 +822,15 @@ def download_file(**kwargs):
         socks5s_random = ""
         vpn_random = ""
 
-        if routing_conf.socks5.random_socks5 and socks5s:
-            socks5s_random = choice(list(socks5s.keys()))
+        # Only routes the submitter may use (route filter hooks; identity without them).
+        socks5_names = apply_route_filter(list(socks5s.keys()), "socks5") if socks5s else []
+        vpn_names = apply_route_filter(list(vpns.keys()), "vpn") if vpns else []
 
-        if routing_conf.vpn.random_vpn and vpns:
-            vpn_random = choice(list(vpns.keys()))
+        if routing_conf.socks5.random_socks5 and socks5_names:
+            socks5s_random = choice(socks5_names)
+
+        if routing_conf.vpn.random_vpn and vpn_names:
+            vpn_random = choice(vpn_names)
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))

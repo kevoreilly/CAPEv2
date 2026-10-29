@@ -678,7 +678,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options, "attributes": attributes_json},
+                    # Same fields as file tasks: the main node's machine, pool tags, route and
+                    # timeout, which the worker's unrestricted dist account would otherwise drop.
+                    data={**data, "url": task.path},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,

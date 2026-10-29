@@ -14,10 +14,33 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, MutableMapping
 from lib.tenancy.policy import multitenancy_config
 
 _ROUTE_PREFIXES = ("vpn", "socks5", "socks", "gw", "exit")
-# The submit view and the guest enable interactive on any non-empty value except these.
-_FALSE_STRINGS = ("", "0", "false", "no", "off", "none")
-# Routes analysis_manager handles by name; a typed pattern such as "vpn:*" must not match them.
-_BUILTIN_ROUTES = ("none", "drop", "false", "internet", "inetsim", "tor")
+# Routes analysis_manager handles by name (plus the nexthop pool's policy tokens): a typed pattern
+# such as "vpn:*" never matches them.
+_BUILTIN_ROUTES = ("none", "drop", "false", "internet", "inetsim", "tor", "nexthop", "random", "roundrobin")
+
+
+def _known_route_types(name: str) -> FrozenSet[str]:
+    """The route types a bare route name is configured as: what a typed pattern may match it by."""
+    types: set[str] = set()
+    try:
+        from lib.cuckoo.core.rooter import _load_socks5_operational, gateways, vpns
+
+        if name in {str(k).lower() for k in vpns}:
+            types.add("vpn")
+        if name in {str(k).lower() for k in (_load_socks5_operational() or {})}:
+            types.update(("socks5", "socks"))
+        if name in {str(k).lower() for k in gateways}:
+            types.add("gw")
+    except Exception:
+        pass
+    try:
+        from lib.cuckoo.common.web_utils import load_vms_exits
+
+        if name in {str(k).lower() for k in (load_vms_exits() or {})}:
+            types.add("exit")
+    except Exception:
+        pass
+    return frozenset(types)
 
 
 def _norm_token(value: Any) -> str:
@@ -138,12 +161,10 @@ class ResourceEntitlements:
                 candidates.add(bare)
         elif norm in _BUILTIN_ROUTES:
             candidates = {norm}
-        else:
-            if rtype:
-                candidates.add(f"{rtype}:{norm}")
-            else:
-                for pfx in _ROUTE_PREFIXES:
-                    candidates.add(f"{pfx}:{norm}")
+        elif not rtype:
+            # A bare name matches a typed pattern only as the type it is configured as: "vpn:*"
+            # must not cover a socks5 proxy, a nexthop gateway or a raw tun interface.
+            candidates.update(f"{pfx}:{norm}" for pfx in _known_route_types(norm) if pfx in _ROUTE_PREFIXES)
 
         return any(_match_patterns(cand, self.allowed_routes) for cand in candidates)
 
@@ -367,7 +388,7 @@ def resolve_user_entitlements(
             return ResourceEntitlements.deny_all()
         return ResourceEntitlements.allow_all()
 
-    if not policies and cfg.enabled and cfg.mode == "locked" and not unassigned_policy:
+    if not policies and cfg.enabled and cfg.mode == "locked" and not unassigned_policy and not is_super:
         # Locked mode isolates tenants: a user no policy covers (or whose policies are all inactive)
         # gets nothing unless CAPE_TENANCY_UNASSIGNED_GROUP_POLICY says "allow" explicitly.
         effective_unassigned = _get_unassigned_policy_setting(default="deny")
@@ -462,13 +483,39 @@ def _has_option(options_str: str, key: str) -> bool:
         part = item.strip()
         if "=" in part:
             k, v = part.split("=", 1)
-            if k.strip().lower() == key and v.strip().lower() not in _FALSE_STRINGS:
+            if k.strip().lower() == key and v.strip():  # the guest treats any value as on
                 return True
     return False
 
 
 def _has_interactive_option(options_str: str) -> bool:
     return _has_option(options_str, "interactive")
+
+
+def _default_timeout() -> int:
+    """cuckoo.conf [timeouts] default: what a task submitted with timeout 0 runs for."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return int(Config("cuckoo").timeouts.default or 0)
+    except Exception:
+        return 0
+
+
+def _clamp_option_timeouts(options_str: str, cap: int) -> str:
+    """Cap `timeout=` in an options string: dist copies it into the task timeout it forwards."""
+    parts = []
+    for item in options_str.split(","):
+        k, sep, v = item.partition("=")
+        if sep and k.strip().lower() == "timeout":
+            try:
+                n = int(v.strip())
+            except ValueError:
+                n = 0
+            if n <= 0 or n > cap:
+                item = f"{k}={cap}"
+        parts.append(item)
+    return ",".join(parts)
 
 
 def _routing_conf_default_route() -> Optional[str]:
@@ -489,12 +536,16 @@ def validate_and_normalize_submission(
     entitlements: Optional[ResourceEntitlements],
     *,
     global_route: Any = _UNSET,
+    default_timeout: Any = _UNSET,
+    vmless: bool = False,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
     """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`).
 
     Also applied to the final `Database.add` kwargs, where `machine` is one VM name or empty
     ("first available") and `options` already carries `interactive=1`.
-    `global_route` is routing.conf's default route (read from the config when not given).
+    `global_route` is routing.conf's default route and `default_timeout` cuckoo.conf's default
+    timeout (both read from the config when not given). `vmless` (static, PCAP) skips the
+    "first available" pool and route checks: no VM runs those tasks.
     """
     normalized: Dict[str, Any] = dict(params) if params else {}
     if entitlements is None or entitlements.unrestricted:
@@ -504,7 +555,7 @@ def validate_and_normalize_submission(
     options_str = str(normalized.get("options") or "")
     lin_options_str = str(normalized.get("lin_options") or "")
     if (
-        interactive_val not in _FALSE_STRINGS
+        interactive_val  # the submit view enables it for any non-empty value
         or _has_interactive_option(options_str)
         or _has_interactive_option(lin_options_str)
     ) and not entitlements.allow_interactive:
@@ -519,7 +570,7 @@ def validate_and_normalize_submission(
                     return False, "Submitting to all VMs is not permitted for your group.", {}
             elif not entitlements.can_use_machine(m):
                 return False, f"Machine '{m}' is not permitted for your group.", {}
-    else:
+    elif not vmless:
         if not entitlements.can_use_machine(""):
             return False, "No analysis VMs are permitted for your group.", {}
         if "*" not in entitlements.allowed_machines and not entitlements.forced_machine_tags:
@@ -528,14 +579,16 @@ def validate_and_normalize_submission(
 
     route_raw = str(normalized.get("route") or "").strip()
     tor_flag = (
-        _norm_token(normalized.get("tor")) not in _FALSE_STRINGS
+        _norm_token(normalized.get("tor"))
         or _has_option(options_str, "tor")
         or _has_option(lin_options_str, "tor")
     )
     if tor_flag and not entitlements.can_use_route("tor"):
         return False, "Route 'tor' is not permitted for your group.", {}
 
-    if not route_raw and entitlements.default_route:
+    if vmless:
+        pass
+    elif not route_raw and entitlements.default_route:
         route_raw = entitlements.default_route
         normalized["route"] = route_raw
     elif not route_raw:
@@ -547,7 +600,7 @@ def validate_and_normalize_submission(
             route_raw = "none"
             normalized["route"] = route_raw
 
-    if route_raw and not entitlements.can_use_route(route_raw):
+    if route_raw and not vmless and not entitlements.can_use_route(route_raw):
         return False, f"Route '{route_raw}' is not permitted for your group.", {}
 
     tags_raw = str(normalized.get("tags") or "").strip()
@@ -570,8 +623,16 @@ def validate_and_normalize_submission(
             req_timeout = int(normalized.get("timeout") or 0)
         except (TypeError, ValueError):
             req_timeout = 0
-        if req_timeout <= 0 or req_timeout > entitlements.max_timeout:
+        if req_timeout <= 0:
+            # 0 runs for cuckoo.conf's default: keep it unless that exceeds the cap.
+            dflt = _default_timeout() if default_timeout is _UNSET else int(default_timeout or 0)
+            if dflt <= 0 or dflt > entitlements.max_timeout:
+                normalized["timeout"] = str(entitlements.max_timeout)
+        elif req_timeout > entitlements.max_timeout:
             normalized["timeout"] = str(entitlements.max_timeout)
+        for key in ("options", "lin_options"):
+            if "timeout" in str(normalized.get(key) or "").lower():
+                normalized[key] = _clamp_option_timeouts(str(normalized[key]), entitlements.max_timeout)
 
     return True, None, normalized
 

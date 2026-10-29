@@ -246,7 +246,7 @@ def _is_vmless_submission(request: Any, view_func: Callable[..., Any], params: D
     """Static and PCAP submissions: no VM runs, so machine and route entitlements don't apply."""
     if _view_name(view_func).lower() == "tasks_create_static":
         return True
-    if str(params.get("pcap") or "").strip().lower() not in ("", "0", "false", "no", "off"):
+    if str(params.get("pcap") or "").strip():
         return True  # apiv2 tasks/create/file/ with pcap=1 adds it with add_pcap
     files = getattr(request, "FILES", None)
     try:  # /submit/ takes the first of sample, static, pcap present
@@ -458,8 +458,10 @@ class TenancyMiddleware:
                 return self.forbidden_response_factory(request, vis_err or "Invalid submission visibility")
             set_current_submission_visibility(resolved_vis)
             request.submission_visibility = resolved_vis
-            if entitlements is not None and not entitlements.unrestricted and not _is_vmless_submission(request, view_func, raw_params):
-                allowed, err_msg, normalized = validate_and_normalize_submission(raw_params, entitlements)
+            if entitlements is not None and not entitlements.unrestricted:
+                allowed, err_msg, normalized = validate_and_normalize_submission(
+                    raw_params, entitlements, vmless=_is_vmless_submission(request, view_func, raw_params)
+                )
                 if not allowed:
                     return self.forbidden_response_factory(request, err_msg or "Submission denied by group policy")
                 _apply_normalized_submission_params(request, normalized)

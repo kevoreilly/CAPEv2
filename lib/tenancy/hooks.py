@@ -526,7 +526,7 @@ def wrap_submission_and_web_utils(
                         from lib.cuckoo.core.data.task import Task
 
                         row = self.session.get(Task, int(task_id))
-                        if row is not None:
+                        if row is not None and row.status == "recovered":  # only reschedule's own change
                             row.status, row.custom = before
                     return new_id
                 finally:

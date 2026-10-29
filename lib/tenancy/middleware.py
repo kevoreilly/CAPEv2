@@ -463,7 +463,10 @@ class TenancyMiddleware:
             request.submission_visibility = resolved_vis
             if entitlements is not None and not entitlements.unrestricted:
                 allowed, err_msg, normalized = validate_and_normalize_submission(
-                    raw_params, entitlements, vmless=_is_vmless_submission(request, view_func, raw_params)
+                    raw_params,
+                    entitlements,
+                    vmless=_is_vmless_submission(request, view_func, raw_params),
+                    resolve_omitted_route=False,
                 )
                 if not allowed:
                     return self.forbidden_response_factory(request, err_msg or "Submission denied by group policy")
@@ -510,7 +513,7 @@ class TenancyMiddleware:
         """
         for field, must_exist in (("hash", True), ("hashes", False)):
             for value in str(params.get(field) or "").replace(",", " ").split():
-                hash_field = _HASH_FIELD_BY_LEN.get(len(value))
+                hash_field = _HASH_FIELD_BY_LEN.get(len(value)) or ("sha512" if len(value) == 128 else None)
                 if not hash_field:
                     continue  # not a hash: the view rejects it
                 flt = {hash_field: value.lower()}
@@ -690,7 +693,7 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
                 conds.append(Sample.id == int(value))
             except (TypeError, ValueError):
                 return False
-        elif key in ("md5", "sha1", "sha256"):
+        elif key in ("md5", "sha1", "sha256", "sha512"):
             conds.append(getattr(Sample, key) == str(value).lower())
     if not conds:
         return False
@@ -708,7 +711,7 @@ def default_sample_exists_checker(sample_filter: Dict[str, Any]) -> bool:
     from lib.cuckoo.core.data.samples import Sample
     from lib.cuckoo.core.database import Database
 
-    conds = [getattr(Sample, k) == str(v).lower() for k, v in sample_filter.items() if k in ("md5", "sha1", "sha256")]
+    conds = [getattr(Sample, k) == str(v).lower() for k, v in sample_filter.items() if k in ("md5", "sha1", "sha256", "sha512")]
     return bool(conds) and Database().session.scalar(select(Sample.id).where(and_(*conds)).limit(1)) is not None
 
 

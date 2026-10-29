@@ -538,6 +538,7 @@ def validate_and_normalize_submission(
     global_route: Any = _UNSET,
     default_timeout: Any = _UNSET,
     vmless: bool = False,
+    resolve_omitted_route: bool = True,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
     """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`).
 
@@ -545,7 +546,9 @@ def validate_and_normalize_submission(
     ("first available") and `options` already carries `interactive=1`.
     `global_route` is routing.conf's default route and `default_timeout` cuckoo.conf's default
     timeout (both read from the config when not given). `vmless` (static, PCAP) skips the
-    "first available" pool and route checks: no VM runs those tasks.
+    "first available" pool and route checks: no VM runs those tasks. The middleware passes
+    `resolve_omitted_route=False`: routing.conf's random_vpn/random_socks5 pick a route for an
+    omitted one after it, so the final `add` check resolves (and pins) it instead.
     """
     normalized: Dict[str, Any] = dict(params) if params else {}
     if entitlements is None or entitlements.unrestricted:
@@ -595,7 +598,7 @@ def validate_and_normalize_submission(
     elif not route_raw and entitlements.default_route:
         route_raw = entitlements.default_route
         normalized["route"] = route_raw
-    elif not route_raw:
+    elif not route_raw and resolve_omitted_route:
         # No route means routing.conf's default, which this group may not be allowed.
         fallback = _routing_conf_default_route() if global_route is _UNSET else _norm_token(global_route)
         if not (fallback and entitlements.can_use_route(fallback)):

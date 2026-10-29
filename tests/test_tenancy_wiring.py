@@ -1624,9 +1624,9 @@ def test_json_bodies_are_read_for_any_content_type_drf_parses_as_json():
 
 
 @pytest.mark.parametrize("field", ["hash", "hashes"])
-def test_posted_sample_hashes_need_sample_access(field):
+@pytest.mark.parametrize("sha", ["a" * 64, "a" * 128])  # sample_path_by_hash also takes sha512
+def test_posted_sample_hashes_need_sample_access(field, sha):
     # /submit/ hash= and download services read storage/binaries/<hash> first.
-    sha = "a" * 64
 
     def tasks_create_download_services(request):
         pass
@@ -1640,3 +1640,12 @@ def test_posted_sample_hashes_need_sample_access(field):
     assert _status(mw.process_view(req, tasks_create_download_services, (), {})) == 404
     mw.sample_exists_checker = lambda f: False  # not stored: a download service fetches it from outside
     assert _status(mw.process_view(req, tasks_create_download_services, (), {})) == (404 if field == "hash" else None)
+
+
+def test_the_middleware_leaves_an_omitted_route_to_random_vpn_and_the_final_check():
+    # download_file picks routing.conf's random_vpn only when no route was submitted.
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_routes=frozenset({"none", "vpn:vpn_uk"}))
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="none", resolve_omitted_route=False)
+    assert ok and "route" not in norm

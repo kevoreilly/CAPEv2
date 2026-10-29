@@ -837,8 +837,11 @@ def _reschedule_rig(monkeypatch, *, acl_table=True, source_acl=False, url="sqlit
         def view_task(self, task_id):
             return types.SimpleNamespace(id=task_id, user_id=7)
 
-        def add(self, obj, user_id=0, **kwargs):
+        added_attributes = []
+
+        def add(self, obj, user_id=0, attributes=None, **kwargs):
             DummyTasking.added_user_ids.append(user_id)
+            DummyTasking.added_attributes.append(attributes)
             with self.session.begin():  # as TasksMixIn.add does
                 pass
             return 11
@@ -1120,3 +1123,44 @@ def test_default_es_restamp_sends_a_body_the_7x_client_accepts(monkeypatch):
             "conflicts": "proceed",
         }
     ]
+
+
+@pytest.mark.parametrize("as_json", [False, True])
+def test_submitters_cannot_supply_their_own_task_acl_attribute(monkeypatch, as_json):
+    # attributes.task_acl is how dist hands a worker the main server's ACL; the reporters copy it into
+    # the report's info. From an ordinary API submitter it is a forged owner/visibility/seq.
+    import json
+
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+
+    session, tasking = _reschedule_rig(monkeypatch)
+    forged = {"task_acl": {"visibility": "public", "visibility_seq": 10**9}, "main_task_id": 3}
+    attrs = json.dumps(forged) if as_json else dict(forged)
+    token = set_current_viewer(_viewer(8, 2))
+    try:
+        tasking(session).add("target", user_id=8, attributes=attrs)
+    finally:
+        reset_current_viewer(token)
+    assert tasking.added_attributes[-1] == {"main_task_id": 3}
+
+    trusted = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_authenticated=True)
+    token = set_current_viewer(trusted)  # e.g. the dist node's service account
+    try:
+        tasking(session).add("target", user_id=1, attributes=dict(forged))
+    finally:
+        reset_current_viewer(token)
+    assert tasking.added_attributes[-1] == forged
+
+
+def test_reprocess_with_only_a_tenant_keeps_the_visibility():
+    # utils/process.py -r --tenant-id N (or CAPE_TENANT_ID) without --visibility made the task private.
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    engine = sa.create_engine("sqlite://")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 5, user_id=7, tenant_id=1, visibility="public")
+        row = set_task_acl(session, 5, tenant_id=2, visibility=None)
+        assert (row.user_id, row.tenant_id, row.visibility) == (7, 2, "public")
+        assert set_task_acl(session, 6, user_id=7, visibility=None).visibility == PRIVATE

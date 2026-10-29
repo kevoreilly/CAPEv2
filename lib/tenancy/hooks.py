@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import functools
+import json
 import logging
 import os
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
@@ -83,6 +84,25 @@ def inherit_task_scope(db: Any, task_id: Any):
         yield src_scope
     finally:
         _rescheduled_from.reset(token)
+
+
+def _strip_untrusted_task_acl(attributes: Any) -> Any:
+    """Drop `task_acl` from submitted attributes unless the submitter is internal or a superuser.
+
+    dist hands a worker the main server's ACL as attributes.task_acl, and the reporters copy it into
+    the report; from an ordinary API submitter it would be a forged owner, visibility and seq.
+    """
+    viewer = get_current_viewer()
+    if viewer is None or getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False):
+        return attributes
+    if isinstance(attributes, str):
+        try:
+            attributes = json.loads(attributes)
+        except ValueError:
+            return attributes  # add() discards invalid JSON itself
+    if isinstance(attributes, dict) and "task_acl" in attributes:
+        attributes = {k: v for k, v in attributes.items() if k != "task_acl"}
+    return attributes
 
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
@@ -306,6 +326,8 @@ def wrap_submission_and_web_utils(
 
             @functools.wraps(orig_add)
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
+                if kwargs.get("attributes"):
+                    kwargs["attributes"] = _strip_untrusted_task_acl(kwargs["attributes"])
                 inherited = _rescheduled_from.get()
                 if inherited is not None and inherited.owner_id is not None and not kwargs.get("user_id"):
                     kwargs["user_id"] = inherited.owner_id  # tasks.user_id still keys bans and listings

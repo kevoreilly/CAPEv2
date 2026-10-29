@@ -128,11 +128,14 @@ def set_task_acl(
     *,
     user_id: Optional[int] = None,
     tenant_id: Optional[int] = None,
-    visibility: str = PRIVATE,
+    visibility: Optional[str] = PRIVATE,
     external_job_id: Optional[str] = None,
 ) -> TaskAcl:
-    """Create or update the initial ACL record for a newly submitted task."""
-    if visibility not in VISIBILITIES:
+    """Create or update the initial ACL record for a newly submitted task.
+
+    `visibility=None` keeps an existing row's visibility (a new row is private).
+    """
+    if visibility is not None and visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {visibility!r}")
     row = session.get(TaskAcl, int(task_id))
     if row is None:
@@ -140,7 +143,7 @@ def set_task_acl(
             task_id=int(task_id),
             user_id=user_id,
             tenant_id=tenant_id,
-            visibility=visibility,
+            visibility=visibility or PRIVATE,
             visibility_seq=1,
             external_job_id=external_job_id,
         )
@@ -150,7 +153,8 @@ def set_task_acl(
             row.user_id = user_id
         if tenant_id is not None:
             row.tenant_id = tenant_id
-        row.visibility = visibility
+        if visibility is not None:
+            row.visibility = visibility
         row.visibility_seq = int(row.visibility_seq or 0) + 1
         if external_job_id is not None:
             row.external_job_id = external_job_id

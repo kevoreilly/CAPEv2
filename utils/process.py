@@ -154,7 +154,8 @@ def process(
                             int(main_task_id or task_id),
                             user_id=results["info"].get("user_id") or task_dict.get("user_id"),
                             tenant_id=int(tenant_id) if tenant_id is not None else results["info"].get("tenant_id"),
-                            visibility=visibility if visibility in ("public", "tenant", "private") else (results["info"].get("visibility") or "private"),
+                            # without --visibility keep the task's own (the report hook has not stamped info yet)
+                            visibility=visibility if visibility in ("public", "tenant", "private") else None,
                         )
             if attributes := task_dict.get("attributes"):
                 if isinstance(task_acl := attributes.get("task_acl"), dict):

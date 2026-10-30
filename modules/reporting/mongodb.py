@@ -130,7 +130,8 @@ class MongoDB(Report):
         if main_task_id := attributes.get("main_task_id"):
             with suppress(ValueError, TypeError):
                 report["info"]["id"] = int(main_task_id)
-                report["info"]["local_task_id"] = local_task_id
+                # Object storage may have renumbered it already and recorded the real local id.
+                report["info"].setdefault("local_task_id", local_task_id)
 
         if "network" not in report:
             report["network"] = {}
@@ -160,7 +161,8 @@ class MongoDB(Report):
 
         # Store iocs as file
         if reporting_conf.mongodb.dump_iocs:
-            dump_iocs(report, local_task_id)
+            # this node's own task directory, even when the report was renumbered to another server's id
+            dump_iocs(report, int(report["info"].get("local_task_id") or local_task_id))
 
         ensure_valid_utf8(report)
         gc.collect()

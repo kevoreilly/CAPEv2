@@ -785,6 +785,9 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
         except Exception:
             pass
 
+    if renumbered:
+        # This node's submitter and tenant ids mean nothing (or someone else) on that server.
+        info["user_id"] = info["tenant_id"] = None
     if _stamp_from_dist_env(info):
         return
     info.setdefault("visibility", "private")

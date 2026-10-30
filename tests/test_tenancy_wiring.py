@@ -2626,11 +2626,7 @@ def test_dist_resyncs_the_report_stamp_once_it_has_the_report(monkeypatch):
     assert called == [3]
 
     # utils/dist.py calls it after marking a fetched task reported
-    # utils/dist.py calls it once the report is copied, before marking the task retrieved
-    src = open("utils/dist.py").read()
-    copied = src.index("copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)")
-    hook = src.index("run_report_retrieved_hooks(t.main_task_id)")
-    assert copied < hook < src.index("t.retrieved = True", copied)
+
 
 
 def test_node_local_reporters_use_this_nodes_task_id(monkeypatch, tmp_path):
@@ -2729,10 +2725,6 @@ def test_tenancy_mongo_writer_lets_mongo_use_the_info_id_index(monkeypatch):
     assert calls == [{}]
 
 
-def test_force_reported_resyncs_the_report_stamp():
-    src = open("utils/dist.py").read()
-    forced = src.index("if args.force_reported:")
-    assert "run_report_retrieved_hooks(args.force_reported)" in src[forced:src.index("sys.exit()", forced)]
 
 
 def test_tmpfsclean_stores_the_memdump_under_this_nodes_task(monkeypatch, tmp_path):
@@ -2744,3 +2736,110 @@ def test_tmpfsclean_stores_the_memdump_under_this_nodes_task(monkeypatch, tmp_pa
     r.options = types.SimpleNamespace(key="tmpfsclean")
     r.run({"info": {"id": 3, "local_task_id": 9, "options": {"store_memdump": 1}}})
     assert seen == [(9, False), (9, True)]
+
+
+@pytest.mark.parametrize("copy_ok", [True, False])
+def test_dist_fetch_runs_the_resync_hook(copy_ok, monkeypatch):
+    # The worker files its report in the shared store before the task is reported: resync right after
+    # set_status(REPORTED), ahead of the copy and the fallible post-copy steps (a GCS_ENABLED NameError
+    # under the default gcp.conf, a failed copy) that used to skip it.
+    import contextlib
+    import importlib
+    import queue
+    import threading
+
+    dist = importlib.import_module("utils.dist")
+    from lib.cuckoo.common import hooks as core_hooks
+
+    called = []
+    core_hooks.clear_all_hooks()
+    core_hooks.register_report_retrieved_hook(called.append)
+
+    t = types.SimpleNamespace(id=1, task_id=77, main_task_id=42, node_id=1, path="/nonexistent", custom="", tlp=None,
+                              retrieved=False, finished=False)
+    rows = iter([t, types.SimpleNamespace(name="worker1", id=1)])
+
+    class DistDB:
+        scalar = staticmethod(lambda stmt: next(rows))
+        commit = staticmethod(lambda: None)
+        __enter__ = lambda self: self  # noqa: E731
+        __exit__ = lambda self, *a: False  # noqa: E731
+
+    class Stop(Exception):
+        pass
+
+    gets = iter([({"id": 77}, 1)])
+
+    def get():
+        try:
+            return next(gets)
+        except StopIteration:
+            raise Stop
+
+    monkeypatch.setattr(dist, "session", DistDB)
+    monkeypatch.setattr(dist, "main_db", types.SimpleNamespace(
+        session=types.SimpleNamespace(begin=contextlib.nullcontext), set_status=lambda *a: None))
+    monkeypatch.setattr(dist, "node_get_report_nfs", lambda *a: copy_ok)
+    r = dist.Retriever.__new__(dist.Retriever)
+    r.stop_dist, r.current_queue, r.cleaner_queue, r.t_is_none = threading.Event(), {}, queue.Queue(), {}
+    r.fetcher_queue = types.SimpleNamespace(get=get)
+    try:
+        with contextlib.suppress(Stop):
+            r.fetch_latest_reports_nfs()
+    finally:
+        core_hooks.clear_all_hooks()
+    assert called == [42], "the task is REPORTED on the main server but its report was never restamped"
+
+
+def test_resync_one_stamps_a_rowless_task_private_to_its_submitter_and_rejects_unknown(monkeypatch):
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    import lib.cuckoo.common.config as config_mod
+    import lib.tenancy.views as tviews
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
+    from lib.tenancy.backfill import _resync_one
+
+    engine = sa.create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    ensure_acl_schema(engine)
+    writes = []
+    monkeypatch.setattr(tviews, "_default_mongo_update_one", lambda c, f, u: writes.append(u["$set"]))
+    on, off = types.SimpleNamespace(enabled=True), types.SimpleNamespace(enabled=False)
+    monkeypatch.setattr(config_mod, "Config", lambda name: types.SimpleNamespace(mongodb=on, elasticsearchdb=off))
+    with Session(engine) as s:
+        task = Task("x")
+        task.category, task.user_id = "file", 10
+        s.add(task)
+        s.commit()
+        assert _resync_one(s, task.id) is True  # upgraded task, no task_acl row
+        assert _resync_one(s, task.id + 1000) is False  # unknown task
+    assert writes == [{"info.user_id": 10, "info.tenant_id": None, "info.visibility": "private", "info.visibility_seq": 1}]
+
+
+def test_tenancy_mongo_writer_retries_a_reconnect_then_raises(monkeypatch):
+    import dev_utils.mongodb as dm
+    import lib.tenancy.views as tviews
+    from pymongo.errors import AutoReconnect
+
+    attempts = []
+
+    class _Coll:
+        def __init__(self, fail_times):
+            self.fail_times = fail_times
+
+        def update_one(self, flt, update, **kw):
+            attempts.append(1)
+            if len(attempts) <= self.fail_times:
+                raise AutoReconnect("primary stepped down")
+            return "ok"
+
+    monkeypatch.setattr(tviews.time, "sleep", lambda s: None)
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(2)))
+    assert tviews._default_mongo_update_one("analysis", {}, {}) == "ok" and len(attempts) == 3
+    attempts.clear()
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(99)))
+    with pytest.raises(AutoReconnect):
+        tviews._default_mongo_update_one("analysis", {}, {})
+    assert len(attempts) == 5

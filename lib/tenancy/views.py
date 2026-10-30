@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from lib.tenancy.acl import (
@@ -82,9 +83,19 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
 def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict) -> Any:
     # The raw collection: dev_utils' mongo_update_one hints _id, which turns this info.id CAS into a
     # scan of the whole analysis collection (now on every dist fetch, not only on toggles).
+    from pymongo.errors import AutoReconnect
+
     from dev_utils.mongodb import results_db
 
-    return getattr(results_db, collection).update_one(filter_q, update_doc)
+    # Ride out a primary election or restart like dev_utils' wrapper does, but raise at the end:
+    # returning None would let a failed toggle commit as if the store had been written.
+    for attempt in range(5):
+        try:
+            return getattr(results_db, collection).update_one(filter_q, update_doc)
+        except AutoReconnect:
+            if attempt == 4:
+                raise
+            time.sleep(0.5 * 2**attempt)
 
 
 def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:

@@ -244,6 +244,11 @@ def _writes_report_of_tenant_task(view_name: str, method: str) -> bool:
     return True
 
 
+def _route_path(request: Any) -> str:
+    """The path routes resolve on: path_info, without the SCRIPT_NAME a sub-path mount adds to path."""
+    return str(getattr(request, "path_info", None) or getattr(request, "path", "") or "")
+
+
 def classify_view_action(request_path: str, view_func: Callable[..., Any]) -> str:
     """Classify a view invocation as `'read'`, `'manage'`, or `'delete'`."""
     view_name = _view_name(view_func).lower()
@@ -261,7 +266,7 @@ def _is_submission_post(request: Any, view_func: Callable[..., Any]) -> bool:
     method = str(getattr(request, "method", "") or "").upper()
     if method != "POST":
         return False
-    path = str(getattr(request, "path", "") or "").lower()
+    path = _route_path(request).lower()
     view_name = _view_name(view_func).lower()
     if view_name in _SUBMISSION_VIEW_NAMES:
         return True
@@ -285,7 +290,7 @@ def _is_vmless_submission(request: Any, view_func: Callable[..., Any], params: D
 
 def _is_console_view(request: Any, view_func: Callable[..., Any]) -> bool:
     """Views that open (or hand out the session for) a live guac console on a task's VM."""
-    path = str(getattr(request, "path", "") or "").lower()
+    path = _route_path(request).lower()
     return "/guac/" in path or "remote_session" in path or "remote_session" in _view_name(view_func).lower()
 
 
@@ -297,7 +302,7 @@ def _is_machine_view(request: Any, view_func: Callable[..., Any], view_kwargs: D
     if "name" not in view_kwargs or view_kwargs.get("name") is None:
         return False
     view_name = _view_name(view_func).lower()
-    path = str(getattr(request, "path", "") or "").lower()
+    path = _route_path(request).lower()
     return view_name == "machines_view" or "/machines/view/" in path
 
 
@@ -457,7 +462,7 @@ class TenancyMiddleware:
         try:
             from lib.tenancy.urls import match_visibility_task_id
 
-            vis_task_id = match_visibility_task_id(getattr(request, "path", "") or "")
+            vis_task_id = match_visibility_task_id(_route_path(request))
             if vis_task_id is not None:
                 from lib.tenancy.views import tasks_set_visibility
 
@@ -526,7 +531,7 @@ class TenancyMiddleware:
             not viewer.see_all  # anonymous too: the audit views skip their login check under ANON_VIEW
             # path_info: routes resolve without the SCRIPT_NAME prefix a sub-path mount adds to path.
             # The resolver strips leading slashes, so //audit/ routes there too.
-            and str(getattr(request, "path_info", None) or getattr(request, "path", "") or "").lstrip("/").split("/", 1)[0] == "audit"
+            and _route_path(request).lstrip("/").split("/", 1)[0] == "audit"
             and multitenancy_config().enabled
         ):
             # Audit test sessions are deployment-wide: reloading, queueing and deleting them is box admin work.
@@ -580,7 +585,7 @@ class TenancyMiddleware:
         if not viewer.see_all:
             raw_task_ids = _task_ids_from_kwargs(view_kwargs) + _task_ids_from_body(request, view_func)
             if raw_task_ids:
-                action = classify_view_action(getattr(request, "path", ""), view_func)
+                action = classify_view_action(_route_path(request), view_func)
                 method = str(getattr(request, "method", "") or "").upper()
                 if action == "read" and method == "POST" and _view_name(view_func) in _MANAGE_ON_POST_VIEW_NAMES:
                     action = "manage"
@@ -598,7 +603,7 @@ class TenancyMiddleware:
                 if scope is None or not self._check_action(viewer, scope, action):
                     return self.deny_response_factory(request, "Task not found")
                 if not (
-                    str(getattr(request, "path", "") or "").startswith("/apiv2/")
+                    _route_path(request).startswith("/apiv2/")
                     and _view_name(view_func) in _RECOVERY_FOLLOWING_VIEW_NAMES
                 ):
                     continue  # the others serve or act on the task named in the route
@@ -657,7 +662,7 @@ class TenancyMiddleware:
 
     @staticmethod
     def _default_deny_response(request: Any, message: str) -> Any:
-        path = getattr(request, "path", "") or ""
+        path = _route_path(request)
         is_api = path.startswith("/apiv2/") or path.startswith("/api/")
         try:
             from django.conf import settings
@@ -673,7 +678,7 @@ class TenancyMiddleware:
 
     @staticmethod
     def _default_forbidden_response(request: Any, message: str) -> Any:
-        path = getattr(request, "path", "") or ""
+        path = _route_path(request)
         is_api = path.startswith("/apiv2/") or path.startswith("/api/")
         try:
             from django.conf import settings

@@ -131,8 +131,8 @@ def register_task_report_query_hook(fn: TaskReportQueryHook) -> None:
 def task_report_query(task_id: int, store: str = "mongo") -> Optional[dict[str, Any]]:
     """A plugin's query for task_id's own report doc ("mongo" filter or "es" query), or None.
 
-    Views that write into a task's report use it so that, in a report store shared with other
-    nodes, they pick that task's report and not another one sharing its info.id.
+    Views that write into a task's report use it to pick that task's own report rather than another
+    one sharing its info.id (e.g. a broker job's). Plugins return None to keep the stock lookup.
     """
     for fn in _task_report_query_hooks:
         query = fn(int(task_id), store)

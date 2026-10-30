@@ -126,14 +126,10 @@ class MongoDB(Report):
 
         # trick for distributed api
         main_task_id = None
-        if self.task and (attributes := self.task.get("attributes")):
-            if main_task_id := attributes.get("main_task_id"):
-                with suppress(ValueError, TypeError):
-                    report["info"]["id"] = int(main_task_id)
-            if isinstance(task_acl := attributes.get("task_acl"), dict):
-                for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                    if k in task_acl:
-                        report["info"][k] = task_acl[k]
+        attributes = (self.task or {}).get("attributes") or {}
+        if main_task_id := attributes.get("main_task_id"):
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
 
         if "network" not in report:
             report["network"] = {}
@@ -144,6 +140,11 @@ class MongoDB(Report):
         from lib.cuckoo.common.hooks import run_report_hooks
 
         run_report_hooks(report)
+        # After the hooks: the main server's ACL beats this worker's own task_acl row with that number.
+        if isinstance(task_acl := attributes.get("task_acl"), dict):
+            for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
+                if k in task_acl:
+                    report["info"][k] = task_acl[k]
 
         # Delete old data just before inserting new one to avoid "missing report" window
 

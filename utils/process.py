@@ -157,14 +157,15 @@ def process(
                             # without --visibility keep the task's own (the report hook has not stamped info yet)
                             visibility=visibility if visibility in ("public", "tenant", "private") else None,
                         )
+            from lib.cuckoo.common.hooks import run_report_hooks
+
+            run_report_hooks(results)
+            # After the hooks: the main server's ACL beats this worker's own task_acl row.
             if attributes := task_dict.get("attributes"):
                 if isinstance(task_acl := attributes.get("task_acl"), dict):
                     for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
                         if k in task_acl:
                             results["info"][k] = task_acl[k]
-            from lib.cuckoo.common.hooks import run_report_hooks
-
-            run_report_hooks(results)
             if visibility in ("public", "tenant", "private"):
                 results["info"]["visibility"] = visibility
             if tenant_id is not None:

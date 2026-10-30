@@ -758,28 +758,32 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
     except Exception:
         pass
 
-    if not multitenancy_config().enabled:
-        return
     info = results.get("info")
     if not isinstance(info, dict):
+        return
+    # Object storage renumbered a bridged report to the central task id: this node's task_acl row
+    # with that number is an unrelated task, so the broker's CAPE_TASK_* stamp applies instead.
+    renumbered = info.pop("_renumbered_from", None) is not None
+    if not multitenancy_config().enabled:
         return
     task_id = info.get("id")
     if task_id is None:
         return
-    try:
-        from lib.cuckoo.core.database import Database
+    if not renumbered:
+        try:
+            from lib.cuckoo.core.database import Database
 
-        db = Database()
-        with db.session.begin():
-            row = db.session.get(TaskAcl, int(task_id))
-            if row is not None:
-                info["user_id"] = row.user_id
-                info["tenant_id"] = row.tenant_id
-                info["visibility"] = row.visibility
-                info["visibility_seq"] = int(row.visibility_seq or 1)
-                return
-    except Exception:
-        pass
+            db = Database()
+            with db.session.begin():
+                row = db.session.get(TaskAcl, int(task_id))
+                if row is not None:
+                    info["user_id"] = row.user_id
+                    info["tenant_id"] = row.tenant_id
+                    info["visibility"] = row.visibility
+                    info["visibility_seq"] = int(row.visibility_seq or 1)
+                    return
+        except Exception:
+            pass
 
     if _stamp_from_dist_env(info):
         return

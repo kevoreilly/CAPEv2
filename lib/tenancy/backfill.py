@@ -253,7 +253,8 @@ def runs_dist_tasks(session: Session) -> Optional[int]:
     from lib.tenancy.storage.artifact_storage import job_id_from_custom
 
     for task_id, custom in session.execute(select(Task.id, Task.custom).where(Task.custom.like("%job_id=ui-%"))):
-        if str(job_id_from_custom(custom) or "").startswith("ui-"):
+        job_id = str(job_id_from_custom(custom) or "")
+        if job_id.startswith("ui-") and job_id != f"ui-{task_id}":  # the central's own bridge stamp
             return task_id
     rows = session.execute(select(Task.id, Task.attributes).where(Task.attributes.is_not(None))).yield_per(1000)
     for task_id, attributes in rows:

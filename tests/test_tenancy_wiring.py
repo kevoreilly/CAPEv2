@@ -2430,8 +2430,8 @@ def test_tenancy_registers_the_own_report_query_hook(monkeypatch):
 
 
 def test_comments_write_to_the_tasks_own_report_by_document_id():
-    # The comment was written with update_one({"info.id": N}): in a shared report store that is the
-    # oldest doc with that id, possibly another tenant's report the commenter cannot read.
+    # The comment was written with update_one({"info.id": N}): the oldest doc with that id, which can
+    # be a broker job's report sharing the info.id, possibly another tenant's.
     pytest.importorskip("django")
     import os
     import subprocess
@@ -2484,6 +2484,21 @@ v.enabledconf["mongodb"], v.es_as_db = True, True
 assert v.comments(req, 5) == "ok"
 assert writes == [{"_id": "oid-own"}] and es_writes == [("idx", "es-own")], (writes, es_writes)
 
+# Each store is written only if its own read found the report.
+class NoHitsES(FakeES):
+    def search(self, index, body=None, **kw):
+        return {"hits": {"hits": []}}
+writes.clear(); es_writes.clear()
+v.es = NoHitsES()
+assert v.comments(req, 5) == "ok"
+assert writes == [{"_id": "oid-own"}] and es_writes == [], (writes, es_writes)
+v.es = FakeES()
+v.mongo_find_one = lambda c, q, p=None, **kw: None
+writes.clear(); es_writes.clear()
+assert v.comments(req, 5) == "ok"
+assert writes == [] and es_writes == [("idx", "es-own")], (writes, es_writes)
+v.mongo_find_one = lambda c, q, p=None, **kw: reads.append(q) or {"_id": "oid-own", "info": {"comments": []}}
+
 # on_demand stores the service output into the task's own report.
 reads.clear(); writes.clear()
 v.enabledconf["mongodb"], v.es_as_db = True, False
@@ -2499,3 +2514,84 @@ assert len(writes) == 1 and str(writes[0]["_id"]) == "507f1f77bcf86cd799439011",
     env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
     res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr[-3000:]}"
+
+
+def test_dist_worker_report_keeps_the_acl_the_main_server_sent(monkeypatch):
+    # mongodb reporting renumbers a dist task's report to the MAIN task id, then ran the report
+    # hooks, which stamped it from the WORKER's own task_acl row with that number (an unrelated task).
+    import copy
+
+    import modules.reporting.mongodb as m
+    from lib.cuckoo.common import hooks as core_hooks
+
+    inserted = []
+    monkeypatch.setattr(m, "HAVE_MONGO", True)
+    monkeypatch.setattr(m, "mongo_collection_names", lambda: ["cuckoo_schema"])
+    monkeypatch.setattr(m, "mongo_find_one", lambda *a, **k: {"version": m.MongoDB.SCHEMA_VERSION})
+    monkeypatch.setattr(m, "get_json_document", lambda results, path: copy.deepcopy(results))
+    monkeypatch.setattr(m, "mongo_delete_data", lambda ids: None)
+    monkeypatch.setattr(m, "insert_calls", lambda report, mongodb: [])
+    monkeypatch.setattr(m, "ensure_valid_utf8", lambda report: None)
+    monkeypatch.setattr(m, "mongo_insert_one", lambda collection, doc: inserted.append(doc))
+    # the worker's local row for its own task 3
+    core_hooks.register_report_hook(lambda results: results["info"].update(user_id=1, tenant_id=None, visibility="public"))
+    try:
+        reporter = m.MongoDB()
+        reporter.task = {"id": 9, "attributes": {"main_task_id": 3, "task_acl": {"user_id": 42, "tenant_id": 2, "visibility": "private", "visibility_seq": 4}}}
+        reporter.analysis_path = "/nonexistent"
+        reporter.run({"info": {"id": 9}, "behavior": {"processes": [], "processtree": [], "summary": {}}})
+    finally:
+        core_hooks.clear_all_hooks()
+    info = inserted[0]["info"]
+    assert (info["id"], info["user_id"], info["tenant_id"], info["visibility"], info["visibility_seq"]) == (3, 42, 2, "private", 4)
+
+
+def test_bridged_report_is_not_stamped_from_the_local_row_with_the_central_id(monkeypatch, tmp_path):
+    # Object storage renumbers a bridged report to the central id; the hook then looked up the
+    # worker's own task_acl row with that number instead of the broker's CAPE_TASK_* stamp.
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    from lib.tenancy import hooks as th
+
+    engine = sa.create_engine(f"sqlite:///{tmp_path}/w.db")
+    ensure_acl_schema(engine)
+    with Session(engine) as s:
+        set_task_acl(s, 3, user_id=1, tenant_id=None, visibility="public")
+        s.commit()
+    monkeypatch.setattr("lib.cuckoo.core.database.Database", lambda: types.SimpleNamespace(session=Session(engine)))
+    monkeypatch.setattr(th, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setenv("CAPE_TASK_VISIBILITY", "private")
+    monkeypatch.setenv("CAPE_TASK_TENANT_ID", "2")
+    monkeypatch.setenv("CAPE_TASK_USER_ID", "42")
+    results = {"info": {"id": 3, "job_id": "ui-3", "_renumbered_from": 9}}
+    th.default_report_stamp_hook(results)
+    info = results["info"]
+    assert (info["user_id"], info["tenant_id"], info["visibility"]) == (42, 2, "private")
+    assert "_renumbered_from" not in info
+
+
+def test_path_gates_use_path_info_under_a_script_name_mount():
+    # Under SCRIPT_NAME=/cape, request.path is /cape/submit/ while routes resolve on path_info.
+    from lib.tenancy.middleware import _is_submission_post
+
+    def index(request):
+        pass
+
+    req = _req("/cape/submit/")
+    req.path_info, req.method = "/submit/", "POST"
+    assert _is_submission_post(req, index)
+
+    def tasks_view(request, task_id):
+        pass
+
+    from lib.tenancy.policy import PRIVATE, ResourceScope
+
+    scopes = {10: ResourceScope(owner_id=8, tenant_id=2, visibility=PRIVATE), 11: ResourceScope(owner_id=7, tenant_id=1, visibility=PRIVATE)}
+    mw = TenancyMiddleware(
+        lambda r: None, viewer_resolver=lambda u: _viewer(8, 2),
+        task_scope_resolver=lambda t: scopes.get(t), recovery_target_resolver=lambda t: 11 if t == 10 else None,
+    )
+    req = _req("/cape/apiv2/tasks/view/10/")
+    req.path_info = "/apiv2/tasks/view/10/"
+    assert _status(mw.process_view(req, tasks_view, (), {"task_id": 10})) == 404

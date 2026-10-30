@@ -214,15 +214,19 @@ class ObjectStorage(Report):
             raise CuckooReportError(
                 f"object_storage: refusing unsafe job_id {job_id!r} (must match {_SAFE_JOB_ID_RE.pattern} and contain no '..')"
             )
-        info["job_id"] = job_id
-
         _m = re.match(r"^ui-(\d+)$", job_id)
         if not _m and object_storage_bridge_required():
+            # Nothing was uploaded under that job id: keep the report this task's own (local-<id>).
+            info["job_id"] = f"local-{analysis_id}"
             raise CuckooReportError(
                 f"object_storage: refusing non-bridged analysis (job_id={job_id!r}) under multitenancy -- "
                 "tenant-isolated object-storage submission requires a bridged job_id (ui-<central_id>)"
             )
+        info["job_id"] = job_id
         if _m:
+            if info.get("id") != int(_m.group(1)):
+                # The report is the central task's now: the stamp hook must not use this node's row.
+                info["_renumbered_from"] = analysis_id
             info["id"] = int(_m.group(1))
 
         prefix = getattr(cfg, "prefix", None) or getattr(cfg, "s3_prefix", "results")

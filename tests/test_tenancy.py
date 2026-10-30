@@ -1778,7 +1778,7 @@ def _matches(doc, flt):
     return True
 
 
-def test_toggle_only_restamps_this_nodes_own_report_of_the_task():
+def test_toggle_only_restamps_the_tasks_own_report():
     # A broker job's report can share the task's info.id: update_one by bare info.id restamped (and
     # re-owned) the oldest such doc instead of the task's own report.
     docs = [
@@ -1955,3 +1955,44 @@ def test_reconcile_restamps_a_job_less_report_whose_acl_row_is_bound_to_its_own_
         session.commit()
         plans = dict(op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": 1, "job_id": None, "tenant_id": 3}]) for op in batch)
     assert plans["k"]["tenant_id"] == 8
+
+
+def test_refused_object_storage_upload_files_the_report_as_the_tasks_own(tmp_path, monkeypatch):
+    # A trusted submitter's ordinary custom ("ticket-1234") became the job id of a report whose upload
+    # was refused: the toggle, reconcile, comments and on_demand then no longer found it as its own.
+    from lib.cuckoo.common.exceptions import CuckooReportError
+    from lib.tenancy.storage.reporting import ObjectStorage
+
+    (tmp_path / "analyses" / "7").mkdir(parents=True)
+    monkeypatch.setattr(
+        "lib.tenancy.storage.reporting.object_storage_config",
+        lambda: ObjectStorageConfig(enabled=True, backend="local", local_root=str(tmp_path), prefix="results"),
+    )
+    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
+    monkeypatch.delenv("CAPE_MAIN_TASK_ID", raising=False)
+    for custom in ("ticket-1234", "job_id=abc123", None):
+        results = {"info": {"id": 7, "custom": custom}}
+        reporter = ObjectStorage()
+        reporter.set_path(str(tmp_path / "analyses" / "7"))
+        with pytest.raises(CuckooReportError):
+            reporter.run(results)
+        assert results["info"]["job_id"] == "local-7", custom
+
+
+def test_reconcile_runs_on_a_central_whose_tasks_carry_their_own_bridge_id(monkeypatch):
+    # The submit bridge stamps a central task's own custom job_id=ui-<its id>: that is not a worker.
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
+
+    seen = []
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        task = Task("x")
+        task.category = "file"
+        session.add(task)
+        session.flush()
+        task.custom = f"job_id=ui-{task.id}"
+        session.commit()
+    main = _patch_reconcile_cli(monkeypatch, engine, seen)
+    assert main(["--dry-run"]) == 0 and len(seen) == 1

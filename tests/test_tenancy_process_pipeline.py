@@ -123,12 +123,14 @@ def test_bridged_reprocess_tenant_override_reaches_mongo(monkeypatch, tmp_path):
 
 
 def test_bridged_reprocess_visibility_override_reaches_mongo(monkeypatch, tmp_path):
-    proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path)
+    # The central's CAPE_TASK_* stamp would replace the operator's --visibility in Mongo's hook pass.
+    env = {"CAPE_TASK_VISIBILITY": "private", "CAPE_TASK_TENANT_ID": "2", "CAPE_TASK_USER_ID": "42"}
+    proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path, env=env)
     task = {"id": 9, "options": "", "custom": "job_id=ui-3", "attributes": {}}
     seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task,
                        {"id": 9, "custom": "job_id=ui-3", "user_id": 5}, visibility="public")
-    print("mongo info:", _pick(minfo))
-    assert minfo["visibility"] == "public"
+    assert seen["visibility"] == minfo["visibility"] == "public"
+    assert (minfo["user_id"], minfo["tenant_id"]) == (42, 2)
 
 
 def test_plain_single_node_report_has_no_local_task_id(monkeypatch, tmp_path):

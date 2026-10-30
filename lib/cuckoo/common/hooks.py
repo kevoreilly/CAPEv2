@@ -20,6 +20,7 @@ SubmissionContextFilterHook = Callable[[MutableMapping[str, Any]], MutableMappin
 LoginGroupsHook = Callable[[Any, set], None]
 TaskCopyScopeHook = Callable[[Any, int], contextlib.AbstractContextManager[Any]]
 TaskReportQueryHook = Callable[[int, str], Optional[dict[str, Any]]]
+ReportRetrievedHook = Callable[[int], None]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []
@@ -32,6 +33,7 @@ _submission_context_filters: list[SubmissionContextFilterHook] = []
 _login_groups_hooks: list[LoginGroupsHook] = []
 _task_copy_scope_hooks: list[TaskCopyScopeHook] = []
 _task_report_query_hooks: list[TaskReportQueryHook] = []
+_report_retrieved_hooks: list[ReportRetrievedHook] = []
 
 
 def register_mongo_filter(fn: MongoFilterHook) -> None:
@@ -141,6 +143,20 @@ def task_report_query(task_id: int, store: str = "mongo") -> Optional[dict[str, 
     return None
 
 
+def register_report_retrieved_hook(fn: ReportRetrievedHook) -> None:
+    if fn not in _report_retrieved_hooks:
+        _report_retrieved_hooks.append(fn)
+
+
+def run_report_retrieved_hooks(task_id: int) -> None:
+    """Another node's report for task_id has landed in this server's stores (e.g. dist fetched it)."""
+    for fn in _report_retrieved_hooks:
+        try:
+            fn(int(task_id))
+        except Exception:
+            logging.getLogger(__name__).exception("report-retrieved hook failed for task %s", task_id)
+
+
 def run_report_hooks(results: dict[str, Any]) -> None:
     for fn in _report_hooks:
         fn(results)
@@ -194,6 +210,7 @@ def clear_all_hooks() -> None:
     _login_groups_hooks.clear()
     _task_copy_scope_hooks.clear()
     _task_report_query_hooks.clear()
+    _report_retrieved_hooks.clear()
 
 
 # --- Plugin activation -------------------------------------------------------------------------

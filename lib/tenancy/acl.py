@@ -297,6 +297,37 @@ def own_report_es_query(task_id: int) -> Dict[str, Any]:
     }
 
 
+def resync_report_stamp(
+    session: Session,
+    task_id: int,
+    *,
+    mongo_update_one: Optional[Callable[[str, dict, dict], Any]] = None,
+    es_update_by_query: Optional[Callable[[dict, dict], Any]] = None,
+) -> Optional[VisibilityStamp]:
+    """Re-apply the task's current `task_acl` to its report; returns the stamp, or None without a row.
+
+    The node that stored the report may have stamped it from an older ACL: dist hands a worker the
+    ACL at dispatch, and a toggle while the task runs finds no report to restamp. The stores' seq CAS
+    accepts it, as the current row's seq is at least the snapshot's.
+    """
+    row = session.get(TaskAcl, int(task_id))
+    if row is None:
+        return None
+    stamp = VisibilityStamp(
+        task_id=row.task_id,
+        user_id=row.user_id,
+        tenant_id=row.tenant_id,
+        visibility=row.visibility,
+        visibility_seq=int(row.visibility_seq or 1),
+        external_job_id=row.external_job_id,
+    )
+    if mongo_update_one is not None:
+        sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)
+    if es_update_by_query is not None:
+        sync_stamp_to_es(stamp, es_update_by_query=es_update_by_query)
+    return stamp
+
+
 def sync_stamp_to_mongo(
     stamp: VisibilityStamp,
     *,

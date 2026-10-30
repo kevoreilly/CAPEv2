@@ -794,6 +794,19 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
     info.setdefault("visibility_seq", 0)
 
 
+def _resync_retrieved_report(task_id: int) -> None:
+    """dist fetched a worker's report: re-apply this server's current task_acl to it."""
+    if not multitenancy_config().enabled:
+        return
+    from sqlalchemy.orm import Session
+
+    from lib.cuckoo.core.database import Database
+    from lib.tenancy.backfill import _resync_one
+
+    with Session(Database().engine) as session:
+        _resync_one(session, task_id)
+
+
 def _own_report_query(task_id: int, store: str) -> Optional[Dict[str, Any]]:
     from lib.tenancy.acl import own_report_es_query, own_report_mongo_query
 
@@ -828,4 +841,6 @@ def register_core_hooks() -> bool:
         core_hooks.register_task_copy_scope_hook(inherit_task_scope)
     if hasattr(core_hooks, "register_task_report_query_hook"):
         core_hooks.register_task_report_query_hook(_own_report_query)
+    if hasattr(core_hooks, "register_report_retrieved_hook"):
+        core_hooks.register_report_retrieved_hook(_resync_retrieved_report)
     return True

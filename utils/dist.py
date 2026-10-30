@@ -114,7 +114,7 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-from lib.cuckoo.common.hooks import bootstrap_tenancy  # noqa: E402
+from lib.cuckoo.common.hooks import bootstrap_tenancy, run_report_retrieved_hooks  # noqa: E402
 
 bootstrap_tenancy(cfg)
 
@@ -1161,6 +1161,8 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
                         # set reported time
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
+                    # the worker stamped the report with the ACL dist sent it at dispatch
+                    run_report_retrieved_hooks(t.main_task_id)
 
                     # Fetch each requested report.
                     report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))

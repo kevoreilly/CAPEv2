@@ -245,6 +245,22 @@ def reconcile_es_stamps(
     return changed
 
 
+def _resync_one(session: Session, task_id: int) -> bool:
+    """Re-apply task_id's task_acl to its Mongo/ES report (whichever reporting enables); False without a row."""
+    from lib.cuckoo.common.config import Config
+    from lib.tenancy.acl import resync_report_stamp
+    from lib.tenancy.views import _default_es_update_by_query, _default_mongo_update_one
+
+    reporting = Config("reporting")
+    stamp = resync_report_stamp(
+        session,
+        task_id,
+        mongo_update_one=_default_mongo_update_one if reporting.mongodb.enabled else None,
+        es_update_by_query=_default_es_update_by_query() if reporting.elasticsearchdb.enabled else None,
+    )
+    return stamp is not None
+
+
 def runs_dist_tasks(session: Session) -> Optional[int]:
     """The id of a task this node runs for another server, or None: a dist `main_task_id`, or a
     bridged `job_id=ui-<central id>` from an object-storage broker. Their reports carry that
@@ -277,6 +293,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="utils/tenancy_reconcile.py")
     parser.add_argument("--dry-run", action="store_true", help="count docs that would change, write nothing")
     parser.add_argument(
+        "--task", type=int, help="only re-apply this task's current task_acl to its report (e.g. after a worker reprocess)"
+    )
+    parser.add_argument(
         "--force", action="store_true", help="run although this node looks like a worker (only on the main/central server)"
     )
     args = parser.parse_args(argv)
@@ -290,6 +309,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ensure_acl_schema_once(db.engine)
     reporting = Config("reporting")
     with Session(db.engine) as session:
+        if args.task is not None:
+            if not _resync_one(session, args.task):
+                print(f"task {args.task} has no task_acl row; nothing to resync", file=sys.stderr)
+                return 1
+            print(f"task {args.task}: report restamped from task_acl")
+            return 0
         foreign = None if args.force else runs_dist_tasks(session)
         if foreign is not None:
             # A worker files those reports under the other server's task ids: its own task_acl rows

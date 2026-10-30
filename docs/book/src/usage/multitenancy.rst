@@ -97,6 +97,14 @@ broker job's report sharing the ``info.id`` is left alone and counted. A worker
 that has already deleted its tasks can no longer tell that it is one: don't run
 the command on workers.
 
+A worker stamps a dist report with the ACL the main server sent it when the task
+was dispatched. After fetching the report, ``utils/dist.py`` re-applies the
+task's current ``task_acl`` to it, so a visibility change made while the task
+ran is kept. To do the same for one task by hand (for example after reprocessing
+it on a worker, or from an object-storage broker once a bridged report lands)::
+
+    poetry run python utils/tenancy_reconcile.py --task <id>
+
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------
 

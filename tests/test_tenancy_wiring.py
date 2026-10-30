@@ -2599,3 +2599,71 @@ def test_path_gates_use_path_info_under_a_script_name_mount():
     resp = mw.process_view(req, tasks_view, (), {"task_id": 10})
     assert _status(resp) == 404
     assert b"error_value" in resp.content  # the API's JSON error format, not the web page's
+
+
+def test_dist_resyncs_the_report_stamp_once_it_has_the_report(monkeypatch):
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy import hooks as th
+
+    called = []
+    core_hooks.register_report_retrieved_hook(called.append)
+    try:
+        core_hooks.run_report_retrieved_hooks(3)
+    finally:
+        core_hooks.clear_all_hooks()
+    assert called == [3]
+    core_hooks.run_report_retrieved_hooks(3)  # cleared: no-op
+    assert called == [3]
+
+    # tenancy registers its resync, which does nothing with multitenancy off
+    monkeypatch.setattr(th, "multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+    monkeypatch.setattr("lib.tenancy.acl.resync_report_stamp", lambda *a, **k: called.append("resync"))
+    th.register_core_hooks()
+    try:
+        core_hooks.run_report_retrieved_hooks(3)
+    finally:
+        core_hooks.clear_all_hooks()
+    assert called == [3]
+
+    # utils/dist.py calls it after marking a fetched task reported
+    src = open("utils/dist.py").read()
+    reported = src.index("main_db.set_status(t.main_task_id, TASK_REPORTED)")
+    assert "run_report_retrieved_hooks(t.main_task_id)" in src[reported:reported + 400]
+
+
+def test_node_local_reporters_use_this_nodes_task_id(monkeypatch, tmp_path):
+    # Object storage renumbers results["info"]["id"] to the central id in place; these act on this
+    # node's own task (memdump, status row, behaviour logs), not the local task with that number.
+    from lib.cuckoo.common.utils import local_task_id
+
+    info = {"id": 3, "local_task_id": 9}
+    assert local_task_id(info) == 9 and local_task_id({"id": 3}) == 3
+
+    import modules.reporting.tmpfsclean as tc
+
+    seen = []
+    monkeypatch.setattr(tc, "get_memdump_path", lambda tid, analysis_folder=False: seen.append(tid) or str(tmp_path / f"{tid}.dmp"))
+    r = tc.TMPFSCLEAN()
+    r.options = types.SimpleNamespace(key="tmpfsclean")
+    r.run({"info": dict(info, options={})})
+    assert seen == [9]
+
+    import modules.reporting.callback as cb
+
+    statuses = []
+    monkeypatch.setattr(cb, "Database", lambda: types.SimpleNamespace(session=types.SimpleNamespace(begin=lambda: __import__("contextlib").nullcontext()), set_status=lambda t, s: statuses.append(t)))
+    monkeypatch.setattr(cb.requests, "post", lambda *a, **k: types.SimpleNamespace(ok=True))
+    r = cb.CALLBACKHOME()
+    r.options = types.SimpleNamespace(url="http://x/")
+    r.run({"info": dict(info)})
+    assert statuses == [9]
+
+    from lib.cuckoo.common.abstracts import Signature
+
+    logs = tmp_path / "storage" / "analyses" / "9" / "logs"
+    logs.mkdir(parents=True)
+    (logs / "1234.bson").write_bytes(b"")
+    monkeypatch.setattr("lib.cuckoo.common.abstracts.CUCKOO_ROOT", str(tmp_path))
+    sig = Signature.__new__(Signature)
+    sig.results = {"info": dict(info), "behavior": {}}
+    assert 1234 in sig.get_pids()

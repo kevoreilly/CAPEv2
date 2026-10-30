@@ -1999,3 +1999,39 @@ def test_reconcile_on_a_task_bridged_under_its_own_id_needs_force(monkeypatch):
     main = _patch_reconcile_cli(monkeypatch, engine, seen)
     assert main(["--dry-run"]) == 2 and seen == []
     assert main(["--dry-run", "--force"]) == 0 and len(seen) == 1
+
+
+def test_resync_report_stamp_reapplies_the_current_acl():
+    # dist hands the worker the ACL at dispatch; a toggle on the main while the task runs found no
+    # report to restamp, and the worker then stored the report with the older snapshot.
+    from lib.tenancy.acl import resync_report_stamp
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    mongo, es = [], []
+    with Session(engine) as session:
+        set_task_acl(session, 42, user_id=10, tenant_id=1, visibility=PUBLIC)
+        session.commit()
+        toggle_task_visibility_cas(session, 42, PRIVATE)  # no report yet: nothing to restamp
+        stamp = resync_report_stamp(
+            session, 42, mongo_update_one=lambda c, f, u: mongo.append((f, u)), es_update_by_query=lambda q, s: es.append(s)
+        )
+        assert resync_report_stamp(session, 7, mongo_update_one=lambda *a: mongo.append(a)) is None  # no row: leave it
+    assert (stamp.visibility, stamp.visibility_seq) == (PRIVATE, 2)
+    assert len(mongo) == 1 and mongo[0][1]["$set"]["info.visibility"] == PRIVATE
+    assert mongo[0][0]["$and"][0]["info.id"] == 42  # the task's own report, CAS on the seq
+    assert es[0]["params"]["stamp"]["visibility"] == PRIVATE
+
+
+def test_reconcile_cli_can_resync_one_task(monkeypatch):
+    import lib.tenancy.backfill as backfill
+    from lib.cuckoo.core.data.db_common import Base
+
+    seen = []
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    main = _patch_reconcile_cli(monkeypatch, engine, seen)
+    resynced = []
+    monkeypatch.setattr(backfill, "_resync_one", lambda session, task_id: resynced.append(task_id) or True)
+    assert main(["--task", "42"]) == 0
+    assert resynced == [42] and seen == []  # only that task, no full restamp

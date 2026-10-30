@@ -209,7 +209,7 @@ def default_viewer_resolver(user: Any) -> ViewerContext:
         return ViewerContext.anonymous()
 
     is_super = bool(getattr(user, "is_superuser", False))
-    is_local_admin = is_super and bool(cfg.allow_superuser_all)
+    is_local_admin = is_super and bool(cfg.local_admins_manage_all_tenants)
 
     tenant_id, is_tenant_admin, tenant_ids, admin_tenant_ids = _resolve_tenant_from_user(user)
 
@@ -229,6 +229,19 @@ def _view_name(view_func: Callable[..., Any]) -> str:
     """The view's own name. DRF's @api_view returns a wrapper named "view"; the name is on `.cls`."""
     cls = getattr(view_func, "cls", None) or getattr(view_func, "view_class", None)
     return getattr(cls, "__name__", None) or getattr(view_func, "__name__", "")
+
+
+def _writes_report_of_tenant_task(view_name: str, method: str) -> bool:
+    """on_demand stores a service's output in the task's report and a comments POST adds to it: under
+    multitenancy that takes manage rights (comments: unless readers_can_comment). Off, stock behaviour."""
+    if view_name not in ("on_demand", "comments"):
+        return False
+    cfg = multitenancy_config()
+    if not cfg.enabled:
+        return False
+    if view_name == "comments":
+        return method == "POST" and not cfg.readers_can_comment
+    return True
 
 
 def classify_view_action(request_path: str, view_func: Callable[..., Any]) -> str:
@@ -560,6 +573,8 @@ class TenancyMiddleware:
                 action = classify_view_action(getattr(request, "path", ""), view_func)
                 method = str(getattr(request, "method", "") or "").upper()
                 if action == "read" and method == "POST" and _view_name(view_func) in _MANAGE_ON_POST_VIEW_NAMES:
+                    action = "manage"
+                if action == "read" and _writes_report_of_tenant_task(_view_name(view_func), method):
                     action = "manage"
             for raw in raw_task_ids:
                 try:

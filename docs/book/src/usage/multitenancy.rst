@@ -28,8 +28,10 @@ Both features are configured in ``conf/cuckoo.conf`` and default to ``enabled = 
     # "shared" (default visibility = public) or "locked" (default visibility = tenant)
     mode = shared
     default_visibility =
+    # Superusers see and manage every tenant's tasks.
     local_admins_manage_all_tenants = yes
-    allow_superuser_all = yes
+    # Anyone who can read a task may comment on it (default: manage rights needed).
+    readers_can_comment = no
 
     [object_storage]
     # [BETA] Central / remote object storage integration (s3, gcs, azure, local).
@@ -357,6 +359,9 @@ Supported (isolation enforced end-to-end)
 * **Guacamole interactive sessions** for task-backed analyses: gated by
   ``can_toggle`` / ``can_manage`` (owner / tenant-admin / break-glass), not mere
   read visibility.
+* **On-demand processing and comments** write into a task's report, so they take the
+  same manage rights. Set ``readers_can_comment = yes`` to let anyone who can read a
+  task comment on it. With multitenancy off, both keep stock behaviour.
 
 Architecture Overview
 ---------------------

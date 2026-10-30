@@ -1449,11 +1449,11 @@ def test_an_omitted_route_is_checked_against_the_global_default():
 def test_locked_mode_denies_users_no_active_policy_covers(monkeypatch, groups):
     import lib.tenancy.resources as res
 
-    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", allow_superuser_all=True))
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", local_admins_manage_all_tenants=True))
     user = types.SimpleNamespace(is_authenticated=True, is_superuser=False, groups=groups)
     assert res.resolve_user_entitlements(user).unrestricted is False
     assert res.resolve_user_entitlements(user, unassigned_policy="allow").unrestricted is True
-    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="shared", allow_superuser_all=True))
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="shared", local_admins_manage_all_tenants=True))
     assert res.resolve_user_entitlements(user).unrestricted is True
 
 
@@ -1588,7 +1588,7 @@ def test_machine_labels_are_checked_by_the_machine_name(monkeypatch):
 def test_locked_mode_keeps_superusers_without_a_group(monkeypatch):
     import lib.tenancy.resources as res
 
-    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", allow_superuser_all=False))
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", local_admins_manage_all_tenants=False))
     user = types.SimpleNamespace(is_authenticated=True, is_superuser=True, groups=[])
     assert res.resolve_user_entitlements(user).unrestricted is True
 
@@ -2304,3 +2304,45 @@ def test_the_sslproxy_table_lookup_matches_sslproxy_itself(monkeypatch, route):
     monkeypatch.setattr(sslproxy, "sslproxy_cfg", types.SimpleNamespace(cfg={}), raising=False)
     thread = sslproxy.SSLProxyThread(types.SimpleNamespace(id=1, route=route), types.SimpleNamespace(resultserver_port=2042))
     assert _sslproxy_rt_table(route) == thread.rt_table
+
+
+def _reader_mw():
+    from lib.tenancy.policy import PUBLIC, ResourceScope
+
+    return TenancyMiddleware(
+        lambda r: None, viewer_resolver=lambda u: _viewer(8, 2),
+        task_scope_resolver=lambda t: ResourceScope(owner_id=7, tenant_id=1, visibility=PUBLIC), recovery_target_resolver=lambda t: None,
+    )
+
+
+def _mt_on(monkeypatch, **kw):
+    from lib.tenancy import policy
+
+    cfg = policy.MTConfig(enabled=True, mode="shared", default_visibility="", local_admins_manage_all_tenants=True, **kw)
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: cfg)
+
+
+def test_on_demand_processing_needs_manage_rights_under_multitenancy(monkeypatch):
+    # on_demand runs a service and writes its output into the task's stored report.
+    def on_demand(request, service, task_id, category, sha256):
+        pass
+
+    req = _req(f"/analysis/on_demand/bingraph/1/static/{'a' * 64}/")
+    kwargs = {"service": "bingraph", "task_id": 1, "category": "static", "sha256": "a" * 64}
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+    assert _status(_reader_mw().process_view(req, on_demand, (), kwargs)) is None  # stock behaviour when off
+    _mt_on(monkeypatch)
+    assert _status(_reader_mw().process_view(req, on_demand, (), kwargs)) == 404
+
+
+def test_posting_a_comment_needs_manage_rights_unless_readers_may_comment(monkeypatch):
+    def comments(request, task_id):
+        pass
+
+    _mt_on(monkeypatch)
+    req = _req("/analysis/1/comments/")
+    assert _status(_reader_mw().process_view(req, comments, (), {"task_id": 1})) is None
+    req.method = "POST"
+    assert _status(_reader_mw().process_view(req, comments, (), {"task_id": 1})) == 404
+    _mt_on(monkeypatch, readers_can_comment=True)
+    assert _status(_reader_mw().process_view(req, comments, (), {"task_id": 1})) is None

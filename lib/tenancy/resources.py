@@ -359,7 +359,7 @@ def resolve_user_entitlements(
         return ResourceEntitlements.allow_all()
 
     is_super = bool(getattr(user, "is_superuser", False))
-    if is_super and (not cfg.enabled or cfg.allow_superuser_all):
+    if is_super and (not cfg.enabled or cfg.local_admins_manage_all_tenants):
         return ResourceEntitlements.allow_all()
 
     explicit_policies = getattr(user, "sandbox_policies", None)

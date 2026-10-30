@@ -188,10 +188,8 @@ class MTConfig:
     mode: str
     default_visibility: str
     local_admins_manage_all_tenants: bool
-
-    @property
-    def allow_superuser_all(self) -> bool:
-        return self.local_admins_manage_all_tenants
+    # Posting a comment needs manage rights on the task unless this lets anyone who can read it comment.
+    readers_can_comment: bool = False
 
 
 MultitenancyConfig = MTConfig
@@ -244,11 +242,20 @@ def multitenancy_config() -> MTConfig:
     mode = str(get("mode", "shared") or "shared").strip().lower()
     if mode not in ("shared", "locked"):
         mode = "locked"
+    local_admins = _as_bool(get("local_admins_manage_all_tenants", True), True)
+    retired = get("allow_superuser_all", None)
+    if retired is not None and _as_bool(retired, local_admins) != local_admins:
+        log.warning(
+            "[multitenancy] allow_superuser_all is not used; local_admins_manage_all_tenants = %s decides "
+            "whether superusers see every tenant",
+            "yes" if local_admins else "no",
+        )
     return MTConfig(
         enabled=_as_bool(get("enabled", False), False),
         mode=mode,
         default_visibility=str(get("default_visibility", "") or "").strip().lower(),
-        local_admins_manage_all_tenants=_as_bool(get("local_admins_manage_all_tenants", True), True),
+        local_admins_manage_all_tenants=local_admins,
+        readers_can_comment=_as_bool(get("readers_can_comment", False), False),
     )
 
 

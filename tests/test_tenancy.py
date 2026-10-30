@@ -1734,3 +1734,25 @@ assert pol_role.effective_tenant_id is None
     env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
     res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
+
+
+def test_readers_can_comment_is_off_unless_configured(monkeypatch):
+    from lib.tenancy import policy
+
+    monkeypatch.setattr(policy, "_load_multitenancy_section", lambda: {"enabled": "yes"})
+    assert policy.multitenancy_config().readers_can_comment is False
+    monkeypatch.setattr(policy, "_load_multitenancy_section", lambda: {"enabled": "yes", "readers_can_comment": "yes"})
+    assert policy.multitenancy_config().readers_can_comment is True
+
+
+def test_the_retired_allow_superuser_all_key_warns_when_it_disagrees(monkeypatch, caplog):
+    # The key was never read; local_admins_manage_all_tenants decides. Say so instead of ignoring it.
+    from lib.tenancy import policy
+
+    sec = {"enabled": "yes", "local_admins_manage_all_tenants": "yes", "allow_superuser_all": "no"}
+    monkeypatch.setattr(policy, "_load_multitenancy_section", lambda: sec)
+    with caplog.at_level("WARNING"):
+        cfg = policy.multitenancy_config()
+    assert cfg.local_admins_manage_all_tenants is True
+    assert "allow_superuser_all" in caplog.text
+    assert not hasattr(cfg, "allow_superuser_all")

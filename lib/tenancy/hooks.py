@@ -185,7 +185,23 @@ def _strip_untrusted_broker_job_id(custom: Any) -> Any:
     if re.match(r"^\s*Recovery_\d+\s*$", custom):
         # A recovered task's custom "Recovery_<id>" sends apiv2's artifact views to task <id>.
         return ""
+    if custom and _object_storage_enabled():
+        from lib.tenancy.storage.artifact_storage import job_id_from_custom
+
+        if job_id_from_custom(custom) is not None:
+            # A bare token is the broker job id too ("local-7" is task 7's job).
+            log.warning("tenancy: dropping bare custom %r, which object storage would take as a job id", custom)
+            return ""
     return custom
+
+
+def _object_storage_enabled() -> bool:
+    try:
+        from lib.tenancy.storage import config as storage_cfg
+
+        return bool(storage_cfg.central_mode_config().enabled)
+    except Exception:
+        return False
 
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]

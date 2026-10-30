@@ -1839,6 +1839,23 @@ def test_untrusted_submitters_cannot_set_a_recovery_custom(monkeypatch):
     assert _strip_untrusted_broker_job_id("note") == "note"
 
 
+def test_untrusted_bare_custom_is_not_taken_as_a_broker_job_id(monkeypatch):
+    # With object storage on, a bare custom token is the broker job id: "local-7" filed the
+    # submitter's report and artifacts under task 7's job, replacing them.
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import _strip_untrusted_broker_job_id
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage.artifact_storage import job_id_from_custom
+
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    set_current_viewer(_viewer(8, 2))
+    for custom in ("local-7", "note"):
+        assert job_id_from_custom(_strip_untrusted_broker_job_id(custom)) is None
+    assert _strip_untrusted_broker_job_id("a=b,c=d") == "a=b,c=d"
+    set_current_viewer(None)  # the broker
+    assert _strip_untrusted_broker_job_id("local-7") == "local-7"
+
+
 @pytest.mark.parametrize("view_name", ["statistics_data", "yara_uploader"])
 def test_deployment_wide_views_are_admin_only(view_name, monkeypatch):
     view = types.FunctionType((lambda request: None).__code__, {}, view_name)

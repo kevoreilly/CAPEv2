@@ -143,16 +143,17 @@ def process(
         with db.session.begin():
             RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
-            if main_task_id and (visibility is not None or tenant_id is not None):
-                # A dist task's ACL lives on the main server; this node's row with that id is another
-                # task. Carry the override in the task_acl that the reporters apply last.
-                task_acl = dict(task_dict["attributes"].get("task_acl") or {})
-                if visibility in ("public", "tenant", "private"):
-                    task_acl["visibility"] = visibility
-                if tenant_id is not None:
-                    task_acl["tenant_id"] = int(tenant_id)
-                task_dict["attributes"]["task_acl"] = task_acl
-            elif (visibility is not None or tenant_id is not None) and task_id:
+            acl_override = {}
+            if visibility in ("public", "tenant", "private"):
+                acl_override["visibility"] = visibility
+            if tenant_id is not None:
+                acl_override["tenant_id"] = int(tenant_id)
+            if acl_override:
+                # In memory only (never Task.attributes): the reporters apply it after the report hooks
+                # and the main server's task_acl, which would otherwise replace it in their copies.
+                task_dict["_acl_override"] = acl_override
+            # A dist task's ACL lives on the main server: this node's row with that id is another task.
+            if not main_task_id and (visibility is not None or tenant_id is not None) and task_id:
                 with suppress(Exception):
                     from cape_tenancy.acl import ensure_acl_schema, set_task_acl
 

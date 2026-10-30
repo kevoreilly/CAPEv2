@@ -147,6 +147,8 @@ class MongoDB(Report):
             # All four: a key the main left out must not keep this worker's value.
             for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
                 report["info"][k] = task_acl.get(k, default)
+        # utils/process.py -r --visibility/--tenant-id, last as in its own results
+        report["info"].update((self.task or {}).get("_acl_override") or {})
 
         # Delete old data just before inserting new one to avoid "missing report" window
 

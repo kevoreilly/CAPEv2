@@ -557,6 +557,94 @@ def test_batched_mongo_backfill():
         assert bulk_batches[1][0][1]["$set"]["info.visibility"] == PUBLIC
 
 
+def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
+    # Pre-stack installs stamped info.tenant_id from their own Tenant ids, which collide with the
+    # Group ids the stack now uses; the visibility-missing backfill skips those docs entirely.
+    from lib.tenancy.backfill import plan_reconcile_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 1, user_id=10, tenant_id=None, visibility=PUBLIC)
+        set_task_acl(session, 3, user_id=11, tenant_id=7, visibility=TENANT)
+        set_task_acl(session, 4, user_id=12, tenant_id=8, visibility=TENANT, external_job_id="job-4")
+        session.commit()
+
+        docs = [
+            # legacy stamp: tenant 1 from the old Tenant table, no visibility_seq
+            {"key": "a", "id": 1, "job_id": None, "tenant_id": 1, "visibility": TENANT},
+            # no task_acl row: fail closed, never keep the legacy tenant
+            {"key": "b", "id": 2, "job_id": None, "tenant_id": 1, "visibility": TENANT},
+            # already correct: no write
+            {"key": "c", "id": 3, "job_id": None, "user_id": 11, "tenant_id": 7, "visibility": TENANT,
+             "visibility_seq": 1},
+            # central doc addressed by job id
+            {"key": "d", "id": 99, "job_id": "job-4", "tenant_id": 2, "visibility": PUBLIC},
+            # foreign doc colliding on info.id with a central task: not that task's ACL
+            {"key": "e", "id": 4, "job_id": "other", "tenant_id": 8, "visibility": TENANT},
+        ]
+        plans = [op for batch in plan_reconcile_stamps(session, docs, chunk_size=2) for op in batch]
+
+    by_key = dict(plans)
+    assert set(by_key) == {"a", "b", "d", "e"}
+    assert by_key["a"] == {"user_id": 10, "tenant_id": None, "visibility": PUBLIC, "visibility_seq": 1}
+    assert by_key["b"] == {"user_id": None, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
+    assert by_key["d"] == {"user_id": 12, "tenant_id": 8, "visibility": TENANT, "visibility_seq": 1}
+    assert by_key["e"]["visibility"] == PRIVATE and by_key["e"]["tenant_id"] is None
+
+
+def test_reconcile_mongo_stamps_writes_by_document_id():
+    from lib.tenancy.backfill import reconcile_mongo_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    raw = [
+        {"_id": "oid-1", "info": {"id": 1, "tenant_id": 1, "visibility": TENANT}},
+        {"_id": "oid-2", "info": {"id": 2, "tenant_id": None, "user_id": None, "visibility": PRIVATE,
+                                  "visibility_seq": 1}},
+    ]
+    written = []
+
+    def fake_find(collection, query, projection):
+        assert collection == "analysis" and query == {}
+        return iter(raw)
+
+    def fake_bulk(collection, ops):
+        written.extend(ops)
+        return len(ops)
+
+    with Session(engine) as session:
+        set_task_acl(session, 1, user_id=10, tenant_id=5, visibility=TENANT)
+        session.commit()
+        assert reconcile_mongo_stamps(session, find=fake_find, bulk_update=fake_bulk, dry_run=True) == 1
+        assert written == []
+        assert reconcile_mongo_stamps(session, find=fake_find, bulk_update=fake_bulk) == 1
+
+    assert written == [
+        (
+            {"_id": "oid-1"},
+            {"$set": {"info.user_id": 10, "info.tenant_id": 5, "info.visibility": TENANT, "info.visibility_seq": 1}},
+        )
+    ]
+
+
+def test_reconcile_es_stamps_writes_by_index_and_id():
+    from lib.tenancy.backfill import reconcile_es_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    hits = [{"_index": "cape-analysis-x", "_id": "e1", "_source": {"info": {"id": 1, "tenant_id": 1}}}]
+    written = []
+    with Session(engine) as session:
+        set_task_acl(session, 1, user_id=10, tenant_id=5, visibility=TENANT)
+        session.commit()
+        n = reconcile_es_stamps(session, scan=lambda: iter(hits), update=lambda *a: written.append(a))
+    assert n == 1
+    assert written == [
+        ("cape-analysis-x", "e1", {"user_id": 10, "tenant_id": 5, "visibility": TENANT, "visibility_seq": 1})
+    ]
+
+
 def test_tasks_set_visibility_endpoint(monkeypatch):
     from lib.tenancy.views import tasks_set_visibility
 

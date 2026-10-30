@@ -70,6 +70,19 @@ stamped. Run the batched backfill helper from ``lib.tenancy.backfill``
 (``backfill_from_task_acl_batched`` or ``backfill_legacy_uniform``) once after
 enabling the flag.
 
+Upgrading from an install that ran the earlier inline tenancy code: those
+reports already carry an ``info.tenant_id`` stamp, but from the old ``Tenant``
+table ids, which can collide with the Django ``Group`` ids used now and expose a
+report to the wrong tenant. The backfills above skip already-stamped reports, so
+restamp them from ``task_acl`` instead. Stop the web and processing services,
+then run (MongoDB and/or Elasticsearch, whichever is enabled)::
+
+    poetry run python -m lib.tenancy.backfill reconcile --dry-run
+    poetry run python -m lib.tenancy.backfill reconcile
+
+A report with no ``task_acl`` row is restamped ``private`` with no owner or
+tenant, so only admins can see it. The command is idempotent.
+
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------
 

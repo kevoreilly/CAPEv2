@@ -2626,9 +2626,11 @@ def test_dist_resyncs_the_report_stamp_once_it_has_the_report(monkeypatch):
     assert called == [3]
 
     # utils/dist.py calls it after marking a fetched task reported
+    # utils/dist.py calls it once the report is copied, before marking the task retrieved
     src = open("utils/dist.py").read()
-    reported = src.index("main_db.set_status(t.main_task_id, TASK_REPORTED)")
-    assert "run_report_retrieved_hooks(t.main_task_id)" in src[reported:reported + 400]
+    copied = src.index("copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)")
+    hook = src.index("run_report_retrieved_hooks(t.main_task_id)")
+    assert copied < hook < src.index("t.retrieved = True", copied)
 
 
 def test_node_local_reporters_use_this_nodes_task_id(monkeypatch, tmp_path):

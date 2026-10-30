@@ -309,13 +309,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ensure_acl_schema_once(db.engine)
     reporting = Config("reporting")
     with Session(db.engine) as session:
-        if args.task is not None:
+        foreign = None if args.force else runs_dist_tasks(session)
+        if args.task is not None and foreign is None:
+            if args.dry_run:
+                print(f"task {args.task}: would restamp its report from task_acl")
+                return 0
             if not _resync_one(session, args.task):
                 print(f"task {args.task} has no task_acl row; nothing to resync", file=sys.stderr)
                 return 1
             print(f"task {args.task}: report restamped from task_acl")
             return 0
-        foreign = None if args.force else runs_dist_tasks(session)
         if foreign is not None:
             # A worker files those reports under the other server's task ids: its own task_acl rows
             # (worker-local ids) would restamp unrelated reports.

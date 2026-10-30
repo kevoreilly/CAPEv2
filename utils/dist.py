@@ -1161,8 +1161,6 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
                         # set reported time
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
-                    # the worker stamped the report with the ACL dist sent it at dispatch
-                    run_report_retrieved_hooks(t.main_task_id)
 
                     # Fetch each requested report.
                     report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
@@ -1228,6 +1226,8 @@ class Retriever(threading.Thread):
                         metadata["task_id"] = t.main_task_id
                         gcs_upload_report(report_path, t.main_task_id, tlp=t.tlp, metadata=metadata)
 
+                    # the worker stamped the report with the ACL dist sent it at dispatch
+                    run_report_retrieved_hooks(t.main_task_id)
                     t.retrieved = True
                     t.finished = True
                     db.commit()

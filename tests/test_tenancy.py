@@ -2035,3 +2035,8 @@ def test_reconcile_cli_can_resync_one_task(monkeypatch):
     monkeypatch.setattr(backfill, "_resync_one", lambda session, task_id: resynced.append(task_id) or True)
     assert main(["--task", "42"]) == 0
     assert resynced == [42] and seen == []  # only that task, no full restamp
+    assert main(["--task", "42", "--dry-run"]) == 0 and resynced == [42]  # dry run writes nothing
+    # on a worker the local row with that id is another task: refuse unless --force
+    monkeypatch.setattr(backfill, "runs_dist_tasks", lambda session: 9)
+    assert main(["--task", "42"]) == 2 and resynced == [42]
+    assert main(["--task", "42", "--force"]) == 0 and resynced == [42, 42]

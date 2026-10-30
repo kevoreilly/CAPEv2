@@ -803,8 +803,11 @@ def _resync_retrieved_report(task_id: int) -> None:
     from lib.cuckoo.core.database import Database
     from lib.tenancy.backfill import _resync_one
 
-    with Session(Database().engine) as session:
-        _resync_one(session, task_id)
+    try:
+        with Session(Database().engine) as session:
+            _resync_one(session, task_id)
+    except Exception:
+        log.exception("Task %s: could not restamp the fetched report; run utils/tenancy_reconcile.py --task %s", task_id, task_id)
 
 
 def _own_report_query(task_id: int, store: str) -> Optional[Dict[str, Any]]:

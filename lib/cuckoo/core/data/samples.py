@@ -7,6 +7,7 @@ import logging
 from .db_common import (Base, _utcnow_naive)
 from .task import (Task, TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.hooks import apply_sql_task_filter
 from lib.cuckoo.common.objects import PCAP, File, Static
 from lib.cuckoo.common.exceptions import (
     CuckooDependencyError
@@ -384,6 +385,11 @@ class SamplesMixIn:
     def count_samples(self) -> int:
         """Counts the amount of samples in the database."""
         stmt = select(func.count(Sample.id))
+        visible = select(Task.sample_id)
+        scoped = apply_sql_task_filter(visible)
+        if scoped is not visible:
+            # Samples are shared across owners: count those a task the viewer may see points at.
+            stmt = select(func.count()).select_from(scoped.where(Task.sample_id.is_not(None)).distinct().subquery())
         return self.session.scalar(stmt)
 
     def get_source_url(self, sample_id: int = None) -> Optional[str]:

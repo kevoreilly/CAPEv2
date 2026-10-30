@@ -607,6 +607,38 @@ def test_fresh_install_without_acl_table_lists_and_authorizes(db, temp_pe32, mt_
         core_hooks.clear_all_hooks()
 
 
+def test_dashboard_counts_are_scoped_to_the_viewer(db, private_task, temp_pe32):
+    # The dashboard and apiv2 cuckoo/status showed every tenant's task volume and sample count.
+    from datetime import datetime
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core.data.task import Task
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import register_core_hooks
+
+    own = db.add_url("http://example.com/own", user_id=8)
+    with db.session.begin():
+        set_task_acl(db.session, own, user_id=8, tenant_id=2, visibility=PRIVATE)
+    register_core_hooks()
+    set_current_viewer(_viewer(user_id=8, tenant_id=2))
+    try:
+        with db.session.begin():
+            assert db.count_tasks() == 1
+            assert sum(db.get_tasks_status_count().values()) == 1
+            assert db.count_samples() == 0  # the URL task has no sample; the other tenant's PE is hidden
+            foreign = db.session.get(Task, private_task[0])
+            foreign.started_on, foreign.completed_on = datetime(2020, 1, 1), datetime(2020, 1, 2)
+        with db.session.begin():
+            assert db.minmax_tasks() == (0, 0)
+        set_current_viewer(None)
+        with db.session.begin():
+            assert db.count_tasks() == 2
+            assert db.count_samples() == 1
+            assert db.minmax_tasks() != (0, 0)
+    finally:
+        core_hooks.clear_all_hooks()
+
+
 def test_sso_login_groups_reach_tenancy_group_reconciliation(monkeypatch):
     import lib.tenancy.resources as resources
     from lib.cuckoo.common import hooks as core_hooks

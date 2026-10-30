@@ -1241,7 +1241,7 @@ class TasksMixIn:
     def minmax_tasks(self) -> Tuple[int, int]:
         """Finds the minimum start time and maximum completion time for all tasks."""
         # A single query is more efficient than two separate ones.
-        stmt = select(func.min(Task.started_on), func.max(Task.completed_on))
+        stmt = apply_sql_task_filter(select(func.min(Task.started_on), func.max(Task.completed_on)))
         min_val, max_val = self.session.execute(stmt).one()
 
         if min_val and max_val:
@@ -1261,7 +1261,7 @@ class TasksMixIn:
 
     def get_tasks_status_count(self) -> Dict[str, int]:
         """Counts tasks, grouped by status."""
-        stmt = select(Task.status, func.count(Task.status)).group_by(Task.status)
+        stmt = apply_sql_task_filter(select(Task.status, func.count(Task.status)).group_by(Task.status))
         # .execute() returns rows, which can be directly converted to a dict.
         return dict(self.session.execute(stmt).all())
 
@@ -1273,6 +1273,7 @@ class TasksMixIn:
             stmt = stmt.where(Task.machine_id == mid)
         if status:
             stmt = stmt.where(Task.status == status)
+        stmt = apply_sql_task_filter(stmt)
 
         # .scalar() executes the query and returns the single integer result.
         return self.session.scalar(stmt)

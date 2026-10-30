@@ -1118,7 +1118,7 @@ def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
     assert {"term": {"info.id": 42}} in query["bool"]["filter"]
     assert script["params"] == {
         "job_id": None,
-        "own_job_ids": ["ui-42"],
+        "own_job_ids": ["ui-42", "local-42"],
         "stamp": {"user_id": 7, "tenant_id": 1, "visibility": PRIVATE, "visibility_seq": stamp.visibility_seq},
     }
 
@@ -2385,6 +2385,8 @@ def test_audit_framework_is_admin_only_under_multitenancy(monkeypatch):
     assert _status(_mw(_viewer(8, 2)).process_view(_req("/audit/"), audit_index, (), {})) == 403
     admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
     assert _status(_mw(admin).process_view(_req("/audit/"), audit_index, (), {})) is None
+    # The audit views skip their login check under ANON_VIEW: anonymous is denied too.
+    assert _status(_mw(ViewerContext.anonymous()).process_view(_req("/audit/"), audit_index, (), {})) == 403
 
 
 def test_a_tenant_scoped_superuser_is_not_a_trusted_submitter():
@@ -2402,7 +2404,7 @@ def test_a_tenant_scoped_superuser_is_not_a_trusted_submitter():
     assert _trusted_submitter()
 
 
-def test_tenancy_registers_the_own_report_query_hook():
+def test_tenancy_registers_the_own_report_query_hook(monkeypatch):
     from lib.cuckoo.common import hooks as core_hooks
     from lib.tenancy.acl import own_report_es_query, own_report_mongo_query
     from lib.tenancy.hooks import register_core_hooks
@@ -2410,6 +2412,10 @@ def test_tenancy_registers_the_own_report_query_hook():
     assert core_hooks.task_report_query(5) is None  # stock: callers keep their info.id lookup
     register_core_hooks()
     try:
+        # Object storage alone also bootstraps tenancy; with multitenancy off the lookup stays stock.
+        monkeypatch.setattr("lib.tenancy.hooks.multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+        assert core_hooks.task_report_query(5) is None
+        monkeypatch.setattr("lib.tenancy.hooks.multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
         assert core_hooks.task_report_query(5) == own_report_mongo_query(5)
         assert core_hooks.task_report_query(5, "es") == own_report_es_query(5)
     finally:
@@ -2463,6 +2469,18 @@ v.get_analysis_index = lambda: "cape-analysis-*"
 assert v.comments(req, 5) == "ok"
 assert es_bodies == [{"query": {"own": 5, "store": "es"}, "scoped": True}], es_bodies
 assert es_writes == [("idx", "es-own")], es_writes
+
+# on_demand stores the service output into the task's own report.
+reads.clear(); writes.clear()
+v.enabledconf["mongodb"], v.es_as_db = True, False
+v.CUSTOM_SERVICES = ["stubsvc"]
+v.ObjectId = lambda oid: oid  # imported only when reporting.conf enables mongodb
+v.handle_custom_service = lambda service, task_id, sha256: ({"x": 1}, "stubsvc")
+v.mongo_find_one = lambda c, q, p=None, **kw: reads.append(q) or {"_id": "507f1f77bcf86cd799439011"}
+v.render = lambda request, template, ctx=None, **kw: ("render", ctx)
+out = v.on_demand(RequestFactory().get("/"), "stubsvc", "5", "static", "a" * 64)
+assert reads == [{"own": 5, "store": "mongo"}], reads
+assert len(writes) == 1 and str(writes[0]["_id"]) == "507f1f77bcf86cd799439011", (writes, out)
 """
     env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
     res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)

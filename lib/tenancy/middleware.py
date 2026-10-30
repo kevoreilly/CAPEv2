@@ -523,8 +523,7 @@ class TenancyMiddleware:
             return self.forbidden_response_factory(request, "Restricted to administrators")
 
         if (
-            not viewer.see_all
-            and viewer.is_authenticated
+            not viewer.see_all  # anonymous too: the audit views skip their login check under ANON_VIEW
             and str(getattr(request, "path", "") or "").startswith("/audit/")
             and multitenancy_config().enabled
         ):

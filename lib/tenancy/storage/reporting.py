@@ -214,15 +214,14 @@ class ObjectStorage(Report):
             raise CuckooReportError(
                 f"object_storage: refusing unsafe job_id {job_id!r} (must match {_SAFE_JOB_ID_RE.pattern} and contain no '..')"
             )
+        info["job_id"] = job_id
 
         _m = re.match(r"^ui-(\d+)$", job_id)
         if not _m and object_storage_bridge_required():
-            # Leave info.job_id unset: the report Mongo still stores stays this node's own (see own_report_job_ids).
             raise CuckooReportError(
                 f"object_storage: refusing non-bridged analysis (job_id={job_id!r}) under multitenancy -- "
                 "tenant-isolated object-storage submission requires a bridged job_id (ui-<central_id>)"
             )
-        info["job_id"] = job_id
         if _m:
             info["id"] = int(_m.group(1))
 

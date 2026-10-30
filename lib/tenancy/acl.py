@@ -186,7 +186,8 @@ def toggle_task_visibility_cas(
     (which the next successful toggle reuses and so still overrides) while the row is still locked,
     then SQL rolls back and the error propagates: a failed toggle changes nothing. A failed COMMIT
     has already released the lock and may have landed, so the stores get the stricter of the two
-    visibilities instead: never more visible than SQL, and the reconcile settles it.
+    visibilities instead and the error is logged: a toggle racing into that window can still be
+    overwritten until the next toggle or utils/tenancy_reconcile.py.
     """
     if new_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {new_visibility!r}")
@@ -268,21 +269,23 @@ _VISIBILITY_ORDER = (PRIVATE, TENANT, PUBLIC)
 
 
 def own_report_job_ids(task_id: int) -> list:
-    """Job ids this node's own report of `task_id` may carry besides none: a bridged `ui-<id>`.
+    """Job ids the task's own report may carry besides none: object storage's `ui-<id>` (bridged,
+    renumbered to the central id) or `local-<id>`.
 
-    A shared report store also holds other nodes' `local-<id>` and broker-job reports whose
-    info.id collides with local task ids; writes keyed on a bare info.id would hit those.
+    A report store holds one task-id space, the server's whose tasks they are (under multitenancy,
+    object storage refuses to upload a worker's non-bridged reports). A report filed under another
+    job id with the same info.id is a broker job's, and writes keyed on a bare info.id would hit it.
     """
-    return [f"ui-{int(task_id)}"]
+    return [f"ui-{int(task_id)}", f"local-{int(task_id)}"]
 
 
 def own_report_mongo_query(task_id: int) -> Dict[str, Any]:
-    """The Mongo filter for this node's own report of `task_id` (see `own_report_job_ids`)."""
+    """The Mongo filter for the own report of `task_id` (see `own_report_job_ids`)."""
     return {"info.id": int(task_id), "info.job_id": {"$in": [None, *own_report_job_ids(task_id)]}}
 
 
 def own_report_es_query(task_id: int) -> Dict[str, Any]:
-    """The ES query for this node's own report of `task_id`; job_id is text-mapped, so callers that
+    """The ES query for the own report of `task_id`; job_id is text-mapped, so callers that
     write must still compare it exactly (phrase "ui-5" also matches "ui-5-x")."""
     return {
         "bool": {

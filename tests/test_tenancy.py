@@ -644,8 +644,9 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
             {"key": "d", "id": 99, "job_id": "job-4", "tenant_id": 2, "visibility": PUBLIC},
             # foreign doc colliding on info.id with a central task: not that task's ACL
             {"key": "e", "id": 4, "job_id": "other", "tenant_id": 8, "visibility": TENANT},
-            # another node's broker-job / local report in a shared store, colliding with task 1
+            # a broker job's report sharing task 1's info.id
             {"key": "f", "id": 1, "job_id": "3f9c2b7e-broker", "user_id": 55, "tenant_id": 2, "visibility": PRIVATE},
+            # task 1's own object-storage report
             {"key": "g", "id": 1, "job_id": "local-1", "user_id": 55, "tenant_id": 2, "visibility": PRIVATE},
             # this node's bridged report of task 1 (object storage renumbers info.id to the central id)
             {"key": "h", "id": 1, "job_id": "ui-1", "tenant_id": 1, "visibility": TENANT},
@@ -660,9 +661,9 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
         ]
 
     by_key = dict(plans)
-    assert set(by_key) == {"a", "b", "d", "h"}
-    assert sorted(skipped) == ["e", "f", "g"]
-    assert by_key["h"] == by_key["a"]
+    assert set(by_key) == {"a", "b", "d", "g", "h"}
+    assert sorted(skipped) == ["e", "f"]
+    assert by_key["h"] == by_key["a"] == by_key["g"]
     assert by_key["a"] == {"user_id": 10, "tenant_id": None, "visibility": PUBLIC, "visibility_seq": 1}
     assert by_key["b"] == {"user_id": None, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
     assert by_key["d"] == {"user_id": 12, "tenant_id": 8, "visibility": TENANT, "visibility_seq": 1}
@@ -684,14 +685,9 @@ def test_reconcile_keeps_the_task_owner_when_there_is_no_acl_row():
     owners = {2: 7, 3: 8, 4: 0}
     with Session(engine) as session:
         plans = dict(op for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: owners) for op in batch)
-        trusted = dict(
-            op
-            for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: owners, trust_local_jobs=True)
-            for op in batch
-        )
     assert plans["own"] == {"user_id": 7, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
-    assert "local" not in plans and trusted["local"]["user_id"] == 8  # local-<id> only for an unshared store
-    assert "foreign" not in plans and "foreign" not in trusted
+    assert plans["local"]["user_id"] == 8
+    assert "foreign" not in plans
     assert plans["noowner"]["user_id"] is None
 
 
@@ -1783,10 +1779,10 @@ def _matches(doc, flt):
 
 
 def test_toggle_only_restamps_this_nodes_own_report_of_the_task():
-    # A shared report store also holds other nodes' local-<id> / broker reports with the same info.id:
-    # update_one by bare info.id restamped (and re-owned) the oldest of them instead of ours.
+    # A broker job's report can share the task's info.id: update_one by bare info.id restamped (and
+    # re-owned) the oldest such doc instead of the task's own report.
     docs = [
-        {"_id": 1, "info": {"id": 5, "job_id": "local-5", "user_id": 77, "tenant_id": 9, "visibility": PRIVATE}},
+        {"_id": 1, "info": {"id": 5, "job_id": "local-7-broker", "user_id": 77, "tenant_id": 9, "visibility": PRIVATE}},
         {"_id": 2, "info": {"id": 5, "job_id": "3f9c-broker", "user_id": 78, "tenant_id": 9, "visibility": PRIVATE}},
         {"_id": 3, "info": {"id": 5, "user_id": 10, "tenant_id": 1, "visibility": PRIVATE}},
     ]
@@ -1815,7 +1811,22 @@ def test_toggle_only_restamps_this_nodes_own_report_of_the_task():
     )
     query, script = calls[0]
     assert {"term": {"info.id": 5}} in query["bool"]["filter"]
-    assert script["params"]["own_job_ids"] == ["ui-5"]  # the script no-ops on any other job id
+    own_clause = {"bool": {"should": [
+        {"bool": {"must_not": {"exists": {"field": "info.job_id"}}}},
+        {"match_phrase": {"info.job_id": "ui-5"}},
+        {"match_phrase": {"info.job_id": "local-5"}},
+    ], "minimum_should_match": 1}}
+    assert own_clause in query["bool"]["filter"]
+    assert script["params"]["own_job_ids"] == ["ui-5", "local-5"]
+
+    # The painless condition, evaluated the way ES runs it: write only the task's own report.
+    src = script["source"]
+    assert "params.job_id != null ? j != params.job_id : (j != null && !params.own_job_ids.contains(j))" in src
+
+    def noop(j, params=script["params"]):
+        return (j != params["job_id"]) if params["job_id"] is not None else (j is not None and j not in params["own_job_ids"])
+
+    assert [noop(j) for j in (None, "ui-5", "local-5", "ui-5-x", "3f9c-broker")] == [False, False, False, True, True]
 
 
 def test_toggle_commit_failure_restamps_the_stores_with_the_stricter_visibility():
@@ -1878,17 +1889,6 @@ def _patch_reconcile_cli(monkeypatch, engine, seen):
     return backfill.main
 
 
-def test_reconcile_cli_passes_trust_local_jobs_through(monkeypatch):
-    from lib.cuckoo.core.data.db_common import Base
-
-    seen = []
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    main = _patch_reconcile_cli(monkeypatch, engine, seen)
-    assert main(["--dry-run", "--trust-local-jobs"]) == 0
-    assert seen[-1]["trust_local_jobs"] is True
-
-
 def test_reconcile_cli_refuses_to_run_on_a_dist_worker(monkeypatch, capsys):
     # A worker files each dist task's report under the MAIN server's task id, so its own task_acl
     # rows (worker-local ids) would restamp unrelated main reports.
@@ -1906,28 +1906,25 @@ def test_reconcile_cli_refuses_to_run_on_a_dist_worker(monkeypatch, capsys):
         session.commit()
     main = _patch_reconcile_cli(monkeypatch, engine, seen)
     assert main(["--dry-run"]) == 2
-    assert seen == [] and "main server" in capsys.readouterr().err
+    assert seen == [] and "run utils/tenancy_reconcile.py there" in capsys.readouterr().err
 
 
-def test_refused_object_storage_upload_leaves_the_report_without_a_job_id(tmp_path, monkeypatch):
-    # The refused upload used to leave info.job_id = local-<id> in the report Mongo then stored,
-    # so the reconcile (and the toggle) no longer recognized this node's own report.
-    from lib.cuckoo.common.exceptions import CuckooReportError
-    from lib.tenancy.storage.reporting import ObjectStorage
+def test_reconcile_cli_refuses_to_run_on_an_object_storage_bridge_worker(monkeypatch):
+    # A bridge worker files reports as ui-<central id>, which are the central's tasks, not its own.
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
 
-    (tmp_path / "analyses" / "7").mkdir(parents=True)
-    monkeypatch.setattr(
-        "lib.tenancy.storage.reporting.object_storage_config",
-        lambda: ObjectStorageConfig(enabled=True, backend="local", local_root=str(tmp_path), prefix="results"),
-    )
-    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
-    monkeypatch.delenv("CAPE_MAIN_TASK_ID", raising=False)
-    results = {"info": {"id": 7}}
-    reporter = ObjectStorage()
-    reporter.set_path(str(tmp_path / "analyses" / "7"))
-    with pytest.raises(CuckooReportError):
-        reporter.run(results)
-    assert "job_id" not in results["info"]
+    seen = []
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        task = Task("x")
+        task.category = "file"
+        task.custom = "job_id=ui-100"
+        session.add(task)
+        session.commit()
+    main = _patch_reconcile_cli(monkeypatch, engine, seen)
+    assert main(["--dry-run"]) == 2 and seen == []
 
 
 def test_reconcile_restamps_a_job_less_report_whose_acl_row_is_bound_to_its_own_bridge_id():

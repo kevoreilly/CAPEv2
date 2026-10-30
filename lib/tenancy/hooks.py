@@ -790,6 +790,8 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
 def _own_report_query(task_id: int, store: str) -> Optional[Dict[str, Any]]:
     from lib.tenancy.acl import own_report_es_query, own_report_mongo_query
 
+    if not multitenancy_config().enabled:
+        return None  # object storage alone: the stock info.id lookup
     return own_report_es_query(task_id) if store == "es" else own_report_mongo_query(task_id)
 
 

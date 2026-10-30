@@ -111,7 +111,6 @@ def plan_reconcile_stamps(
     chunk_size: int = 500,
     fallback_visibility: str = PRIVATE,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
-    trust_local_jobs: bool = False,
     skipped: Optional[List[Any]] = None,
 ) -> Iterable[List[Tuple[Any, Dict[str, Any]]]]:
     """Yield batches of `(doc key, stamp)` for report docs whose stamp differs from `task_acl`.
@@ -121,11 +120,9 @@ def plan_reconcile_stamps(
     ids, which collide with the Group ids used now.
 
     A doc is matched to the ACL row whose `external_job_id` is its job id. Otherwise it is matched
-    by `info.id` only when it is this node's own report: no job id, or `ui-<info.id>` (object
-    storage renumbers bridged reports to the central task id), or `local-<info.id>` with
-    `trust_local_jobs` (only when no other node writes to this report store: a shared central
-    store holds other nodes' `local-<id>` and broker-job reports under colliding ids). Any other
-    doc is left alone and its key appended to `skipped`. A matched doc without an ACL row is
+    by `info.id` only when it is the task's own report (see `own_report_job_ids`): no job id,
+    `ui-<info.id>` or `local-<info.id>`. Any other doc (a broker job's) is left alone and its key
+    appended to `skipped`. A matched doc without an ACL row is
     stamped `fallback_visibility` with no tenant, owned (as `resolve_task_scope` resolves it) by
     its task's `tasks.user_id`.
     """
@@ -152,8 +149,6 @@ def plan_reconcile_stamps(
             acl = by_job.get(job_id) if job_id else None
             if acl is None:
                 own_jobs = {None} | (set(own_report_job_ids(tid)) if tid is not None else set())
-                if trust_local_jobs:
-                    own_jobs.add(f"local-{tid}")
                 row = by_task.get(tid) if tid is not None else None
                 if tid is None or job_id not in own_jobs or (row is not None and row.external_job_id not in ({None, ""} | own_jobs)):
                     if skipped is not None:
@@ -209,7 +204,6 @@ def reconcile_mongo_stamps(
     chunk_size: int = 500,
     dry_run: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
-    trust_local_jobs: bool = False,
     skipped: Optional[List[Any]] = None,
 ) -> int:
     """Restamp every Mongo report doc from `task_acl` (see `plan_reconcile_stamps`); returns docs changed."""
@@ -217,7 +211,7 @@ def reconcile_mongo_stamps(
     docs = (_doc_from_info(d["_id"], d.get("info")) for d in raw)
     changed = 0
     for ops in plan_reconcile_stamps(
-        session, docs, chunk_size=chunk_size, task_owners=task_owners, trust_local_jobs=trust_local_jobs, skipped=skipped
+        session, docs, chunk_size=chunk_size, task_owners=task_owners, skipped=skipped
     ):
         changed += len(ops)
         if not dry_run:
@@ -236,14 +230,13 @@ def reconcile_es_stamps(
     chunk_size: int = 500,
     dry_run: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
-    trust_local_jobs: bool = False,
     skipped: Optional[List[Any]] = None,
 ) -> int:
     """Restamp every Elasticsearch analysis doc from `task_acl`; `scan` yields hits with `_source.info`."""
     docs = (_doc_from_info((h["_index"], h["_id"]), (h.get("_source") or {}).get("info")) for h in scan())
     changed = 0
     for ops in plan_reconcile_stamps(
-        session, docs, chunk_size=chunk_size, task_owners=task_owners, trust_local_jobs=trust_local_jobs, skipped=skipped
+        session, docs, chunk_size=chunk_size, task_owners=task_owners, skipped=skipped
     ):
         changed += len(ops)
         if not dry_run:
@@ -253,9 +246,12 @@ def reconcile_es_stamps(
 
 
 def runs_dist_tasks(session: Session) -> bool:
-    """True when any local task carries a dist `main_task_id`, i.e. this node is a dist worker."""
+    """True when this node runs tasks for another server: a dist `main_task_id`, or a bridged
+    `job_id=ui-<central id>` from an object-storage broker. Their reports carry that server's ids."""
     from lib.cuckoo.core.data.task import Task
 
+    if session.scalar(select(Task.id).where(Task.custom.like("%job_id=ui-%")).limit(1)) is not None:
+        return True
     for attributes in session.scalars(select(Task.attributes).where(Task.attributes.is_not(None))).yield_per(1000):
         if isinstance(attributes, dict) and attributes.get("main_task_id"):
             return True
@@ -276,16 +272,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     parser = argparse.ArgumentParser(prog="utils/tenancy_reconcile.py")
     parser.add_argument("--dry-run", action="store_true", help="count docs that would change, write nothing")
-    parser.add_argument(
-        "--trust-local-jobs",
-        action="store_true",
-        help="also restamp local-<id> object-storage reports; only when no other node writes to this report store",
-    )
     args = parser.parse_args(argv)
     verb = "would be restamped" if args.dry_run else "restamped"
 
     def _report(store: str, changed: int, skipped: List[Any]) -> None:
-        print(f"{store}: {changed} analysis docs {verb}; {len(skipped)} left alone (not this node's own report)")
+        print(f"{store}: {changed} analysis docs {verb}; {len(skipped)} left alone (a broker job's report)")
 
     init_database()
     db = Database()
@@ -293,9 +284,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     reporting = Config("reporting")
     with Session(db.engine) as session:
         if runs_dist_tasks(session):
-            # A worker files each dist task's report under the main server's task id: its own
-            # task_acl rows (worker-local ids) would restamp unrelated reports.
-            print("this node runs dist tasks for a main server; run utils/tenancy_reconcile.py on the main server", file=sys.stderr)
+            # A worker files those reports under the other server's task ids: its own task_acl rows
+            # (worker-local ids) would restamp unrelated reports.
+            print("this node runs tasks for a main/central server; run utils/tenancy_reconcile.py there", file=sys.stderr)
             return 2
         if reporting.mongodb.enabled:
             from pymongo import UpdateOne
@@ -315,7 +306,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 find=_find,
                 bulk_update=_bulk,
                 dry_run=args.dry_run,
-                trust_local_jobs=args.trust_local_jobs,
                 skipped=skipped,
             )
             _report("mongodb", n, skipped)
@@ -339,7 +329,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 scan=_scan,
                 update=_update,
                 dry_run=args.dry_run,
-                trust_local_jobs=args.trust_local_jobs,
                 skipped=skipped,
             )
             _report("elasticsearch", n, skipped)

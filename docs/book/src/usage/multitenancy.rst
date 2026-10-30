@@ -98,9 +98,10 @@ that has already deleted its tasks can no longer tell that it is one: don't run
 the command on workers.
 
 A worker stamps a dist report with the ACL the main server sent it when the task
-was dispatched. After fetching the report, ``utils/dist.py`` re-applies the
-task's current ``task_acl`` to it, so a visibility change made while the task
-ran is kept. To do the same for one task by hand (for example after reprocessing
+was dispatched. After fetching the report (or ``--force-reported``),
+``utils/dist.py`` re-applies the task's current ``task_acl`` to it, so a
+visibility change made while the task ran is kept. The Go fast-fetcher
+(``utils/go-fetcher``) does not: with it, run the command below for the task. To do the same for one task by hand (for example after reprocessing
 it on a worker, or from an object-storage broker once a bridged report lands)::
 
     poetry run python utils/tenancy_reconcile.py --task <id>

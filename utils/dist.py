@@ -2320,6 +2320,7 @@ def main():
         with main_db.session.begin():
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
             main_db.set_status(args.force_reported, TASK_REPORTED)
+        run_report_retrieved_hooks(args.force_reported)
         sys.exit()
 
     if args.gcs_replay:

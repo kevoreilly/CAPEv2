@@ -2669,3 +2669,78 @@ def test_node_local_reporters_use_this_nodes_task_id(monkeypatch, tmp_path):
     sig = Signature.__new__(Signature)
     sig.results = {"info": dict(info), "behavior": {}}
     assert 1234 in sig.get_pids()
+
+
+def test_dist_resync_restamps_the_report_under_multitenancy(monkeypatch, tmp_path):
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    import lib.cuckoo.common.config as config_mod
+    import lib.tenancy.views as tviews
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
+    from lib.tenancy import hooks as th
+    from lib.tenancy.acl import toggle_task_visibility_cas
+
+    engine = sa.create_engine(f"sqlite:///{tmp_path}/main.db")
+    Base.metadata.create_all(engine)
+    ensure_acl_schema(engine)
+    with Session(engine) as s:
+        task = Task("x")
+        task.category, task.user_id = "file", 10
+        s.add(task)
+        s.flush()
+        tid = task.id
+        set_task_acl(s, tid, user_id=10, tenant_id=1, visibility="public")
+        s.commit()
+        toggle_task_visibility_cas(s, tid, "private")  # while the task runs: no report to restamp yet
+    mongo, es = [], []
+    monkeypatch.setattr("lib.cuckoo.core.database.Database", lambda: types.SimpleNamespace(engine=engine))
+    monkeypatch.setattr(th, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr(tviews, "_default_mongo_update_one", lambda c, f, u: mongo.append((c, f, u)))
+    monkeypatch.setattr(tviews, "_default_es_update_by_query", lambda: (lambda q, sc: es.append(sc)))
+    th.register_core_hooks()
+    on = types.SimpleNamespace(enabled=True)
+    monkeypatch.setattr(config_mod, "Config", lambda name: types.SimpleNamespace(mongodb=on, elasticsearchdb=on))
+    try:
+        core_hooks.run_report_retrieved_hooks(tid)  # dist fetched the worker's (public) report
+    finally:
+        core_hooks.clear_all_hooks()
+    (collection, flt, update), = mongo
+    assert collection == "analysis" and flt["$and"][0]["info.id"] == tid
+    assert update["$set"]["info.visibility"] == "private" and update["$set"]["info.visibility_seq"] == 2
+    assert es[0]["params"]["stamp"]["visibility"] == "private"
+
+
+def test_tenancy_mongo_writer_lets_mongo_use_the_info_id_index(monkeypatch):
+    # dev_utils' mongo_update_one hints _id: every toggle and dist resync scanned the whole collection.
+    import dev_utils.mongodb as dm
+    import lib.tenancy.views as tviews
+
+    calls = []
+
+    class _Coll:
+        def update_one(self, flt, update, **kw):
+            calls.append(kw)
+
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll()))
+    tviews._default_mongo_update_one("analysis", {"info.id": 3}, {"$set": {"info.visibility": "private"}})
+    assert calls == [{}]
+
+
+def test_force_reported_resyncs_the_report_stamp():
+    src = open("utils/dist.py").read()
+    forced = src.index("if args.force_reported:")
+    assert "run_report_retrieved_hooks(args.force_reported)" in src[forced:src.index("sys.exit()", forced)]
+
+
+def test_tmpfsclean_stores_the_memdump_under_this_nodes_task(monkeypatch, tmp_path):
+    import modules.reporting.tmpfsclean as tc
+
+    seen = []
+    monkeypatch.setattr(tc, "get_memdump_path", lambda tid, analysis_folder=False: seen.append((tid, analysis_folder)) or str(tmp_path / f"{tid}-{analysis_folder}.dmp"))
+    r = tc.TMPFSCLEAN()
+    r.options = types.SimpleNamespace(key="tmpfsclean")
+    r.run({"info": {"id": 3, "local_task_id": 9, "options": {"store_memdump": 1}}})
+    assert seen == [(9, False), (9, True)]

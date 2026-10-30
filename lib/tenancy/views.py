@@ -80,9 +80,11 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
 
 
 def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict) -> Any:
-    from dev_utils.mongodb import mongo_update_one
+    # The raw collection: dev_utils' mongo_update_one hints _id, which turns this info.id CAS into a
+    # scan of the whole analysis collection (now on every dist fetch, not only on toggles).
+    from dev_utils.mongodb import results_db
 
-    return mongo_update_one(collection, filter_q, update_doc)
+    return getattr(results_db, collection).update_one(filter_q, update_doc)
 
 
 def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:

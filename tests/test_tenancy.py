@@ -2017,6 +2017,9 @@ def test_resync_report_stamp_reapplies_the_current_acl():
             session, 42, mongo_update_one=lambda c, f, u: mongo.append((f, u)), es_update_by_query=lambda q, s: es.append(s)
         )
         assert resync_report_stamp(session, 7, mongo_update_one=lambda *a: mongo.append(a)) is None  # no row: leave it
+        # an upgraded task without a row resolves private to its submitter (as the web UI and the reconcile do)
+        legacy = resync_report_stamp(session, 7, mongo_update_one=lambda *a: None, owner_if_no_row=5)
+    assert (legacy.user_id, legacy.tenant_id, legacy.visibility, legacy.visibility_seq) == (5, None, PRIVATE, 1)
     assert (stamp.visibility, stamp.visibility_seq) == (PRIVATE, 2)
     assert len(mongo) == 1 and mongo[0][1]["$set"]["info.visibility"] == PRIVATE
     assert mongo[0][0]["$and"][0]["info.id"] == 42  # the task's own report, CAS on the seq

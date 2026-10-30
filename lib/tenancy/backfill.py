@@ -246,15 +246,20 @@ def reconcile_es_stamps(
 
 
 def _resync_one(session: Session, task_id: int) -> bool:
-    """Re-apply task_id's task_acl to its Mongo/ES report (whichever reporting enables); False without a row."""
+    """Re-apply task_id's task_acl to its Mongo/ES report (whichever reporting enables); False for an
+    unknown task. A task without a row is stamped private to its submitter, as the full reconcile does."""
     from lib.cuckoo.common.config import Config
     from lib.tenancy.acl import resync_report_stamp
     from lib.tenancy.views import _default_es_update_by_query, _default_mongo_update_one
 
+    owners = _task_owners(session, [int(task_id)])
+    if int(task_id) not in owners:
+        return False
     reporting = Config("reporting")
     stamp = resync_report_stamp(
         session,
         task_id,
+        owner_if_no_row=owners[int(task_id)],
         mongo_update_one=_default_mongo_update_one if reporting.mongodb.enabled else None,
         es_update_by_query=_default_es_update_by_query() if reporting.elasticsearchdb.enabled else None,
     )
@@ -315,7 +320,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 print(f"task {args.task}: would restamp its report from task_acl")
                 return 0
             if not _resync_one(session, args.task):
-                print(f"task {args.task} has no task_acl row; nothing to resync", file=sys.stderr)
+                print(f"task {args.task} not found", file=sys.stderr)
                 return 1
             print(f"task {args.task}: report restamped from task_acl")
             return 0

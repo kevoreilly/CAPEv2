@@ -157,8 +157,10 @@ the worker that executes it: its default route, or a route its ``random_vpn`` /
 explicitly.
 
 On a distributed worker where ``lib.tenancy`` is active, the main server's dist
-API key must belong to a superuser or local administrator: ``main_task_id``,
-``parent_sample`` and ``task_acl`` attributes from anyone else are dropped.
+API key must belong to a superuser, with ``allow_superuser_all = yes`` on the
+worker: ``main_task_id``, ``parent_sample`` and ``task_acl`` attributes from
+anyone else are dropped, and any other key sees only its own tasks in the
+worker's reports, task lists and ``cuckoo/status`` queue counts.
 
 Task Visibility Levels: ``private`` vs. ``tenant`` (Group) vs. ``public``
 -------------------------------------------------------------------------

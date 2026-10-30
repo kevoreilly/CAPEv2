@@ -3842,10 +3842,11 @@ def comments(request, task_id):
         if not comment:
             return render(request, "error.html", {"error": "No comment provided."})
 
-        report = None
+        report = mongo_id = esid = None
         if enabledconf["mongodb"]:
             report_query = task_report_query(task_id) or {"info.id": int(task_id)}
             report = mongo_find_one("analysis", report_query, {"info.comments": 1, "_id": 1}, sort=[("_id", -1)])
+            mongo_id = report["_id"] if report else None
         if es_as_db:
             es_query = task_report_query(task_id, "es") or get_query_by_info_id(task_id)
             hits = es.search(index=get_analysis_index(), body=apply_es_filter({"query": es_query}))["hits"]["hits"]
@@ -3873,10 +3874,10 @@ def comments(request, task_id):
         # status can be posted/removed
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
-        if enabledconf["mongodb"]:
+        if mongo_id is not None:
             # By _id: the doc read above, not whichever report shares its info.id.
-            mongo_update_one("analysis", {"_id": report["_id"]}, {"$set": {"info.comments": curcomments}})
-        if es_as_db:
+            mongo_update_one("analysis", {"_id": mongo_id}, {"$set": {"info.comments": curcomments}})
+        if esid is not None:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
 

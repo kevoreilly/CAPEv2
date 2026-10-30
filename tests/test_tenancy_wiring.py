@@ -2387,6 +2387,10 @@ def test_audit_framework_is_admin_only_under_multitenancy(monkeypatch):
     assert _status(_mw(admin).process_view(_req("/audit/"), audit_index, (), {})) is None
     # The audit views skip their login check under ANON_VIEW: anonymous is denied too.
     assert _status(_mw(ViewerContext.anonymous()).process_view(_req("/audit/"), audit_index, (), {})) == 403
+    # Routes resolve on path_info: a SCRIPT_NAME prefix (/cape/audit/) must not slip past the gate.
+    prefixed = _req("/cape/audit/")
+    prefixed.path_info = "/audit/"
+    assert _status(_mw(_viewer(8, 2)).process_view(prefixed, audit_index, (), {})) == 403
 
 
 def test_a_tenant_scoped_superuser_is_not_a_trusted_submitter():
@@ -2469,6 +2473,13 @@ v.get_analysis_index = lambda: "cape-analysis-*"
 assert v.comments(req, 5) == "ok"
 assert es_bodies == [{"query": {"own": 5, "store": "es"}, "scoped": True}], es_bodies
 assert es_writes == [("idx", "es-own")], es_writes
+
+# Mongo and ES both enabled: each store is written by the id its own read returned.
+reads.clear(); writes.clear(); es_writes.clear()
+v.mongo_find_one = lambda c, q, p=None, **kw: reads.append(q) or {"_id": "oid-own", "info": {"comments": []}}
+v.enabledconf["mongodb"], v.es_as_db = True, True
+assert v.comments(req, 5) == "ok"
+assert writes == [{"_id": "oid-own"}] and es_writes == [("idx", "es-own")], (writes, es_writes)
 
 # on_demand stores the service output into the task's own report.
 reads.clear(); writes.clear()

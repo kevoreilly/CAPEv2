@@ -10,14 +10,17 @@ Replaces two invasive constructs from the inline implementation:
 
 from __future__ import annotations
 
+import logging
 import weakref
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Dict, Optional
 
 from sqlalchemy import Column, Index, Integer, String, inspect
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from lib.tenancy.policy import PRIVATE, VISIBILITIES, ResourceScope
+
+log = logging.getLogger(__name__)
 
 
 class AclBase(DeclarativeBase):
@@ -173,20 +176,26 @@ def toggle_task_visibility_cas(
     tenant_id: Optional[int] = None,
     es_update_by_query: Optional[Callable[[dict, dict], Any]] = None,
 ) -> VisibilityStamp:
-    """Atomically advance `visibility_seq` in SQL and apply a monotonic CAS update to MongoDB.
+    """Advance `visibility_seq` in SQL and apply a monotonic CAS update to MongoDB/Elasticsearch.
 
     `owner_id`/`tenant_id` seed the row when the task has none yet (upgraded or unstamped tasks,
     whose scope fell back to tasks.user_id), so the toggle does not orphan the task.
+
+    The row is held `FOR UPDATE` while the report stores are written and SQL commits last. If a
+    store write or the commit fails, SQL rolls back and every store already written gets the prior
+    visibility back at the new seq (which the next successful toggle reuses and so still
+    overrides), then the error propagates: a failed toggle changes nothing.
     """
     if new_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {new_visibility!r}")
 
-    row = session.get(TaskAcl, int(task_id))
+    row = session.get(TaskAcl, int(task_id), with_for_update=True, populate_existing=True)
     if row is None:
         if expected_prior is not None and expected_prior != PRIVATE:
             raise VisibilityConflictError(
                 f"Task {task_id} visibility conflict: expected {expected_prior!r}, found {PRIVATE!r}"
             )
+        prior_visibility = PRIVATE
         row = TaskAcl(
             task_id=int(task_id),
             user_id=owner_id,
@@ -200,10 +209,10 @@ def toggle_task_visibility_cas(
             raise VisibilityConflictError(
                 f"Task {task_id} visibility conflict: expected {expected_prior!r}, found {row.visibility!r}"
             )
+        prior_visibility = row.visibility
         row.visibility = new_visibility
         row.visibility_seq = int(row.visibility_seq or 0) + 1
 
-    session.commit()
     stamp = VisibilityStamp(
         task_id=row.task_id,
         user_id=row.user_id,
@@ -212,11 +221,30 @@ def toggle_task_visibility_cas(
         visibility_seq=row.visibility_seq,
         external_job_id=row.external_job_id,
     )
+    restore = replace(stamp, visibility=prior_visibility)
 
-    if mongo_update_one is not None:
-        sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)
-    if es_update_by_query is not None:
-        sync_stamp_to_es(stamp, es_update_by_query=es_update_by_query)
+    written = []
+    try:
+        session.flush()
+        if mongo_update_one is not None:
+            written.append(lambda s: sync_stamp_to_mongo(s, mongo_update_one=mongo_update_one))
+            sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)
+        if es_update_by_query is not None:
+            written.append(lambda s: sync_stamp_to_es(s, es_update_by_query=es_update_by_query))
+            sync_stamp_to_es(stamp, es_update_by_query=es_update_by_query)
+        session.commit()
+    except Exception:
+        session.rollback()
+        for sync in written:
+            try:
+                sync(restore)
+            except Exception:
+                log.exception(
+                    "Task %s: could not restore the report stamp after a failed visibility toggle; "
+                    "run 'python -m lib.tenancy.backfill reconcile'",
+                    task_id,
+                )
+        raise
 
     return stamp
 

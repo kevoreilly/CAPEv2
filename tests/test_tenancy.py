@@ -255,6 +255,44 @@ def test_task_acl_and_monotonic_visibility_cas():
             toggle_task_visibility_cas(session, 42, PUBLIC, expected_prior=TENANT)
 
 
+@pytest.mark.parametrize("failing", ["mongo", "es", "commit"])
+def test_toggle_failure_leaves_sql_and_report_stores_at_prior_visibility(failing):
+    # The view answers a failed toggle with "no change made": SQL used to commit before Mongo/ES,
+    # so a store failure left SQL changed while search still served the old stamp.
+    mongo_sets, es_stamps = [], []
+
+    def mongo(collection, flt, update):
+        if failing == "mongo":
+            raise RuntimeError("mongo down")
+        mongo_sets.append(update["$set"])
+
+    def es(query, script):
+        if failing == "es":
+            raise RuntimeError("es down")
+        es_stamps.append(script["params"]["stamp"])
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 42, user_id=10, tenant_id=1, visibility=PRIVATE)
+        session.commit()
+        if failing == "commit":
+            real_commit = session.commit
+            session.commit = lambda: (_ for _ in ()).throw(RuntimeError("commit failed"))
+        with pytest.raises(RuntimeError):
+            toggle_task_visibility_cas(session, 42, PUBLIC, mongo_update_one=mongo, es_update_by_query=es)
+        if failing == "commit":
+            session.commit = real_commit
+        assert resolve_task_scope(session, 42).visibility == PRIVATE
+
+    # Every store the toggle reached was put back to the prior visibility, at a seq that a later
+    # successful toggle (which reuses seq 2) still overrides.
+    for sets in (mongo_sets, [{f"info.{k}": v for k, v in s.items()} for s in es_stamps]):
+        if sets:
+            assert sets[-1]["info.visibility"] == PRIVATE
+            assert sets[-1]["info.visibility_seq"] == 2
+
+
 def test_contextvar_and_mongodb_auto_scoping(monkeypatch):
     monkeypatch.setattr(
         "lib.tenancy.policy.multitenancy_config",

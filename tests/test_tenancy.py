@@ -1981,8 +1981,8 @@ def test_refused_object_storage_upload_files_the_report_as_the_tasks_own(tmp_pat
         assert results["info"]["job_id"] == "local-7", custom
 
 
-def test_reconcile_runs_on_a_central_whose_tasks_carry_their_own_bridge_id(monkeypatch):
-    # The submit bridge stamps a central task's own custom job_id=ui-<its id>: that is not a worker.
+def test_reconcile_on_a_task_bridged_under_its_own_id_needs_force(monkeypatch):
+    # A worker's local id can equal the central id it bridges: job_id=ui-<own id> is still a worker.
     from lib.cuckoo.core.data.db_common import Base
     from lib.cuckoo.core.data.task import Task
 
@@ -1997,4 +1997,5 @@ def test_reconcile_runs_on_a_central_whose_tasks_carry_their_own_bridge_id(monke
         task.custom = f"job_id=ui-{task.id}"
         session.commit()
     main = _patch_reconcile_cli(monkeypatch, engine, seen)
-    assert main(["--dry-run"]) == 0 and len(seen) == 1
+    assert main(["--dry-run"]) == 2 and seen == []
+    assert main(["--dry-run", "--force"]) == 0 and len(seen) == 1

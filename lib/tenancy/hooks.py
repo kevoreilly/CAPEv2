@@ -766,9 +766,9 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
     task_id = info.get("id")
     if task_id is None:
         return
-    # Renumbered to the main/central task id (dist, object-storage bridge): this node's task_acl row
-    # with that number is an unrelated task; the stamp that server sent applies instead.
-    renumbered = info.get("local_task_id") not in (None, task_id)
+    # Filed under the main/central server's task id (dist, object-storage bridge): this node's
+    # task_acl row with that number is not that task's ACL; the stamp that server sent applies.
+    renumbered = info.get("local_task_id") is not None
     if not renumbered:
         try:
             from lib.cuckoo.core.database import Database

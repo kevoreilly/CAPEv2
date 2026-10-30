@@ -2580,6 +2580,9 @@ def test_path_gates_use_path_info_under_a_script_name_mount():
     req = _req("/cape/submit/")
     req.path_info, req.method = "/submit/", "POST"
     assert _is_submission_post(req, index)
+    req = _req("//submit/")  # the resolver strips leading slashes
+    req.method = "POST"
+    assert _is_submission_post(req, index)
 
     def tasks_view(request, task_id):
         pass

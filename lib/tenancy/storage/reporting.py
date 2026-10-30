@@ -225,10 +225,9 @@ class ObjectStorage(Report):
             )
         info["job_id"] = job_id
         if _m:
-            if analysis_id != int(_m.group(1)):
-                # The report is the central task's now: the stamp hook must not use this node's
-                # task_acl row with that number, nor a retry its storage/analyses/<that id>.
-                info["local_task_id"] = analysis_id
+            # The report is the central task's (even when the ids happen to match): the stamp hook
+            # must not use this node's task_acl row, nor a retry its storage/analyses/<central id>.
+            info["local_task_id"] = analysis_id
             info["id"] = int(_m.group(1))
 
         prefix = getattr(cfg, "prefix", None) or getattr(cfg, "s3_prefix", "results")

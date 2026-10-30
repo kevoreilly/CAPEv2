@@ -245,8 +245,10 @@ def _writes_report_of_tenant_task(view_name: str, method: str) -> bool:
 
 
 def _route_path(request: Any) -> str:
-    """The path routes resolve on: path_info, without the SCRIPT_NAME a sub-path mount adds to path."""
-    return str(getattr(request, "path_info", None) or getattr(request, "path", "") or "")
+    """The path routes resolve on: path_info (without the SCRIPT_NAME a sub-path mount adds to path),
+    with one leading slash, as the resolver strips any number of them (//submit/ routes to /submit/)."""
+    path = str(getattr(request, "path_info", None) or getattr(request, "path", "") or "")
+    return "/" + path.lstrip("/") if path else path
 
 
 def classify_view_action(request_path: str, view_func: Callable[..., Any]) -> str:

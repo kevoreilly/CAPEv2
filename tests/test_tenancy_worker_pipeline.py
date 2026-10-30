@@ -233,3 +233,18 @@ def test_partial_task_acl_still_takes_owner_from_the_unrelated_worker_row(monkey
     info = inserted[-1]["info"]
     _ = ("mongo-stored:", {k: info.get(k) for k in ("id", "user_id", "tenant_id", "visibility")})
     assert (info["user_id"], info["tenant_id"]) == (None, None)
+
+
+def test_bridged_report_under_the_same_id_keeps_the_broker_stamp(monkeypatch, tmp_path):
+    # The worker's local id can equal the central id: its row for that id is the broker account's
+    # submission, not the central task's ACL.
+    core_hooks, _ = _setup(monkeypatch, tmp_path)
+    analysis = tmp_path / "storage" / "analyses" / "3"
+    (analysis / "reports").mkdir(parents=True)
+    try:
+        results = {"info": {"id": 3, "custom": "job_id=ui-3"}}
+        core_hooks.run_report_hooks(results)
+    finally:
+        core_hooks.clear_all_hooks()
+    info = results["info"]
+    assert (info["id"], info["user_id"], info["tenant_id"], info["visibility"]) == (3, 42, 2, "private"), info

@@ -245,17 +245,21 @@ def reconcile_es_stamps(
     return changed
 
 
-def runs_dist_tasks(session: Session) -> bool:
-    """True when this node runs tasks for another server: a dist `main_task_id`, or a bridged
-    `job_id=ui-<central id>` from an object-storage broker. Their reports carry that server's ids."""
+def runs_dist_tasks(session: Session) -> Optional[int]:
+    """The id of a task this node runs for another server, or None: a dist `main_task_id`, or a
+    bridged `job_id=ui-<central id>` from an object-storage broker. Their reports carry that
+    server's ids."""
     from lib.cuckoo.core.data.task import Task
+    from lib.tenancy.storage.artifact_storage import job_id_from_custom
 
-    if session.scalar(select(Task.id).where(Task.custom.like("%job_id=ui-%")).limit(1)) is not None:
-        return True
-    for attributes in session.scalars(select(Task.attributes).where(Task.attributes.is_not(None))).yield_per(1000):
+    for task_id, custom in session.execute(select(Task.id, Task.custom).where(Task.custom.like("%job_id=ui-%"))):
+        if str(job_id_from_custom(custom) or "").startswith("ui-"):
+            return task_id
+    rows = session.execute(select(Task.id, Task.attributes).where(Task.attributes.is_not(None))).yield_per(1000)
+    for task_id, attributes in rows:
         if isinstance(attributes, dict) and attributes.get("main_task_id"):
-            return True
-    return False
+            return task_id
+    return None
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -283,10 +287,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ensure_acl_schema_once(db.engine)
     reporting = Config("reporting")
     with Session(db.engine) as session:
-        if runs_dist_tasks(session):
+        foreign = runs_dist_tasks(session)
+        if foreign is not None:
             # A worker files those reports under the other server's task ids: its own task_acl rows
             # (worker-local ids) would restamp unrelated reports.
-            print("this node runs tasks for a main/central server; run utils/tenancy_reconcile.py there", file=sys.stderr)
+            print(
+                f"this node runs tasks for a main/central server (e.g. task {foreign}); run utils/tenancy_reconcile.py there",
+                file=sys.stderr,
+            )
             return 2
         if reporting.mongodb.enabled:
             from pymongo import UpdateOne

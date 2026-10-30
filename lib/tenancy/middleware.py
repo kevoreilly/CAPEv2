@@ -525,7 +525,8 @@ class TenancyMiddleware:
         if (
             not viewer.see_all  # anonymous too: the audit views skip their login check under ANON_VIEW
             # path_info: routes resolve without the SCRIPT_NAME prefix a sub-path mount adds to path.
-            and str(getattr(request, "path_info", None) or getattr(request, "path", "") or "").rstrip("/").split("/")[1:2] == ["audit"]
+            # The resolver strips leading slashes, so //audit/ routes there too.
+            and str(getattr(request, "path_info", None) or getattr(request, "path", "") or "").lstrip("/").split("/", 1)[0] == "audit"
             and multitenancy_config().enabled
         ):
             # Audit test sessions are deployment-wide: reloading, queueing and deleting them is box admin work.

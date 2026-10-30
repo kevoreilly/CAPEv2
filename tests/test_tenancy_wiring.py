@@ -2391,6 +2391,9 @@ def test_audit_framework_is_admin_only_under_multitenancy(monkeypatch):
     prefixed = _req("/cape/audit/")
     prefixed.path_info = "/audit/"
     assert _status(_mw(_viewer(8, 2)).process_view(prefixed, audit_index, (), {})) == 403
+    # The resolver strips leading slashes: //audit/ routes to the audit views too.
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("//audit/"), audit_index, (), {})) == 403
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("/auditx/"), audit_index, (), {})) is None
 
 
 def test_a_tenant_scoped_superuser_is_not_a_trusted_submitter():

@@ -1927,6 +1927,24 @@ def test_reconcile_cli_refuses_to_run_on_an_object_storage_bridge_worker(monkeyp
     assert main(["--dry-run"]) == 2 and seen == []
 
 
+def test_reconcile_runs_when_custom_only_mentions_a_bridge_id(monkeypatch):
+    # Object storage reads job_id= only as custom's first field: anything else is not a bridge job.
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
+
+    seen = []
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        task = Task("x")
+        task.category = "file"
+        task.custom = "note=myjob_id=ui-100"
+        session.add(task)
+        session.commit()
+    main = _patch_reconcile_cli(monkeypatch, engine, seen)
+    assert main(["--dry-run"]) == 0 and len(seen) == 1
+
+
 def test_reconcile_restamps_a_job_less_report_whose_acl_row_is_bound_to_its_own_bridge_id():
     from lib.tenancy.backfill import plan_reconcile_stamps
 

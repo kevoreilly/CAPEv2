@@ -191,3 +191,18 @@ def test_dist_task_without_task_acl_has_no_worker_owner_or_tenant(monkeypatch, t
     seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task, {"id": 9, "custom": "", "user_id": 5})
     print("mongo info:", _pick(minfo))
     assert (minfo["user_id"], minfo["tenant_id"]) == (None, None)
+
+
+def test_dist_reprocess_without_task_acl_never_takes_the_worker_row(monkeypatch, tmp_path):
+    # process.py's own hook pass ran before any renumbering: a dist task's results (jsondump, ES) took
+    # this worker's row for its local task, e.g. a public default, though the main holds the ACL.
+    proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path, object_storage=False)
+    from lib.tenancy.acl import set_task_acl
+
+    with Session(proc.db.engine) as s:
+        set_task_acl(s, 9, user_id=5, tenant_id=7, visibility="public")
+        s.commit()
+    task = {"id": 9, "options": "", "custom": "", "attributes": {"main_task_id": 3}}
+    seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task, {"id": 9, "custom": "", "user_id": 5}, tenant_id=5)
+    for info in (seen, minfo):
+        assert (info["user_id"], info["tenant_id"], info["visibility"]) == (None, 5, "private"), info

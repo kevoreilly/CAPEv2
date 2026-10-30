@@ -167,6 +167,10 @@ def process(
                             # without --visibility keep the task's own (the report hook has not stamped info yet)
                             visibility=visibility if visibility in ("public", "tenant", "private") else None,
                         )
+            if main_task_id:
+                # A dist task's report is the main server's (mongodb reporting files it under that id):
+                # mark it so the report hooks don't stamp it from this node's task_acl.
+                results["info"].setdefault("local_task_id", task_id)
             from lib.cuckoo.common.hooks import run_report_hooks
 
             run_report_hooks(results)

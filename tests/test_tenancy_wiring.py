@@ -1674,6 +1674,18 @@ def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monke
     assert (posted["tags"], posted["route"], posted["timeout"]) == ("pool_alpha", "none", 120)
 
 
+@pytest.mark.parametrize(
+    "options, expected", [("enforce_timeout=1", 120), ("xtimeout=5", 120), ("timeout=60", "60"), ("", 120)]
+)
+def test_dist_takes_the_timeout_option_only_from_timeout(options, expected):
+    # "timeout=" in options matched enforce_timeout=1 too and set the task's timeout to 0, which the
+    # worker runs as its own default, past the group's cap the main node applied.
+    dist = pytest.importorskip("utils.dist")
+    from lib.cuckoo.common.utils import get_options
+
+    assert dist._task_timeout(120, get_options(options)) == expected
+
+
 def test_a_tags_list_goes_back_to_add_as_a_string(monkeypatch):
     # add() only splits a str: a JSON list of tags was dropped, so first-available ran anywhere.
     from lib.tenancy.context import set_current_entitlements

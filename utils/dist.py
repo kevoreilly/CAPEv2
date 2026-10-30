@@ -1312,6 +1312,11 @@ class Retriever(threading.Thread):
             time.sleep(20)
 
 
+def _task_timeout(timeout, options):
+    """A timeout= option overrides the task's timeout; other "...timeout=" options don't (they zeroed it)."""
+    return options["timeout"] if options.get("timeout") else timeout
+
+
 class StatusThread(threading.Thread):
     """
     A thread that handles the submission of tasks to nodes and manages the status of nodes.
@@ -1436,8 +1441,7 @@ class StatusThread(threading.Thread):
                             elif requested_node != node.name:
                                 # otherwise keep looping
                                 continue
-                        if options.get("timeout"):  # a timeout= option, not any "...timeout=" text
-                            t.timeout = options["timeout"]
+                        t.timeout = _task_timeout(t.timeout, options)
                     except Exception as e:
                         log.exception(e)
                     # wtf are you doing in pendings?

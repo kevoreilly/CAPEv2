@@ -1925,6 +1925,8 @@ def test_reconcile_cli_refuses_to_run_on_an_object_storage_bridge_worker(monkeyp
         session.commit()
     main = _patch_reconcile_cli(monkeypatch, engine, seen)
     assert main(["--dry-run"]) == 2 and seen == []
+    # e.g. a central whose rescheduled bridged copy kept its source's job_id=ui-<source id>
+    assert main(["--dry-run", "--force"]) == 0 and len(seen) == 1
 
 
 def test_reconcile_runs_when_custom_only_mentions_a_bridge_id(monkeypatch):

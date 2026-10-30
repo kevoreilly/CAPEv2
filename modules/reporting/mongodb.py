@@ -130,6 +130,7 @@ class MongoDB(Report):
         if main_task_id := attributes.get("main_task_id"):
             with suppress(ValueError, TypeError):
                 report["info"]["id"] = int(main_task_id)
+                report["info"]["local_task_id"] = local_task_id
 
         if "network" not in report:
             report["network"] = {}
@@ -142,9 +143,9 @@ class MongoDB(Report):
         run_report_hooks(report)
         # After the hooks: the main server's ACL beats this worker's own task_acl row with that number.
         if isinstance(task_acl := attributes.get("task_acl"), dict):
-            for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                if k in task_acl:
-                    report["info"][k] = task_acl[k]
+            # All four: a key the main left out must not keep this worker's value.
+            for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
+                report["info"][k] = task_acl.get(k, default)
 
         # Delete old data just before inserting new one to avoid "missing report" window
 

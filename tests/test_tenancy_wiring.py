@@ -2564,11 +2564,10 @@ def test_bridged_report_is_not_stamped_from_the_local_row_with_the_central_id(mo
     monkeypatch.setenv("CAPE_TASK_VISIBILITY", "private")
     monkeypatch.setenv("CAPE_TASK_TENANT_ID", "2")
     monkeypatch.setenv("CAPE_TASK_USER_ID", "42")
-    results = {"info": {"id": 3, "job_id": "ui-3", "_renumbered_from": 9}}
+    results = {"info": {"id": 3, "job_id": "ui-3", "local_task_id": 9}}
     th.default_report_stamp_hook(results)
     info = results["info"]
     assert (info["user_id"], info["tenant_id"], info["visibility"]) == (42, 2, "private")
-    assert "_renumbered_from" not in info
 
 
 def test_path_gates_use_path_info_under_a_script_name_mount():
@@ -2594,4 +2593,6 @@ def test_path_gates_use_path_info_under_a_script_name_mount():
     )
     req = _req("/cape/apiv2/tasks/view/10/")
     req.path_info = "/apiv2/tasks/view/10/"
-    assert _status(mw.process_view(req, tasks_view, (), {"task_id": 10})) == 404
+    resp = mw.process_view(req, tasks_view, (), {"task_id": 10})
+    assert _status(resp) == 404
+    assert b"error_value" in resp.content  # the API's JSON error format, not the web page's

@@ -761,14 +761,14 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
     info = results.get("info")
     if not isinstance(info, dict):
         return
-    # Object storage renumbered a bridged report to the central task id: this node's task_acl row
-    # with that number is an unrelated task, so the broker's CAPE_TASK_* stamp applies instead.
-    renumbered = info.pop("_renumbered_from", None) is not None
     if not multitenancy_config().enabled:
         return
     task_id = info.get("id")
     if task_id is None:
         return
+    # Renumbered to the main/central task id (dist, object-storage bridge): this node's task_acl row
+    # with that number is an unrelated task; the stamp that server sent applies instead.
+    renumbered = info.get("local_task_id") not in (None, task_id)
     if not renumbered:
         try:
             from lib.cuckoo.core.database import Database

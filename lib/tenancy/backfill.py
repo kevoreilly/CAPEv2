@@ -277,6 +277,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     parser = argparse.ArgumentParser(prog="utils/tenancy_reconcile.py")
     parser.add_argument("--dry-run", action="store_true", help="count docs that would change, write nothing")
+    parser.add_argument(
+        "--force", action="store_true", help="run although this node looks like a worker (only on the main/central server)"
+    )
     args = parser.parse_args(argv)
     verb = "would be restamped" if args.dry_run else "restamped"
 
@@ -288,12 +291,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ensure_acl_schema_once(db.engine)
     reporting = Config("reporting")
     with Session(db.engine) as session:
-        foreign = runs_dist_tasks(session)
+        foreign = None if args.force else runs_dist_tasks(session)
         if foreign is not None:
             # A worker files those reports under the other server's task ids: its own task_acl rows
             # (worker-local ids) would restamp unrelated reports.
             print(
-                f"this node runs tasks for a main/central server (e.g. task {foreign}); run utils/tenancy_reconcile.py there",
+                f"this node runs tasks for a main/central server (e.g. task {foreign}); run utils/tenancy_reconcile.py "
+                "there, or pass --force if this is that server",
                 file=sys.stderr,
             )
             return 2

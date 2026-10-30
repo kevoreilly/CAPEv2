@@ -143,7 +143,16 @@ def process(
         with db.session.begin():
             RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
-            if (visibility is not None or tenant_id is not None) and task_id:
+            if main_task_id and (visibility is not None or tenant_id is not None):
+                # A dist task's ACL lives on the main server; this node's row with that id is another
+                # task. Carry the override in the task_acl that the reporters apply last.
+                task_acl = dict(task_dict["attributes"].get("task_acl") or {})
+                if visibility in ("public", "tenant", "private"):
+                    task_acl["visibility"] = visibility
+                if tenant_id is not None:
+                    task_acl["tenant_id"] = int(tenant_id)
+                task_dict["attributes"]["task_acl"] = task_acl
+            elif (visibility is not None or tenant_id is not None) and task_id:
                 with suppress(Exception):
                     from cape_tenancy.acl import ensure_acl_schema, set_task_acl
 
@@ -151,7 +160,7 @@ def process(
                     with db.session.begin():
                         set_task_acl(
                             db.session,
-                            int(main_task_id or task_id),
+                            int(task_id),
                             user_id=results["info"].get("user_id") or task_dict.get("user_id"),
                             tenant_id=int(tenant_id) if tenant_id is not None else results["info"].get("tenant_id"),
                             # without --visibility keep the task's own (the report hook has not stamped info yet)
@@ -163,9 +172,9 @@ def process(
             # After the hooks: the main server's ACL beats this worker's own task_acl row.
             if attributes := task_dict.get("attributes"):
                 if isinstance(task_acl := attributes.get("task_acl"), dict):
-                    for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                        if k in task_acl:
-                            results["info"][k] = task_acl[k]
+                    # All four: a key the main left out must not keep this worker's value.
+                    for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
+                        results["info"][k] = task_acl.get(k, default)
             if visibility in ("public", "tenant", "private"):
                 results["info"]["visibility"] = visibility
             if tenant_id is not None:

@@ -293,6 +293,29 @@ def test_toggle_failure_leaves_sql_and_report_stores_at_prior_visibility(failing
             assert sets[-1]["info.visibility_seq"] == 2
 
 
+def test_toggle_restores_the_stores_before_releasing_the_row_lock():
+    # Rolling back first released FOR UPDATE: a blocked toggle then took the same seq and the late
+    # restore (equal seq passes the CAS) overwrote its stamp, leaving Mongo public, SQL private.
+    events = []
+
+    def mongo(collection, flt, update):
+        events.append(("mongo", update["$set"]["info.visibility"]))
+
+    def es(query, script):
+        raise RuntimeError("es down")
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 42, user_id=10, tenant_id=1, visibility=PUBLIC)
+        session.commit()
+        real_rollback = session.rollback
+        session.rollback = lambda: events.append(("rollback",)) or real_rollback()
+        with pytest.raises(RuntimeError):
+            toggle_task_visibility_cas(session, 42, PRIVATE, mongo_update_one=mongo, es_update_by_query=es)
+    assert events == [("mongo", PRIVATE), ("mongo", PUBLIC), ("rollback",)]
+
+
 def test_contextvar_and_mongodb_auto_scoping(monkeypatch):
     monkeypatch.setattr(
         "lib.tenancy.policy.multitenancy_config",

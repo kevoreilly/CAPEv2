@@ -182,9 +182,9 @@ def toggle_task_visibility_cas(
     whose scope fell back to tasks.user_id), so the toggle does not orphan the task.
 
     The row is held `FOR UPDATE` while the report stores are written and SQL commits last. If a
-    store write or the commit fails, SQL rolls back and every store already written gets the prior
-    visibility back at the new seq (which the next successful toggle reuses and so still
-    overrides), then the error propagates: a failed toggle changes nothing.
+    store write or the commit fails, every store already written gets the prior visibility back at
+    the new seq (which the next successful toggle reuses and so still overrides) while the row is
+    still locked, then SQL rolls back and the error propagates: a failed toggle changes nothing.
     """
     if new_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {new_visibility!r}")
@@ -234,7 +234,8 @@ def toggle_task_visibility_cas(
             sync_stamp_to_es(stamp, es_update_by_query=es_update_by_query)
         session.commit()
     except Exception:
-        session.rollback()
+        # Restore while the row is still locked: a toggle blocked on it takes the same seq, which
+        # the stores' CAS accepts, so a restore landing after it would undo its stamp.
         for sync in written:
             try:
                 sync(restore)
@@ -244,6 +245,7 @@ def toggle_task_visibility_cas(
                     "run utils/tenancy_reconcile.py",
                     task_id,
                 )
+        session.rollback()
         raise
 
     return stamp

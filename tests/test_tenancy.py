@@ -1928,3 +1928,15 @@ def test_refused_object_storage_upload_leaves_the_report_without_a_job_id(tmp_pa
     with pytest.raises(CuckooReportError):
         reporter.run(results)
     assert "job_id" not in results["info"]
+
+
+def test_reconcile_restamps_a_job_less_report_whose_acl_row_is_bound_to_its_own_bridge_id():
+    from lib.tenancy.backfill import plan_reconcile_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 1, user_id=12, tenant_id=8, visibility=TENANT, external_job_id="ui-1")
+        session.commit()
+        plans = dict(op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": 1, "job_id": None, "tenant_id": 3}]) for op in batch)
+    assert plans["k"]["tenant_id"] == 8

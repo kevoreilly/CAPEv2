@@ -155,7 +155,7 @@ def plan_reconcile_stamps(
                 if trust_local_jobs:
                     own_jobs.add(f"local-{tid}")
                 row = by_task.get(tid) if tid is not None else None
-                if tid is None or job_id not in own_jobs or (row is not None and row.external_job_id not in (None, "", job_id)):
+                if tid is None or job_id not in own_jobs or (row is not None and row.external_job_id not in ({None, ""} | own_jobs)):
                     if skipped is not None:
                         skipped.append(doc["key"])
                     continue

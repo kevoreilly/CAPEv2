@@ -522,6 +522,15 @@ class TenancyMiddleware:
         ):
             return self.forbidden_response_factory(request, "Restricted to administrators")
 
+        if (
+            not viewer.see_all
+            and viewer.is_authenticated
+            and str(getattr(request, "path", "") or "").startswith("/audit/")
+            and multitenancy_config().enabled
+        ):
+            # Audit test sessions are deployment-wide: reloading, queueing and deleting them is box admin work.
+            return self.forbidden_response_factory(request, "Restricted to administrators")
+
         for key in _PATH_KWARGS:
             value = str(view_kwargs.get(key) or "")
             if "/" in value or "\\" in value or value == "..":

@@ -173,8 +173,13 @@ class SamplesMixIn:
                 .where(Sample.sha256 == sha256)
                 .where(Task.added_on >= date_since)
             )
-            return self.session.scalar(select(stmt.exists()))
+            return self.session.scalar(select(apply_sql_task_filter(stmt).exists()))
         else:
+            visible = select(Task.id).join(Sample, Task.sample_id == Sample.id).where(Sample.sha256 == sha256)
+            scoped = apply_sql_task_filter(visible)
+            if scoped is not visible:
+                # A copy only a task the submitter can't see points at is not their duplicate.
+                return bool(self.session.scalar(select(scoped.exists())))
             if not self.find_sample(sha256=sha256):
                 uniq = False
             else:

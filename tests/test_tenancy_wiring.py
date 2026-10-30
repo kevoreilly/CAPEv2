@@ -2346,3 +2346,41 @@ def test_posting_a_comment_needs_manage_rights_unless_readers_may_comment(monkey
     assert _status(_reader_mw().process_view(req, comments, (), {"task_id": 1})) == 404
     _mt_on(monkeypatch, readers_can_comment=True)
     assert _status(_reader_mw().process_view(req, comments, (), {"task_id": 1})) is None
+
+
+def test_duplicate_check_only_counts_tasks_the_submitter_can_see(db, private_task):
+    # unique=1 refused another tenant's sample as "Duplicated file" (an existence oracle), and the
+    # submitter could never see the analysis it pointed them at.
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import register_core_hooks
+
+    _, sha256 = private_task
+    register_core_hooks()
+    set_current_viewer(_viewer(user_id=8, tenant_id=2))
+    try:
+        with db.session.begin():
+            assert not db.check_file_uniq(sha256)
+            assert not db.check_file_uniq(sha256, hours=24)
+        set_current_viewer(_viewer(user_id=7, tenant_id=1))
+        with db.session.begin():
+            assert db.check_file_uniq(sha256)
+            assert db.check_file_uniq(sha256, hours=24)
+        set_current_viewer(None)
+        with db.session.begin():
+            assert db.check_file_uniq(sha256)
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_audit_framework_is_admin_only_under_multitenancy(monkeypatch):
+    # Test sessions are deployment-wide: any tenant could reload, queue or delete them.
+    def audit_index(request, page=1):
+        pass
+
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("/audit/"), audit_index, (), {})) is None
+    _mt_on(monkeypatch)
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("/audit/"), audit_index, (), {})) == 403
+    admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
+    assert _status(_mw(admin).process_view(_req("/audit/"), audit_index, (), {})) is None

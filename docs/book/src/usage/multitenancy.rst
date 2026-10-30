@@ -362,6 +362,11 @@ Supported (isolation enforced end-to-end)
 * **On-demand processing and comments** write into a task's report, so they take the
   same manage rights. Set ``readers_can_comment = yes`` to let anyone who can read a
   task comment on it. With multitenancy off, both keep stock behaviour.
+* **Duplicate checks** (``unique=1`` / ``[uniq_submission]``) only count tasks the
+  submitter can see, so another tenant's copy of a sample neither blocks a submission
+  nor reveals that it exists.
+* **The audit framework** (``/audit/``) runs deployment-wide test sessions, so it is
+  restricted to box administrators when multitenancy is on.
 
 Architecture Overview
 ---------------------

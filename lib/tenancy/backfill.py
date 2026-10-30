@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from lib.tenancy.acl import TaskAcl
+from lib.tenancy.acl import TaskAcl, own_report_job_ids
 from lib.tenancy.policy import PRIVATE, PUBLIC, VISIBILITIES
 
 
@@ -150,7 +151,9 @@ def plan_reconcile_stamps(
             tid = doc.get("id") if isinstance(doc.get("id"), int) else None
             acl = by_job.get(job_id) if job_id else None
             if acl is None:
-                own_jobs = {None, f"ui-{tid}"} | ({f"local-{tid}"} if trust_local_jobs else set())
+                own_jobs = {None} | (set(own_report_job_ids(tid)) if tid is not None else set())
+                if trust_local_jobs:
+                    own_jobs.add(f"local-{tid}")
                 row = by_task.get(tid) if tid is not None else None
                 if tid is None or job_id not in own_jobs or (row is not None and row.external_job_id not in (None, "", job_id)):
                     if skipped is not None:
@@ -249,6 +252,16 @@ def reconcile_es_stamps(
     return changed
 
 
+def runs_dist_tasks(session: Session) -> bool:
+    """True when any local task carries a dist `main_task_id`, i.e. this node is a dist worker."""
+    from lib.cuckoo.core.data.task import Task
+
+    for attributes in session.scalars(select(Task.attributes).where(Task.attributes.is_not(None))).yield_per(1000):
+        if isinstance(attributes, dict) and attributes.get("main_task_id"):
+            return True
+    return False
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """`utils/tenancy_reconcile.py [--dry-run]`: restamp Mongo/ES report docs from `task_acl`.
 
@@ -279,6 +292,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ensure_acl_schema_once(db.engine)
     reporting = Config("reporting")
     with Session(db.engine) as session:
+        if runs_dist_tasks(session):
+            # A worker files each dist task's report under the main server's task id: its own
+            # task_acl rows (worker-local ids) would restamp unrelated reports.
+            print("this node runs dist tasks for a main server; run utils/tenancy_reconcile.py on the main server", file=sys.stderr)
+            return 2
         if reporting.mongodb.enabled:
             from pymongo import UpdateOne
 

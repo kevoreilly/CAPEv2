@@ -95,9 +95,12 @@ def inherit_task_scope(db: Any, task_id: Any):
 
 
 def _trusted_submitter() -> bool:
-    """Internal callers (no request viewer) and superusers, e.g. a dist node's or broker's account."""
+    """Internal callers (no request viewer) and box admins, e.g. a dist node's or broker's account.
+
+    A superuser counts only with `local_admins_manage_all_tenants`; otherwise they are tenant-scoped.
+    """
     viewer = get_current_viewer()
-    return viewer is None or bool(getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False))
+    return viewer is None or bool(getattr(viewer, "is_local_admin", False))
 
 
 # Task objects no VM runs: analysis_manager never schedules a machine or route for them.

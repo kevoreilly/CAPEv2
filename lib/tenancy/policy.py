@@ -221,6 +221,9 @@ def _load_multitenancy_section() -> dict:
         raise _AbsentConfigSectionError(str(exc)) from exc
 
 
+_warned_retired_key = False
+
+
 def multitenancy_config() -> MTConfig:
     """Read the [multitenancy] section of cuckoo.conf (server-side policy)."""
     try:
@@ -245,11 +248,16 @@ def multitenancy_config() -> MTConfig:
     local_admins = _as_bool(get("local_admins_manage_all_tenants", True), True)
     retired = get("allow_superuser_all", None)
     if retired is not None and _as_bool(retired, local_admins) != local_admins:
-        log.warning(
-            "[multitenancy] allow_superuser_all is not used; local_admins_manage_all_tenants = %s decides "
-            "whether superusers see every tenant",
-            "yes" if local_admins else "no",
-        )
+        # Configs copied from the old default documented this key as the superuser see-all switch:
+        # honour a "no" there rather than silently keeping see-all.
+        local_admins = False
+        global _warned_retired_key
+        if not _warned_retired_key:
+            _warned_retired_key = True
+            log.warning(
+                "[multitenancy] allow_superuser_all is retired; set local_admins_manage_all_tenants instead "
+                "(the two disagree, so superusers are tenant-scoped)"
+            )
     return MTConfig(
         enabled=_as_bool(get("enabled", False), False),
         mode=mode,

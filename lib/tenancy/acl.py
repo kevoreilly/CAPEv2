@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, Optional
 from sqlalchemy import Column, Index, Integer, String, inspect
 from sqlalchemy.orm import DeclarativeBase, Session
 
-from lib.tenancy.policy import PRIVATE, VISIBILITIES, ResourceScope
+from lib.tenancy.policy import PRIVATE, PUBLIC, TENANT, VISIBILITIES, ResourceScope
 
 log = logging.getLogger(__name__)
 
@@ -182,9 +182,11 @@ def toggle_task_visibility_cas(
     whose scope fell back to tasks.user_id), so the toggle does not orphan the task.
 
     The row is held `FOR UPDATE` while the report stores are written and SQL commits last. If a
-    store write or the commit fails, every store already written gets the prior visibility back at
-    the new seq (which the next successful toggle reuses and so still overrides) while the row is
-    still locked, then SQL rolls back and the error propagates: a failed toggle changes nothing.
+    store write fails, every store already written gets the prior visibility back at the new seq
+    (which the next successful toggle reuses and so still overrides) while the row is still locked,
+    then SQL rolls back and the error propagates: a failed toggle changes nothing. A failed COMMIT
+    has already released the lock and may have landed, so the stores get the stricter of the two
+    visibilities instead: never more visible than SQL, and the reconcile settles it.
     """
     if new_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {new_visibility!r}")
@@ -224,6 +226,18 @@ def toggle_task_visibility_cas(
     restore = replace(stamp, visibility=prior_visibility)
 
     written = []
+
+    def _restamp(target: VisibilityStamp) -> None:
+        for sync in written:
+            try:
+                sync(target)
+            except Exception:
+                log.exception(
+                    "Task %s: could not restore the report stamp after a failed visibility toggle; "
+                    "run utils/tenancy_reconcile.py",
+                    task_id,
+                )
+
     try:
         session.flush()
         if mongo_update_one is not None:
@@ -232,23 +246,52 @@ def toggle_task_visibility_cas(
         if es_update_by_query is not None:
             written.append(lambda s: sync_stamp_to_es(s, es_update_by_query=es_update_by_query))
             sync_stamp_to_es(stamp, es_update_by_query=es_update_by_query)
-        session.commit()
     except Exception:
         # Restore while the row is still locked: a toggle blocked on it takes the same seq, which
         # the stores' CAS accepts, so a restore landing after it would undo its stamp.
-        for sync in written:
-            try:
-                sync(restore)
-            except Exception:
-                log.exception(
-                    "Task %s: could not restore the report stamp after a failed visibility toggle; "
-                    "run utils/tenancy_reconcile.py",
-                    task_id,
-                )
+        _restamp(restore)
+        session.rollback()
+        raise
+    try:
+        session.commit()
+    except Exception:
+        stricter = min(prior_visibility, new_visibility, key=_VISIBILITY_ORDER.index)
+        log.error("Task %s: visibility commit failed; report stamped %s, run utils/tenancy_reconcile.py", task_id, stricter)
+        _restamp(replace(stamp, visibility=stricter))
         session.rollback()
         raise
 
     return stamp
+
+
+_VISIBILITY_ORDER = (PRIVATE, TENANT, PUBLIC)
+
+
+def own_report_job_ids(task_id: int) -> list:
+    """Job ids this node's own report of `task_id` may carry besides none: a bridged `ui-<id>`.
+
+    A shared report store also holds other nodes' `local-<id>` and broker-job reports whose
+    info.id collides with local task ids; writes keyed on a bare info.id would hit those.
+    """
+    return [f"ui-{int(task_id)}"]
+
+
+def own_report_mongo_query(task_id: int) -> Dict[str, Any]:
+    """The Mongo filter for this node's own report of `task_id` (see `own_report_job_ids`)."""
+    return {"info.id": int(task_id), "info.job_id": {"$in": [None, *own_report_job_ids(task_id)]}}
+
+
+def own_report_es_query(task_id: int) -> Dict[str, Any]:
+    """The ES query for this node's own report of `task_id`; job_id is text-mapped, so callers that
+    write must still compare it exactly (phrase "ui-5" also matches "ui-5-x")."""
+    return {
+        "bool": {
+            "filter": [{"term": {"info.id": int(task_id)}}],
+            "should": [{"bool": {"must_not": {"exists": {"field": "info.job_id"}}}}]
+            + [{"match_phrase": {"info.job_id": j}} for j in own_report_job_ids(task_id)],
+            "minimum_should_match": 1,
+        }
+    }
 
 
 def sync_stamp_to_mongo(
@@ -262,7 +305,7 @@ def sync_stamp_to_mongo(
     if stamp.external_job_id:
         id_clause = {"info.job_id": stamp.external_job_id}
     else:
-        id_clause = {"info.id": int(stamp.task_id)}
+        id_clause = own_report_mongo_query(stamp.task_id)
 
     cas_filter = {
         "$and": [
@@ -290,14 +333,14 @@ def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[di
     """Restamp the Elasticsearch analysis document, which the ES search filter scopes on, monotonically."""
     # job_id is dynamically mapped as text, so the query only narrows by phrase ("job-7" also hits
     # "job-7-extra"); the script compares it exactly before writing.
-    id_clause = (
-        {"match_phrase": {"info.job_id": stamp.external_job_id}}
-        if stamp.external_job_id
-        else {"term": {"info.id": int(stamp.task_id)}}
-    )
+    if stamp.external_job_id:
+        id_clauses = [{"match_phrase": {"info.job_id": stamp.external_job_id}}]
+    else:
+        own = own_report_es_query(stamp.task_id)["bool"]
+        id_clauses = own["filter"] + [{"bool": {"should": own["should"], "minimum_should_match": 1}}]
     query = {
         "bool": {
-            "filter": [id_clause],
+            "filter": id_clauses,
             "should": [
                 {"range": {"info.visibility_seq": {"lte": int(stamp.visibility_seq)}}},
                 {"bool": {"must_not": {"exists": {"field": "info.visibility_seq"}}}},
@@ -308,11 +351,13 @@ def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[di
     script = {
         "lang": "painless",
         "source": (
-            "if (params.job_id != null && ctx._source.info.job_id != params.job_id) { ctx.op = 'noop'; }"
+            "def j = ctx._source.info.job_id;"
+            " if (params.job_id != null ? j != params.job_id : (j != null && !params.own_job_ids.contains(j))) { ctx.op = 'noop'; }"
             " else { for (e in params.stamp.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); } }"
         ),
         "params": {
             "job_id": stamp.external_job_id or None,
+            "own_job_ids": [] if stamp.external_job_id else own_report_job_ids(stamp.task_id),
             "stamp": {
                 "user_id": stamp.user_id,
                 "tenant_id": stamp.tenant_id,

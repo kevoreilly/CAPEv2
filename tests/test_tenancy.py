@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import types
 from pathlib import Path
 
@@ -755,8 +756,11 @@ def test_reconcile_cli_initializes_the_database_first(monkeypatch):
     import lib.cuckoo.core.database as database_mod
     from lib.tenancy.backfill import main
 
+    from lib.cuckoo.core.data.db_common import Base
+
     calls = []
     engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
     monkeypatch.setattr(database_mod, "init_database", lambda *a, **k: calls.append("init"))
     monkeypatch.setattr(
         database_mod, "Database", lambda: calls.append("db") or types.SimpleNamespace(engine=engine)
@@ -1745,14 +1749,182 @@ def test_readers_can_comment_is_off_unless_configured(monkeypatch):
     assert policy.multitenancy_config().readers_can_comment is True
 
 
-def test_the_retired_allow_superuser_all_key_warns_when_it_disagrees(monkeypatch, caplog):
-    # The key was never read; local_admins_manage_all_tenants decides. Say so instead of ignoring it.
+def _matches(doc, flt):
+    """A tiny Mongo matcher: equality, $in (None matches a missing field), $and/$or, $lte, $exists."""
+    def get(path):
+        cur = doc
+        for part in path.split("."):
+            if not isinstance(cur, dict) or part not in cur:
+                return None, False
+            cur = cur[part]
+        return cur, True
+
+    for key, cond in flt.items():
+        if key == "$and":
+            if not all(_matches(doc, c) for c in cond):
+                return False
+            continue
+        if key == "$or":
+            if not any(_matches(doc, c) for c in cond):
+                return False
+            continue
+        val, present = get(key)
+        if isinstance(cond, dict):
+            for op, arg in cond.items():
+                if op == "$in" and val not in arg:
+                    return False
+                if op == "$lte" and not (present and val <= arg):
+                    return False
+                if op == "$exists" and present != arg:
+                    return False
+        elif val != cond:
+            return False
+    return True
+
+
+def test_toggle_only_restamps_this_nodes_own_report_of_the_task():
+    # A shared report store also holds other nodes' local-<id> / broker reports with the same info.id:
+    # update_one by bare info.id restamped (and re-owned) the oldest of them instead of ours.
+    docs = [
+        {"_id": 1, "info": {"id": 5, "job_id": "local-5", "user_id": 77, "tenant_id": 9, "visibility": PRIVATE}},
+        {"_id": 2, "info": {"id": 5, "job_id": "3f9c-broker", "user_id": 78, "tenant_id": 9, "visibility": PRIVATE}},
+        {"_id": 3, "info": {"id": 5, "user_id": 10, "tenant_id": 1, "visibility": PRIVATE}},
+    ]
+
+    def update_one(collection, flt, update):
+        for doc in docs:  # first match in _id order, as dev_utils' hint=[("_id", 1)] does
+            if _matches(doc, flt):
+                for k, v in update["$set"].items():
+                    doc["info"][k.split(".", 1)[1]] = v
+                return True
+        return False
+
+    sync_stamp_to_mongo(
+        cape_tenancy.VisibilityStamp(task_id=5, user_id=10, tenant_id=1, visibility=PUBLIC, visibility_seq=2),
+        mongo_update_one=update_one,
+    )
+    assert [d["info"]["visibility"] for d in docs] == [PRIVATE, PRIVATE, PUBLIC]
+    assert docs[0]["info"]["user_id"] == 77
+
+    from lib.tenancy.acl import sync_stamp_to_es
+
+    calls = []
+    sync_stamp_to_es(
+        cape_tenancy.VisibilityStamp(task_id=5, user_id=10, tenant_id=1, visibility=PUBLIC, visibility_seq=2),
+        es_update_by_query=lambda q, s: calls.append((q, s)),
+    )
+    query, script = calls[0]
+    assert {"term": {"info.id": 5}} in query["bool"]["filter"]
+    assert script["params"]["own_job_ids"] == ["ui-5"]  # the script no-ops on any other job id
+
+
+def test_toggle_commit_failure_restamps_the_stores_with_the_stricter_visibility():
+    # A failed COMMIT has already released the row lock, and may even have landed (lost reply):
+    # restoring the prior visibility could then publish a task SQL now holds private.
+    events = []
+
+    def mongo(collection, flt, update):
+        events.append(update["$set"]["info.visibility"])
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 42, user_id=10, tenant_id=1, visibility=PUBLIC)
+        session.commit()
+        real_commit = session.commit
+        session.commit = lambda: (_ for _ in ()).throw(RuntimeError("connection lost after COMMIT"))
+        with pytest.raises(RuntimeError):
+            toggle_task_visibility_cas(session, 42, PRIVATE, mongo_update_one=mongo)
+        session.commit = real_commit
+    assert events == [PRIVATE, PRIVATE]
+
+
+def test_retired_allow_superuser_all_no_fails_closed_and_warns_once(monkeypatch, caplog):
     from lib.tenancy import policy
 
     sec = {"enabled": "yes", "local_admins_manage_all_tenants": "yes", "allow_superuser_all": "no"}
     monkeypatch.setattr(policy, "_load_multitenancy_section", lambda: sec)
+    monkeypatch.setattr(policy, "_warned_retired_key", False)
     with caplog.at_level("WARNING"):
-        cfg = policy.multitenancy_config()
-    assert cfg.local_admins_manage_all_tenants is True
-    assert "allow_superuser_all" in caplog.text
-    assert not hasattr(cfg, "allow_superuser_all")
+        cfgs = [policy.multitenancy_config() for _ in range(3)]
+    assert all(c.local_admins_manage_all_tenants is False for c in cfgs)
+    assert caplog.text.count("allow_superuser_all") == 1
+
+
+def test_reconcile_skips_a_job_less_doc_whose_acl_row_belongs_to_a_broker_job():
+    from lib.tenancy.backfill import plan_reconcile_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        set_task_acl(session, 6, user_id=12, tenant_id=8, visibility=PUBLIC, external_job_id="job-x")
+        session.commit()
+        skipped = []
+        plans = [op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": 6, "job_id": None}], skipped=skipped) for op in batch]
+    assert plans == [] and skipped == ["k"]
+
+
+def _patch_reconcile_cli(monkeypatch, engine, seen):
+    import lib.cuckoo.common.config as config_mod
+    import lib.cuckoo.core.database as database_mod
+    import lib.tenancy.backfill as backfill
+
+    monkeypatch.setattr(database_mod, "init_database", lambda *a, **k: None)
+    monkeypatch.setattr(database_mod, "Database", lambda: types.SimpleNamespace(engine=engine))
+    on, off = types.SimpleNamespace(enabled=True), types.SimpleNamespace(enabled=False)
+    monkeypatch.setattr(config_mod, "Config", lambda name: types.SimpleNamespace(mongodb=on, elasticsearchdb=off))
+    monkeypatch.setitem(sys.modules, "dev_utils.mongodb", types.SimpleNamespace(results_db=None))
+    monkeypatch.setattr(backfill, "reconcile_mongo_stamps", lambda session, **kw: seen.append(kw) or 0)
+    return backfill.main
+
+
+def test_reconcile_cli_passes_trust_local_jobs_through(monkeypatch):
+    from lib.cuckoo.core.data.db_common import Base
+
+    seen = []
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    main = _patch_reconcile_cli(monkeypatch, engine, seen)
+    assert main(["--dry-run", "--trust-local-jobs"]) == 0
+    assert seen[-1]["trust_local_jobs"] is True
+
+
+def test_reconcile_cli_refuses_to_run_on_a_dist_worker(monkeypatch, capsys):
+    # A worker files each dist task's report under the MAIN server's task id, so its own task_acl
+    # rows (worker-local ids) would restamp unrelated main reports.
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
+
+    seen = []
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        task = Task("x")
+        task.category = "file"
+        task.set_attribute("main_task_id", 5)
+        session.add(task)
+        session.commit()
+    main = _patch_reconcile_cli(monkeypatch, engine, seen)
+    assert main(["--dry-run"]) == 2
+    assert seen == [] and "main server" in capsys.readouterr().err
+
+
+def test_refused_object_storage_upload_leaves_the_report_without_a_job_id(tmp_path, monkeypatch):
+    # The refused upload used to leave info.job_id = local-<id> in the report Mongo then stored,
+    # so the reconcile (and the toggle) no longer recognized this node's own report.
+    from lib.cuckoo.common.exceptions import CuckooReportError
+    from lib.tenancy.storage.reporting import ObjectStorage
+
+    (tmp_path / "analyses" / "7").mkdir(parents=True)
+    monkeypatch.setattr(
+        "lib.tenancy.storage.reporting.object_storage_config",
+        lambda: ObjectStorageConfig(enabled=True, backend="local", local_root=str(tmp_path), prefix="results"),
+    )
+    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
+    monkeypatch.delenv("CAPE_MAIN_TASK_ID", raising=False)
+    results = {"info": {"id": 7}}
+    reporter = ObjectStorage()
+    reporter.set_path(str(tmp_path / "analyses" / "7"))
+    with pytest.raises(CuckooReportError):
+        reporter.run(results)
+    assert "job_id" not in results["info"]

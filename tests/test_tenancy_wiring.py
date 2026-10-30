@@ -1118,6 +1118,7 @@ def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
     assert {"term": {"info.id": 42}} in query["bool"]["filter"]
     assert script["params"] == {
         "job_id": None,
+        "own_job_ids": ["ui-42"],
         "stamp": {"user_id": 7, "tenant_id": 1, "visibility": PRIVATE, "visibility_seq": stamp.visibility_seq},
     }
 
@@ -1233,7 +1234,7 @@ def test_submitters_cannot_supply_their_own_task_acl_attribute(monkeypatch, as_j
         reset_current_viewer(token)
     assert tasking.added_attributes[-1] == {"note": "x"}
 
-    trusted = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_authenticated=True)
+    trusted = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
     token = set_current_viewer(trusted)  # e.g. the dist node's service account
     try:
         tasking(session).add("target", user_id=1, attributes=dict(forged))
@@ -2384,3 +2385,18 @@ def test_audit_framework_is_admin_only_under_multitenancy(monkeypatch):
     assert _status(_mw(_viewer(8, 2)).process_view(_req("/audit/"), audit_index, (), {})) == 403
     admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
     assert _status(_mw(admin).process_view(_req("/audit/"), audit_index, (), {})) is None
+
+
+def test_a_tenant_scoped_superuser_is_not_a_trusted_submitter():
+    # With local_admins_manage_all_tenants = no a superuser is tenant-scoped; the docs say dist-only
+    # attributes (main_task_id, task_acl) and ui-<id> job ids need that flag.
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import _trusted_submitter
+
+    scoped_super = ViewerContext(user_id=1, tenant_id=2, is_superuser=True, is_local_admin=False, is_authenticated=True)
+    set_current_viewer(scoped_super)
+    try:
+        assert not _trusted_submitter()
+    finally:
+        set_current_viewer(None)
+    assert _trusted_submitter()

@@ -80,6 +80,9 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
     return session, scope
 
 
+_MONGO_RETRY_DEADLINE = 12.0  # seconds: a typical replica-set election
+
+
 def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict) -> Any:
     # The raw collection: dev_utils' mongo_update_one hints _id, which turns this info.id CAS into a
     # scan of the whole analysis collection (now on every dist fetch, not only on toggles).
@@ -87,15 +90,19 @@ def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict)
 
     from dev_utils.mongodb import results_db
 
-    # Ride out a primary election or restart like dev_utils' wrapper does, but raise at the end:
+    # Ride out a primary election like dev_utils' wrapper does, bounded by elapsed time (an attempt can
+    # itself wait out server selection, and a toggle holds its row lock meanwhile). Raise at the end:
     # returning None would let a failed toggle commit as if the store had been written.
-    for attempt in range(5):
+    deadline = time.monotonic() + _MONGO_RETRY_DEADLINE
+    delay = 0.5
+    while True:
         try:
             return getattr(results_db, collection).update_one(filter_q, update_doc)
         except AutoReconnect:
-            if attempt == 4:
+            if time.monotonic() + delay >= deadline:
                 raise
-            time.sleep(0.5 * 2**attempt)
+            time.sleep(delay)
+            delay *= 2
 
 
 def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:

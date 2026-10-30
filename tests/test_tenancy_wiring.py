@@ -2818,28 +2818,48 @@ def test_resync_one_stamps_a_rowless_task_private_to_its_submitter_and_rejects_u
     assert writes == [{"info.user_id": 10, "info.tenant_id": None, "info.visibility": "private", "info.visibility_seq": 1}]
 
 
-def test_tenancy_mongo_writer_retries_a_reconnect_then_raises(monkeypatch):
+def test_tenancy_mongo_writer_retries_a_reconnect_within_a_deadline(monkeypatch):
+    # Ride out an election, but bounded by elapsed time: each attempt can itself wait out server
+    # selection, and the toggle holds the task_acl row lock meanwhile. Other errors are not retried.
     import dev_utils.mongodb as dm
     import lib.tenancy.views as tviews
-    from pymongo.errors import AutoReconnect
+    from pymongo.errors import AutoReconnect, DuplicateKeyError
 
-    attempts = []
+    clock = {"t": 0.0}
+    sleeps, attempts = [], []
+
+    def _sleep(s):
+        sleeps.append(s)
+        clock["t"] += s
 
     class _Coll:
-        def __init__(self, fail_times):
-            self.fail_times = fail_times
+        def __init__(self, error, fail_times, cost=0.0):
+            self.error, self.fail_times, self.cost = error, fail_times, cost
 
         def update_one(self, flt, update, **kw):
             attempts.append(1)
+            clock["t"] += self.cost  # e.g. serverSelectionTimeoutMS before AutoReconnect
             if len(attempts) <= self.fail_times:
-                raise AutoReconnect("primary stepped down")
+                raise self.error
             return "ok"
 
-    monkeypatch.setattr(tviews.time, "sleep", lambda s: None)
-    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(2)))
-    assert tviews._default_mongo_update_one("analysis", {}, {}) == "ok" and len(attempts) == 3
+    monkeypatch.setattr(tviews.time, "sleep", _sleep)
+    monkeypatch.setattr(tviews.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(AutoReconnect("stepdown"), 2)))
+    assert tviews._default_mongo_update_one("analysis", {}, {}) == "ok"
+    assert len(attempts) == 3 and sleeps == [0.5, 1.0]
+
     attempts.clear()
-    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(99)))
+    sleeps.clear()
+    clock["t"] = 0.0
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(AutoReconnect("no primary"), 99, cost=5.0)))
     with pytest.raises(AutoReconnect):
         tviews._default_mongo_update_one("analysis", {}, {})
-    assert len(attempts) == 5
+    assert clock["t"] <= tviews._MONGO_RETRY_DEADLINE + 5.0  # never starts an attempt past the deadline
+
+    attempts.clear()
+    sleeps.clear()
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_Coll(DuplicateKeyError("dup"), 99)))
+    with pytest.raises(DuplicateKeyError):
+        tviews._default_mongo_update_one("analysis", {}, {})
+    assert len(attempts) == 1 and sleeps == []

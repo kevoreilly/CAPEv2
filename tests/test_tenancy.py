@@ -643,15 +643,28 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
             {"key": "d", "id": 99, "job_id": "job-4", "tenant_id": 2, "visibility": PUBLIC},
             # foreign doc colliding on info.id with a central task: not that task's ACL
             {"key": "e", "id": 4, "job_id": "other", "tenant_id": 8, "visibility": TENANT},
+            # another node's broker-job / local report in a shared store, colliding with task 1
+            {"key": "f", "id": 1, "job_id": "3f9c2b7e-broker", "user_id": 55, "tenant_id": 2, "visibility": PRIVATE},
+            {"key": "g", "id": 1, "job_id": "local-1", "user_id": 55, "tenant_id": 2, "visibility": PRIVATE},
+            # this node's bridged report of task 1 (object storage renumbers info.id to the central id)
+            {"key": "h", "id": 1, "job_id": "ui-1", "tenant_id": 1, "visibility": TENANT},
         ]
-        plans = [op for batch in plan_reconcile_stamps(session, docs, chunk_size=2, task_owners=lambda ids: {}) for op in batch]
+        skipped = []
+        plans = [
+            op
+            for batch in plan_reconcile_stamps(
+                session, docs, chunk_size=2, task_owners=lambda ids: {}, skipped=skipped
+            )
+            for op in batch
+        ]
 
     by_key = dict(plans)
-    assert set(by_key) == {"a", "b", "d", "e"}
+    assert set(by_key) == {"a", "b", "d", "h"}
+    assert sorted(skipped) == ["e", "f", "g"]
+    assert by_key["h"] == by_key["a"]
     assert by_key["a"] == {"user_id": 10, "tenant_id": None, "visibility": PUBLIC, "visibility_seq": 1}
     assert by_key["b"] == {"user_id": None, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
     assert by_key["d"] == {"user_id": 12, "tenant_id": 8, "visibility": TENANT, "visibility_seq": 1}
-    assert by_key["e"]["visibility"] == PRIVATE and by_key["e"]["tenant_id"] is None
 
 
 def test_reconcile_keeps_the_task_owner_when_there_is_no_acl_row():
@@ -664,18 +677,20 @@ def test_reconcile_keeps_the_task_owner_when_there_is_no_acl_row():
     docs = [
         {"key": "own", "id": 2, "job_id": None},
         {"key": "local", "id": 3, "job_id": "local-3"},
-        {"key": "foreign", "id": 2, "job_id": "ui-9"},  # another node's report sharing info.id 2
+        {"key": "foreign", "id": 2, "job_id": "ui-9"},  # another job's report sharing info.id 2
         {"key": "noowner", "id": 4, "job_id": None},
     ]
+    owners = {2: 7, 3: 8, 4: 0}
     with Session(engine) as session:
-        plans = dict(
+        plans = dict(op for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: owners) for op in batch)
+        trusted = dict(
             op
-            for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: {2: 7, 3: 8, 4: 0})
+            for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: owners, trust_local_jobs=True)
             for op in batch
         )
     assert plans["own"] == {"user_id": 7, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
-    assert plans["local"]["user_id"] == 8
-    assert plans["foreign"]["user_id"] is None
+    assert "local" not in plans and trusted["local"]["user_id"] == 8  # local-<id> only for an unshared store
+    assert "foreign" not in plans and "foreign" not in trusted
     assert plans["noowner"]["user_id"] is None
 
 

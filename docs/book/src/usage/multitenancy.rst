@@ -84,6 +84,13 @@ A report with no ``task_acl`` row is restamped ``private`` to its task's
 submitter (``tasks.user_id``), as the web UI already resolves it, or to no one,
 so only admins can see it. The command is idempotent.
 
+Only this node's own reports are restamped: those with no ``info.job_id`` and
+object-storage reports bridged as ``ui-<id>``. A shared central report store
+also holds other nodes' ``local-<id>`` and broker-job reports whose ``info.id``
+collides with local task ids, so those are left alone and counted. Pass
+``--trust-local-jobs`` to restamp ``local-<id>`` reports too, but only when no
+other node writes to this report store.
+
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------
 

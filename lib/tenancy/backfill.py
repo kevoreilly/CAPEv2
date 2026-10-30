@@ -110,16 +110,23 @@ def plan_reconcile_stamps(
     chunk_size: int = 500,
     fallback_visibility: str = PRIVATE,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
+    trust_local_jobs: bool = False,
+    skipped: Optional[List[Any]] = None,
 ) -> Iterable[List[Tuple[Any, Dict[str, Any]]]]:
     """Yield batches of `(doc key, stamp)` for report docs whose stamp differs from `task_acl`.
 
     Each doc is `{"key", "id", "job_id", <stamp fields>}`. Unlike the backfills above, this
     overwrites existing stamps: pre-stack installs stamped `info.tenant_id` from their own Tenant
-    ids, which collide with the Group ids used now. A doc carrying a job id is matched to the ACL
-    row with that `external_job_id`, else to its task id's row when that row has no other external
-    job. A doc no row accounts for is stamped `fallback_visibility` with no tenant, owned (as
-    `resolve_task_scope` resolves it) by its task's `tasks.user_id` when it is that local task's
-    own report (no job id, or `local-<id>`).
+    ids, which collide with the Group ids used now.
+
+    A doc is matched to the ACL row whose `external_job_id` is its job id. Otherwise it is matched
+    by `info.id` only when it is this node's own report: no job id, or `ui-<info.id>` (object
+    storage renumbers bridged reports to the central task id), or `local-<info.id>` with
+    `trust_local_jobs` (only when no other node writes to this report store: a shared central
+    store holds other nodes' `local-<id>` and broker-job reports under colliding ids). Any other
+    doc is left alone and its key appended to `skipped`. A matched doc without an ACL row is
+    stamped `fallback_visibility` with no tenant, owned (as `resolve_task_scope` resolves it) by
+    its task's `tasks.user_id`.
     """
     if fallback_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid fallback_visibility: {fallback_visibility!r}")
@@ -140,18 +147,21 @@ def plan_reconcile_stamps(
         ops = []
         for doc in batch:
             job_id = str(doc["job_id"]) if doc.get("job_id") else None
+            tid = doc.get("id") if isinstance(doc.get("id"), int) else None
             acl = by_job.get(job_id) if job_id else None
             if acl is None:
-                row = by_task.get(doc.get("id")) if isinstance(doc.get("id"), int) else None
-                if row is not None and (not row.external_job_id or row.external_job_id == job_id):
-                    acl = row
+                own_jobs = {None, f"ui-{tid}"} | ({f"local-{tid}"} if trust_local_jobs else set())
+                row = by_task.get(tid) if tid is not None else None
+                if tid is None or job_id not in own_jobs or (row is not None and row.external_job_id not in (None, "", job_id)):
+                    if skipped is not None:
+                        skipped.append(doc["key"])
+                    continue
+                acl = row
             if acl is not None:
                 stamp = _acl_stamp(acl)
             else:
                 stamp = dict(fallback)
-                tid = doc.get("id")
-                if isinstance(tid, int) and job_id in (None, f"local-{tid}") and tid not in by_task:
-                    stamp["user_id"] = owners.get(tid) or None  # tasks.user_id 0 is add()'s "no owner"
+                stamp["user_id"] = owners.get(tid) or None  # tasks.user_id 0 is add()'s "no owner"
             if any(doc.get(field) != stamp[field] for field in _STAMP_FIELDS):
                 ops.append((doc["key"], stamp))
         return ops
@@ -196,12 +206,16 @@ def reconcile_mongo_stamps(
     chunk_size: int = 500,
     dry_run: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
+    trust_local_jobs: bool = False,
+    skipped: Optional[List[Any]] = None,
 ) -> int:
     """Restamp every Mongo report doc from `task_acl` (see `plan_reconcile_stamps`); returns docs changed."""
     raw = find(collection, {}, {field: 1 for field in _INFO_PROJECTION})
     docs = (_doc_from_info(d["_id"], d.get("info")) for d in raw)
     changed = 0
-    for ops in plan_reconcile_stamps(session, docs, chunk_size=chunk_size, task_owners=task_owners):
+    for ops in plan_reconcile_stamps(
+        session, docs, chunk_size=chunk_size, task_owners=task_owners, trust_local_jobs=trust_local_jobs, skipped=skipped
+    ):
         changed += len(ops)
         if not dry_run:
             bulk_update(
@@ -219,11 +233,15 @@ def reconcile_es_stamps(
     chunk_size: int = 500,
     dry_run: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
+    trust_local_jobs: bool = False,
+    skipped: Optional[List[Any]] = None,
 ) -> int:
     """Restamp every Elasticsearch analysis doc from `task_acl`; `scan` yields hits with `_source.info`."""
     docs = (_doc_from_info((h["_index"], h["_id"]), (h.get("_source") or {}).get("info")) for h in scan())
     changed = 0
-    for ops in plan_reconcile_stamps(session, docs, chunk_size=chunk_size, task_owners=task_owners):
+    for ops in plan_reconcile_stamps(
+        session, docs, chunk_size=chunk_size, task_owners=task_owners, trust_local_jobs=trust_local_jobs, skipped=skipped
+    ):
         changed += len(ops)
         if not dry_run:
             for (index, doc_id), stamp in ops:
@@ -245,7 +263,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     parser = argparse.ArgumentParser(prog="utils/tenancy_reconcile.py")
     parser.add_argument("--dry-run", action="store_true", help="count docs that would change, write nothing")
+    parser.add_argument(
+        "--trust-local-jobs",
+        action="store_true",
+        help="also restamp local-<id> object-storage reports; only when no other node writes to this report store",
+    )
     args = parser.parse_args(argv)
+    verb = "would be restamped" if args.dry_run else "restamped"
+
+    def _report(store: str, changed: int, skipped: List[Any]) -> None:
+        print(f"{store}: {changed} analysis docs {verb}; {len(skipped)} left alone (not this node's own report)")
 
     init_database()
     db = Database()
@@ -264,8 +291,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             def _bulk(collection: str, ops: List[Tuple[Dict[str, Any], Dict[str, Any]]]) -> Any:
                 return getattr(results_db, collection).bulk_write([UpdateOne(f, u) for f, u in ops], ordered=False)
 
-            n = reconcile_mongo_stamps(session, find=_find, bulk_update=_bulk, dry_run=args.dry_run)
-            print(f"mongodb: {n} analysis docs {'would be ' if args.dry_run else ''}restamped")
+            skipped: List[Any] = []
+            n = reconcile_mongo_stamps(
+                session,
+                find=_find,
+                bulk_update=_bulk,
+                dry_run=args.dry_run,
+                trust_local_jobs=args.trust_local_jobs,
+                skipped=skipped,
+            )
+            _report("mongodb", n, skipped)
         if reporting.elasticsearchdb.enabled:
             from elasticsearch.helpers import scan
 
@@ -280,6 +315,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 # body=: CAPE's client is elasticsearch-py 7.x (see dev_utils.elasticsearchdb).
                 return elastic_handler.update(index=index, id=doc_id, body={"doc": {"info": stamp}})
 
-            n = reconcile_es_stamps(session, scan=_scan, update=_update, dry_run=args.dry_run)
-            print(f"elasticsearch: {n} analysis docs {'would be ' if args.dry_run else ''}restamped")
+            skipped = []
+            n = reconcile_es_stamps(
+                session,
+                scan=_scan,
+                update=_update,
+                dry_run=args.dry_run,
+                trust_local_jobs=args.trust_local_jobs,
+                skipped=skipped,
+            )
+            _report("elasticsearch", n, skipped)
     return 0

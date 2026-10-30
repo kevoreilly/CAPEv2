@@ -2400,3 +2400,70 @@ def test_a_tenant_scoped_superuser_is_not_a_trusted_submitter():
     finally:
         set_current_viewer(None)
     assert _trusted_submitter()
+
+
+def test_tenancy_registers_the_own_report_query_hook():
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.acl import own_report_es_query, own_report_mongo_query
+    from lib.tenancy.hooks import register_core_hooks
+
+    assert core_hooks.task_report_query(5) is None  # stock: callers keep their info.id lookup
+    register_core_hooks()
+    try:
+        assert core_hooks.task_report_query(5) == own_report_mongo_query(5)
+        assert core_hooks.task_report_query(5, "es") == own_report_es_query(5)
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_comments_write_to_the_tasks_own_report_by_document_id():
+    # The comment was written with update_one({"info.id": N}): in a shared report store that is the
+    # oldest doc with that id, possibly another tenant's report the commenter cannot read.
+    pytest.importorskip("django")
+    import os
+    import subprocess
+    import sys
+
+    script = """
+import sys
+sys.path[:0] = [".", "web"]
+import django
+from django.conf import settings
+settings.configure(WEB_AUTHENTICATION=False, CUCKOO_PATH=".", COMMENTS=True, ANON_VIEW=False, ALLOW_DL_REPORTS_TO_ALL=False,
+    MOLOCH_ENABLED=False, MOLOCH_BASE="", MOLOCH_NODE="", HUNT_ENABLED=False, REPROCESS_TASKS=False, ZIP_PWD=b"infected",
+    TEMP_PATH="/tmp", STATIC_URL="/static/", RATELIMIT_ERROR_MSG="", NOCAPTCHA=True, TWOFA=False,
+    INSTALLED_APPS=["django.contrib.auth", "django.contrib.contenttypes"],
+    DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}})
+django.setup()
+from django.test import RequestFactory
+from lib.cuckoo.common import hooks
+import analysis.views as v
+
+hooks.register_task_report_query_hook(lambda tid, store: {"own": tid, "store": store})
+hooks.register_es_filter(lambda body: dict(body, scoped=True))
+reads, writes, es_bodies, es_writes = [], [], [], []
+v.mongo_find_one = lambda c, q, p=None, **kw: reads.append(q) or {"_id": "oid-own", "info": {"comments": []}}
+v.mongo_update_one = lambda c, q, u, **kw: writes.append(q)
+v.redirect = lambda *a, **k: "ok"
+v.settings.COMMENTS = True
+req = RequestFactory().post("/analysis/5/comments/", {"commentbox": "hi"})
+v.enabledconf["mongodb"], v.es_as_db = True, False
+assert v.comments(req, 5) == "ok"
+assert reads == [{"own": 5, "store": "mongo"}], reads
+assert writes == [{"_id": "oid-own"}], writes
+
+class FakeES:
+    def search(self, index, body=None, **kw):
+        es_bodies.append(body)
+        return {"hits": {"hits": [{"_source": {"info": {}}, "_id": "es-own", "_index": "idx"}]}}
+    def update(self, index, id, body):
+        es_writes.append((index, id))
+v.es, v.es_as_db, v.enabledconf["mongodb"] = FakeES(), True, False
+v.get_analysis_index = lambda: "cape-analysis-*"
+assert v.comments(req, 5) == "ok"
+assert es_bodies == [{"query": {"own": 5, "store": "es"}, "scoped": True}], es_bodies
+assert es_writes == [("idx", "es-own")], es_writes
+"""
+    env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+    res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
+    assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr[-3000:]}"

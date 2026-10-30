@@ -787,6 +787,12 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
     info.setdefault("visibility_seq", 0)
 
 
+def _own_report_query(task_id: int, store: str) -> Optional[Dict[str, Any]]:
+    from lib.tenancy.acl import own_report_es_query, own_report_mongo_query
+
+    return own_report_es_query(task_id) if store == "es" else own_report_mongo_query(task_id)
+
+
 def register_core_hooks() -> bool:
     """Register `lib.tenancy` Mongo, SQL, ES, Report, and Resource hooks into `lib.cuckoo.common.hooks`."""
     wrap_submission_and_web_utils()
@@ -811,4 +817,6 @@ def register_core_hooks() -> bool:
         core_hooks.register_login_groups_hook(_reconcile_login_groups)
     if hasattr(core_hooks, "register_task_copy_scope_hook"):
         core_hooks.register_task_copy_scope_hook(inherit_task_scope)
+    if hasattr(core_hooks, "register_task_report_query_hook"):
+        core_hooks.register_task_report_query_hook(_own_report_query)
     return True

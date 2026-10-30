@@ -19,6 +19,7 @@ RouteFilterHook = Callable[[list[Any], str | None], list[Any]]
 SubmissionContextFilterHook = Callable[[MutableMapping[str, Any]], MutableMapping[str, Any]]
 LoginGroupsHook = Callable[[Any, set], None]
 TaskCopyScopeHook = Callable[[Any, int], contextlib.AbstractContextManager[Any]]
+TaskReportQueryHook = Callable[[int, str], Optional[dict[str, Any]]]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []
@@ -30,6 +31,7 @@ _route_filters: list[RouteFilterHook] = []
 _submission_context_filters: list[SubmissionContextFilterHook] = []
 _login_groups_hooks: list[LoginGroupsHook] = []
 _task_copy_scope_hooks: list[TaskCopyScopeHook] = []
+_task_report_query_hooks: list[TaskReportQueryHook] = []
 
 
 def register_mongo_filter(fn: MongoFilterHook) -> None:
@@ -121,6 +123,24 @@ def task_copy_scope(db: Any, source_task_id: int):
         yield
 
 
+def register_task_report_query_hook(fn: TaskReportQueryHook) -> None:
+    if fn not in _task_report_query_hooks:
+        _task_report_query_hooks.append(fn)
+
+
+def task_report_query(task_id: int, store: str = "mongo") -> Optional[dict[str, Any]]:
+    """A plugin's query for task_id's own report doc ("mongo" filter or "es" query), or None.
+
+    Views that write into a task's report use it so that, in a report store shared with other
+    nodes, they pick that task's report and not another one sharing its info.id.
+    """
+    for fn in _task_report_query_hooks:
+        query = fn(int(task_id), store)
+        if query is not None:
+            return query
+    return None
+
+
 def run_report_hooks(results: dict[str, Any]) -> None:
     for fn in _report_hooks:
         fn(results)
@@ -173,6 +193,7 @@ def clear_all_hooks() -> None:
     _submission_context_filters.clear()
     _login_groups_hooks.clear()
     _task_copy_scope_hooks.clear()
+    _task_report_query_hooks.clear()
 
 
 # --- Plugin activation -------------------------------------------------------------------------

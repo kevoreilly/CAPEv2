@@ -716,6 +716,49 @@ assert not errors, errors
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
 
 
+def test_compare_in_elasticsearch_mode_scopes_every_analysis_search():
+    # The compare pages list other analyses of the same file; in ES-as-database mode they ran a
+    # raw es.search, so a tenant saw every other tenant's analyses of that hash.
+    pytest.importorskip("django")
+    import os
+    import subprocess
+    import sys
+
+    script = """
+import sys
+sys.path[:0] = [".", "web"]
+import django
+from django.conf import settings
+settings.configure(WEB_AUTHENTICATION=False, CUCKOO_PATH=".", INSTALLED_APPS=["django.contrib.auth", "django.contrib.contenttypes"],
+    DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}})
+django.setup()
+from django.test import RequestFactory
+from lib.cuckoo.common import hooks
+import compare.views as v
+
+bodies = []
+class FakeES:
+    def search(self, index, body=None, query=None, **kw):
+        bodies.append(body if body is not None else {"query": query})
+        src = {"info": {"id": 1}, "target": {"file": {"md5": "a" * 32}}}
+        return {"hits": {"hits": [{"_source": src}]}}
+
+hooks.register_es_filter(lambda body: dict(body, scoped=True))
+v.es, v.es_as_db, v.enabledconf["mongodb"] = FakeES(), True, False
+v.get_analysis_index = lambda: "cape-analysis-*"
+v.get_query_by_info_id = lambda i: {"match": {"info.id": i}}
+v.render = lambda request, template, ctx: ctx
+req = RequestFactory().get("/")
+v.left(req, 1)
+v.hash(req, 1, "a" * 32)
+v.diff(req, 1, 2)
+assert bodies and all(b.get("scoped") for b in bodies), bodies
+"""
+    env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+    res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
+    assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
+
+
 def test_visibility_toggle_on_task_without_acl_row_keeps_its_owner(monkeypatch):
     # Upgraded and unstamped tasks have no task_acl row; their scope falls back to tasks.user_id.
     # Toggling one must not create an ownerless row (and stamp info.user_id=None into Mongo).

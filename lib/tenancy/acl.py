@@ -241,7 +241,7 @@ def toggle_task_visibility_cas(
             except Exception:
                 log.exception(
                     "Task %s: could not restore the report stamp after a failed visibility toggle; "
-                    "run 'python -m lib.tenancy.backfill reconcile'",
+                    "run utils/tenancy_reconcile.py",
                     task_id,
                 )
         raise

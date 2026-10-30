@@ -77,8 +77,8 @@ report to the wrong tenant. The backfills above skip already-stamped reports, so
 restamp them from ``task_acl`` instead. Stop the web and processing services,
 then run (MongoDB and/or Elasticsearch, whichever is enabled)::
 
-    poetry run python -m lib.tenancy.backfill reconcile --dry-run
-    poetry run python -m lib.tenancy.backfill reconcile
+    poetry run python utils/tenancy_reconcile.py --dry-run
+    poetry run python utils/tenancy_reconcile.py
 
 A report with no ``task_acl`` row is restamped ``private`` with no owner or
 tenant, so only admins can see it. The command is idempotent.

@@ -683,6 +683,24 @@ def test_reconcile_es_stamps_writes_by_index_and_id():
     ]
 
 
+def test_reconcile_cli_initializes_the_database_first(monkeypatch):
+    # Database() raises CuckooDatabaseInitializationError until init_database() has run.
+    import lib.cuckoo.common.config as config_mod
+    import lib.cuckoo.core.database as database_mod
+    from lib.tenancy.backfill import main
+
+    calls = []
+    engine = create_engine("sqlite:///:memory:")
+    monkeypatch.setattr(database_mod, "init_database", lambda *a, **k: calls.append("init"))
+    monkeypatch.setattr(
+        database_mod, "Database", lambda: calls.append("db") or types.SimpleNamespace(engine=engine)
+    )
+    off = types.SimpleNamespace(enabled=False)
+    monkeypatch.setattr(config_mod, "Config", lambda name: types.SimpleNamespace(mongodb=off, elasticsearchdb=off))
+    assert main(["--dry-run"]) == 0
+    assert calls[:2] == ["init", "db"]
+
+
 def test_tasks_set_visibility_endpoint(monkeypatch):
     from lib.tenancy.views import tasks_set_visibility
 

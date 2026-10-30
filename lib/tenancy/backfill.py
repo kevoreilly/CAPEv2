@@ -212,7 +212,7 @@ def reconcile_es_stamps(
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    """`python -m lib.tenancy.backfill reconcile [--dry-run]`: restamp Mongo/ES report docs from `task_acl`.
+    """`utils/tenancy_reconcile.py [--dry-run]`: restamp Mongo/ES report docs from `task_acl`.
 
     Run it once after upgrading a pre-stack install, with the web and processing services stopped
     (the restamp overwrites, so a visibility toggle racing it can be undone).
@@ -220,14 +220,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     import argparse
 
     from lib.cuckoo.common.config import Config
-    from lib.cuckoo.core.database import Database
+    from lib.cuckoo.core.database import Database, init_database
     from lib.tenancy.acl import ensure_acl_schema_once
 
-    parser = argparse.ArgumentParser(prog="python -m lib.tenancy.backfill")
-    parser.add_argument("command", choices=["reconcile"])
+    parser = argparse.ArgumentParser(prog="utils/tenancy_reconcile.py")
     parser.add_argument("--dry-run", action="store_true", help="count docs that would change, write nothing")
     args = parser.parse_args(argv)
 
+    init_database()
     db = Database()
     ensure_acl_schema_once(db.engine)
     reporting = Config("reporting")
@@ -263,7 +263,3 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             n = reconcile_es_stamps(session, scan=_scan, update=_update, dry_run=args.dry_run)
             print(f"elasticsearch: {n} analysis docs {'would be ' if args.dry_run else ''}restamped")
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

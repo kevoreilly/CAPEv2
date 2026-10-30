@@ -109,6 +109,7 @@ def plan_reconcile_stamps(
     *,
     chunk_size: int = 500,
     fallback_visibility: str = PRIVATE,
+    task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
 ) -> Iterable[List[Tuple[Any, Dict[str, Any]]]]:
     """Yield batches of `(doc key, stamp)` for report docs whose stamp differs from `task_acl`.
 
@@ -116,11 +117,14 @@ def plan_reconcile_stamps(
     overwrites existing stamps: pre-stack installs stamped `info.tenant_id` from their own Tenant
     ids, which collide with the Group ids used now. A doc carrying a job id is matched to the ACL
     row with that `external_job_id`, else to its task id's row when that row has no other external
-    job; a doc no row accounts for is stamped `fallback_visibility` with no owner or tenant.
+    job. A doc no row accounts for is stamped `fallback_visibility` with no tenant, owned (as
+    `resolve_task_scope` resolves it) by its task's `tasks.user_id` when it is that local task's
+    own report (no job id, or `local-<id>`).
     """
     if fallback_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid fallback_visibility: {fallback_visibility!r}")
     fallback = {"user_id": None, "tenant_id": None, "visibility": fallback_visibility, "visibility_seq": 1}
+    owners_of = task_owners or (lambda ids: _task_owners(session, ids))
 
     def _flush(batch: List[Dict[str, Any]]) -> List[Tuple[Any, Dict[str, Any]]]:
         task_ids = {int(d["id"]) for d in batch if isinstance(d.get("id"), int)}
@@ -131,6 +135,8 @@ def plan_reconcile_stamps(
             by_task = {r.task_id: r for r in session.scalars(select(TaskAcl).where(TaskAcl.task_id.in_(task_ids)))}
         if job_ids:
             by_job = {r.external_job_id: r for r in session.scalars(select(TaskAcl).where(TaskAcl.external_job_id.in_(job_ids)))}
+        unmatched = {i for i in task_ids if i not in by_task}
+        owners = owners_of(unmatched) if unmatched else {}
         ops = []
         for doc in batch:
             job_id = str(doc["job_id"]) if doc.get("job_id") else None
@@ -139,7 +145,13 @@ def plan_reconcile_stamps(
                 row = by_task.get(doc.get("id")) if isinstance(doc.get("id"), int) else None
                 if row is not None and (not row.external_job_id or row.external_job_id == job_id):
                     acl = row
-            stamp = _acl_stamp(acl) if acl is not None else dict(fallback)
+            if acl is not None:
+                stamp = _acl_stamp(acl)
+            else:
+                stamp = dict(fallback)
+                tid = doc.get("id")
+                if isinstance(tid, int) and job_id in (None, f"local-{tid}") and tid not in by_task:
+                    stamp["user_id"] = owners.get(tid) or None  # tasks.user_id 0 is add()'s "no owner"
             if any(doc.get(field) != stamp[field] for field in _STAMP_FIELDS):
                 ops.append((doc["key"], stamp))
         return ops
@@ -156,6 +168,12 @@ def plan_reconcile_stamps(
         ops = _flush(batch)
         if ops:
             yield ops
+
+
+def _task_owners(session: Session, task_ids: Iterable[int]) -> Dict[int, Any]:
+    from lib.cuckoo.core.data.task import Task
+
+    return dict(session.execute(select(Task.id, Task.user_id).where(Task.id.in_(list(task_ids)))).all())
 
 
 def _doc_from_info(key: Any, info: Any) -> Dict[str, Any]:
@@ -177,12 +195,13 @@ def reconcile_mongo_stamps(
     collection: str = "analysis",
     chunk_size: int = 500,
     dry_run: bool = False,
+    task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
 ) -> int:
     """Restamp every Mongo report doc from `task_acl` (see `plan_reconcile_stamps`); returns docs changed."""
     raw = find(collection, {}, {field: 1 for field in _INFO_PROJECTION})
     docs = (_doc_from_info(d["_id"], d.get("info")) for d in raw)
     changed = 0
-    for ops in plan_reconcile_stamps(session, docs, chunk_size=chunk_size):
+    for ops in plan_reconcile_stamps(session, docs, chunk_size=chunk_size, task_owners=task_owners):
         changed += len(ops)
         if not dry_run:
             bulk_update(
@@ -199,11 +218,12 @@ def reconcile_es_stamps(
     update: Callable[[str, str, Dict[str, Any]], Any],
     chunk_size: int = 500,
     dry_run: bool = False,
+    task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
 ) -> int:
     """Restamp every Elasticsearch analysis doc from `task_acl`; `scan` yields hits with `_source.info`."""
     docs = (_doc_from_info((h["_index"], h["_id"]), (h.get("_source") or {}).get("info")) for h in scan())
     changed = 0
-    for ops in plan_reconcile_stamps(session, docs, chunk_size=chunk_size):
+    for ops in plan_reconcile_stamps(session, docs, chunk_size=chunk_size, task_owners=task_owners):
         changed += len(ops)
         if not dry_run:
             for (index, doc_id), stamp in ops:

@@ -621,7 +621,7 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
             # foreign doc colliding on info.id with a central task: not that task's ACL
             {"key": "e", "id": 4, "job_id": "other", "tenant_id": 8, "visibility": TENANT},
         ]
-        plans = [op for batch in plan_reconcile_stamps(session, docs, chunk_size=2) for op in batch]
+        plans = [op for batch in plan_reconcile_stamps(session, docs, chunk_size=2, task_owners=lambda ids: {}) for op in batch]
 
     by_key = dict(plans)
     assert set(by_key) == {"a", "b", "d", "e"}
@@ -629,6 +629,31 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
     assert by_key["b"] == {"user_id": None, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
     assert by_key["d"] == {"user_id": 12, "tenant_id": 8, "visibility": TENANT, "visibility_seq": 1}
     assert by_key["e"]["visibility"] == PRIVATE and by_key["e"]["tenant_id"] is None
+
+
+def test_reconcile_keeps_the_task_owner_when_there_is_no_acl_row():
+    # Upgraded tasks without a task_acl row resolve to their tasks.user_id owner (resolve_task_scope);
+    # an ownerless stamp hid the report from its own owner's search and broke their compare page.
+    from lib.tenancy.backfill import plan_reconcile_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    docs = [
+        {"key": "own", "id": 2, "job_id": None},
+        {"key": "local", "id": 3, "job_id": "local-3"},
+        {"key": "foreign", "id": 2, "job_id": "ui-9"},  # another node's report sharing info.id 2
+        {"key": "noowner", "id": 4, "job_id": None},
+    ]
+    with Session(engine) as session:
+        plans = dict(
+            op
+            for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: {2: 7, 3: 8, 4: 0})
+            for op in batch
+        )
+    assert plans["own"] == {"user_id": 7, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
+    assert plans["local"]["user_id"] == 8
+    assert plans["foreign"]["user_id"] is None
+    assert plans["noowner"]["user_id"] is None
 
 
 def test_reconcile_mongo_stamps_writes_by_document_id():
@@ -647,6 +672,9 @@ def test_reconcile_mongo_stamps_writes_by_document_id():
         assert collection == "analysis" and query == {}
         return iter(raw)
 
+    def no_owner(ids):
+        return {}
+
     def fake_bulk(collection, ops):
         written.extend(ops)
         return len(ops)
@@ -654,9 +682,9 @@ def test_reconcile_mongo_stamps_writes_by_document_id():
     with Session(engine) as session:
         set_task_acl(session, 1, user_id=10, tenant_id=5, visibility=TENANT)
         session.commit()
-        assert reconcile_mongo_stamps(session, find=fake_find, bulk_update=fake_bulk, dry_run=True) == 1
+        assert reconcile_mongo_stamps(session, find=fake_find, bulk_update=fake_bulk, dry_run=True, task_owners=no_owner) == 1
         assert written == []
-        assert reconcile_mongo_stamps(session, find=fake_find, bulk_update=fake_bulk) == 1
+        assert reconcile_mongo_stamps(session, find=fake_find, bulk_update=fake_bulk, task_owners=no_owner) == 1
 
     assert written == [
         (

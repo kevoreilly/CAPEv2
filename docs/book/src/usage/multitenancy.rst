@@ -80,8 +80,9 @@ then run (MongoDB and/or Elasticsearch, whichever is enabled)::
     poetry run python utils/tenancy_reconcile.py --dry-run
     poetry run python utils/tenancy_reconcile.py
 
-A report with no ``task_acl`` row is restamped ``private`` with no owner or
-tenant, so only admins can see it. The command is idempotent.
+A report with no ``task_acl`` row is restamped ``private`` to its task's
+submitter (``tasks.user_id``), as the web UI already resolves it, or to no one,
+so only admins can see it. The command is idempotent.
 
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------

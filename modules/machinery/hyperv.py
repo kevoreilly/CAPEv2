@@ -64,7 +64,7 @@ class HyperV(Machinery):
             self.power_off(id)
 
     def start(self, id):
-        vm_info = self.db.view_machine_by_label(id)
+        vm_info = self._view_machine(id)
         self.stop(id)
         self.run_cmd(restore_vm.format(sn=vm_info.snapshot,vm=id))
         self.run_cmd(start_vm.format(vm=id))

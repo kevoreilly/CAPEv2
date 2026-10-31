@@ -1,5 +1,4 @@
 from __future__ import annotations
-from contextlib import suppress
 import json
 import logging
 from typing import List, Optional, Union
@@ -26,7 +25,6 @@ try:
         String,
     )
     from sqlalchemy.dialects.postgresql import JSONB
-    from sqlalchemy.exc import OperationalError, SQLAlchemyError
     from sqlalchemy.ext.mutable import MutableDict
     from sqlalchemy.orm import (
         Mapped,
@@ -318,24 +316,23 @@ class MachinesMixIn:
         78 | cape2  | win10 | x64  |
         """
         # ToDo do we really need it
-        with self.session.begin():
-            # with self.session.no_autoflush:
-            stmt = select(Machine).options(selectinload(Machine.tags))
+        # with self.session.no_autoflush:
+        stmt = select(Machine).options(selectinload(Machine.tags))
 
-            if locked is not None:
-                stmt = stmt.where(Machine.locked.is_(locked))
+        if locked is not None:
+            stmt = stmt.where(Machine.locked.is_(locked))
 
-            stmt = self.filter_machines_to_task(
-                statement=stmt,
-                label=label,
-                platform=platform,
-                tags=tags,
-                archs=arch,
-                os_version=os_version,
-                include_reserved=include_reserved,
-            )
-            machines = list(self.session.execute(stmt).unique().scalars().all())
-            return apply_machine_filter(machines)
+        stmt = self.filter_machines_to_task(
+            statement=stmt,
+            label=label,
+            platform=platform,
+            tags=tags,
+            archs=arch,
+            os_version=os_version,
+            include_reserved=include_reserved,
+        )
+        machines = list(self.session.execute(stmt).unique().scalars().all())
+        return apply_machine_filter(machines)
 
     def assign_machine_to_task(self, task: Task, machine: Optional[Machine]) -> Task:
         if machine:
@@ -403,23 +400,17 @@ class MachinesMixIn:
         return self.session.scalar(stmt)
 
     def set_machine_status(self, machine_or_label: Union[str, Machine], status):
-        """Set status for a virtual machine."""
-        try:
-            if isinstance(machine_or_label, str):
-                stmt = select(Machine).where(Machine.label == machine_or_label)
-                with self.session.no_autoflush:
-                    machine = self.session.scalar(stmt)
-            else:
-                machine = machine_or_label
+        """Set status for a virtual machine. Caller owns the transaction."""
+        if isinstance(machine_or_label, str):
+            stmt = select(Machine).where(Machine.label == machine_or_label)
+            with self.session.no_autoflush:
+                machine = self.session.scalar(stmt)
+        else:
+            machine = machine_or_label
 
-            if machine:
-                machine.status = status
-                machine.status_changed_on = _utcnow_naive()
-        except (OperationalError, SQLAlchemyError):
-            with suppress(Exception):
-                self.session.rollback()
-            return
-            # No need for session.add() here; the ORM tracks changes to loaded objects.
+        if machine:
+            machine.status = status
+            machine.status_changed_on = _utcnow_naive()
 
     def view_machine(self, name: str) -> Optional[Machine]:
         """Shows virtual machine details by name."""

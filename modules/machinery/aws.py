@@ -102,11 +102,14 @@ class AWS(Machinery):
         already launched.
         :param num_of_machines_to_start: how many machines(first in queue) will be started
         """
-        for machine in self.db.get_available_machines():
+        with self.db.transaction():
+            labels = [machine.label for machine in self.db.get_available_machines()]
+        # EC2 calls run with no DB transaction open.
+        for label in labels:
             if num_of_machines_to_start <= 0:
                 break
-            if self._status(machine.label) in (AWS.POWEROFF, AWS.STOPPING):
-                self.ec2_machines[machine.label].start()  # not using self.start() to avoid _wait_ method
+            if self._status(label) in (AWS.POWEROFF, AWS.STOPPING):
+                self.ec2_machines[label].start()  # not using self.start() to avoid _wait_ method
                 num_of_machines_to_start -= 1
 
     def _allocate_new_machine(self):
@@ -149,19 +152,20 @@ class AWS(Machinery):
                 #  sets "new_machine" object in configuration object to avoid raising an exception
                 setattr(self.options, new_machine_name, {})
                 # add machine to DB
-                self.db.add_machine(
-                    name=new_machine_name,
-                    label=instance.id,
-                    ip=instance.private_ip_address,
-                    arch=autoscale_options["arch"],
-                    platform=autoscale_options["platform"],
-                    tags=autoscale_options["tags"],
-                    interface=interface,
-                    snapshot=None,
-                    resultserver_ip=resultserver_ip,
-                    resultserver_port=resultserver_port,
-                    reserved=False,
-                )
+                with self.db.transaction():
+                    self.db.add_machine(
+                        name=new_machine_name,
+                        label=instance.id,
+                        ip=instance.private_ip_address,
+                        arch=autoscale_options["arch"],
+                        platform=autoscale_options["platform"],
+                        tags=autoscale_options["tags"],
+                        interface=interface,
+                        snapshot=None,
+                        resultserver_ip=resultserver_ip,
+                        resultserver_port=resultserver_port,
+                        reserved=False,
+                    )
                 break
             except Exception as e:
                 attempts += 1
@@ -192,7 +196,7 @@ class AWS(Machinery):
         machinery_options = self.options.get("aws")
         autoscale_options = self.options.get("autoscale")
 
-        current_available_machines = self.db.count_machines_available()
+        current_available_machines = self.availables()
         running_machines_gap = machinery_options.get("running_machines_gap", 0)
         dynamic_machines_limit = autoscale_options["dynamic_machines_limit"]
 
@@ -364,7 +368,7 @@ class AWS(Machinery):
         :param label: machine label
         """
         log.info("restoring machine: %s", label)
-        vm_info = self.db.view_machine_by_label(label)
+        vm_info = self._view_machine(label)
         snap_id = vm_info.snapshot
         instance = self.ec2_machines[label]
         state = self._status(label)

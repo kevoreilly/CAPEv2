@@ -140,8 +140,9 @@ def process(
         if memory_debugging:
             gc.collect()
             log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-        with db.session.begin():
-            RunProcessing(task=task_dict, results=results).run()
+        # No transaction around processing (it can take minutes): modules that read the
+        # SQL DB open their own short db.transaction().
+        RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
             if (visibility is not None or tenant_id is not None) and task_id:
                 with suppress(Exception):

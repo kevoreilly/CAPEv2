@@ -69,11 +69,15 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
     from lib.cuckoo.core.database import Database
 
     db = Database()
-    task = db.view_task(task_id)
+    with db.transaction():
+        task = db.view_task(task_id)
+        user_id = getattr(task, "user_id", None) if task is not None else None
     if task is None:
         return None, None
-    session = db.Session()
-    scope = resolve_task_scope(session, task_id, fallback_user_id=getattr(task, "user_id", None))
+    # Dedicated session: toggle_task_visibility_cas commits on it before updating MongoDB.
+    session = db.session_factory()
+    with session.begin():
+        scope = resolve_task_scope(session, task_id, fallback_user_id=user_id)
     return session, scope
 
 
@@ -142,8 +146,7 @@ def tasks_set_visibility(
                 status=409,
             )
         except Exception:
-            if session is not None and hasattr(session, "rollback"):
-                session.rollback()
+            # The SQL CAS transaction already rolled back; nothing was committed.
             return _json_response(
                 {
                     "error": True,

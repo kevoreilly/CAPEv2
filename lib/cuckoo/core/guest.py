@@ -26,7 +26,7 @@ from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, C
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.utils import sanitize_filename
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.database import Database, run_db_unit
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -141,10 +141,12 @@ class GuestManager:
         return r
 
     def get_status_from_db(self) -> str:
-        # Force SQLAlchemy to dump its cache and look at the real DB
-        with db.session.begin():
+        def _read_status():
+            # Force SQLAlchemy to dump its cache and look at the real DB
             db.session.expire_all()
-            status = db.guest_get_status(self.task_id)
+            return db.guest_get_status(self.task_id)
+
+        status = run_db_unit(db, _read_status, f"guest status read for task {self.task_label}", logger=log)
 
         # Handle the case where the task was already deleted by race condition
         if status is None:
@@ -153,8 +155,7 @@ class GuestManager:
         return status
 
     def set_status_in_db(self, status: str):
-        with db.session.begin():
-            db.guest_set_status(self.task_id, status)
+        run_db_unit(db, lambda: db.guest_set_status(self.task_id, status), f"guest status update for task {self.task_label}", logger=log)
 
     def post(self, method, *args, **kwargs):
         """Simple wrapper around requests.post()."""
@@ -351,7 +352,7 @@ class GuestManager:
         # Lookup file if current doesn't exist in TMP anymore
         alternative_path = False
         if not path_exists(options["target"]):
-            with db.session.begin():
+            with db.transaction():
                 path_found = db.sample_path_by_hash(task_id=options["id"])
             if path_found:
                 alternative_path = path_found[0]
@@ -410,6 +411,24 @@ class GuestManager:
         #    e.g., 200s (analysis) + 60s (critical) = 260s Hard Limit.
         hard_limit = effective_timeout + cfg.timeouts.critical
 
+        def hard_limit_reached() -> bool:
+            elapsed = timeit.default_timer() - start
+            if elapsed <= hard_limit:
+                return False
+            log.error(
+                "Task #%s: Hard Timeout reached! (Running for %ds, Limit %ds). Agent is likely unresponsive.",
+                self.task_label,
+                elapsed,
+                hard_limit,
+            )
+            return True
+
+        def mark_failed() -> None:
+            try:
+                self.set_status_in_db("failed")
+            except Exception as e:
+                log.error("Task #%s: Unable to mark guest as failed in DB: %s", self.task_label, e)
+
         while self.do_run:
             # FORCE REFRESH: Tell SQLAlchemy to expire the cache and fetch fresh data
             # Note: Depending on your exact Cuckoo version, the session access might vary.
@@ -417,11 +436,15 @@ class GuestManager:
             try:
                 # Re-fetch the task status directly from DB logic
                 current_status = self.get_status_from_db()
-            except Exception:
-                # If the task was deleted, this query might fail.
-                # If it fails, we should ABORT.
-                log.info("Task #%s: Task deleted or DB error. Aborting.", self.task_label)
-                return
+            except Exception as e:
+                # The DB read already retried once. Keep waiting through a DB outage, but still
+                # enforce the hard limit so a database that never comes back ends the analysis.
+                log.warning("Task #%s: Error reading status from DB: %s. Continuing wait...", self.task_label, e)
+                if hard_limit_reached():
+                    mark_failed()
+                    return
+                time.sleep(1)
+                continue
 
             if current_status != "running":
                 break
@@ -441,15 +464,8 @@ class GuestManager:
             # If we exceed the (Timeout + Critical) limit, we kill the loop.
             # This handles the case where the Agent is dead (network timeout)
             # and the 'except' block below keeps "continuing" forever.
-            if timeit.default_timer() - start > hard_limit:
-                log.error(
-                    "Task #%s: Hard Timeout reached! (Running for %ds, Limit %ds). "
-                    "Agent is likely unresponsive.",
-                    self.task_label,
-                    timeit.default_timer() - start,
-                    hard_limit
-                )
-                self.set_status_in_db("failed")
+            if hard_limit_reached():
+                mark_failed()
                 return
 
             try:

@@ -13,9 +13,9 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 from sqlalchemy import select, func
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
+from lib.cuckoo.common.exceptions import CuckooDatabaseError, CuckooUnserviceableTaskError
 from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.data import tasking
@@ -30,6 +30,7 @@ from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.data.samples import Sample
 from lib.cuckoo.core.data.machines import Machine, machines_tags
 from lib.cuckoo.core.data.db_common import _utcnow_naive, Tag, Error
+import lib.cuckoo.core.database
 from lib.cuckoo.core.database import _Database
 
 
@@ -99,8 +100,7 @@ class TestDatabaseEngine:
         return db.add_machine(**dflt)
 
     def test_add_tasks(self, db: _Database, temp_filename: str):
-        # A single transaction block makes the test flow clearer.
-        with db.session.no_autoflush:
+        with db.session.begin():
             # Define the modern count statement once.
             count_stmt = select(func.count(Task.id))
 
@@ -224,16 +224,16 @@ class TestDatabaseEngine:
 
     def test_error_exists(self, db: _Database):
         err_msg = "A" * 1024
-        with db.session.no_autoflush:
+        with db.session.begin():
             task_id = db.add_url("http://google.com/")
-            db.add_error(err_msg, task_id)
-        with db.session.no_autoflush:
+        # add_error uses its own session so it persists regardless of the caller's transaction.
+        db.add_error(err_msg, task_id)
+        with db.session.begin():
             errs = db.view_errors(task_id)
             assert len(errs) == 1
             assert errs[0].message == err_msg
-        with db.session.no_autoflush:
-            db.add_error(err_msg, task_id)
-        with db.session.no_autoflush:
+        db.add_error(err_msg, task_id)
+        with db.session.begin():
             assert len(db.view_errors(task_id)) == 2
 
     def test_task_set_options(self, db: _Database, temp_filename: str):
@@ -896,17 +896,18 @@ class TestDatabaseEngine:
             machine = db.session.scalar(select(Machine).where(Machine.label == "l1"))
             assert machine.status != "running"
 
-    def test_set_machine_status_handles_operational_error(self, db: _Database, mocker):
-        from sqlalchemy.exc import OperationalError
-
+    def test_set_machine_status_propagates_operational_error(self, db: _Database, mocker):
+        """DB errors are not swallowed by the helper; the caller's transaction rolls back and the session is discarded."""
         mocker.patch.object(
             db.session,
             "scalar",
             side_effect=OperationalError("SELECT 1", {}, Exception("server closed the connection unexpectedly")),
         )
-        mock_rollback = mocker.patch.object(db.session, "rollback")
-        db.set_machine_status("l1", "poweroff")
-        assert mock_rollback.called
+        mock_remove = mocker.spy(db.session, "remove")
+        with pytest.raises(OperationalError):
+            with db.session.begin():
+                db.set_machine_status("l1", "poweroff")
+        assert mock_remove.call_count == 1
 
     @pytest.mark.parametrize(
         "kwargs,expected_count",
@@ -988,12 +989,13 @@ class TestDatabaseEngine:
 
         with db.session.begin():
             parent_archive = Sample(**parent_dct)
-        task_id = db.add_path(temp_filename, parent_sample=parent_archive)
+            task_id = db.add_path(temp_filename, parent_sample=parent_archive)
 
-        child = db.find_sample(task_id=task_id)
-        child_by_parent = db.find_sample(parent=parent_archive.id)
-        assert child[0].sample.id == child_by_parent[0].id
-        assert db.get_children_by_parent_id(parent_archive.id)[0].id == child[0].sample.id
+        with db.session.begin():
+            child = db.find_sample(task_id=task_id)
+            child_by_parent = db.find_sample(parent=parent_archive.id)
+            assert child[0].sample.id == child_by_parent[0].id
+            assert db.get_children_by_parent_id(parent_archive.id)[0].id == child[0].sample.id
 
     def test_list_tasks(self, db: _Database, temp_filename, freezer):
         with db.session.begin():
@@ -1163,34 +1165,22 @@ class TestDatabaseEngine:
             assert len(tasks) == 1
             assert tasks[0].id == t3
 
-    def test_delete_tasks_after_read_commits(self, db: _Database, temp_filename):
-        """Test that delete_tasks and delete_task commit even after a read operation without an outer begin."""
+    def test_delete_tasks_commits_with_caller_transaction(self, db: _Database, temp_filename: str):
+        """delete_tasks/delete_task do not commit themselves; the caller's transaction does."""
         with db.session.begin():
             t1 = db.add_url("https://1.com")
             t2 = db.add_path(temp_filename, tags="x86")
             t3 = db.add_url("https://3.com")
 
-        # Read tasks first (starts an implicit transaction in SQLAlchemy 2.0)
-        pending = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
-        assert len(pending) == 3
+        with db.session.begin():
+            assert len(db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))) == 3
+            assert db.delete_tasks(task_ids=[t1, t2])
 
-        # Call delete_tasks without outer with db.session.begin()
-        assert db.delete_tasks(task_ids=[t1, t2])
-
-        # Remove the session to simulate cleaner script exit
+        # Simulate a cleaner script exit; the delete must already be committed.
         db.session.remove()
-
-        # In a fresh session, verify t1 and t2 were committed as deleted
-        remaining = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
-        assert len(remaining) == 1
-        assert remaining[0].id == t3
-
-        # Now test delete_task singular after read without outer begin
-        assert db.delete_task(t3)
-        db.session.remove()
-
-        remaining_after_single = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
-        assert len(remaining_after_single) == 0
+        with db.session.begin():
+            remaining = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
+            assert [t.id for t in remaining] == [t3]
 
     def test_delete_tasks_with_errors(self, db: _Database):
         """Test delete_tasks when tasks have associated Error records."""
@@ -1771,4 +1761,154 @@ class TestDatabaseEngine:
         with db.session.begin():
             assert db.get_parent_sample_from_task(str(t1)) is None
             assert db.get_parent_sample_from_task("not-an-int") is None
+
+    def test_transaction_strict_mode_rejects_unwrapped_statement(self, db: _Database):
+        with pytest.raises(CuckooDatabaseError, match="outside db.transaction"):
+            db.session.scalar(select(func.count(Task.id)))
+        db.session.remove()
+
+    def test_transaction_warns_once_per_site_when_not_strict(self, db: _Database, caplog, monkeypatch):
+        # `db` is the Database() proxy; patch the real instance it forwards to.
+        monkeypatch.setattr(lib.cuckoo.core.database._DATABASE, "strict_transactions", False)
+        for _ in range(2):
+            db.session.scalar(select(func.count(Task.id)))
+        warnings = [r for r in caplog.records if "outside db.transaction" in r.getMessage()]
+        assert len(warnings) == 1
+        # The next explicit transaction adopts and commits the dangling one.
+        with db.transaction():
+            pass
+        assert not db.session().in_transaction()
+
+    def test_transaction_nested_joins_outer(self, db: _Database, temp_filename: str):
+        with db.transaction():
+            t1 = db.add_path(temp_filename)
+            with db.session.begin():
+                t2 = db.add_url("http://nested.example.com")
+            # Leaving the nested block must not commit or end the outer transaction.
+            assert db.session().in_transaction()
+        assert not db.session().in_transaction()
+        with db.transaction():
+            assert db.view_task(t1) is not None
+            assert db.view_task(t2) is not None
+
+    def test_transaction_nested_error_rolls_back_outer(self, db: _Database, temp_filename: str):
+        with pytest.raises(RuntimeError):
+            with db.transaction():
+                tid = db.add_path(temp_filename)
+                with db.transaction():
+                    raise RuntimeError("boom")
+        with db.transaction():
+            assert db.view_task(tid) is None
+
+    def test_transaction_swallowed_nested_db_error_poisons_outer(self, db: _Database, temp_filename: str):
+        """A DB error swallowed between nested and outer blocks must not be committed."""
+        with pytest.raises(CuckooDatabaseError, match="nested database operation failed"):
+            with db.transaction():
+                tid = db.add_path(temp_filename)
+                try:
+                    with db.transaction():
+                        raise OperationalError("UPDATE", {}, Exception("aborted"))
+                except OperationalError:
+                    pass
+        with db.transaction():
+            assert db.view_task(tid) is None
+
+    def test_transaction_removes_session_on_operational_error(self, db: _Database, mocker):
+        mock_remove = mocker.spy(db.session, "remove")
+        with pytest.raises(OperationalError):
+            with db.transaction():
+                raise OperationalError("SELECT 1", {}, Exception("connection closed"))
+        assert mock_remove.call_count == 1
+
+    def test_set_machine_status_requires_caller_transaction(self, db: _Database):
+        with db.transaction():
+            label = self.add_machine(db, name="test_mach_standalone", label="mach_standalone", ip="1.2.3.99").label
+        with db.transaction():
+            db.set_machine_status(label, "running")
+        with db.transaction():
+            assert db.view_machine_by_label(label).status == "running"
+
+    def test_delete_task_inside_outer_transaction(self, db: _Database, temp_filename: str):
+        with db.transaction():
+            tid = db.add_path(temp_filename)
+        with db.transaction():
+            assert db.delete_task(tid)
+            assert db.session().in_transaction()
+        with db.transaction():
+            assert db.view_task(tid) is None
+            assert db.delete_task(tid) is False
+
+    def test_is_operational_error_helper(self):
+        from lib.cuckoo.core.database import is_operational_error
+
+        class FakeBase(Exception):
+            pass
+
+        FakeBase.__name__ = "OperationalError"
+
+        class SubError(FakeBase):
+            pass
+
+        assert is_operational_error(OperationalError("stmt", {}, Exception("down")))
+        assert is_operational_error(SubError("db down"))
+        assert not is_operational_error(RuntimeError("other"))
+
+    def test_do_connect_retry_postgresql(self, monkeypatch):
+        import time
+        from sqlalchemy import create_engine
+
+        delays = []
+        monkeypatch.setattr(time, "sleep", lambda s: delays.append(s))
+
+        calls = []
+
+        class FakeDBAPIOperationalError(Exception):
+            pass
+
+        FakeDBAPIOperationalError.__name__ = "OperationalError"
+
+        class CannotConnectNow(FakeDBAPIOperationalError):
+            pass
+
+        class FakeDialect:
+            def connect(self, *args, **kwargs):
+                calls.append(1)
+                if len(calls) < 3:
+                    raise CannotConnectNow("server starting up")
+                return "fake_connection"
+
+        engine = create_engine("sqlite:///:memory:")
+        listener = _Database._register_postgresql_connect_retry(engine)
+        conn = listener(FakeDialect(), None, (), {})
+        assert conn == "fake_connection"
+        assert len(calls) == 3
+        assert delays == [1, 2]
+
+    def test_do_connect_does_not_retry_auth_failure(self, monkeypatch):
+        import time
+
+        from sqlalchemy import create_engine
+
+        delays = []
+        monkeypatch.setattr(time, "sleep", lambda s: delays.append(s))
+
+        class FakeDBAPIOperationalError(Exception):
+            pass
+
+        FakeDBAPIOperationalError.__name__ = "OperationalError"
+
+        class FakeDialect:
+            calls = 0
+
+            def connect(self, *args, **kwargs):
+                FakeDialect.calls += 1
+                raise FakeDBAPIOperationalError('FATAL:  password authentication failed for user "cape"')
+
+        engine = create_engine("sqlite:///:memory:")
+        listener = _Database._register_postgresql_connect_retry(engine)
+        with pytest.raises(FakeDBAPIOperationalError):
+            listener(FakeDialect(), None, (), {})
+        assert FakeDialect.calls == 1
+        assert delays == []
+
 

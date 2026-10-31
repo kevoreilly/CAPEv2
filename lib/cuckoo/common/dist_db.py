@@ -187,8 +187,11 @@ def create_session(db_connection: str, echo: bool = False) -> sessionmaker:
         engine = create_engine(db_connection, **engine_args)
         atexit.register(engine.dispose)
         Base.metadata.create_all(engine)
-        # Return the session factory for use in the application
-        return sessionmaker(bind=engine, autoflush=False)
+        # Return the session factory for use in the application. Callers run one unit of work per
+        # `with Session() as s, s.begin():` block. expire_on_commit=False keeps attributes loaded inside
+        # the block readable after it commits, so slow work (HTTP to nodes, file copies) can run on the
+        # detached objects without holding a transaction open.
+        return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     except OperationalError as e:
         print(f"Database Error: {e}")
         sys.exit(1)

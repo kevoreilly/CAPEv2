@@ -21,7 +21,7 @@ from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
-from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.database import Database, _Database, run_db_unit
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, TASK_FAILED_ANALYSIS, Task
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
@@ -154,6 +154,10 @@ class AnalysisManager(threading.Thread):
         self.nexthop_rt_table = None
         self.nexthop_priority = None
 
+    def _db_unit(self, fn: Callable[[], Any], desc: str) -> Any:
+        """Run fn() in its own transaction, retried once on a lost DB connection."""
+        return run_db_unit(self.db, fn, desc, logger=self.log)
+
     @main_thread_only
     def prepare_task_and_machine_to_start(self) -> None:
         """If the task doesn't use a machine, just set its state to running.
@@ -191,7 +195,8 @@ class AnalysisManager(threading.Thread):
 
     def check_file(self, sha256):
         """Checks the integrity of the file to be analyzed."""
-        sample = self.db.view_sample(self.task.sample_id)
+        with self.db.transaction():
+            sample = self.db.view_sample(self.task.sample_id)
 
         if sample and sha256 != sample.sha256:
             self.log.error("Target file has been modified after submission: '%s'", convert_to_printable(self.task.target))
@@ -330,8 +335,7 @@ class AnalysisManager(threading.Thread):
 
         is_dead = False
         try:
-            with self.db.session.begin():
-                self.machinery_manager.start_machine(self.machine)
+            self.machinery_manager.start_machine(self.machine)
 
             yield
 
@@ -347,11 +351,14 @@ class AnalysisManager(threading.Thread):
 
             # Remove the guest from the database, so that we can assign a
             # new guest when the task is being analyzed with another machine.
-            with self.db.session.begin():
+            def _forget_dead_machine():
                 self.db.guest_remove(self.guest.id)
-                self.db.assign_machine_to_task(self.task, None)
+                # Re-read: after a retry the session that loaded self.task is gone.
+                self.db.assign_machine_to_task(self.db.view_task(self.task.id), None)
                 # ToDo do we really need to delete machine here?
                 self.machinery_manager.machinery.delete_machine(self.machine.name)
+
+            self._db_unit(_forget_dead_machine, f"dead machine cleanup for {self.machine.name}")
 
             # Remove the analysis directory that has been created so
             # far, as perform_analysis() is going to be doing that again.
@@ -361,21 +368,27 @@ class AnalysisManager(threading.Thread):
         finally:
             if not is_dead:
                 try:
-                    with self.db.session.begin():
-                        self.machinery_manager.stop_machine(self.machine)
+                    self.machinery_manager.stop_machine(self.machine)
                 except CuckooMachineError as e:
                     self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
+                except Exception as e:
+                    self.log.error("Unexpected error stopping machine %s: %s", self.machine.label, e)
 
                 try:
                     # Release the analysis machine, but only if the machine is not dead.
-                    with self.db.session.begin():
-                        self.machinery_manager.machinery.release(self.machine)
+                    # unlock_machine() merges, so the (possibly detached) self.machine is safe to reuse on retry.
+                    self._db_unit(
+                        lambda: self.machinery_manager.machinery.release(self.machine),
+                        f"release of machine {self.machine.label}",
+                    )
                 except CuckooMachineError as e:
                     self.log.error(
                         "Unable to release machine %s, reason %s. You might need to restore it manually",
                         self.machine.label,
                         e,
                     )
+                except Exception as e:
+                    self.log.error("Failed to release machine %s in database: %s", self.machine.label, e)
 
     def dump_machine_memory(self) -> None:
         if not self.cfg.cuckoo.memory_dump and not self.task.memory:
@@ -425,14 +438,12 @@ class AnalysisManager(threading.Thread):
     def run_auxiliary(self) -> Generator[None, None, None]:
         aux = RunAuxiliary(task=self.task, machine=self.machine)
 
-        with self.db.session.begin():
-            aux.start()
+        aux.start()
 
         try:
             yield
         finally:
-            with self.db.session.begin():
-                aux.stop()
+            aux.stop()
 
     def run_analysis_on_guest(self) -> None:
         # Generate the analysis configuration file.
@@ -440,11 +451,14 @@ class AnalysisManager(threading.Thread):
 
         guest_manager = GuestManager(self.machine.name, self.machine.ip, self.machine.platform, self.task.id, self)
 
-        with self.db.session.begin():
+        def _prepare_guest_start():
             if Config("web").guacamole.enabled and hasattr(self.machinery_manager.machinery, "store_vnc_port"):
                 self.machinery_manager.machinery.store_vnc_port(self.machine.label, self.task.id)
-            options["clock"] = self.db.update_clock(self.task.id)
+            clock = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
+            return clock
+
+        options["clock"] = self._db_unit(_prepare_guest_start, f"guest start preparation for task {self.task.id}")
         guest_manager.start_analysis(options)
         try:
             if guest_manager.get_status_from_db() == "starting":
@@ -452,8 +466,9 @@ class AnalysisManager(threading.Thread):
                 guest_manager.wait_for_completion()
             guest_manager.set_status_in_db("stopping")
         except Exception as e:
-            guest_manager.set_status_in_db("failed")
             self.log.exception("Unknown exception waiting for guest completion: %s", str(e))
+            with contextlib.suppress(Exception):
+                guest_manager.set_status_in_db("failed")
 
         return
 
@@ -467,16 +482,15 @@ class AnalysisManager(threading.Thread):
             self.log.debug("Failed to initialize the analysis folder")
             return False
 
-        with self.db.session.begin():
-            category_early_escape = self.category_checks()
-            if isinstance(category_early_escape, bool):
-                return category_early_escape
+        # File hashing/copying happens here: no transaction around it (check_file opens its own).
+        category_early_escape = self.category_checks()
+        if isinstance(category_early_escape, bool):
+            return category_early_escape
 
         # At this point, we're sure that this analysis requires a machine.
         assert self.machinery_manager and self.machine and self.guest
 
-        with self.db.session.begin():
-            self.machinery_manager.scale_pool(self.machine)
+        self.machinery_manager.scale_pool(self.machine)
 
         self.log.info("Starting analysis of %s '%s'", self.task.category.upper(), convert_to_printable(self.task.target))
 
@@ -488,8 +502,10 @@ class AnalysisManager(threading.Thread):
             else:
                 succeeded = True
             finally:
-                with self.db.session.begin():
-                    self.db.guest_stop(self.guest.id)
+                try:
+                    self._db_unit(lambda: self.db.guest_stop(self.guest.id), f"guest_stop for guest {self.guest.id}")
+                except Exception as e:
+                    self.log.error("Failed to stop guest %s in database: %s", self.guest.id, e)
 
         return succeeded
 
@@ -498,24 +514,37 @@ class AnalysisManager(threading.Thread):
         try:
             success = self.perform_analysis()
         except CuckooDeadMachine:
-            with self.db.session.begin():
+            try:
                 # Put the task back in pending so that the schedule can attempt to choose a new machine.
-                self.db.set_status(self.task.id, TASK_PENDING)
+                self._db_unit(lambda: self.db.set_status(self.task.id, TASK_PENDING), f"set TASK_PENDING for task {self.task.id}")
+            except Exception as e:
+                self.log.error("Failed to set task %s to pending: %s", self.task.id, e)
             raise
         except Exception as e:
             self.log.exception("Unexpected exception during analysis: %s", e)
-            with self.db.session.begin():
+            def _mark_failed():
                 self.db.set_status(self.task.id, TASK_FAILED_ANALYSIS)
-                if hasattr(self, "machine") and self.machine:
+                if self.machine:
                     self.db.unlock_machine(self.machine)
+
+            try:
+                self._db_unit(_mark_failed, f"set TASK_FAILED_ANALYSIS for task {self.task.id}")
+            except Exception as set_status_err:
+                self.log.error("Failed to set task %s to failed: %s", self.task.id, set_status_err)
             raise
         else:
-            with self.db.session.begin():
+            def _mark_completed():
                 self.db.set_status(self.task.id, TASK_COMPLETED)
-                self.log.info("Completed analysis %ssuccessfully.", "" if success else "un")
                 # Need to be release on unsucess
-                if not success and hasattr(self, "machine") and self.machine:
+                if not success and self.machine:
                     self.db.unlock_machine(self.machine)
+
+            try:
+                self._db_unit(_mark_completed, f"set TASK_COMPLETED for task {self.task.id}")
+            except Exception as e:
+                self.log.error("Failed to set task %s to completed in database: %s", self.task.id, e)
+            else:
+                self.log.info("Completed analysis %ssuccessfully.", "" if success else "un")
 
             self.update_latest_symlink()
 

@@ -124,7 +124,7 @@ class vSphere(Machinery):
         @param label: machine name.
         @raise CuckooMachineError: if unable to start machine.
         """
-        name = self.db.view_machine_by_label(label).snapshot
+        name = self._view_machine(label).snapshot
         with SmartConnection(**self.connect_opts) as conn:
             vm = self._get_virtual_machine_by_label(conn, label)
             if vm:

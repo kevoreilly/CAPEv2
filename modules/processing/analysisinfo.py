@@ -97,25 +97,27 @@ class AnalysisInfo(Processing):
         else:
             duration = (ended - started).seconds
 
-        # Fetch sqlalchemy object.
-        task = db.view_task(self.task["id"], details=True)
-
-        if task and task.guest:
-            # Get machine description as json.
-            machine = task.guest.to_dict()
-            # Remove useless task_id.
-            del machine["task_id"]
-            # Save.
-            self.task["machine"] = machine
-        parsed_options = get_options(self.task["options"])
         parent_sample_details = False
-        if attributes := self.task.get("attributes"):
+        attributes = self.task.get("attributes")
+        if attributes:
             parent_sample_details = attributes.get("parent_sample", False)
-        else:
-            parent_sample_details = db.get_parent_sample_from_task(task_id=self.task["id"])
-            if parent_sample_details:
-                parent_sample_details = parent_sample_details.to_dict()
-        source_url = db.get_source_url(sample_id=self.task["sample_id"])
+
+        with db.transaction():
+            # Fetch sqlalchemy object.
+            task = db.view_task(self.task["id"], details=True)
+            if task and task.guest:
+                # Get machine description as json.
+                machine = task.guest.to_dict()
+                # Remove useless task_id.
+                del machine["task_id"]
+                # Save.
+                self.task["machine"] = machine
+            if not attributes:
+                parent_sample = db.get_parent_sample_from_task(task_id=self.task["id"])
+                if parent_sample:
+                    parent_sample_details = parent_sample.to_dict()
+            source_url = db.get_source_url(sample_id=self.task["sample_id"])
+        parsed_options = get_options(self.task["options"])
 
         return {
             "version": CUCKOO_VERSION,

@@ -139,10 +139,11 @@ class Machinery:
         """Read, load, and verify machines configuration."""
         # Machine table is cleaned to be filled from configuration file
         # at each start.
-        self.db.clean_machines()
+        with self.db.session.begin():
+            self.db.clean_machines()
 
-        # Load.
-        self._initialize()
+            # Load.
+            self._initialize()
 
         # Run initialization checks.
         self._initialize_check()
@@ -258,7 +259,10 @@ class Machinery:
         """List virtual machines.
         @return: virtual machines list
         """
-        return self.db.list_machines(include_reserved=True)
+        # Machinery DB helpers run in their own short transaction when called standalone
+        # (start/stop paths deliberately hold none) and join the caller's otherwise.
+        with self.db.transaction():
+            return self.db.list_machines(include_reserved=True)
 
     def availables(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
         """How many (relevant) machines are free.
@@ -268,14 +272,16 @@ class Machinery:
         @param arch: machine arch
         @return: free machines count.
         """
-        return self.db.count_machines_available(
-            label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
-        )
+        with self.db.transaction():
+            return self.db.count_machines_available(
+                label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
+            )
 
     def find_machine_to_service_task(self, task):
         """Find a machine that is able to service the given task.
         This can be overridden by machinery modules for custom logic.
         By default, it delegates to the database implementation.
+        Must run inside the caller's transaction: the row lock (FOR UPDATE) is held until it commits.
         """
         return self.db.find_machine_to_service_task(task)
 
@@ -329,16 +335,19 @@ class Machinery:
         """Release a machine.
         @param label: machine name.
         """
-        return self.db.unlock_machine(machine)
+        with self.db.transaction():
+            return self.db.unlock_machine(machine)
 
     def running(self):
         """Returns running virtual machines.
         @return: running virtual machines list.
         """
-        return self.db.list_machines(locked=True)
+        with self.db.transaction():
+            return self.db.list_machines(locked=True)
 
     def running_count(self):
-        return self.db.count_machines_running()
+        with self.db.transaction():
+            return self.db.count_machines_running()
 
     def screenshot(self, label, path):
         """Screenshot a running virtual machine.
@@ -366,7 +375,8 @@ class Machinery:
         @param label: virtual machine label
         @param status: new virtual machine status
         """
-        self.db.set_machine_status(label, status)
+        with self.db.transaction():
+            self.db.set_machine_status(label, status)
 
     def start(self, label=None):
         """Start a machine.
@@ -417,11 +427,17 @@ class Machinery:
             waitme += 1
             current = self._status(label)
 
+    def _view_machine(self, label):
+        """Read the Machine row for `label` in its own short transaction (start/stop run outside one)."""
+        with self.db.transaction():
+            return self.db.view_machine_by_label(label)
+
     def delete_machine(self, name):
         """Delete a virtual machine.
         @param name: virtual machine name
         """
-        _ = self.db.delete_machine(name)
+        with self.db.transaction():
+            self.db.delete_machine(name)
 
 
 class LibVirtMachinery(Machinery):
@@ -471,7 +487,7 @@ class LibVirtMachinery(Machinery):
 
         log.debug("Starting machine %s", label)
 
-        vm_info = self.db.view_machine_by_label(label)
+        vm_info = self._view_machine(label)
         if vm_info is None:
             msg = f"Unable to find machine with label {label} in database."
             raise CuckooMachineError(msg)

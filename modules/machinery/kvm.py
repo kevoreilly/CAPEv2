@@ -38,11 +38,12 @@ class KVM(LibVirtMachinery):
 
     def start(self, label):
         super(KVM, self).start(label)
-        machine = self.db.view_machine_by_label(label)
+        machine = self._view_machine(label)
         if machine:
             iface = getattr(machine, "interface", self._get_interface(label))
             if iface:
-                self.db.set_machine_interface(label, iface)
+                with self.db.transaction():
+                    self.db.set_machine_interface(label, iface)
             else:
                 log.warning("Can't get iface for %s", label)
 
@@ -52,7 +53,8 @@ class KVM(LibVirtMachinery):
         if graphics is not None:
             port = int(graphics.get("port", -1))
             if port > 0:
-                self.db.set_vnc_port(task_id, port)
+                with self.db.transaction():
+                    self.db.set_vnc_port(task_id, port)
                 return
 
         log.warning("Can't get VNC port for %s", label)

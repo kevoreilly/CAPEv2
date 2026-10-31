@@ -26,7 +26,7 @@ from sflock.abstracts import File as SflockFile
 from sflock.ident import identify as sflock_identify
 
 try:
-    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.exc import IntegrityError
     from sqlalchemy import (
         delete,
         func,
@@ -163,7 +163,8 @@ class TasksMixIn:
             sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
             if not sample:
                 try:
-                    with self.session.begin():
+                    # SAVEPOINT: a concurrent insert of the same sample must not abort the caller's transaction.
+                    with self.session.begin_nested():
                         sample = Sample(
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),
@@ -176,11 +177,11 @@ class TasksMixIn:
                             source_url=source_url,
                         )
                         self.session.add(sample)
-                except Exception as e:
-                    # The sample might have been inserted by another concurrent process
+                except IntegrityError:
+                    # The sample was inserted by another concurrent process
                     sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
                     if not sample:
-                        log.exception(e)
+                        raise
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
@@ -238,9 +239,7 @@ class TasksMixIn:
             for k, v in attributes.items():
                 task.set_attribute(k, v)
 
-        # Use a transaction so that we can return an ID.
-        with self.session.begin():
-            self.session.add(task)
+        self.session.add(task)
 
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
@@ -272,6 +271,8 @@ class TasksMixIn:
             )
             self.session.add(association)
 
+        # Flush (not commit) so the caller gets the generated id; the caller's transaction commits.
+        self.session.flush()
         return task.id
 
     def add_path(
@@ -1109,17 +1110,11 @@ class TasksMixIn:
         @param task_id: ID of the task to query.
         @return: operation status.
         """
-        try:
-            task = self.session.get(Task, task_id)
-            if task is None:
-                return False
-            self.session.delete(task)
-            self.session.commit()
-            return True
-        except SQLAlchemyError as e:
-            log.error("Error deleting task %s: %s", task_id, str(e))
-            self.session.rollback()
+        task = self.session.get(Task, task_id)
+        if task is None:
             return False
+        self.session.delete(task)
+        return True
 
     def delete_tasks(
         self,
@@ -1208,15 +1203,9 @@ class TasksMixIn:
             log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
             return True
 
-        try:
-            result = self.session.execute(delete_stmt)
-            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
-            self.session.commit()
-            return True
-        except SQLAlchemyError as e:
-            log.error("Error deleting tasks: %s", str(e))
-            self.session.rollback()
-            return False
+        result = self.session.execute(delete_stmt)
+        log.info("Deleted %d tasks matching the criteria.", result.rowcount)
+        return True
 
     # ToDo replace with delete_tasks
     def clean_timed_out_tasks(self, timeout: int):

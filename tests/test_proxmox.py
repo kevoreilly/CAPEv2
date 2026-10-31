@@ -165,7 +165,7 @@ def test_find_snapshot_retries_request_get_until_success(
     machinery = make_machinery(proxmox_module, timeout=10)
     clock = install_fake_clock(proxmox_module, mocker)
 
-    machinery.db = mocker.Mock()
+    machinery.db = mocker.MagicMock()  # MagicMock: db.transaction() is used as a context manager
     machinery.db.view_machine_by_label.return_value.snapshot = None
 
     vm = mocker.Mock()

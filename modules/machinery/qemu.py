@@ -388,7 +388,7 @@ class QEMU(Machinery):
         """
         log.debug("Starting vm %s", label)
 
-        vm_info = self.db.view_machine_by_label(label)
+        vm_info = self._view_machine(label)
         vm_options = getattr(self.options, vm_info.name)
 
         if vm_options.snapshot:
@@ -465,7 +465,7 @@ class QEMU(Machinery):
         """
         log.debug("Stopping vm %s", label)
 
-        vm_info = self.db.view_machine_by_label(label)
+        vm_info = self._view_machine(label)
 
         if self._status(vm_info.name) == self.STOPPED:
             raise CuckooMachineError(f"Trying to stop an already stopped vm {label}")
@@ -473,7 +473,7 @@ class QEMU(Machinery):
         try:
             log.debug("Trying to stop the vm %s", label)
 
-            vm_info = self.db.view_machine_by_label(label)
+            vm_info = self._view_machine(label)
 
             if self._status(vm_info.name) == self.STOPPED:
                 raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")
@@ -532,7 +532,7 @@ class QEMU(Machinery):
                 pass
             log.debug("Trying to do a memory dump of vm %s", label)
 
-            vm_info = self.db.view_machine_by_label(label)
+            vm_info = self._view_machine(label)
 
             if self._status(vm_info.name) == self.STOPPED:
                 raise CuckooMachineError(f"Trying to do a memory dump on an already stopped vm {label}")

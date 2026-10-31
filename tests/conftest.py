@@ -15,7 +15,9 @@ from lib.cuckoo.core.database import Database, init_database, reset_database_FOR
 def db():
     reset_database_FOR_TESTING_ONLY()
     try:
-        init_database(dsn="sqlite://", schema_check=False)
+        _db = init_database(dsn="sqlite://", schema_check=False)
+        # Fail any statement executed outside db.transaction()/db.session.begin().
+        _db.strict_transactions = True
         retval = Database()
         retval.engine.echo = True
         yield retval

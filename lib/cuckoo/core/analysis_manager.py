@@ -30,7 +30,7 @@ from lib.cuckoo.core.log import log_task_context
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
-from lib.cuckoo.core.rooter import _load_socks5_operational, _select_gateway, gateways, rooter, vpns
+from lib.cuckoo.core.rooter import ROOTER_UNAVAILABLE, _load_socks5_operational, _select_gateway, gateways, rooter, rooter_required, vpns
 
 log = logging.getLogger(__name__)
 
@@ -571,6 +571,11 @@ class AnalysisManager(threading.Thread):
                 if self.done_callback:
                     self.done_callback(self)
 
+    @staticmethod
+    def _rooter_optional_and_unavailable(response) -> bool:
+        """True when the rooter is not running and the routing configuration does not require it."""
+        return bool(response and response.get(ROOTER_UNAVAILABLE)) and not rooter_required()
+
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
             raise CuckooRooterError(f"Error execution rooter command: {self.rooter_response['exception']}")
@@ -708,7 +713,9 @@ class AnalysisManager(threading.Thread):
 
         # Check if the network interface is still available. If a VPN dies for
         # some reason, its tunX interface will no longer be available.
-        if self.interface and not rooter("nic_available", self.interface):
+        # rooter() returns a dict, so test the command output, not the response itself.
+        nic_response = rooter("nic_available", self.interface) if self.interface else None
+        if self.interface and not (nic_response and nic_response.get("output")):
             self.log.error(
                 "The network interface '%s' configured for this analysis is "
                 "not available at the moment, switching to route=none mode",
@@ -749,6 +756,9 @@ class AnalysisManager(threading.Thread):
 
         elif str(self.route).lower() in ("none", "drop", "false"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.machine.resultserver_port))
+            if self._rooter_optional_and_unavailable(self.rooter_response):
+                # Default configuration: no rooter is running and none is required, so there are no drop rules to apply.
+                self.rooter_response = None
         elif self.route[:3] == "tun" and is_network_interface(self.route):
             self.log.info("Network interface %s is tunnel", self.interface)
             self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
@@ -825,6 +835,9 @@ class AnalysisManager(threading.Thread):
 
         def disable(command, *args):
             self.rooter_response = rooter(command, *args)
+            if self._rooter_optional_and_unavailable(self.rooter_response):
+                # Nothing was applied without a rooter, so there is nothing to tear down.
+                return
             if self.rooter_response and self.rooter_response.get("exception") is not None:
                 errors.append(f"{command}: {self.rooter_response['exception']}")
 

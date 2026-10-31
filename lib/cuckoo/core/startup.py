@@ -54,7 +54,7 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
 from lib.cuckoo.core.log import ConsoleHandler, init_json_file_handler, init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
-from lib.cuckoo.core.rooter import gateways, rooter, socks5s, vpns
+from lib.cuckoo.core.rooter import gateways, rooter, rooter_required, socks5s, vpns
 
 log = logging.getLogger()
 
@@ -650,15 +650,7 @@ def init_rooter(apply_state=False):
 
     # The default configuration doesn't require the rooter to be ran.
     # A nexthop-only node still needs the rooter for forward_drop() + fail-closed arm.
-    _nexthop_enabled = hasattr(routing, "nexthop") and routing.nexthop.enabled
-    if (
-        not routing.vpn.enabled
-        and not routing.tor.enabled
-        and not routing.inetsim.enabled
-        and not routing.socks5.enabled
-        and routing.routing.route == "none"
-        and not _nexthop_enabled
-    ):
+    if not rooter_required(routing):
         return
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)

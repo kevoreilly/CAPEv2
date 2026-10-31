@@ -299,9 +299,10 @@ class MachineryManager:
             self.machinery.scale_pool(machine)
 
     def start_machine(self, machine: Machine) -> None:
+        # Called outside any transaction (VM boot must not hold DB locks); running_count() opens its own.
         if (
             isinstance(self.machine_lock, ScalingBoundedSemaphore)
-            and self.db.count_machines_running() <= self.machines_limit
+            and self.machinery.running_count() <= self.machines_limit
             and self.machine_lock._value == 0
         ):
             self.machine_lock.release()

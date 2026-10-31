@@ -77,6 +77,34 @@ def is_operational_error(exc: BaseException) -> bool:
     )
 
 
+def run_db_unit(db, fn, desc: str, logger: Optional[logging.Logger] = None, attempts: int = 2, backoff: float = 1.0):
+    """Run fn() as one unit of work in its own db.transaction() and return its result.
+
+    On OperationalError (server restart, dropped connection) the transaction rolls back,
+    the thread-local session is discarded and fn() runs again from scratch, up to
+    `attempts` times in total. fn() must be the whole unit of work and must re-read the
+    ORM objects it needs by id (or merge them): objects from the discarded session are
+    detached. Keep side effects that must happen once (logging, file I/O) outside fn().
+
+    If the caller is already inside a transaction, fn() joins it and errors propagate:
+    the outer transaction is aborted and only its owner can retry.
+
+    @param desc: description of the unit of work, used in the retry log.
+    """
+    if db.session().info.get(_TX_DEPTH_KEY, 0):
+        return fn()
+
+    for attempt in range(1, attempts + 1):
+        try:
+            with db.transaction():
+                return fn()
+        except Exception as e:
+            if attempt >= attempts or not is_operational_error(e):
+                raise
+            (logger or log).warning("Database connection error during %s, retrying (%d/%d): %s", desc, attempt, attempts - 1, e)
+            time.sleep(backoff)
+
+
 # Set to "1" to raise instead of warn when a statement runs outside db.transaction() (used by tests).
 STRICT_TX_ENV = "CAPE_DB_STRICT_TRANSACTIONS"
 

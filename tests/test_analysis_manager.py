@@ -585,6 +585,27 @@ class TestAnalysisManager:
         gm.wait_for_completion()
         assert call_count == 2
 
+    def test_guest_manager_wait_for_completion_hard_limit_with_persistent_db_error(self, monkeypatch, mocker):
+        """A database that never comes back must not keep wait_for_completion looping past the hard limit."""
+        import lib.cuckoo.core.guest as guest_mod
+        from lib.cuckoo.core.guest import GuestManager
+
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        clock = iter(range(0, 100000, 50))
+        monkeypatch.setattr(guest_mod.timeit, "default_timer", lambda: next(clock))
+        gm = GuestManager(vm_id="label0", ip="1.2.3.4", platform="windows", task_id=1, analysis_manager=None)
+        gm.timeout = 10
+
+        get_status = mocker.patch.object(
+            gm, "get_status_from_db", side_effect=OperationalError("SELECT 1", {}, Exception("db down"))
+        )
+        set_status = mocker.patch.object(gm, "set_status_in_db", side_effect=OperationalError("UPDATE", {}, Exception("db down")))
+        gm.wait_for_completion()
+
+        # Ends after a bounded number of polls and tries (best effort) to mark the guest failed.
+        assert get_status.call_count < 100
+        set_status.assert_called_once_with("failed")
+
     def test_run_analysis_on_guest_logs_exception_first_and_suppresses_failed_status_error(
         self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
     ):

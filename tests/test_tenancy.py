@@ -223,8 +223,8 @@ def test_task_acl_and_monotonic_visibility_cas():
         return False
 
     with Session(engine) as session:
-        acl = set_task_acl(session, 42, user_id=10, tenant_id=1, visibility=TENANT)
-        session.commit()
+        with session.begin():
+            acl = set_task_acl(session, 42, user_id=10, tenant_id=1, visibility=TENANT)
         assert acl.visibility_seq == 1
         assert resolve_task_scope(session, 42) == ResourceScope(owner_id=10, tenant_id=1, visibility=TENANT)
 
@@ -539,9 +539,9 @@ def test_batched_mongo_backfill():
         return len(ops)
 
     with Session(engine) as session:
-        set_task_acl(session, 1, user_id=10, tenant_id=2, visibility=TENANT)
-        set_task_acl(session, 2, user_id=11, tenant_id=2, visibility=PRIVATE)
-        session.commit()
+        with session.begin():
+            set_task_acl(session, 1, user_id=10, tenant_id=2, visibility=TENANT)
+            set_task_acl(session, 2, user_id=11, tenant_id=2, visibility=PRIVATE)
 
         count = backfill_from_task_acl_batched(
             session,
@@ -675,9 +675,9 @@ def test_disabled_auth_enabled_enforces_ownership(monkeypatch):
     engine = create_engine("sqlite:///:memory:")
     ensure_acl_schema(engine)
     with Session(engine) as session:
-        set_task_acl(session, 100, user_id=10, tenant_id=None, visibility=PRIVATE)
-        set_task_acl(session, 200, user_id=None, tenant_id=None, visibility=PRIVATE)
-        session.commit()
+        with session.begin():
+            set_task_acl(session, 100, user_id=10, tenant_id=None, visibility=PRIVATE)
+            set_task_acl(session, 200, user_id=None, tenant_id=None, visibility=PRIVATE)
 
         owned_scope = resolve_task_scope(session, 100, fallback_user_id=10)
         legacy_scope = resolve_task_scope(session, 200, fallback_user_id=None)

@@ -1718,7 +1718,7 @@ class TestDatabaseEngine:
             task_archs = None
             task_tags = None
         with db.session.begin():
-            created_machines = db.session.query(Machine)
+            created_machines = select(Machine)
             output_machines = db.filter_machines_to_task(
                 statement=created_machines,
                 label=task["machine"],
@@ -1728,10 +1728,7 @@ class TestDatabaseEngine:
                 os_version=task["os_version"],
                 include_reserved=task["include_reserved"],
             )
-            if isinstance(output_machines, list):
-                assert len(output_machines) == expected_result
-            else:
-                assert output_machines.count() == expected_result
+            assert len(db.session.scalars(output_machines).all()) == expected_result
 
     def test_id_coercion_robustness(self, db: _Database, temp_filename: str):
         with db.session.begin():

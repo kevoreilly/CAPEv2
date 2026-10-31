@@ -13,8 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
-from sqlalchemy import Column, Index, Integer, String
-from sqlalchemy.orm import DeclarativeBase, Session
+from sqlalchemy import Index, Integer, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from lib.tenancy.policy import PRIVATE, VISIBILITIES, ResourceScope
 
@@ -28,12 +28,12 @@ class TaskAcl(AclBase):
 
     __tablename__ = "task_acl"
 
-    task_id = Column(Integer, primary_key=True, autoincrement=False)
-    user_id = Column(Integer, nullable=True, index=True)
-    tenant_id = Column(Integer, nullable=True)
-    visibility = Column(String(16), nullable=False, default=PRIVATE, server_default=PRIVATE)
-    visibility_seq = Column(Integer, nullable=False, default=1, server_default="1")
-    external_job_id = Column(String(128), nullable=True, index=True)
+    task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default=PRIVATE, server_default=PRIVATE)
+    visibility_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    external_job_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
 
     __table_args__ = (Index("ix_task_acl_tenant_vis", "tenant_id", "visibility"),)
 

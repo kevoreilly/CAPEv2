@@ -62,8 +62,8 @@ class Node(Base):
     # Replaced legacy `backref` with explicit `back_populates`
     machines: Mapped[List["Machine"]] = relationship(back_populates="node")
     exitnodes: Mapped[List["ExitNodes"]] = relationship(
-        secondary=worker_exitnodes, back_populates="nodes", lazy="subquery"
-    )  # really need lazy?
+        secondary=worker_exitnodes, back_populates="nodes", lazy="selectin"
+    )  # eager: exit nodes are read after the dist session/transaction is closed
 
 
 # The TypeDecorator is a valid pattern; added type hints for clarity

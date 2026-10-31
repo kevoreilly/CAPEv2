@@ -427,6 +427,11 @@ class Machinery:
             waitme += 1
             current = self._status(label)
 
+    def _view_machine(self, label):
+        """Read the Machine row for `label` in its own short transaction (start/stop run outside one)."""
+        with self.db.transaction():
+            return self.db.view_machine_by_label(label)
+
     def delete_machine(self, name):
         """Delete a virtual machine.
         @param name: virtual machine name
@@ -482,8 +487,7 @@ class LibVirtMachinery(Machinery):
 
         log.debug("Starting machine %s", label)
 
-        with self.db.transaction():
-            vm_info = self.db.view_machine_by_label(label)
+        vm_info = self._view_machine(label)
         if vm_info is None:
             msg = f"Unable to find machine with label {label} in database."
             raise CuckooMachineError(msg)

@@ -169,5 +169,5 @@ class VMwareServer(Machinery):
         """Get snapshot for a given vmx file.
         @param vmx_path: configuration option from config file
         """
-        vm_info = self.db.view_machine_by_label(vmx_path)
+        vm_info = self._view_machine(vmx_path)
         return vm_info.snapshot

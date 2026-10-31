@@ -26,7 +26,7 @@ class KVMRemote(LibVirtMachinery):
         except AttributeError:
             raise CuckooMachineError("KVMRemote: DSN or Interface missing in global config section")
 
-        with self.db.session.begin():
+        with self.db.transaction():
             for machine in self.machines():
                 machine.dsn = self.dsn
                 machine.interface = self.interface
@@ -46,10 +46,11 @@ class KVMRemote(LibVirtMachinery):
 
     def start(self, label):
         super(KVMRemote, self).start(label)
-        machine = self.db.view_machine_by_label(label)
+        machine = self._view_machine(label)
         if machine:
             iface = getattr(machine, "interface", self._get_interface(label))
             if iface:
-                self.db.set_machine_interface(label, iface)
+                with self.db.transaction():
+                    self.db.set_machine_interface(label, iface)
             else:
                 log.warning("Can't get iface for %s", label)

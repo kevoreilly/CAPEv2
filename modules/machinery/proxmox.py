@@ -166,7 +166,7 @@ class Proxmox(Machinery):
         @raise CuckooMachineError: if snapshots cannot be enumerated."""
         # use a statically configured snapshot name if configured without any
         # additional checks. User has to make sure it exists then.
-        snapshot = self.db.view_machine_by_label(label).snapshot
+        snapshot = self._view_machine(label).snapshot
         if snapshot:
             return snapshot
 

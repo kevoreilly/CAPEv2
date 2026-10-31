@@ -150,7 +150,7 @@ class GCP(Machinery):
                     instance=label
             )
             self.instances_client.stop(request=request)
-            snapshot = self.db.view_machine_by_label(label).snapshot
+            snapshot = self._view_machine(label).snapshot
             if snapshot is not None:
                 self._wait_status(label, self.POWEROFF)
                 self._restore(label, snapshot)

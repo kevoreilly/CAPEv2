@@ -189,7 +189,7 @@ class XenServerMachinery(Machinery):
         @param uuid: vm uuid
         """
 
-        machine = self.db.view_machine_by_label(uuid)
+        machine = self._view_machine(uuid)
         return machine.snapshot
 
     def _is_halted(self, vm):

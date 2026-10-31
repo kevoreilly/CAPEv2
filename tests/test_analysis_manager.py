@@ -523,3 +523,173 @@ class TestAnalysisManager:
         assert len(records) == 1
         assert records[0].exc_info is None
 
+    def test_network_routing_logs_unroute_rooter_error(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ):
+        """A rooter error during teardown is logged once, without traceback, and not propagated."""
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "route_network")
+        mocker.patch.object(analysis_man, "unroute_network", side_effect=CuckooRooterError("/tmp/cuckoo-rooter response timeout"))
+
+        with caplog.at_level(logging.ERROR):
+            with analysis_man.network_routing():
+                pass
+
+        records = [r for r in caplog.records if "Failed to fully unroute network" in r.message]
+        assert len(records) == 1
+        assert "response timeout" in records[0].message
+        assert records[0].exc_info is None
+
+    def test_network_routing_unroutes_after_partial_route_failure(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        """If route_network fails part-way, unroute_network still runs and the setup error propagates."""
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "route_network", side_effect=CuckooRooterError("setup timeout"))
+        mock_unroute = mocker.patch.object(analysis_man, "unroute_network", side_effect=CuckooRooterError("teardown timeout"))
+        body = mocker.MagicMock()
+
+        with pytest.raises(CuckooRooterError, match="setup timeout"):
+            with analysis_man.network_routing():
+                body()
+
+        assert mock_unroute.called
+        assert not body.called
+
+    def test_network_routing_unexpected_unroute_error_does_not_mask_body_error(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ):
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "route_network")
+        mocker.patch.object(analysis_man, "unroute_network", side_effect=KeyError("boom"))
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(RuntimeError, match="analysis failed"):
+                with analysis_man.network_routing():
+                    raise RuntimeError("analysis failed")
+
+        records = [r for r in caplog.records if "Unexpected error while unrouting network" in r.message]
+        assert len(records) == 1
+        assert records[0].exc_info is not None
+
+    def test_unroute_network_is_best_effort(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        """One failing teardown command must not skip the rest; all failures are reported together."""
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.socks5s = {}
+        analysis_man.route = "internet"
+        analysis_man.interface = "eth9"
+        analysis_man.rt_table = "main"
+        analysis_man.reject_segments = "10.0.0.0/8"
+        analysis_man.reject_hostports = "22"
+        analysis_man.no_local_routing = False
+
+        failing = {"libvirt_fwo_disable", "forward_reject_disable"}
+
+        def fake_rooter(command, *args, **kwargs):
+            if command in failing:
+                return {"output": "", "exception": f"{command} timeout"}
+            return {"output": "", "exception": None}
+
+        mock_rooter = mocker.patch("lib.cuckoo.core.analysis_manager.rooter", side_effect=fake_rooter)
+
+        with pytest.raises(CuckooRooterError) as excinfo:
+            analysis_man.unroute_network()
+
+        sent = [c.args[0] for c in mock_rooter.call_args_list]
+        assert sent == [
+            "libvirt_fwo_disable",
+            "forward_disable",
+            "forward_reject_disable",
+            "hostports_reject_disable",
+            "srcroute_disable",
+        ]
+        assert "libvirt_fwo_disable: libvirt_fwo_disable timeout" in str(excinfo.value)
+        assert "forward_reject_disable: forward_reject_disable timeout" in str(excinfo.value)
+
+    def test_unroute_network_success_does_not_raise(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.socks5s = {}
+        analysis_man.route = "none"
+        mock_rooter = mocker.patch(
+            "lib.cuckoo.core.analysis_manager.rooter", return_value={"output": "", "exception": None}
+        )
+        analysis_man.unroute_network()
+        assert [c.args[0] for c in mock_rooter.call_args_list] == ["drop_disable"]
+
+    def test_launch_analysis_rooter_error_logged_without_traceback(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """CuckooRooterError: task failed, machine unlocked, single log line without traceback."""
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(
+            analysis_man, "perform_analysis", side_effect=CuckooRooterError("Error execution rooter command: response timeout")
+        )
+        mock_unlock = mocker.patch("lib.cuckoo.core.database._Database.unlock_machine")
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(CuckooRooterError):
+                analysis_man.launch_analysis()
+
+        with db.session.begin():
+            assert db.view_task(task.id).status == TASK_FAILED_ANALYSIS
+        assert mock_unlock.called
+        records = [r for r in caplog.records if "Rooter error during analysis" in r.message]
+        assert len(records) == 1
+        assert records[0].exc_info is None
+
+    def test_launch_analysis_other_critical_error_keeps_traceback(
+        self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        """Non-rooter CuckooCriticalError subclasses are still logged with a traceback."""
+        from lib.cuckoo.common.exceptions import CuckooDatabaseError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "perform_analysis", side_effect=CuckooDatabaseError("db gone"))
+        mocker.patch("lib.cuckoo.core.database._Database.unlock_machine")
+        mock_log_exception = mocker.patch.object(analysis_man.log, "exception")
+
+        with pytest.raises(CuckooDatabaseError):
+            analysis_man.launch_analysis()
+
+        assert mock_log_exception.called
+
+    def test_run_rooter_error_logged_once(
+        self,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """launch_analysis logs the rooter error; run() must not log it a second time."""
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "perform_analysis", side_effect=CuckooRooterError("response timeout"))
+        mocker.patch("lib.cuckoo.core.database._Database.unlock_machine")
+
+        with caplog.at_level(logging.INFO):
+            analysis_man.run()
+
+        error_records = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert len(error_records) == 1
+        assert "Rooter error during analysis" in error_records[0].message
+        assert not any("failure in AnalysisManager.run" in r.message for r in caplog.records)

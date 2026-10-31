@@ -59,10 +59,39 @@ def _load_socks5_operational():
     return socks5s
 
 
+# Key set in the response returned by rooter() when the rooter socket is missing or refuses connections.
+ROOTER_UNAVAILABLE = "rooter_unavailable"
+
+
+def rooter_required(routing=None) -> bool:
+    """True when the routing configuration needs a running rooter.
+
+    The default configuration (route = none, no VPN/tor/inetsim/socks5/nexthop) runs without one.
+    """
+    routing = routing or router_cfg
+    nexthop_enabled = hasattr(routing, "nexthop") and routing.nexthop.enabled
+    return bool(
+        routing.vpn.enabled
+        or routing.tor.enabled
+        or routing.inetsim.enabled
+        or routing.socks5.enabled
+        or routing.routing.route != "none"
+        or nexthop_enabled
+    )
+
+
 def rooter(command, *args, **kwargs):
+    """Send a command to the rooter. Always returns a dict with "output" and "exception" keys.
+
+    If the rooter cannot be reached, "exception" is set and ROOTER_UNAVAILABLE is True, so callers that
+    check "exception" fail closed instead of treating a command that never ran as a success.
+    """
     ret = send_socket_command(
         cfg.cuckoo.rooter, command, *args, socket_timeout=cfg.cuckoo.get("rooter_timeout", DEFAULT_SOCKET_TIMEOUT), **kwargs
     )
+    if ret is None:
+        # send_socket_command() already logged why (socket missing or connection refused).
+        return {"output": None, "exception": f"rooter is not reachable at {cfg.cuckoo.rooter}", ROOTER_UNAVAILABLE: True}
     if ret and ret.get("exception"):
         log.warning("Rooter returned error: %s", ret["exception"])
     return ret

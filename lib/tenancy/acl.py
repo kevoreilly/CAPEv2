@@ -147,6 +147,29 @@ def toggle_task_visibility_cas(
     if new_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {new_visibility!r}")
 
+    # The SQL CAS must be committed before MongoDB is updated, so it runs in its own
+    # transaction on a dedicated session. Finish any read the caller left open first.
+    if session.in_transaction():
+        session.commit()
+    with session.begin():
+        row = _advance_visibility(session, task_id, new_visibility, expected_prior)
+    stamp = VisibilityStamp(
+        task_id=row.task_id,
+        user_id=row.user_id,
+        tenant_id=row.tenant_id,
+        visibility=row.visibility,
+        visibility_seq=row.visibility_seq,
+        external_job_id=row.external_job_id,
+    )
+
+    if mongo_update_one is not None:
+        sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)
+
+    return stamp
+
+
+def _advance_visibility(session: Session, task_id: int, new_visibility: str, expected_prior: Optional[str]) -> TaskAcl:
+    """Apply the visibility change and bump `visibility_seq` (caller owns the transaction)."""
     row = session.get(TaskAcl, int(task_id))
     if row is None:
         if expected_prior is not None and expected_prior != PRIVATE:
@@ -166,21 +189,8 @@ def toggle_task_visibility_cas(
             )
         row.visibility = new_visibility
         row.visibility_seq = int(row.visibility_seq or 0) + 1
-
-    session.commit()
-    stamp = VisibilityStamp(
-        task_id=row.task_id,
-        user_id=row.user_id,
-        tenant_id=row.tenant_id,
-        visibility=row.visibility,
-        visibility_seq=row.visibility_seq,
-        external_job_id=row.external_job_id,
-    )
-
-    if mongo_update_one is not None:
-        sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)
-
-    return stamp
+    session.flush()
+    return row
 
 
 def sync_stamp_to_mongo(

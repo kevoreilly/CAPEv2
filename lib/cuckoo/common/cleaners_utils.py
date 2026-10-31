@@ -9,6 +9,8 @@ from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from multiprocessing.pool import ThreadPool
 
+from sqlalchemy import delete, select
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.dist_db import Task as DTask
@@ -331,16 +333,25 @@ def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=F
     if delete_db_tasks and ids:
         for i in range(0, len(ids), db_batch_size):
             ids_batch = ids[i : i + db_batch_size]
+            # One transaction per batch: a failed batch is rolled back and logged without
+            # poisoning the remaining batches.
             try:
-                db.delete_tasks(task_ids=ids_batch)
+                with db.transaction():
+                    db.delete_tasks(task_ids=ids_batch)
             except Exception as e:
                 log.error("Failed to delete tasks from DB: %s", str(e))
 
 
 def fail_job(tid):
     log.info("set %s job to failed", tid)
-    with db.session.begin():
-        db.set_status(tid, TASK_FAILED_ANALYSIS)
+    try:
+        with db.transaction():
+            db.set_status(tid, TASK_FAILED_ANALYSIS)
+    except Exception as e:
+        log.error("failed to set task %s as failed: %s", tid, e)
+    finally:
+        # Called from resolver_pool worker threads: drop this thread's scoped session.
+        db.session.remove()
 
 
 def delete_data(tid):
@@ -353,11 +364,16 @@ def delete_data(tid):
     except Exception as e:
         log.exception("failed to remove analysis info (may not exist) %s due to %s", tid, e)
     _sql_deleted = False
-    with db.session.begin():
-        if db.delete_task(tid):
-            _sql_deleted = True
-        else:
-            log.info("failed to remove faile task %s from DB", tid)
+    try:
+        with db.transaction():
+            _sql_deleted = db.delete_task(tid)
+        if not _sql_deleted:
+            log.info("task %s not found in DB", tid)
+    except Exception as e:
+        log.error("failed to remove task %s from DB: %s", tid, e)
+    finally:
+        # Called from resolver_pool worker threads: drop this thread's scoped session.
+        db.session.remove()
     # delete_folder OUTSIDE the begin() block: an rmtree failure mid-delete must NOT roll back the (committed)
     # SQL delete and resurrect a task pointing at a half-deleted tree, re-broken every nightly run. A folder
     # failure is a disk orphan-by-path (logged).
@@ -372,7 +388,8 @@ def delete_data(tid):
             log.error("delete_data: folder delete failed for task %s (disk orphan-by-path): %s", tid, e)
 
 
-def dist_delete_data(data, dist_db):
+def dist_delete_data(data, dist_session_maker):
+    """Delete duplicated pending tasks (and their dist rows) given [(task_id, target_path), ...]."""
     id_list = []
     for id, file in data:
         try:
@@ -382,14 +399,21 @@ def dist_delete_data(data, dist_db):
                 except Exception as e:
                     log.info(e)
             # clean dist_db
-            dist_task = dist_db.query(Task).filter(DTask.main_task.id == id).first()
-            if dist_task:
-                dist_db.delete(dist_task.id)
+            with dist_session_maker() as dist_db, dist_db.begin():
+                dist_db.execute(delete(DTask).where(DTask.main_task_id == id))
             id_list.append(id)
         except Exception as e:
             log.info(e)
 
-    db.delete_tasks(id_list)
+    try:
+        if id_list:
+            with db.transaction():
+                db.delete_tasks(task_ids=id_list)
+    except Exception as e:
+        log.error("Failed to delete tasks %s from DB: %s", id_list, e)
+    finally:
+        # Called from resolver_pool worker threads: drop this thread's scoped session.
+        db.session.remove()
 
 
 def cuckoo_clean():
@@ -458,11 +482,13 @@ def cuckoo_clean_failed_tasks():
     create_structure()
 
     # ToDo multi status
-    tasks_list = db.list_tasks(status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}")
-    # ToDo rewrite for bulk delete
-    ids = [task.id for task in tasks_list]
+    failed_statuses = f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}"
+    with db.transaction():
+        ids = [task.id for task in db.list_tasks(status=failed_statuses)]
+    # Filesystem/Mongo cleanup runs outside any SQL transaction.
     delete_bulk_tasks_n_folders(ids, delete_mongo=True)
-    tasks_list = db.delete_tasks(status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}")
+    with db.transaction():
+        db.delete_tasks(status=failed_statuses)
 
 
 def cuckoo_clean_banned_tasks():
@@ -472,12 +498,13 @@ def cuckoo_clean_banned_tasks():
     """
     create_structure()
 
-    tasks_list = db.list_tasks(status=TASK_BANNED)
-    ids = [task.id for task in tasks_list]
+    with db.transaction():
+        ids = [task.id for task in db.list_tasks(status=TASK_BANNED)]
     if ids:
         delete_bulk_tasks_n_folders(ids, delete_mongo=True, delete_db_tasks=False, force=True)
 
-    db.delete_tasks(status=TASK_BANNED)
+    with db.transaction():
+        db.delete_tasks(status=TASK_BANNED)
 
 
 def cuckoo_clean_bson_suri_logs():
@@ -488,11 +515,15 @@ def cuckoo_clean_bson_suri_logs():
     create_structure()
     from glob import glob
 
-    tasks_list = db.list_tasks(
-        status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}|{TASK_REPORTED}"
-    )
-    for task in tasks_list:
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task.id))
+    with db.transaction():
+        task_ids = [
+            task.id
+            for task in db.list_tasks(
+                status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}|{TASK_REPORTED}"
+            )
+        ]
+    for task_id in task_ids:
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if path_exists(path):
             jsonlogs = glob(f"{path}/logs/*json*")
             bsondata = glob(f"{path}/logs/*.bson")
@@ -623,15 +654,15 @@ def cuckoo_clean_before(args: dict):
     tags_tasks_like = args.get("tags_tasks_filter", False)
     delete_pending = args.get("delete_pending", False)
 
-    old_tasks = db.list_tasks(
-        added_before=added_before,
-        category=category,
-        not_status=False if delete_pending else TASK_PENDING,
-        tags_tasks_like=tags_tasks_like
-    )
-
-    # We need this to cleanup file system and MongoDB calls collection
-    id_arr = [e.id for e in old_tasks]
+    with db.transaction():
+        old_tasks = db.list_tasks(
+            added_before=added_before,
+            category=category,
+            not_status=False if delete_pending else TASK_PENDING,
+            tags_tasks_like=tags_tasks_like
+        )
+        # We need this to cleanup file system and MongoDB calls collection
+        id_arr = [e.id for e in old_tasks]
     log.info("number of matching records %s before suri/custom filter", len(id_arr))
     if id_arr and args.get("suricata_zero_alert_filter"):
         result = list(
@@ -667,9 +698,8 @@ def cuckoo_clean_before(args: dict):
                 sys.exit()
         mongo_delete_data(id_arr)
 
-    db.delete_tasks(added_before=added_before,
-                    category=category,
-                    tags_tasks_like=tags_tasks_like)
+    with db.transaction():
+        db.delete_tasks(added_before=added_before, category=category, tags_tasks_like=tags_tasks_like)
 
 
 def cuckoo_clean_sorted_pcap_dump():
@@ -743,16 +773,15 @@ def cuckoo_clean_pending_tasks(timerange: str = None, delete: bool = False):
     if not is_reporting_db_connected():
         return
 
-    if timerange:
-        before_time = convert_into_time(timerange)
+    before_time = convert_into_time(timerange) if timerange else None
 
-    pending_tasks = [task.id for task in db.list_tasks(status=TASK_PENDING, added_before=before_time)]
-    # clean_handler = delete_data if delete else fail_job
-    # resolver_pool.map(lambda tid: clean_handler(pending_tasks), pending_tasks)
+    with db.transaction():
+        pending_tasks = [task.id for task in db.list_tasks(status=TASK_PENDING, added_before=before_time)]
     if delete:
-        db.delete_tasks(status=TASK_PENDING, added_before=before_time)
+        with db.transaction():
+            db.delete_tasks(status=TASK_PENDING, added_before=before_time)
     else:
-        resolver_pool.map(lambda tid: fail_job(pending_tasks), pending_tasks)
+        resolver_pool.map(fail_job, pending_tasks)
 
 
 def cuckoo_clean_range_tasks(range_: str):
@@ -767,11 +796,12 @@ def cuckoo_clean_range_tasks(range_: str):
     start_str, end_str = range_.split("-")
     start = int(start_str.strip())
     end = int(end_str.strip())
-    pending_tasks = db.list_tasks(id_after=(start - 1), id_before=(end + 1))
-    ids: list[int] = [task.id for task in pending_tasks]
+    with db.transaction():
+        ids: list[int] = [task.id for task in db.list_tasks(id_after=(start - 1), id_before=(end + 1))]
     delete_bulk_tasks_n_folders(ids, delete_mongo=False)
     mongo_delete_data(ids)
-    db.delete_tasks(id_after=(start - 1), id_before=(end + 1))
+    with db.transaction():
+        db.delete_tasks(id_after=(start - 1), id_before=(end + 1))
 
 
 def delete_unused_file_data_in_mongo():
@@ -788,20 +818,23 @@ def cuckoo_dedup_cluster_queue():
     Cleans duplicated pending tasks from cluster queue
     """
 
-    session = db.Session()
-    dist_session = create_session(repconf.distributed.db, echo=False)
-    dist_db = dist_session()
+    dist_session_maker = create_session(repconf.distributed.db, echo=False)
     hash_dict = {}
-    duplicated = (
-        session.query(Sample, Task).join(Task).filter(Sample.id == Task.sample_id, Task.status == "pending").order_by(Sample.sha256)
+    stmt = (
+        select(Sample.sha256, Task.id, Task.target)
+        .join(Task, Sample.id == Task.sample_id)
+        .where(Task.status == TASK_PENDING)
+        .order_by(Sample.sha256)
     )
+    with db.transaction():
+        rows = db.session.execute(stmt).all()
 
-    for sample, task in duplicated:
+    for sha256, task_id, target in rows:
         with suppress(UnicodeDecodeError):
             # hash -> [[id, file]]
-            hash_dict.setdefault(sample.sha256, []).append((task.id, task.target))
+            hash_dict.setdefault(sha256, []).append((task_id, target))
 
-    resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_db), hash_dict)
+    resolver_pool.map(lambda sha256: dist_delete_data(hash_dict[sha256][1:], dist_session_maker), hash_dict)
 
 
 def cape_clean_tlp():
@@ -810,7 +843,8 @@ def cape_clean_tlp():
     if not is_reporting_db_connected():
         return
 
-    tlp_tasks = db.get_tlp_tasks()
+    with db.transaction():
+        tlp_tasks = db.get_tlp_tasks()
     delete_bulk_tasks_n_folders(tlp_tasks, False)
 
 
@@ -832,7 +866,11 @@ def binaries_clean_before(timerange: str):
             st_ctime = path_get_date(bin_path)
             if datetime.fromtimestamp(st_ctime) > olden_than:
                 # ToDo check database here to ensure that file is not used
-                if path_exists(bin_path) and not db.sample_still_used(sha256, 0):
+                if not path_exists(bin_path):
+                    continue
+                with db.transaction():
+                    still_used = db.sample_still_used(sha256, 0)
+                if not still_used:
                     path_delete(bin_path)
 
 
@@ -846,9 +884,11 @@ def cleanup_mongodb_calls_collection(args: dict):
         return
 
     added_before = convert_into_time(timerange)
-    highest_id = db.list_tasks(added_before=added_before, limit=1)
+    with db.transaction():
+        highest = db.list_tasks(added_before=added_before, limit=1)
+        highest_id = highest[0].id if highest else None
     if highest_id:
-        mongo_delete_calls_by_task_id_in_range(range_end=highest_id[0].id)
+        mongo_delete_calls_by_task_id_in_range(range_end=highest_id)
 
 
 def cleanup_files_collection_by_id(task_id: int):

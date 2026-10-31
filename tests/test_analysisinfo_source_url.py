@@ -2,6 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import contextlib
+
 
 def _make_info(monkeypatch, source_url):
     import modules.processing.analysisinfo as ai
@@ -23,6 +25,10 @@ def _make_info(monkeypatch, source_url):
     inst.log_path = "/tmp/nonexistent_analysis.log"
 
     class _DB:
+        @contextlib.contextmanager
+        def transaction(self):
+            yield
+
         def view_task(self, *a, **k):
             return None
 

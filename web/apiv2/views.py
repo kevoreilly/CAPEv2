@@ -19,6 +19,7 @@ import requests
 import yara
 from bson.objectid import ObjectId
 from django.conf import settings
+from sqlalchemy import select
 from django.contrib.auth.decorators import login_required
 from django.http import StreamingHttpResponse
 from django.shortcuts import render
@@ -140,8 +141,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 
 DIST_ENABLED = False
 if dist_conf.distributed.enabled:
-    from sqlalchemy import select
-
     from lib.cuckoo.common.dist_db import Node, create_session
     from lib.cuckoo.common.dist_db import Task as DTask
 
@@ -2541,17 +2540,13 @@ def cuckoo_status(request):
 @csrf_exempt
 @api_view(["GET"])
 def task_x_hours(request):
-    session = db.session()
-    res = (
-        session.query(Task)
-        .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
-        .all()
-    )
+    """Number of tasks added per hour during the last 24 hours."""
+    since = datetime.now() - timedelta(days=1)
+    added = db.session.scalars(select(Task.added_on).where(Task.added_on >= since)).all()
     results = {}
-    if res:
-        for date, samples in res:
-            results.setdefault(date.strftime("%Y-%m-%eT%H:%M:00"), samples)
-    session.close()
+    for added_on in added:
+        bucket = added_on.strftime("%Y-%m-%dT%H:00:00")
+        results[bucket] = results.get(bucket, 0) + 1
     resp = {"error": False, "stats": results}
     return Response(resp)
 
@@ -2929,27 +2924,28 @@ def dist_tasks_reported(request):
 
         if there was an pi endpoint that exposed that, and another that allowed us to set notificated on the task when we'd finished processing it, then we wouldnt need the callback anymore
     """
-    # change to with session as
-    dist_db = dist_session()
-    ready = []
-    tasks = dist_db.query(DTask).filter_by(finished=True, retrieved=True, notificated=False).order_by(DTask.id.desc()).all()
-    for task in tasks or []:
-        ready.append(task.main_task_id)
-    dist_db.close()
+    stmt = (
+        select(DTask.main_task_id)
+        .where(DTask.finished.is_(True), DTask.retrieved.is_(True), DTask.notificated.is_(False))
+        .order_by(DTask.id.desc())
+    )
+    with dist_session() as dist_db, dist_db.begin():
+        ready = list(dist_db.scalars(stmt).all())
     return Response({"Tasks": ready})
 
 
 @csrf_exempt
 @api_view(["GET"])
 def dist_tasks_notification(request, task_id: int):
-    dist_db = dist_session()
-    tasks = dist_db.query(DTask).filter_by(main_task_id=task_id).order_by(DTask.id.desc()).all()
-    if not tasks:
-        return Response({"error": True, "error_value": f"No tasks found with main_task_id: {task_id}"})
-    for task in tasks:
-        # main_db.set_status(task.main_task_id, TASK_REPORTED)
-        # log.debug("reporting main_task_id: {}".format(task.main_task_id))
-        task.notificated = True
+    with dist_session() as dist_db, dist_db.begin():
+        tasks = dist_db.scalars(select(DTask).where(DTask.main_task_id == task_id).order_by(DTask.id.desc())).all()
+        if not tasks:
+            return Response({"error": True, "error_value": f"No tasks found with main_task_id: {task_id}"})
+        for task in tasks:
+            # main_db.set_status(task.main_task_id, TASK_REPORTED)
+            # log.debug("reporting main_task_id: {}".format(task.main_task_id))
+            task.notificated = True
+    return Response({"error": False, "data": [task_id]})
 
 
 @csrf_exempt

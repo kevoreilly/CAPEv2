@@ -165,7 +165,11 @@ class TestSubmissionViews(SimpleTestCase):
 
     def test_get_form_data(self):
         """Use get_form_data() and check the values returned."""
-        packages, machines = get_form_data()
+        from lib.cuckoo.core.database import Database
+
+        # Called from views inside the request transaction; the test is the entry point here.
+        with Database().transaction():
+            packages, machines = get_form_data()
         self.assertIsInstance(packages, list)
         self.assertIsInstance(machines, list)
         self.assertGreater(len(packages), 10)

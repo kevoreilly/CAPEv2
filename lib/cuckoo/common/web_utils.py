@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 import magic
 import requests
 from django.http import HttpResponse
+from sqlalchemy import select
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
@@ -195,14 +196,13 @@ def load_vms_exits(force: bool = False):
             _all_nodes_exits = {}
             if HAVE_DIST and dist_conf.distributed.enabled:
                 try:
-                    db = dist_session()
-                    for node in db.query(Node).all():
-                        if hasattr(node, "exitnodes"):
-                            for exit in node.exitnodes:
-                                _all_nodes_exits.setdefault(exit.name, []).append(node.name)
-                    db.close()
+                    with dist_session() as dist_db, dist_db.begin():
+                        for node in dist_db.scalars(select(Node)).all():
+                            if hasattr(node, "exitnodes"):
+                                for exit in node.exitnodes:
+                                    _all_nodes_exits.setdefault(exit.name, []).append(node.name)
                 except Exception as e:
-                    print(e)
+                    log.error("Failed to load exit nodes from the distributed DB: %s", e)
 
         cached_exits = dict(_all_nodes_exits)
     from lib.cuckoo.common.hooks import apply_route_filter
@@ -237,17 +237,17 @@ def load_vms_tags(force: bool = False):
             all_tags = []
             if HAVE_DIST and dist_conf.distributed.enabled:
                 try:
-                    db = dist_session()
-                    for vm in db.query(Machine).all():
-                        all_tags += vm.tags
+                    with dist_session() as dist_db, dist_db.begin():
+                        for vm in dist_db.scalars(select(Machine)).all():
+                            all_tags += vm.tags or []
                     all_tags = sorted(filter(None, all_tags))
-                    db.close()
                 except Exception as e:
-                    print(e)
+                    log.error("Failed to load VM tags from the distributed DB: %s", e)
 
-            machines = Database().list_machines(include_reserved=True)
-            for machine in machines:
-                all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
+            main_db = Database()
+            with main_db.transaction():
+                for machine in main_db.list_machines(include_reserved=True):
+                    all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
 
             if all_tags:
                 _all_vms_tags = list(sorted(set(all_tags)))
@@ -501,15 +501,15 @@ def statistics(s_days: int) -> dict:
             details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
-    added_tasks = (
-        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
-    )
-    tasks = (
-        db.session.query(Task)
-        .join(Sample, Task.sample_id == Sample.id)
-        .filter(Task.completed_on.between(date_since, date_till))
-        .all()
-    )
+    with db.transaction():
+        added_tasks = db.session.scalars(
+            select(Task.added_on).join(Sample, Task.sample_id == Sample.id).where(Task.added_on.between(date_since, date_till))
+        ).all()
+        tasks = db.session.execute(
+            select(Task.completed_on, Task.status, Sample.sha256)
+            .join(Sample, Task.sample_id == Sample.id)
+            .where(Task.completed_on.between(date_since, date_till))
+        ).all()
     details["total"] = len(tasks)
     details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
     details["tasks"] = {}
@@ -522,17 +522,17 @@ def statistics(s_days: int) -> dict:
             details["tasks"][day].setdefault("added", 0)
         if day not in top_samples:
             top_samples.setdefault(day, {})
-        if task.sample.sha256 not in top_samples[day]:
-            top_samples[day].setdefault(task.sample.sha256, 0)
-        top_samples[day][task.sample.sha256] += 1
+        if task.sha256 not in top_samples[day]:
+            top_samples[day].setdefault(task.sha256, 0)
+        top_samples[day][task.sha256] += 1
         # details["tasks"][day]["added"] += 1
         if task.status in ("failed_analysis", "failed_reporting", "failed_processing"):
             details["tasks"][day]["failed"] += 1
         elif task.status == "reported":
             details["tasks"][day]["reported"] += 1
 
-    for added_task in added_tasks or []:
-        day = added_task.added_on.strftime("%Y-%m-%d")
+    for added_on in added_tasks or []:
+        day = added_on.strftime("%Y-%m-%d")
         if day not in details["tasks"]:
             continue
         details["tasks"][day]["added"] += 1
@@ -543,12 +543,10 @@ def statistics(s_days: int) -> dict:
 
     if HAVE_DIST and dist_conf.distributed.enabled:
         details["distributed_tasks"] = {}
-        dist_db = dist_session()
-        dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
-        id2name = {}
-        # load node names
-        for node in dist_db.query(Node).all() or []:
-            id2name.setdefault(node.id, node.name)
+        with dist_session() as dist_db, dist_db.begin():
+            dist_tasks = dist_db.execute(select(DTask.clock, DTask.node_id).where(DTask.clock.between(date_since, date_till))).all()
+            # load node names
+            id2name = dict(dist_db.execute(select(Node.id, Node.name)).all())
 
         for task in dist_tasks or []:
             day = task.clock.strftime("%Y-%m-%d")
@@ -557,7 +555,6 @@ def statistics(s_days: int) -> dict:
             if id2name.get(task.node_id) not in details["distributed_tasks"][day]:
                 details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
             details["distributed_tasks"][day][id2name[task.node_id]] += 1
-        dist_db.close()
 
         details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[0], reverse=True))
 

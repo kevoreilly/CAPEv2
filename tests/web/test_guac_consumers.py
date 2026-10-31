@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 from importlib import import_module
 from types import SimpleNamespace
@@ -31,6 +32,11 @@ class FakeDatabase:
         }
         self._task = task or FakeTask(123, "running")
         self.deleted_sessions = []
+        self.session = SimpleNamespace(remove=lambda: None)
+
+    @contextlib.contextmanager
+    def transaction(self):
+        yield
 
     def get_guac_session(self, token):
         if str(token) == TEST_TOKEN:

@@ -201,13 +201,15 @@ class TestHuntViews(SimpleTestCase):
         self.assertIn("target.file.name", match_stage)
 
     @patch("analysis.views.db.session.get")
-    @patch("analysis.views.db.session.commit")
-    def test_tag_tasks_endpoint_works(self, mock_commit, mock_get):
+    def test_tag_tasks_endpoint_works(self, mock_get):
         """The tag_tasks API should properly add and append custom tags to SQL Task entries."""
         # Use side_effect to return distinct Task mocks for each call, avoiding mock mutation reuse
+        tasks = []
+
         def mock_get_task(model, tid):
             task = MagicMock()
             task.tags_tasks = "existing_tag"
+            tasks.append(task)
             return task
         mock_get.side_effect = mock_get_task
 
@@ -225,8 +227,8 @@ class TestHuntViews(SimpleTestCase):
         self.assertEqual(data["tag"], "New_Campaign")
         self.assertEqual(data["updated_count"], 2)
 
-        # Verify commit happened
-        self.assertTrue(mock_commit.called)
+        # Tags are appended on the ORM objects; the request transaction commits them.
+        self.assertEqual([t.tags_tasks for t in tasks], ["existing_tag,New_Campaign"] * 2)
 
     @patch("analysis.views.mongo_aggregate", create=True)
     def test_hunt_page_category_filtering_works(self, mock_mongo_aggregate):

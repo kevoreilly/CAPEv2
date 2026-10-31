@@ -22,6 +22,33 @@ except ImportError:
     LIBVIRT_AVAILABLE = False
 
 logger = logging.getLogger("guac-session")
+
+
+def _db_unit(fn, *args):
+    """Run a DB helper in its own short transaction from a sync_to_async worker thread.
+
+    Consumers run outside any HTTP middleware; the thread-pool session is dropped
+    afterwards so no connection or transaction outlives the call.
+    """
+    db = Database()
+    try:
+        with db.transaction():
+            return fn(*args)
+    finally:
+        db.session.remove()
+
+
+def _unlock_if_locked(vm_label):
+    db = Database()
+    machine = db.view_machine_by_label(vm_label)
+    if machine and machine.locked:
+        db.unlock_machine(machine)
+
+
+def _task_status(task_id):
+    task = Database().view_task(task_id)
+    return task.status if task else None
+
 web_cfg = Config("web")
 
 machinery = Config().cuckoo.machinery
@@ -111,8 +138,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         if not self.guac_token:
             return
         try:
-            db = Database()
-            await sync_to_async(db.delete_guac_session)(self.guac_token)
+            await sync_to_async(_db_unit)(Database().delete_guac_session, self.guac_token)
             self.guac_token = None
         except Exception as e:
             logger.error("Failed to delete guac session %s: %s", self.guac_token, e)
@@ -153,8 +179,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 return
 
             # 2. Look up session in DB
-            db = Database()
-            session_data = await sync_to_async(db.get_guac_session)(token)
+            session_data = await sync_to_async(_db_unit)(Database().get_guac_session, token)
 
             if not session_data:
                 logger.warning("WebSocket rejected: token not found in DB")
@@ -169,8 +194,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             vnc_port = None
             if self.guac_task_id > 0:
                 # 3. Verify task can still host an interactive session
-                task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                task_status = await sync_to_async(_db_unit)(_task_status, self.guac_task_id)
+                if task_status not in ACTIVE_GUAC_TASK_STATUSES:
                     logger.warning(
                         "WebSocket rejected: task %s is not active for guac", self.guac_task_id
                     )
@@ -343,9 +368,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 await asyncio.sleep(TASK_POLL_INTERVAL)
                 if not self.guac_task_id:
                     break
-                db = Database()
-                task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                task_status = await sync_to_async(_db_unit)(_task_status, self.guac_task_id)
+                if task_status not in ACTIVE_GUAC_TASK_STATUSES:
                     logger.info(
                         "Task %s no longer running, disconnecting guac session",
                         self.guac_task_id,
@@ -370,11 +394,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
                 if not is_running:
                     logger.info("VM %s is no longer running, unlocking and disconnecting", self.vm_label)
-                    db = Database()
-                    machine = await sync_to_async(db.view_machine_by_label)(self.vm_label)
-                    if machine and machine.locked:
-                        await sync_to_async(db.unlock_machine)(machine)
-                        await sync_to_async(db.session.commit)()
+                    await sync_to_async(_db_unit)(_unlock_if_locked, self.vm_label)
                     await self._close_websocket()
                     break
         except asyncio.CancelledError:

@@ -208,21 +208,26 @@ class ObjectStorage(Report):
         store, _is_remote = get_artifact_store(cfg)
         _validate_backend_prereqs(cfg)
 
-        analysis_id = info.get("id")
+        # A retry after a renumbering pass: this node's own task id, not the central one.
+        analysis_id = info.get("local_task_id") or info.get("id")
         job_id = info.get("job_id") or resolve_job_id(info.get("custom"), analysis_id)
         if not _is_safe_job_id(job_id):
             raise CuckooReportError(
                 f"object_storage: refusing unsafe job_id {job_id!r} (must match {_SAFE_JOB_ID_RE.pattern} and contain no '..')"
             )
-        info["job_id"] = job_id
-
         _m = re.match(r"^ui-(\d+)$", job_id)
         if not _m and object_storage_bridge_required():
+            # Nothing was uploaded under that job id: keep the report this task's own (local-<id>).
+            info["job_id"] = f"local-{analysis_id}"
             raise CuckooReportError(
                 f"object_storage: refusing non-bridged analysis (job_id={job_id!r}) under multitenancy -- "
                 "tenant-isolated object-storage submission requires a bridged job_id (ui-<central_id>)"
             )
+        info["job_id"] = job_id
         if _m:
+            # The report is the central task's (even when the ids happen to match): the stamp hook
+            # must not use this node's task_acl row, nor a retry its storage/analyses/<central id>.
+            info["local_task_id"] = analysis_id
             info["id"] = int(_m.group(1))
 
         prefix = getattr(cfg, "prefix", None) or getattr(cfg, "s3_prefix", "results")
@@ -270,7 +275,7 @@ def upload_analysis_artifacts(results: dict[str, Any], analysis_path: Optional[s
     info = results.get("info")
     if not isinstance(info, dict) or info.get("_object_storage_uploaded"):
         return
-    task_id = info.get("id")
+    task_id = info.get("local_task_id") or info.get("id")
     if analysis_path is None and task_id is not None:
         cand = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if os.path.isdir(cand):

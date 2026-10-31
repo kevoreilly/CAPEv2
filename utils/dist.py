@@ -114,13 +114,9 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-if getattr(cfg, "multitenancy", {}).get("enabled", False) or getattr(cfg, "object_storage", {}).get("enabled", False):
-    try:
-        from lib.tenancy.hooks import register_core_hooks
+from lib.cuckoo.common.hooks import bootstrap_tenancy, run_report_retrieved_hooks  # noqa: E402
 
-        register_core_hooks()
-    except Exception as e:
-        logging.getLogger(__name__).exception("Failed to initialize lib.tenancy hooks: %s", e)
+bootstrap_tenancy(cfg)
 
 dead_count = 5
 if dist_conf.distributed.dead_count:
@@ -682,7 +678,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options, "attributes": attributes_json},
+                    # Same fields as file tasks: the main node's machine, pool tags, route and
+                    # timeout, which the worker's unrestricted dist account would otherwise drop.
+                    data={**data, "url": task.path},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,
@@ -1163,6 +1161,9 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
                         # set reported time
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
+                    # The worker stamped the report (already in the shared store) with the ACL dist sent
+                    # it at dispatch. Before the copy and the post-copy steps, any of which can fail.
+                    run_report_retrieved_hooks(t.main_task_id)
 
                     # Fetch each requested report.
                     report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
@@ -1314,6 +1315,11 @@ class Retriever(threading.Thread):
             time.sleep(20)
 
 
+def _task_timeout(timeout, options):
+    """A timeout= option overrides the task's timeout; other "...timeout=" options don't (they zeroed it)."""
+    return options["timeout"] if options.get("timeout") else timeout
+
+
 class StatusThread(threading.Thread):
     """
     A thread that handles the submission of tasks to nodes and manages the status of nodes.
@@ -1438,8 +1444,7 @@ class StatusThread(threading.Thread):
                             elif requested_node != node.name:
                                 # otherwise keep looping
                                 continue
-                        if "timeout=" in t.options:
-                            t.timeout = options.get("timeout", 0)
+                        t.timeout = _task_timeout(t.timeout, options)
                     except Exception as e:
                         log.exception(e)
                     # wtf are you doing in pendings?
@@ -2316,6 +2321,7 @@ def main():
         with main_db.session.begin():
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
             main_db.set_status(args.force_reported, TASK_REPORTED)
+        run_report_retrieved_hooks(args.force_reported)
         sys.exit()
 
     if args.gcs_replay:

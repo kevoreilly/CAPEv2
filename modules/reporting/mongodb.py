@@ -126,14 +126,12 @@ class MongoDB(Report):
 
         # trick for distributed api
         main_task_id = None
-        if self.task and (attributes := self.task.get("attributes")):
-            if main_task_id := attributes.get("main_task_id"):
-                with suppress(ValueError, TypeError):
-                    report["info"]["id"] = int(main_task_id)
-            if isinstance(task_acl := attributes.get("task_acl"), dict):
-                for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                    if k in task_acl:
-                        report["info"][k] = task_acl[k]
+        attributes = (self.task or {}).get("attributes") or {}
+        if main_task_id := attributes.get("main_task_id"):
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
+                # Object storage may have renumbered it already and recorded the real local id.
+                report["info"].setdefault("local_task_id", local_task_id)
 
         if "network" not in report:
             report["network"] = {}
@@ -144,6 +142,13 @@ class MongoDB(Report):
         from lib.cuckoo.common.hooks import run_report_hooks
 
         run_report_hooks(report)
+        # After the hooks: the main server's ACL beats this worker's own task_acl row with that number.
+        if isinstance(task_acl := attributes.get("task_acl"), dict):
+            # All four: a key the main left out must not keep this worker's value.
+            for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
+                report["info"][k] = task_acl.get(k, default)
+        # utils/process.py -r --visibility/--tenant-id, last as in its own results
+        report["info"].update((self.task or {}).get("_acl_override") or {})
 
         # Delete old data just before inserting new one to avoid "missing report" window
 
@@ -158,7 +163,8 @@ class MongoDB(Report):
 
         # Store iocs as file
         if reporting_conf.mongodb.dump_iocs:
-            dump_iocs(report, local_task_id)
+            # this node's own task directory, even when the report was renumbered to another server's id
+            dump_iocs(report, int(report["info"].get("local_task_id") or local_task_id))
 
         ensure_valid_utf8(report)
         gc.collect()

@@ -143,7 +143,17 @@ def process(
         with db.session.begin():
             RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
-            if (visibility is not None or tenant_id is not None) and task_id:
+            acl_override = {}
+            if visibility in ("public", "tenant", "private"):
+                acl_override["visibility"] = visibility
+            if tenant_id is not None:
+                acl_override["tenant_id"] = int(tenant_id)
+            if acl_override:
+                # In memory only (never Task.attributes): the reporters apply it after the report hooks
+                # and the main server's task_acl, which would otherwise replace it in their copies.
+                task_dict["_acl_override"] = acl_override
+            # A dist task's ACL lives on the main server: this node's row with that id is another task.
+            if not main_task_id and (visibility is not None or tenant_id is not None) and task_id:
                 with suppress(Exception):
                     from cape_tenancy.acl import ensure_acl_schema, set_task_acl
 
@@ -151,19 +161,25 @@ def process(
                     with db.session.begin():
                         set_task_acl(
                             db.session,
-                            int(main_task_id or task_id),
+                            int(task_id),
                             user_id=results["info"].get("user_id") or task_dict.get("user_id"),
                             tenant_id=int(tenant_id) if tenant_id is not None else results["info"].get("tenant_id"),
-                            visibility=visibility if visibility in ("public", "tenant", "private") else (results["info"].get("visibility") or "private"),
+                            # without --visibility keep the task's own (the report hook has not stamped info yet)
+                            visibility=visibility if visibility in ("public", "tenant", "private") else None,
                         )
-            if attributes := task_dict.get("attributes"):
-                if isinstance(task_acl := attributes.get("task_acl"), dict):
-                    for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                        if k in task_acl:
-                            results["info"][k] = task_acl[k]
+            if main_task_id:
+                # A dist task's report is the main server's (mongodb reporting files it under that id):
+                # mark it so the report hooks don't stamp it from this node's task_acl.
+                results["info"].setdefault("local_task_id", task_id)
             from lib.cuckoo.common.hooks import run_report_hooks
 
             run_report_hooks(results)
+            # After the hooks: the main server's ACL beats this worker's own task_acl row.
+            if attributes := task_dict.get("attributes"):
+                if isinstance(task_acl := attributes.get("task_acl"), dict):
+                    # All four: a key the main left out must not keep this worker's value.
+                    for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
+                        results["info"][k] = task_acl.get(k, default)
             if visibility in ("public", "tenant", "private"):
                 results["info"]["visibility"] = visibility
             if tenant_id is not None:

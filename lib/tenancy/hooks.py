@@ -12,13 +12,19 @@ request's `ViewerContext` and `ResourceEntitlements` filters into:
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import functools
+import json
+import logging
 import os
+import re
+import sys
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
 
-from lib.tenancy.acl import TaskAcl, ensure_acl_schema, set_task_acl
+from lib.tenancy.acl import TaskAcl, ensure_acl_schema, ensure_acl_schema_once, resolve_task_scope, set_task_acl
 from lib.tenancy.context import (
     get_current_entitlements,
     get_current_submission_visibility,
@@ -29,6 +35,7 @@ from lib.tenancy.policy import (
     PUBLIC,
     TENANT,
     VISIBILITIES,
+    ResourceScope,
     ViewerContext,
     default_visibility as resolve_default_visibility,
     multitenancy_config,
@@ -38,7 +45,167 @@ from lib.tenancy.policy import (
 from lib.tenancy.resources import (
     ResourceEntitlements,
     filter_submission_form_context,
+    machine_name_by_label,
+    validate_and_normalize_submission,
 )
+
+log = logging.getLogger(__name__)
+
+# Scope of the task being rescheduled, read by the wrapped `add` that creates its copy.
+_rescheduled_from: contextvars.ContextVar[Optional[ResourceScope]] = contextvars.ContextVar(
+    "cape_tenancy_rescheduled_from", default=None
+)
+
+
+# Set by the wrapped reschedule: whether the wrapped add refused the copy.
+_copy_denied: contextvars.ContextVar[Optional[list]] = contextvars.ContextVar("cape_tenancy_copy_denied", default=None)
+
+
+@contextlib.contextmanager
+def inherit_task_scope(db: Any, task_id: Any):
+    """Make tasks added in this block copies of `task_id`: same owner, tenant and visibility.
+
+    Copies (reschedule, banned-task refetch) are added outside any submission, so `add` would
+    otherwise stamp the deployment default. Fails closed to owner-only when the scope is unreadable.
+    """
+    src_scope = ResourceScope(owner_id=None, tenant_id=None, visibility=PRIVATE)
+    sess = getattr(db, "session", None)
+    raw = sess() if callable(sess) else sess  # the scoped_session proxy has no in_transaction()
+    if raw is not None:
+        # Inside the caller's transaction (init_tasks) a savepoint keeps a failed read from aborting
+        # it on Postgres; otherwise a short transaction of our own, so the reads don't autobegin one
+        # that turns every later begin() into a bare flush.
+        def _txn():
+            return raw.begin_nested() if raw.in_transaction() else raw.begin()
+
+        try:
+            with _txn():
+                owner_id = getattr(db.view_task(task_id), "user_id", None) or None
+            src_scope = ResourceScope(owner_id=owner_id, tenant_id=None, visibility=PRIVATE)
+            ensure_acl_schema_once(raw.get_bind())
+            with _txn():
+                src_scope = resolve_task_scope(raw, int(task_id), fallback_user_id=owner_id)
+        except Exception:
+            log.exception("tenancy: cannot resolve the scope of task %s; its copy stays owner-only", task_id)
+    token = _rescheduled_from.set(src_scope)
+    try:
+        yield src_scope
+    finally:
+        _rescheduled_from.reset(token)
+
+
+def _trusted_submitter() -> bool:
+    """Internal callers (no request viewer) and box admins, e.g. a dist node's or broker's account.
+
+    A superuser counts only with `local_admins_manage_all_tenants`; otherwise they are tenant-scoped.
+    """
+    viewer = get_current_viewer()
+    return viewer is None or bool(getattr(viewer, "is_local_admin", False))
+
+
+# Task objects no VM runs: analysis_manager never schedules a machine or route for them.
+_VMLESS_TASK_OBJECTS = ("PCAP", "Static")
+
+
+def _enforce_task_entitlements(
+    kwargs: Dict[str, Any], db: Any = None, *, vmless: bool = False, copy: bool = False
+) -> Optional[str]:
+    """Check the final `add` kwargs against the request's entitlements; normalize them in place.
+
+    The middleware checks the submitted form early, but API bodies (JSON, re-parsed urlencoded)
+    and the views' own rewriting reach `add` unchecked. Returns the denial message, or None.
+    """
+    ent = get_current_entitlements()
+    if ent is None or ent.unrestricted:
+        return None
+    tags = kwargs.get("tags")
+    if isinstance(tags, (list, tuple, set)):
+        tags = ",".join(str(t) for t in tags)
+    tags = tags or ""
+    kept_tags = ""
+    if copy and tags:
+        # A copy carries the arch tags add() appended to its source; the submitter never chose them.
+        parts = [t for t in tags.split(",") if t.strip()]
+        kept_tags = ",".join(t for t in parts if t.strip().lower() in ("x86", "x64"))
+        tags = ",".join(t for t in parts if t.strip().lower() not in ("x86", "x64"))
+    machine = kwargs.get("machine") or ""
+    params = {
+        "machine": machine,
+        "route": kwargs.get("route") or "",
+        "tags": tags,
+        "timeout": kwargs.get("timeout") or 0,
+        "options": kwargs.get("options") or "",
+    }
+    allowed, err, normalized = validate_and_normalize_submission(
+        params, ent, vmless=vmless, machine_name_of=machine_name_by_label(db)
+    )
+    if not allowed:
+        return err or "Submission denied by group policy"
+    if normalized.get("route"):
+        kwargs["route"] = normalized["route"]
+    if normalized.get("tags") != params["tags"] or not isinstance(kwargs.get("tags"), (str, type(None))):
+        # add() drops a list of tags, so the checked tags always go back as a string.
+        kwargs["tags"] = ",".join(t for t in (normalized.get("tags") or "", kept_tags) if t)
+    if str(normalized.get("timeout")) != str(params["timeout"]):
+        kwargs["timeout"] = int(normalized["timeout"])
+    if normalized.get("options") != params["options"]:
+        kwargs["options"] = normalized["options"]
+    return None
+
+
+# Attributes only dist sets when it hands a task to a worker.
+_DIST_ONLY_ATTRIBUTES = ("task_acl", "main_task_id", "parent_sample")
+
+
+def _strip_untrusted_task_acl(attributes: Any) -> Any:
+    """Drop the dist-only attributes from submitted attributes unless the submitter is trusted.
+
+    The reporters copy attributes.task_acl into the report and file it under attributes.main_task_id
+    (replacing that task's report); from an ordinary API submitter they would be a forged owner,
+    visibility and seq, and an overwrite of any other task's report.
+    """
+    if _trusted_submitter():
+        return attributes
+    if isinstance(attributes, str):
+        try:
+            attributes = json.loads(attributes)
+        except ValueError:
+            return attributes  # add() discards invalid JSON itself
+    if isinstance(attributes, dict) and any(k in attributes for k in _DIST_ONLY_ATTRIBUTES):
+        attributes = {k: v for k, v in attributes.items() if k not in _DIST_ONLY_ATTRIBUTES}
+    return attributes
+
+
+def _strip_untrusted_broker_job_id(custom: Any) -> Any:
+    """Drop a `job_id=` field from `custom` unless the submitter is trusted.
+
+    Object-storage reporting takes the broker job id from it; "job_id=ui-N" renumbers the report
+    to task N, stamps it with N's ACL and overwrites N's stored artifacts and Mongo report.
+    """
+    if not custom or not isinstance(custom, str) or _trusted_submitter():
+        return custom
+    custom = ",".join(f for f in custom.split(",") if not f.strip().startswith("job_id="))
+    if re.match(r"^\s*Recovery_\d+\s*$", custom):
+        # A recovered task's custom "Recovery_<id>" sends apiv2's artifact views to task <id>.
+        return ""
+    if custom and _object_storage_enabled():
+        from lib.tenancy.storage.artifact_storage import job_id_from_custom
+
+        if job_id_from_custom(custom) is not None:
+            # A bare token is the broker job id too ("local-7" is task 7's job).
+            log.warning("tenancy: dropping bare custom %r, which object storage would take as a job id", custom)
+            return ""
+    return custom
+
+
+def _object_storage_enabled() -> bool:
+    try:
+        from lib.tenancy.storage import config as storage_cfg
+
+        return bool(storage_cfg.central_mode_config().enabled)
+    except Exception:
+        return False
+
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
 SqlFilterFn = Callable[[Any, Any, Optional[ViewerContext]], Any]
@@ -157,8 +324,8 @@ def default_tag_list_filter(
 
 def default_route_list_filter(
     routes: Iterable[Any],
-    *,
     route_type: Optional[str] = None,
+    *,
     entitlements: Optional[ResourceEntitlements] = None,
 ) -> List[Any]:
     """Filter a list of route/VPN/exit-node entries according to the active `ResourceEntitlements`."""
@@ -203,6 +370,16 @@ def apply_mongo_filters(
     return out
 
 
+def _rebind_from_imports(name: str, replaced: Dict[int, Any]) -> None:
+    """Point every loaded module's `name` that is a replaced original at its wrapper."""
+    if not replaced:
+        return
+    for mod in list(sys.modules.values()):
+        held = getattr(mod, name, None) if mod is not None else None
+        if held is not None and id(held) in replaced:
+            setattr(mod, name, replaced[id(held)])
+
+
 def wrap_mongodb_module(mongodb_mod: Any) -> None:
     """Wrap `dev_utils.mongodb` functions in-place so `'analysis'` queries are auto-scoped."""
     mod_id = getattr(mongodb_mod, "__name__", str(id(mongodb_mod)))
@@ -212,6 +389,7 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
     if not _mongo_filters:
         register_mongo_filter(default_mongo_analysis_filter)
 
+    replaced: Dict[int, Any] = {}  # id(original) -> wrapper
     for fn_name in ("mongo_find", "mongo_find_one"):
         orig = getattr(mongodb_mod, fn_name, None)
         if orig is None or getattr(orig, "_cape_tenancy_wrapped", False):
@@ -224,6 +402,7 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
 
         _wrapped._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
         setattr(mongodb_mod, fn_name, _wrapped)
+        replaced[id(orig)] = _wrapped
 
     orig_agg = getattr(mongodb_mod, "mongo_aggregate", None)
     if orig_agg is not None and not getattr(orig_agg, "_cape_tenancy_wrapped", False):
@@ -237,8 +416,64 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
 
         _wrapped_agg._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
         setattr(mongodb_mod, "mongo_aggregate", _wrapped_agg)
+        replaced[id(orig_agg)] = _wrapped_agg
+
+    # Modules imported before this ran (web_utils, via the core hooks) did
+    # `from dev_utils.mongodb import mongo_aggregate` and still hold the unscoped originals.
+    for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
+        _rebind_from_imports(name, replaced)
+    # The originals look their result hooks up as hooks[mongo_find], a module global that now
+    # names the wrapper: share the registrations (files-collection denormalization) with it.
+    registry = getattr(mongodb_mod, "hooks", None)
+    if registry is not None:
+        for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
+            wrapper = getattr(mongodb_mod, name, None)
+            for orig_id, new in replaced.items():
+                if new is wrapper:
+                    for key in list(registry):
+                        if id(key) == orig_id:
+                            registry[wrapper] = registry[key]
 
     _patched_modules.add(mod_id)
+
+
+class _ViewerScopedCacheFunction:
+    """Stand-in for web_utils.top_detections/top_asn whose `cache` attribute is per viewer scope.
+
+    The originals read and write `<their module global>.cache`, which names this object once it
+    replaces them, so each scope (local admins share one) gets its own cached result.
+    """
+
+    _cape_tenancy_wrapped = True
+
+    def __init__(self, fn: Callable[..., Any]) -> None:
+        functools.update_wrapper(self, fn)
+        self.__dict__.pop("cache", None)
+        self._orig = fn
+        self._caches: Dict[Any, Any] = {}
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._orig(*args, **kwargs)
+
+    @staticmethod
+    def _scope() -> Any:
+        viewer = get_current_viewer()
+        if viewer is None or getattr(viewer, "see_all", False):
+            return None
+        return (viewer.user_id, tuple(viewer.tenant_ids or ()), tuple(viewer.admin_tenant_ids or ()))
+
+    @property
+    def cache(self) -> Any:
+        try:
+            return self._caches[self._scope()]
+        except KeyError:
+            raise AttributeError("cache") from None
+
+    @cache.setter
+    def cache(self, value: Any) -> None:
+        if len(self._caches) >= 256:  # one entry per scope that loaded the dashboard; stay bounded
+            self._caches.clear()
+        self._caches[self._scope()] = value
 
 
 def wrap_submission_and_web_utils(
@@ -261,6 +496,25 @@ def wrap_submission_and_web_utils(
 
             @functools.wraps(orig_add)
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
+                inherited = _rescheduled_from.get()
+                # A copy (reschedule) is checked against the current submitter's entitlements too:
+                # the source ran under older ones, or another member's.
+                obj = args[0] if args else kwargs.get("obj")
+                vmless = type(obj).__name__ in _VMLESS_TASK_OBJECTS
+                denied = _enforce_task_entitlements(kwargs, self, vmless=vmless, copy=inherited is not None)
+                if denied:
+                    log.warning("tenancy: task not added: %s", denied)
+                    flag = _copy_denied.get()
+                    if flag is not None and inherited is not None:
+                        flag[0] = True
+                    return None
+                if inherited is None:  # a copy keeps its source's fields
+                    if kwargs.get("attributes"):
+                        kwargs["attributes"] = _strip_untrusted_task_acl(kwargs["attributes"])
+                    if kwargs.get("custom"):
+                        kwargs["custom"] = _strip_untrusted_broker_job_id(kwargs["custom"])
+                if inherited is not None and inherited.owner_id is not None and not kwargs.get("user_id"):
+                    kwargs["user_id"] = inherited.owner_id  # tasks.user_id still keys bans and listings
                 task_id = _orig(self, *args, **kwargs)
                 if task_id:
                     try:
@@ -283,6 +537,8 @@ def wrap_submission_and_web_utils(
                             vis = resolve_default_visibility(cfg) if cfg.enabled else (PRIVATE if owner_id else PUBLIC)
                         if vis == TENANT and tenant_id is None:
                             vis = PRIVATE
+                        if inherited is not None:
+                            owner_id, tenant_id, vis = inherited.owner_id, inherited.tenant_id, inherited.visibility
                         sess = getattr(self, "session", None)
                         if sess is not None and (
                             multitenancy_config().enabled or owner_id is not None or sub_vis is not None
@@ -306,6 +562,35 @@ def wrap_submission_and_web_utils(
 
             _wrapped_task_add._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             setattr(tasking_cls, "add", _wrapped_task_add)
+
+        orig_reschedule = getattr(tasking_cls, "reschedule", None)
+        if orig_reschedule is not None and not getattr(orig_reschedule, "_cape_tenancy_wrapped", False):
+
+            @functools.wraps(orig_reschedule)
+            def _wrapped_reschedule(self: Any, task_id: Any, *args: Any, _orig=orig_reschedule, **kwargs: Any):
+                # reschedule() marks the source recovered before add(); a copy the entitlements
+                # refuse must leave the source as it was, not "recovered" with custom Recovery_None.
+                try:
+                    src = self.view_task(task_id)
+                    before = (src.status, src.custom) if src is not None else None
+                except Exception:
+                    before = None
+                denied = _copy_denied.set([False])
+                try:
+                    with inherit_task_scope(self, task_id):
+                        new_id = _orig(self, task_id, *args, **kwargs)
+                    if not new_id and _copy_denied.get()[0] and before is not None:
+                        from lib.cuckoo.core.data.task import Task
+
+                        row = self.session.get(Task, int(task_id))
+                        if row is not None and row.status == "recovered":  # only reschedule's own change
+                            row.status, row.custom = before
+                    return new_id
+                finally:
+                    _copy_denied.reset(denied)
+
+            _wrapped_reschedule._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            setattr(tasking_cls, "reschedule", _wrapped_reschedule)
 
     if machines_cls is None:
         try:
@@ -358,6 +643,17 @@ def wrap_submission_and_web_utils(
             _wrapped_load_vms_exits._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             setattr(web_utils_mod, "load_vms_exits", _wrapped_load_vms_exits)
 
+        # These cache their (now viewer-scoped) aggregation on the function object they look up
+        # by their module global, process-wide: give each viewer scope its own cache.
+        for cached_name in ("top_detections", "top_asn"):
+            orig_cached = getattr(web_utils_mod, cached_name, None)
+            if orig_cached is None or getattr(orig_cached, "_cape_tenancy_wrapped", False):
+                continue
+
+            scoped = _ViewerScopedCacheFunction(orig_cached)
+            setattr(web_utils_mod, cached_name, scoped)
+            _rebind_from_imports(cached_name, {id(orig_cached): scoped})
+
     if submission_views_mod is None:
         try:
             import submission.views as submission_views_mod  # type: ignore[import-not-found]
@@ -394,6 +690,12 @@ def wrap_submission_and_web_utils(
             setattr(submission_views_mod, "render", _wrapped_render)
 
 
+def _reconcile_login_groups(user: Any, idp_groups: set) -> None:
+    from lib.tenancy.resources import reconcile_idp_groups_to_django_groups
+
+    reconcile_idp_groups_to_django_groups(user, idp_groups)
+
+
 def default_sql_task_query_filter(query: Any, viewer: Optional[ViewerContext] = None) -> Any:
     """Apply `TaskAcl` outer-join and visibility clause to a SQLAlchemy `Task` query."""
     active_viewer = viewer if viewer is not None else get_current_viewer()
@@ -406,7 +708,17 @@ def default_sql_task_query_filter(query: Any, viewer: Optional[ViewerContext] = 
     clause = default_sql_task_acl_clause(Task.id, Task.user_id, active_viewer)
     if clause is None:
         return query
+    _ensure_acl_table()
     return query.outerjoin(TaskAcl, TaskAcl.task_id == Task.id).filter(clause)
+
+
+def _ensure_acl_table() -> None:
+    try:
+        from lib.cuckoo.core.database import Database
+
+        ensure_acl_schema_once(Database().engine)
+    except Exception:
+        pass  # the query will surface a real database problem
 
 
 def _stamp_from_dist_env(info: Dict[str, Any]) -> bool:
@@ -446,33 +758,64 @@ def default_report_stamp_hook(results: Dict[str, Any]) -> None:
     except Exception:
         pass
 
-    if not multitenancy_config().enabled:
-        return
     info = results.get("info")
     if not isinstance(info, dict):
+        return
+    if not multitenancy_config().enabled:
         return
     task_id = info.get("id")
     if task_id is None:
         return
-    try:
-        from lib.cuckoo.core.database import Database
+    # Filed under the main/central server's task id (dist, object-storage bridge): this node's
+    # task_acl row with that number is not that task's ACL; the stamp that server sent applies.
+    renumbered = info.get("local_task_id") is not None
+    if not renumbered:
+        try:
+            from lib.cuckoo.core.database import Database
 
-        db = Database()
-        with db.session.begin():
-            row = db.session.get(TaskAcl, int(task_id))
-            if row is not None:
-                info["user_id"] = row.user_id
-                info["tenant_id"] = row.tenant_id
-                info["visibility"] = row.visibility
-                info["visibility_seq"] = int(row.visibility_seq or 1)
-                return
-    except Exception:
-        pass
+            db = Database()
+            with db.session.begin():
+                row = db.session.get(TaskAcl, int(task_id))
+                if row is not None:
+                    info["user_id"] = row.user_id
+                    info["tenant_id"] = row.tenant_id
+                    info["visibility"] = row.visibility
+                    info["visibility_seq"] = int(row.visibility_seq or 1)
+                    return
+        except Exception:
+            pass
 
+    if renumbered:
+        # This node's submitter and tenant ids mean nothing (or someone else) on that server.
+        info["user_id"] = info["tenant_id"] = None
     if _stamp_from_dist_env(info):
         return
     info.setdefault("visibility", "private")
     info.setdefault("visibility_seq", 0)
+
+
+def _resync_retrieved_report(task_id: int) -> None:
+    """dist fetched a worker's report: re-apply this server's current task_acl to it."""
+    if not multitenancy_config().enabled:
+        return
+    from sqlalchemy.orm import Session
+
+    from lib.cuckoo.core.database import Database
+    from lib.tenancy.backfill import _resync_one
+
+    try:
+        with Session(Database().engine) as session:
+            _resync_one(session, task_id)
+    except Exception:
+        log.exception("Task %s: could not restamp the fetched report; run utils/tenancy_reconcile.py --task %s", task_id, task_id)
+
+
+def _own_report_query(task_id: int, store: str) -> Optional[Dict[str, Any]]:
+    from lib.tenancy.acl import own_report_es_query, own_report_mongo_query
+
+    if not multitenancy_config().enabled:
+        return None  # object storage alone: the stock info.id lookup
+    return own_report_es_query(task_id) if store == "es" else own_report_mongo_query(task_id)
 
 
 def register_core_hooks() -> bool:
@@ -495,4 +838,12 @@ def register_core_hooks() -> bool:
         core_hooks.register_route_filter(default_route_list_filter)
     if hasattr(core_hooks, "register_submission_context_filter"):
         core_hooks.register_submission_context_filter(default_submission_context_filter)
+    if hasattr(core_hooks, "register_login_groups_hook"):
+        core_hooks.register_login_groups_hook(_reconcile_login_groups)
+    if hasattr(core_hooks, "register_task_copy_scope_hook"):
+        core_hooks.register_task_copy_scope_hook(inherit_task_scope)
+    if hasattr(core_hooks, "register_task_report_query_hook"):
+        core_hooks.register_task_report_query_hook(_own_report_query)
+    if hasattr(core_hooks, "register_report_retrieved_hook"):
+        core_hooks.register_report_retrieved_hook(_resync_retrieved_report)
     return True

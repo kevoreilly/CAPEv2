@@ -82,6 +82,25 @@ def _error(request, task_id, msg):
     })
 
 
+def _vm_target_for_task(task_id):
+    """VM label and guest IP for a task, read from the database.
+
+    session_data is a URL path segment the caller controls: trusting its label lets a user
+    reach another task's VM by name, and trusting its IP points the guacd RDP tunnel at an
+    arbitrary host:3389. The submission views build it from these same fields.
+    """
+    task = db.view_task(int(task_id), details=True)
+    if not task:
+        return None, None
+    # Only the VM this task is running on: task.machine is what was requested, and that VM may
+    # be running someone else's task while this one is pending.
+    guest = getattr(task, "guest", None)
+    if task.status != "running" or not guest or not guest.label:
+        return "", None
+    machine = db.view_machine_by_label(guest.label)
+    return guest.label, (getattr(machine, "ip", "") or "")
+
+
 @conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id, session_data):
     if not LIBVIRT_AVAILABLE:
@@ -97,11 +116,15 @@ def index(request, task_id, session_data):
             return _error(request, task_id, "Could not connect to hypervisor")
 
         try:
-            session_id, label, guest_ip = (
-                urlsafe_b64decode(session_data).decode("utf8").split("|")
-            )
+            session_id = urlsafe_b64decode(session_data).decode("utf8").split("|")[0]
         except Exception as e:
             return _error(request, task_id, str(e))
+
+        label, guest_ip = _vm_target_for_task(task_id)
+        if label == "":
+            return render(request, "guac/wait.html", {"task_id": task_id})  # not running yet
+        if not label:
+            return _error(request, task_id, "No VM is associated with this task")
 
         try:
             dom = conn.lookupByName(label)

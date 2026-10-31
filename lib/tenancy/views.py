@@ -12,14 +12,16 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from lib.tenancy.acl import (
+    ensure_acl_schema_once,
     VisibilityConflictError,
     resolve_task_scope,
     toggle_task_visibility_cas,
 )
-from lib.tenancy.middleware import default_viewer_resolver
+from lib.tenancy.middleware import _view_name, default_viewer_resolver
 from lib.tenancy.policy import (
     TENANT,
     VISIBILITIES,
@@ -72,15 +74,95 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
     task = db.view_task(task_id)
     if task is None:
         return None, None
-    session = db.Session()
+    ensure_acl_schema_once(db.engine)
+    session = db.session
     scope = resolve_task_scope(session, task_id, fallback_user_id=getattr(task, "user_id", None))
     return session, scope
 
 
-def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict) -> Any:
-    from dev_utils.mongodb import mongo_update_one
+_MONGO_RETRY_DEADLINE = 12.0  # seconds: a typical replica-set election
 
-    return mongo_update_one(collection, filter_q, update_doc)
+
+def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict) -> Any:
+    # The raw collection: dev_utils' mongo_update_one hints _id, which turns this info.id CAS into a
+    # scan of the whole analysis collection (now on every dist fetch, not only on toggles).
+    from pymongo.errors import AutoReconnect
+
+    from dev_utils.mongodb import results_db
+
+    # Ride out a primary election like dev_utils' wrapper does, bounded by elapsed time (an attempt can
+    # itself wait out server selection, and a toggle holds its row lock meanwhile). Raise at the end:
+    # returning None would let a failed toggle commit as if the store had been written.
+    deadline = time.monotonic() + _MONGO_RETRY_DEADLINE
+    delay = 0.5
+    while True:
+        try:
+            return getattr(results_db, collection).update_one(filter_q, update_doc)
+        except AutoReconnect:
+            if time.monotonic() + delay >= deadline:
+                raise
+            time.sleep(delay)
+            delay *= 2
+
+
+def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:
+    if not getattr(user, "is_authenticated", False):
+        return user, None
+    from django.middleware.csrf import CsrfViewMiddleware
+
+    check = CsrfViewMiddleware(lambda _request: None)
+    check.process_request(request)
+    if check.process_view(request, None, (), {}) is not None:
+        return None, (403, "CSRF verification failed")
+    return user, None
+
+
+def _default_es_update_by_query() -> Optional[Callable[[dict, dict], Any]]:
+    """An ES restamper when Elasticsearch holds report copies, else None."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        if not Config("reporting").elasticsearchdb.enabled:
+            return None
+        from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+    except Exception:
+        return None
+
+    def _update(query: dict, script: dict) -> Any:
+        # A concurrent write (e.g. a comment) makes update_by_query skip the doc as a version conflict;
+        # retry, and fail the toggle rather than report success with the old stamp still searchable.
+        for _ in range(3):
+            # body=, not query=/script=: CAPE's client is elasticsearch-py 7.x (see dev_utils.elasticsearchdb).
+            resp = elastic_handler.update_by_query(
+                index=get_analysis_index(), body={"query": query, "script": script}, refresh=True, conflicts="proceed"
+            )
+            if not (resp or {}).get("version_conflicts"):
+                return resp
+        raise RuntimeError("Elasticsearch restamp kept hitting version conflicts")
+
+    return _update
+
+
+def _authenticate_api_caller(request: Any, user: Any) -> tuple[Any, Optional[tuple[int, str]]]:
+    """Return `(user, denial)` the way /apiv2/ authenticates: API key first, session + CSRF only where enabled."""
+    try:
+        from rest_framework.exceptions import APIException, ParseError
+        from rest_framework.request import Request
+        from rest_framework.settings import api_settings
+    except ImportError:
+        return _session_user_with_csrf(request, user)
+    authenticators = [a() for a in api_settings.DEFAULT_AUTHENTICATION_CLASSES]
+    if not authenticators:
+        # token_auth_enabled = no: /apiv2/ runs on the Django session, but this endpoint still needs CSRF.
+        return _session_user_with_csrf(request, user)
+    getattr(request, "body", None)  # cache it: the CSRF check may parse the stream before the view reads it
+    drf_request = Request(request, parsers=[p() for p in api_settings.DEFAULT_PARSER_CLASSES], authenticators=authenticators)
+    try:
+        return drf_request.user, None
+    except ParseError as e:
+        return None, (400, str(getattr(e, "detail", e)))
+    except APIException as e:
+        return None, (403, str(getattr(e, "detail", e)))
 
 
 def tasks_set_visibility(
@@ -90,6 +172,7 @@ def tasks_set_visibility(
     viewer_resolver: Callable[[Any], ViewerContext] = default_viewer_resolver,
     scope_loader: Optional[Callable[[int], tuple[Any, Optional[ResourceScope]]]] = None,
     mongo_update_one: Optional[Callable[[str, dict, dict], Any]] = None,
+    es_update_by_query: Optional[Callable[[dict, dict], Any]] = None,
 ) -> Any:
     """Handle `POST /apiv2/tasks/visibility/<task_id>/`."""
     method = getattr(request, "method", "POST")
@@ -104,9 +187,16 @@ def tasks_set_visibility(
     except (TypeError, ValueError):
         return _json_response({"error": True, "error_value": "Task not found"}, status=404)
 
-    viewer: Optional[ViewerContext] = getattr(request, "viewer", None)
-    if viewer is None:
-        viewer = viewer_resolver(getattr(request, "user", None))
+    user = getattr(request, "user", None)
+    if user is not None:
+        # Served from TenancyMiddleware.__call__, ahead of URL routing: neither DRF authentication
+        # nor CsrfViewMiddleware has run, so authenticate here as the other /apiv2/ views do.
+        user, denied = _authenticate_api_caller(request, user)
+        if denied:
+            return _json_response({"error": True, "error_value": denied[1]}, status=denied[0])
+        viewer = viewer_resolver(user)
+    else:
+        viewer = getattr(request, "viewer", None) or viewer_resolver(None)
 
     loader = scope_loader or _default_session_and_task_scope
     session, scope = loader(tid)
@@ -135,6 +225,9 @@ def tasks_set_visibility(
                 vis,
                 expected_prior=scope.visibility,
                 mongo_update_one=updater,
+                owner_id=scope.owner_id,
+                tenant_id=scope.tenant_id,
+                es_update_by_query=es_update_by_query or _default_es_update_by_query(),
             )
         except VisibilityConflictError:
             return _json_response(
@@ -173,7 +266,7 @@ def dispatch_object_storage_view(
     except Exception:
         return None
 
-    view_name = getattr(view_func, "__name__", "")
+    view_name = _view_name(view_func)  # DRF's @api_view wrapper is named "view"
     if not view_name:
         return None
 
@@ -187,7 +280,7 @@ def dispatch_object_storage_view(
 
     if view_name == "filereport":
         task_id = view_kwargs.get("task_id") or (view_args[0] if len(view_args) > 0 else None)
-        key = view_kwargs.get("key") or (view_args[1] if len(view_args) > 1 else None)
+        key = view_kwargs.get("category") or view_kwargs.get("key") or (view_args[1] if len(view_args) > 1 else None)
         formats = {
             "json": "report.json",
             "html": "report.html",
@@ -212,7 +305,7 @@ def dispatch_object_storage_view(
             ("memory.dmp.strings.zip", "memory.dmp.strings"),
         )
 
-    if view_name == "file":
+    if view_name == "file" and ("category" in view_kwargs or view_args):  # not apiv2's files/get "file"
         category = view_kwargs.get("category") or (view_args[0] if len(view_args) > 0 else None)
         task_id = view_kwargs.get("task_id") or (view_args[1] if len(view_args) > 1 else None)
         dlfile = view_kwargs.get("dlfile") or (view_args[2] if len(view_args) > 2 else None)
@@ -228,6 +321,11 @@ def dispatch_object_storage_view(
                 dest = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "memory", f"{dlfile}.dmp")
                 storage_views.central_stage_one(request, task_id, f"memory/{dlfile}.dmp", dest)
             elif category == "staticzip" and dlfile and CUCKOO_ROOT:
+                # Staged under binaries/<dlfile> for every later reader: it must be this task's sample.
+                if storage_views._task_sample_sha256(request, task_id) != str(dlfile).lower():
+                    from django.http import Http404
+
+                    raise Http404("File not found")
                 dest = os.path.join(CUCKOO_ROOT, "storage", "binaries", str(dlfile))
                 storage_views.central_stage_one(request, task_id, "binary", dest)
             else:

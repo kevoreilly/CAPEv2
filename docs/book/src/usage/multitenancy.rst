@@ -28,8 +28,10 @@ Both features are configured in ``conf/cuckoo.conf`` and default to ``enabled = 
     # "shared" (default visibility = public) or "locked" (default visibility = tenant)
     mode = shared
     default_visibility =
+    # Superusers see and manage every tenant's tasks.
     local_admins_manage_all_tenants = yes
-    allow_superuser_all = yes
+    # Anyone who can read a task may comment on it (default: manage rights needed).
+    readers_can_comment = no
 
     [object_storage]
     # [BETA] Central / remote object storage integration (s3, gcs, azure, local).
@@ -70,6 +72,40 @@ stamped. Run the batched backfill helper from ``lib.tenancy.backfill``
 (``backfill_from_task_acl_batched`` or ``backfill_legacy_uniform``) once after
 enabling the flag.
 
+Upgrading from an install that ran the earlier inline tenancy code: those
+reports already carry an ``info.tenant_id`` stamp, but from the old ``Tenant``
+table ids, which can collide with the Django ``Group`` ids used now and expose a
+report to the wrong tenant. The backfills above skip already-stamped reports, so
+restamp them from ``task_acl`` instead. Stop the web and processing services,
+then run (MongoDB and/or Elasticsearch, whichever is enabled)::
+
+    poetry run python utils/tenancy_reconcile.py --dry-run
+    poetry run python utils/tenancy_reconcile.py
+
+A report with no ``task_acl`` row is restamped ``private`` to its task's
+submitter (``tasks.user_id``), as the web UI already resolves it, or to no one,
+so only admins can see it. The command is idempotent.
+
+A report store holds one task-id space: the server's whose tasks they are. Run
+the command there (the main or central server); it refuses to run on a node that
+analyses tasks for another server, whose reports carry that server's task ids. If
+the main/central server itself looks like one (for example a rescheduled copy of a
+bridged task kept its ``job_id=ui-<id>``), pass ``--force`` there.
+Only a task's own report is restamped (no ``info.job_id``, or object storage's
+``ui-<id>`` / ``local-<id>``, or the job id its ``task_acl`` row is bound to); a
+broker job's report sharing the ``info.id`` is left alone and counted. A worker
+that has already deleted its tasks can no longer tell that it is one: don't run
+the command on workers.
+
+A worker stamps a dist report with the ACL the main server sent it when the task
+was dispatched. After fetching the report (or ``--force-reported``),
+``utils/dist.py`` re-applies the task's current ``task_acl`` to it, so a
+visibility change made while the task ran is kept. The Go fast-fetcher
+(``utils/go-fetcher``) does not: with it, run the command below for the task. To do the same for one task by hand (for example after reprocessing
+it on a worker, or from an object-storage broker once a bridged report lands)::
+
+    poetry run python utils/tenancy_reconcile.py --task <id>
+
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------
 
@@ -104,10 +140,14 @@ In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
      ``["win10", "x64", "office*"]`` or ``["*"]``).
    * ``allowed_routes``: list of allowed routing options (e.g.
      ``["none", "inetsim", "tor", "internet", "vpn:vpn_uk", "socks5:*", "exit:*"]``
-     or ``["*"]``).
+     or ``["*"]``). A typed pattern such as ``vpn:*`` covers the routes configured
+     as that type only (VPNs here), never the built-in ``none``/``drop``/``internet``/
+     ``inetsim``/``tor`` routes or the nexthop ``random``/``roundrobin`` tokens.
    * ``default_route``: default route pre-selected in the submission UI and
      injected when ``route`` is omitted on ``POST /submit/`` or
-     ``POST /apiv2/tasks/create/*``.
+     ``POST /apiv2/tasks/create/*``. Without one, an omitted route must be
+     allowed as ``routing.conf``'s default route, else it becomes ``none``
+     (or the submission is refused if ``none`` is not allowed).
    * ``default_visibility``: optional per-group default task visibility
      (``"private"``, ``"tenant"``, or ``"public"``). When blank, falls back to
      ``cuckoo.conf`` ``[multitenancy] default_visibility``.
@@ -117,10 +157,33 @@ In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
      one-way shared task read access.
    * ``forced_machine_tags``: machine tags automatically appended when a user
      submits with ``machine=""`` ("First available") so ``Scheduler`` only picks
-     VMs in that group's pool.
+     VMs in that group's pool. A user whose ``allowed_machines`` is not ``["*"]``
+     and who has no forced tag must name a machine. With several groups, the
+     highest-priority policy that has forced tags supplies them.
    * ``allow_all_vms``, ``allow_interactive``, ``max_timeout``: per-group
-     controls for ``machine="all"``, interactive Guacamole desktop sessions, and
-     maximum analysis timeout.
+     controls for ``machine="all"``, interactive Guacamole desktop sessions
+     (submission and the console itself), and maximum analysis timeout.
+
+Entitlements are checked twice: by the middleware on the submitted form or JSON
+body (an early ``403``), and on the final ``Database.add`` arguments, which is
+authoritative. In ``locked`` mode a user no active policy covers gets no
+resources unless ``CAPE_TENANCY_UNASSIGNED_GROUP_POLICY = "allow"``.
+Download & execute (the web host fetches the URL) and the ``sslproxy`` (except
+over a VPN route), ``mitmdump`` and ``polarproxy`` options need the ``internet``
+route; ``netns=`` is refused. The statistics pages and ``yara_uploader`` span
+every tenant (and every user's private tasks) and are limited to local
+administrators whenever multitenancy or web authentication is on.
+
+In distributed mode a task submitted without a route runs with the routing of
+the worker that executes it: its default route, or a route its ``random_vpn`` /
+``random_socks5`` picks. Give each group a ``default_route``, which is submitted
+explicitly.
+
+On a distributed worker where ``lib.tenancy`` is active, the main server's dist
+API key must belong to a superuser, with ``local_admins_manage_all_tenants = yes``
+on the worker: ``main_task_id``, ``parent_sample`` and ``task_acl`` attributes from
+anyone else are dropped, and any other key sees only its own tasks in the
+worker's reports, task lists and ``cuckoo/status`` queue counts.
 
 Task Visibility Levels: ``private`` vs. ``tenant`` (Group) vs. ``public``
 -------------------------------------------------------------------------
@@ -309,6 +372,14 @@ Supported (isolation enforced end-to-end)
 * **Guacamole interactive sessions** for task-backed analyses: gated by
   ``can_toggle`` / ``can_manage`` (owner / tenant-admin / break-glass), not mere
   read visibility.
+* **On-demand processing and comments** write into a task's report, so they take the
+  same manage rights. Set ``readers_can_comment = yes`` to let anyone who can read a
+  task comment on it. With multitenancy off, both keep stock behaviour.
+* **Duplicate checks** (``unique=1`` / ``[uniq_submission]``) only count tasks the
+  submitter can see, so another tenant's copy of a sample neither blocks a submission
+  nor reveals that it exists.
+* **The audit framework** (``/audit/``) runs deployment-wide test sessions, so it is
+  restricted to box administrators when multitenancy is on.
 
 Architecture Overview
 ---------------------

@@ -35,6 +35,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
+from lib.cuckoo.common.hooks import apply_route_filter
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
@@ -1178,9 +1179,12 @@ def tasks_status(request, task_id):
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
     elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
-        machine = db.view_machine(task.guest.name)
-        # Todo probably add task status if pending
-        if machine.status == "running":
+        guest = getattr(task, "guest", None)
+        if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
+            resp = {"error": True, "error_value": "Task is not running"}
+            return Response(resp)
+        machine = db.view_machine(guest.name)
+        if machine and machine.status == "running":
             try:
                 guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
                 complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
@@ -2452,11 +2456,11 @@ def exit_nodes_list(request):
     resp = {}
     resp["data"] = []
     resp["error"] = []
-    resp["data"] += ["socks:" + sock5 for sock5 in _load_socks5_operational() or []]
-    resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
-    if routing_conf.tor.enabled:
+    resp["data"] += ["socks:" + sock5 for sock5 in apply_route_filter(list(_load_socks5_operational() or []), "socks5")]
+    resp["data"] += ["vpn:" + vpn for vpn in apply_route_filter(list(vpns.keys()), "vpn")]
+    if routing_conf.tor.enabled and apply_route_filter(["tor"]):
         resp["data"].append("tor")
-    if routing_conf.inetsim.enabled:
+    if routing_conf.inetsim.enabled and apply_route_filter(["inetsim"]):
         resp["data"].append("inetsim")
 
     return Response(resp)
@@ -2873,9 +2877,13 @@ def tasks_file_stream(request, task_id):
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)
-    machine = db.view_machine(task.guest.name)
-    if machine.status != "running":
-        resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}
+    guest = getattr(task, "guest", None)
+    if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
+        resp = {"error": True, "error_value": "Task is not running"}
+        return Response(resp)
+    machine = db.view_machine(guest.name)
+    if not machine or machine.status != "running":
+        resp = {"error": True, "error_value": "Machine is not running", "errors": getattr(machine, "status", None)}
         return Response(resp)
     filepath = request.data.get("filepath")
     if not filepath:
@@ -2885,15 +2893,30 @@ def tasks_file_stream(request, task_id):
         if filepath.startswith(("/", r"\/")):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
-        filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
-        if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
+        task_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}")
+        filepath = os.path.join(task_dir, filepath)
+        abs_task_dir = os.path.abspath(task_dir)
+        abs_filepath = os.path.abspath(filepath)
+        # Inside this task's own directory: "../<other id>/" is another task's (tenant's) files.
+        # Allow CAPE's own per-task symlinks (e.g. `binary`, `dump.pcap`) into `storage/binaries/<hash>`,
+        # while rejecting symlinks that point into another task directory or outside `storage/binaries/`.
+        real_task_dir = os.path.realpath(task_dir)
+        real_filepath = os.path.realpath(filepath)
+        real_binaries_dir = os.path.realpath(os.path.join(CUCKOO_ROOT, "storage", "binaries"))
+        in_task_dir = real_filepath.startswith(real_task_dir + os.sep)
+        in_task_binaries_link = (
+            abs_filepath.startswith(abs_task_dir + os.sep)
+            and os.path.realpath(os.path.dirname(abs_filepath)) == real_task_dir
+            and real_filepath.startswith(real_binaries_dir + os.sep)
+        )
+        if not abs_filepath.startswith(abs_task_dir + os.sep) or not (in_task_dir or in_task_binaries_link):
             resp = {"error": True, "error_value": "Path traversal detected"}
             return Response(resp)
         if not os.path.isfile(filepath):
             resp = {"error": True, "error_value": "file does not exist"}
             return Response(resp)
         return StreamingHttpResponse(
-            streaming_content=_stream_iterator(filepath, task.guest.name), content_type="application/octet-stream"
+            streaming_content=_stream_iterator(filepath, guest.name), content_type="application/octet-stream"
         )
     try:
         r = requests.post(f"http://{machine.ip}:8000/retrieve", stream=True, data={"filepath": filepath, "streaming": "1"})

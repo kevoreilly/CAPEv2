@@ -39,7 +39,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
-from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
+from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories, local_task_id
 from lib.cuckoo.core.database import Database, _Database
 from lib.cuckoo.core.data.task import Task
 from lib.cuckoo.core.data.machines import Machine
@@ -1027,7 +1027,7 @@ class Signature:
 
     def get_pids(self):
         pids = []
-        logs = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "logs")
+        logs = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(local_task_id(self.results["info"])), "logs")
         processes = self.results.get("behavior", {}).get("processtree", [])
         if processes:
             for pid in processes:

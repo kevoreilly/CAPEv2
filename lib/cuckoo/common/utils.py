@@ -186,6 +186,12 @@ def create_zip(files=False, folder=False, encrypted=False, temp_file=False):
     return mem_zip
 
 
+def local_task_id(info) -> int:
+    """This node's own task id for a report's info. A report filed under another server's task id
+    (dist, object-storage bridge) keeps the local one in info.local_task_id."""
+    return int(info.get("local_task_id") or info["id"])
+
+
 def get_memdump_path(memdump_id, analysis_folder=False):
     """
     Get the path of memdump to store

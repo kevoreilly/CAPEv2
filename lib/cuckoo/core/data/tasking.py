@@ -160,10 +160,11 @@ class TasksMixIn:
             file_sha256 = fileobj.get_sha256()
             # check if hash is known already
             # ToDo consider migrate to _get_or_create?
-            sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
-            if not sample:
-                try:
-                    with self.session.begin():
+            sample = None
+            try:
+                with self.session.begin():
+                    sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                    if not sample:
                         sample = Sample(
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),
@@ -176,11 +177,12 @@ class TasksMixIn:
                             source_url=source_url,
                         )
                         self.session.add(sample)
-                except Exception as e:
-                    # The sample might have been inserted by another concurrent process
+            except Exception as e:
+                # The sample might have been inserted by another concurrent process
+                with self.session.begin():
                     sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
-                    if not sample:
-                        log.exception(e)
+                if not sample:
+                    log.exception(e)
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
@@ -238,39 +240,40 @@ class TasksMixIn:
             for k, v in attributes.items():
                 task.set_attribute(k, v)
 
-        # Use a transaction so that we can return an ID.
+        # Use a single transaction so task creation and related fields commit atomically.
         with self.session.begin():
             self.session.add(task)
+            self.session.flush()
 
-        # Deal with tags format (i.e., foo,bar,baz)
-        if tags:
-            for tag in tags.split(","):
-                tag_name = tag.strip()
-                if tag_name and tag_name not in [tag.name for tag in task.tags]:
-                    task.tags.append(self._get_or_create(Tag, name=tag_name))
+            # Deal with tags format (i.e., foo,bar,baz)
+            if tags:
+                for tag in tags.split(","):
+                    tag_name = tag.strip()
+                    if tag_name and tag_name not in [tag.name for tag in task.tags]:
+                        task.tags.append(self._get_or_create(Tag, name=tag_name))
 
-        if clock:
-            if isinstance(clock, str):
-                try:
-                    task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
-                except ValueError:
-                    log.warning("The date you specified has an invalid format, using current timestamp")
-                    task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
+            if clock:
+                if isinstance(clock, str):
+                    try:
+                        task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
+                    except ValueError:
+                        log.warning("The date you specified has an invalid format, using current timestamp")
+                        task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
 
+                else:
+                    task.clock = clock
             else:
-                task.clock = clock
-        else:
-            task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
+                task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
 
-        task.user_id = user_id
+            task.user_id = user_id
 
-        if parent_sample:
-            association = SampleAssociation(
-                parent=parent_sample,
-                child=sample,
-                task=task,
-            )
-            self.session.add(association)
+            if parent_sample:
+                association = SampleAssociation(
+                    parent=parent_sample,
+                    child=sample,
+                    task=task,
+                )
+                self.session.add(association)
 
         return task.id
 
@@ -1241,7 +1244,7 @@ class TasksMixIn:
     def minmax_tasks(self) -> Tuple[int, int]:
         """Finds the minimum start time and maximum completion time for all tasks."""
         # A single query is more efficient than two separate ones.
-        stmt = select(func.min(Task.started_on), func.max(Task.completed_on))
+        stmt = apply_sql_task_filter(select(func.min(Task.started_on), func.max(Task.completed_on)))
         min_val, max_val = self.session.execute(stmt).one()
 
         if min_val and max_val:
@@ -1261,7 +1264,7 @@ class TasksMixIn:
 
     def get_tasks_status_count(self) -> Dict[str, int]:
         """Counts tasks, grouped by status."""
-        stmt = select(Task.status, func.count(Task.status)).group_by(Task.status)
+        stmt = apply_sql_task_filter(select(Task.status, func.count(Task.status)).group_by(Task.status))
         # .execute() returns rows, which can be directly converted to a dict.
         return dict(self.session.execute(stmt).all())
 
@@ -1273,6 +1276,7 @@ class TasksMixIn:
             stmt = stmt.where(Task.machine_id == mid)
         if status:
             stmt = stmt.where(Task.status == status)
+        stmt = apply_sql_task_filter(stmt)
 
         # .scalar() executes the query and returns the single integer result.
         return self.session.scalar(stmt)
@@ -1325,11 +1329,8 @@ class TasksMixIn:
         """
 
         update_stmt = update(Task).where(Task.user_id == user_id, Task.status == TASK_PENDING).values(status=TASK_BANNED)
-
-        # 2. Execute the statement.
-        # The transaction should be handled by the calling code,
-        # ToDo e.g., with a `with session.begin():` block.
-        self.session.execute(update_stmt)
+        with self.session.begin():
+            self.session.execute(update_stmt)
 
     def tasks_reprocess(self, task_id: int):
         """common func for api and views"""

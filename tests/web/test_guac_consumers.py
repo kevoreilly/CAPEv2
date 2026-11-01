@@ -418,8 +418,19 @@ class TestGuacConsumers:
 
 
 def test_guac_settings_includes_db_transaction_middleware():
-    guac_settings = import_module("web.guac_settings")
-    assert "web.middleware.DBTransactionMiddleware" in guac_settings.MIDDLEWARE
+    import ast
+    from pathlib import Path
+
+    guac_settings_path = Path(__file__).resolve().parents[2] / "web" / "web" / "guac_settings.py"
+    tree = ast.parse(guac_settings_path.read_text(encoding="utf-8"))
+    middleware = None
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "MIDDLEWARE":
+                    middleware = ast.literal_eval(node.value)
+    assert middleware is not None
+    assert "web.middleware.DBTransactionMiddleware" in middleware
 
 
 def test_consumer_tenancy_authorization_and_session_cleanup(monkeypatch):

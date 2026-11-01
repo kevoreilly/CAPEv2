@@ -397,3 +397,45 @@ class TestGuacConsumers:
 
         connected, _ = await communicator.connect()
         assert connected is False
+
+    async def test_consumer_rejects_unauthenticated_when_web_auth_enabled(self, guac_consumer_app_factory, monkeypatch):
+        monkeypatch.setattr(consumers.settings, "WEB_AUTHENTICATION", True)
+        guac_consumer_app, _ = guac_consumer_app_factory()
+        communicator = _make_communicator(guac_consumer_app, "session_unauth", "123_session_unauth")
+
+        connected, _ = await communicator.connect()
+        assert connected is False
+
+
+def test_guac_settings_boots_and_loads_middleware_without_allauth():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    web_dir = repo_root / "web"
+    env = os.environ.copy()
+    for k in ("https_proxy", "http_proxy", "no_proxy", "ftp_proxy", "all_proxy"):
+        env.pop(k, None)
+    env["DJANGO_SETTINGS_MODULE"] = "web.guac_settings"
+    env["PYTHONPATH"] = f"{web_dir}:{repo_root}"
+    code = (
+        "import django; django.setup(); "
+        "from django.conf import settings; "
+        "from django.core.handlers.base import BaseHandler; "
+        "assert 'web.middleware.DBTransactionMiddleware' in settings.MIDDLEWARE; "
+        "BaseHandler().load_middleware()"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(web_dir),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert proc.returncode == 0, f"stdout={proc.stdout}\nstderr={proc.stderr}"
+
+
+

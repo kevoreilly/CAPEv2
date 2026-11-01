@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.conf import settings
 from guacamole.client import GuacamoleClient
 
 from lib.cuckoo.common.config import Config
@@ -136,6 +137,13 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         """Validate session token, look up VNC server-side, connect to guacd."""
         try:
+            if getattr(settings, "WEB_AUTHENTICATION", False):
+                user = self.scope.get("user")
+                if not getattr(user, "is_authenticated", False):
+                    logger.warning("WebSocket rejected: unauthenticated user")
+                    await self.close()
+                    return
+
             # 1. Read and validate the session cookie
             cookies = self.scope.get("cookies", {})
             token_str = cookies.get("guac_session")

@@ -1113,8 +1113,8 @@ def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
             mongo_update_one=lambda *a: None,
             es_update_by_query=lambda query, script: calls.append((query, script)),
         )
-    assert len(calls) == 1
-    query, script = calls[0]
+    assert len(calls) == 2
+    query, script = calls[-1]
     assert {"term": {"info.id": 42}} in query["bool"]["filter"]
     assert script["params"] == {
         "job_id": None,

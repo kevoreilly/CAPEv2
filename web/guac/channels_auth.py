@@ -87,3 +87,8 @@ def GuacAuthMiddlewareStack(inner):
     docstring) so an OIDC/allauth session no longer crashes guac-web's websocket handshake.
     """
     return CookieMiddleware(SessionMiddleware(BackendAgnosticAuthMiddleware(inner)))
+
+
+def resolve_request_user(request):
+    """`resolve_session_user` for an HTTP request (guac-web's TENANCY_REQUEST_USER_RESOLVER)."""
+    return resolve_session_user(request.session)

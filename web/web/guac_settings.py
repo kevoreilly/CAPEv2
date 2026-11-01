@@ -65,6 +65,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "web.middleware.DBTransactionMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # AuthenticationMiddleware populates request.user from the session. guac/views.py's index
     # gates the live-VM tunnel on request.user (when WEB_AUTHENTICATION is on). Without this
@@ -212,3 +213,13 @@ if _CapeConfig("web").guacamole.get("vnc_console_enabled", False):
     from lib.cuckoo.core.data.guac_session import GuacSession  # noqa: F401
     from lib.cuckoo.core.data.db_common import Base
     Base.metadata.create_all(_db.engine)
+
+# guac-web is a separate ASGI process with its own settings: apply the same tenancy layer
+# (task-scoped console access, admin-only direct VNC) as the main web app.
+from lib.cuckoo.common.hooks import bootstrap_tenancy  # noqa: E402
+
+# guac-web does not load the main web's auth backends (OIDC sessions resolve to AnonymousUser
+# in AuthenticationMiddleware); let the tenancy middleware resolve users the way the guac views do.
+TENANCY_REQUEST_USER_RESOLVER = "guac.channels_auth.resolve_request_user"
+
+bootstrap_tenancy(_CapeConfig("cuckoo"), settings_globals=globals())

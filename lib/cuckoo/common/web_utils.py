@@ -20,7 +20,7 @@ from django.http import HttpResponse
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_es_filter
+from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter, get_cache_scope_key
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
@@ -48,6 +48,7 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 from lib.downloaders import Downloaders
 
+_NATIVE_TENANCY_HOOKS = True
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
@@ -205,7 +206,6 @@ def load_vms_exits(force: bool = False):
                     print(e)
 
         cached_exits = dict(_all_nodes_exits)
-    from lib.cuckoo.common.hooks import apply_route_filter
 
     allowed_exits = set(apply_route_filter(list(cached_exits.keys()), "exit"))
     return {k: v for k, v in cached_exits.items() if k in allowed_exits}
@@ -275,12 +275,20 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
         return False
 
     t = int(time.time())
+    scope_key = get_cache_scope_key()
 
     # caches results for 10 minutes
-    if hasattr(top_asn, "cache"):
-        ct, data = top_asn.cache
-        if t - ct < 600:
-            return data
+    if scope_key is None:
+        if hasattr(top_asn, "cache"):
+            ct, data = top_asn.cache
+            if t - ct < 600:
+                return data
+    else:
+        scoped_caches = getattr(top_asn, "_scoped_caches", None)
+        if isinstance(scoped_caches, dict) and scope_key in scoped_caches:
+            ct, data = scoped_caches[scope_key]
+            if t - ct < 600:
+                return data
 
     """function that gets detection: count
     Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
@@ -310,7 +318,14 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
         data = list(data)
 
     # save to cache
-    top_asn.cache = (t, data)
+    if scope_key is None:
+        top_asn.cache = (t, data)
+    else:
+        scoped_caches = getattr(top_asn, "_scoped_caches", None)
+        if not isinstance(scoped_caches, dict) or len(scoped_caches) >= 256:
+            scoped_caches = {}
+            top_asn._scoped_caches = scoped_caches
+        scoped_caches[scope_key] = (t, data)
 
     return data
 
@@ -331,12 +346,20 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         return False
 
     t = int(time.time())
+    scope_key = get_cache_scope_key()
 
     # caches results for 10 minutes
-    if hasattr(top_detections, "cache"):
-        ct, data = top_detections.cache
-        if t - ct < 600:
-            return data
+    if scope_key is None:
+        if hasattr(top_detections, "cache"):
+            ct, data = top_detections.cache
+            if t - ct < 600:
+                return data
+    else:
+        scoped_caches = getattr(top_detections, "_scoped_caches", None)
+        if isinstance(scoped_caches, dict) and scope_key in scoped_caches:
+            ct, data = scoped_caches[scope_key]
+            if t - ct < 600:
+                return data
 
     """function that gets detection: count
     Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
@@ -379,7 +402,14 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         data = list(data)
 
     # save to cache
-    top_detections.cache = (t, data)
+    if scope_key is None:
+        top_detections.cache = (t, data)
+    else:
+        scoped_caches = getattr(top_detections, "_scoped_caches", None)
+        if not isinstance(scoped_caches, dict) or len(scoped_caches) >= 256:
+            scoped_caches = {}
+            top_detections._scoped_caches = scoped_caches
+        scoped_caches[scope_key] = (t, data)
 
     return data
 
@@ -823,11 +853,15 @@ def download_file(**kwargs):
         socks5s_random = ""
         vpn_random = ""
 
-        if routing_conf.socks5.random_socks5 and socks5s:
-            socks5s_random = choice(list(socks5s.keys()))
+        # Only routes the submitter may use (route filter hooks; identity without them).
+        socks5_names = apply_route_filter(list(socks5s.keys()), "socks5") if socks5s else []
+        vpn_names = apply_route_filter(list(vpns.keys()), "vpn") if vpns else []
 
-        if routing_conf.vpn.random_vpn and vpns:
-            vpn_random = choice(list(vpns.keys()))
+        if routing_conf.socks5.random_socks5 and socks5_names:
+            socks5s_random = choice(socks5_names)
+
+        if routing_conf.vpn.random_vpn and vpn_names:
+            vpn_random = choice(vpn_names)
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))
@@ -1165,6 +1199,18 @@ def validate_task(tid, status=TASK_REPORTED):
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
+            if not task:
+                return {"error": True, "error_value": "Task does not exist"}
+            if tid != task_id and "lib.tenancy" in sys.modules:
+                from lib.tenancy.context import get_current_viewer
+                from lib.tenancy.middleware import default_task_scope_resolver
+                from lib.tenancy.policy import can_read
+
+                viewer = get_current_viewer()
+                if viewer is not None and not viewer.see_all:
+                    scope = default_task_scope_resolver(task_id)
+                    if scope is None or not can_read(viewer, scope):
+                        return {"error": True, "error_value": "Task does not exist"}
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
@@ -1470,20 +1516,34 @@ def perform_search(
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
             query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            analysis_scope = apply_mongo_filter("analysis", {})
             pipeline = [
-                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                # Stages 1-4: Find, unwind, group, sort IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
-                {"$limit": search_limit},
-                # Stage 6: Join with the tasks collection
-                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
-                # Stage 7: Unpack the joined doc
-                {"$unwind": "$task_doc"},
-                # Stage 8: Make the task doc the new root
-                {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
+            if not analysis_scope:
+                pipeline.append({"$limit": search_limit})
+            pipeline.extend(
+                [
+                    # Join with the analysis collection using MongoDB 4.4+ compatible localField/foreignField
+                    {
+                        "$lookup": {
+                            "from": "analysis",
+                            "localField": "_id",
+                            "foreignField": "info.id",
+                            "as": "task_doc",
+                        }
+                    },
+                    {"$unwind": "$task_doc"},
+                    {"$replaceRoot": {"newRoot": "$task_doc"}},
+                ]
+            )
+            if analysis_scope:
+                # Limit after scoping, or a viewer's own older analyses fall outside the window.
+                pipeline.extend([{"$match": analysis_scope}, {"$limit": search_limit}])
 
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):
@@ -1625,29 +1685,37 @@ def parse_request_arguments(request, keyword="POST"):
             - cape (str): CAPE argument.
     """
     # Django uses request.POST and API uses request.data
-    static = getattr(request, keyword).get("static", "")
-    referrer = validate_referrer(getattr(request, keyword).get("referrer"))
-    package = getattr(request, keyword).get("package", "")
-    timeout = force_int(getattr(request, keyword).get("timeout"))
-    priority = force_int(getattr(request, keyword).get("priority"))
-    options = getattr(request, keyword).get("options", "")
-    machine = getattr(request, keyword).get("machine", "")
-    platform = getattr(request, keyword).get("platform", "")
-    tags_tasks = getattr(request, keyword).get("tags_tasks")
-    tags = getattr(request, keyword).get("tags")
-    custom = getattr(request, keyword).get("custom", "")
-    memory = force_bool(getattr(request, keyword).get("memory", False))
-    clock = getattr(request, keyword).get("clock", "")
+    source = getattr(request, keyword)
+    tenancy_overrides = getattr(request, "_tenancy_normalized_params", None)
+
+    def _get_arg(name, default=None):
+        if isinstance(tenancy_overrides, dict) and name in tenancy_overrides:
+            return tenancy_overrides[name]
+        return source.get(name, default)
+
+    static = _get_arg("static", "")
+    referrer = validate_referrer(_get_arg("referrer"))
+    package = _get_arg("package", "")
+    timeout = force_int(_get_arg("timeout"))
+    priority = force_int(_get_arg("priority"))
+    options = _get_arg("options", "")
+    machine = _get_arg("machine", "")
+    platform = _get_arg("platform", "")
+    tags_tasks = _get_arg("tags_tasks")
+    tags = _get_arg("tags")
+    custom = _get_arg("custom", "")
+    memory = force_bool(_get_arg("memory", False))
+    clock = _get_arg("clock", "")
     if not clock:
         clock = datetime.utcfromtimestamp(0)
     elif "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
-    unique = force_bool(getattr(request, keyword).get("unique", False))
-    tlp = getattr(request, keyword).get("tlp")
-    lin_options = getattr(request, keyword).get("lin_options", "")
-    route = getattr(request, keyword).get("route", "")
-    cape = getattr(request, keyword).get("cape", "")
+    enforce_timeout = force_bool(_get_arg("enforce_timeout", False))
+    unique = force_bool(_get_arg("unique", False))
+    tlp = _get_arg("tlp")
+    lin_options = _get_arg("lin_options", "")
+    route = _get_arg("route", "")
+    cape = _get_arg("cape", "")
 
     if referrer:
         if options:

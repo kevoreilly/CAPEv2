@@ -70,6 +70,7 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
+GCS_ENABLED = False
 if gcp_conf.samples_pubsub.enabled:
     from lib.cuckoo.common.gcp import (
         GCP,
@@ -114,13 +115,9 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-if getattr(cfg, "multitenancy", {}).get("enabled", False) or getattr(cfg, "object_storage", {}).get("enabled", False):
-    try:
-        from lib.tenancy.hooks import register_core_hooks
+from lib.cuckoo.common.hooks import bootstrap_tenancy, run_report_retrieved_hooks  # noqa: E402
 
-        register_core_hooks()
-    except Exception as e:
-        logging.getLogger(__name__).exception("Failed to initialize lib.tenancy hooks: %s", e)
+bootstrap_tenancy(cfg)
 
 dead_count = 5
 if dist_conf.distributed.dead_count:
@@ -288,6 +285,23 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
     return None
 
 
+_MACHINE_NAME_LABELS: dict[str, str] = {}
+
+
+def _resolve_worker_machine(machine_value: str | None) -> str | None:
+    """Translate a VM name to its hypervisor label when submitting to a worker API."""
+    if not machine_value:
+        return machine_value
+    if label := _MACHINE_NAME_LABELS.get(machine_value):
+        return label
+    with contextlib.suppress(Exception):
+        vm = main_db.view_machine(machine_value)
+        if vm is not None and getattr(vm, "label", None):
+            _MACHINE_NAME_LABELS[machine_value] = vm.label
+            return vm.label
+    return machine_value
+
+
 def node_list_machines(url, apikey):
     """
     Retrieves a list of machines from a CAPE node and yields Machine objects.
@@ -305,6 +319,8 @@ def node_list_machines(url, apikey):
     try:
         r = requests.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
+            if machine.get("name") and machine.get("label"):
+                _MACHINE_NAME_LABELS[machine["name"]] = machine["label"]
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
         raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
@@ -618,11 +634,11 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             timeout=task.timeout,
             priority=task.priority,
             options=task.options,
-            machine=task.machine,
+            machine=_resolve_worker_machine(task.machine),
             platform=task.platform,
             tags=task.tags,
             custom=task.custom,
-            clock=task.clock,
+            clock=task.clock.strftime("%m-%d-%Y %H:%M:%S") if hasattr(task.clock, "strftime") else task.clock,
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
             route=task.route,
@@ -682,7 +698,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options, "attributes": attributes_json},
+                    # Same fields as file tasks: the main node's machine, pool tags, route and
+                    # timeout, which the worker's unrestricted dist account would otherwise drop.
+                    data={**data, "url": task.path},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,
@@ -1163,6 +1181,9 @@ class Retriever(threading.Thread):
                         main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
                         # set reported time
                         main_db.set_status(t.main_task_id, TASK_REPORTED)
+                    # The worker stamped the report (already in the shared store) with the ACL dist sent
+                    # it at dispatch. Before the copy and the post-copy steps, any of which can fail.
+                    run_report_retrieved_hooks(t.main_task_id)
 
                     # Fetch each requested report.
                     report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
@@ -1314,6 +1335,21 @@ class Retriever(threading.Thread):
             time.sleep(20)
 
 
+def _task_timeout(timeout, options):
+    """A positive timeout= option overrides the task's timeout up to the task's own cap."""
+    base = int(timeout) if timeout else 0
+    raw = options.get("timeout")
+    if raw is None or raw == "":
+        return base
+    try:
+        opt_val = int(raw)
+    except (TypeError, ValueError):
+        return base
+    if opt_val <= 0:
+        return base
+    return min(opt_val, base) if base > 0 else opt_val
+
+
 class StatusThread(threading.Thread):
     """
     A thread that handles the submission of tasks to nodes and manages the status of nodes.
@@ -1438,8 +1474,7 @@ class StatusThread(threading.Thread):
                             elif requested_node != node.name:
                                 # otherwise keep looping
                                 continue
-                        if "timeout=" in t.options:
-                            t.timeout = options.get("timeout", 0)
+                        t.timeout = _task_timeout(t.timeout, options)
                     except Exception as e:
                         log.exception(e)
                     # wtf are you doing in pendings?
@@ -1535,6 +1570,28 @@ class StatusThread(threading.Thread):
                     .where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                     .order_by(Task.priority.desc(), Task.main_task_id)
                 )
+                node_machine_names = list(db.scalars(select(Machine.name).where(Machine.node_id == node.id)).all())
+                if node_machine_names and getattr(node, "url", None) and any(
+                    m_name not in _MACHINE_NAME_LABELS for m_name in node_machine_names
+                ):
+                    with contextlib.suppress(Exception):
+                        for _ in node_list_machines(node.url, getattr(node, "apikey", "")):
+                            pass
+                node_machines = set(node_machine_names)
+                for m_name in node_machine_names:
+                    if label := _MACHINE_NAME_LABELS.get(m_name):
+                        node_machines.add(label)
+                if node_machine_names:
+                    with contextlib.suppress(Exception):
+                        for vm in main_db.list_machines(include_reserved=True):
+                            if getattr(vm, "name", None) in node_machines and getattr(vm, "label", None):
+                                node_machines.add(vm.label)
+                            elif getattr(vm, "label", None) in node_machines and getattr(vm, "name", None):
+                                node_machines.add(vm.name)
+                if node_machines:
+                    stmt = stmt.where(
+                        or_(Task.machine.is_(None), Task.machine == "", Task.machine.in_(node_machines))
+                    )
 
                 # 2. Apply the dynamic tag filter.
                 if dist_conf.distributed.enable_tags and node.name in SERVER_TAGS:
@@ -1608,7 +1665,13 @@ class StatusThread(threading.Thread):
         """
         global SERVER_TAGS
         # Get available node tags
-        machines = db.scalars(select(Machine).where(Machine.node_id == node_id))
+        machines = list(db.scalars(select(Machine).where(Machine.node_id == node_id)).all())
+        if machines and any(m.name not in _MACHINE_NAME_LABELS for m in machines):
+            with contextlib.suppress(Exception):
+                node = db.scalar(select(Node).where(Node.id == node_id))
+                if node is not None and getattr(node, "url", None):
+                    for _ in node_list_machines(node.url, getattr(node, "apikey", "")):
+                        pass
         # Todo need all?
 
         # Get available tag combinations
@@ -2316,6 +2379,7 @@ def main():
         with main_db.session.begin():
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
             main_db.set_status(args.force_reported, TASK_REPORTED)
+        run_report_retrieved_hooks(args.force_reported)
         sys.exit()
 
     if args.gcs_replay:

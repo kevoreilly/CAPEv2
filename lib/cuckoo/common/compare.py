@@ -5,6 +5,7 @@
 import contextlib
 from typing import Dict
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.hooks import apply_es_filter, task_report_query
 
 repconf = Config("reporting")
 
@@ -50,6 +51,14 @@ def combine_behavior_percentages(stats: dict) -> dict:
     return percentages
 
 
+def _mongo_task_query(tid) -> dict:
+    return task_report_query(int(tid), "mongo") or {"info.id": int(tid)}
+
+
+def _es_task_body(tid) -> dict:
+    return apply_es_filter({"query": task_report_query(int(tid), "es") or get_query_by_info_id(tid)})
+
+
 def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None) -> dict:
     if ignore_categories is None:
         ignore_categories = {"misc"}
@@ -59,7 +68,7 @@ def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None) -> dict:
         counts[tid] = {}
 
         pids_calls = mongo_find_one(
-            "analysis", {"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
+            "analysis", _mongo_task_query(tid), {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
         )
 
         if not pids_calls:
@@ -84,8 +93,8 @@ def helper_summary_mongo(tid1, tid2):
     if not mongo_find_one:
         return {}
     left_sum, right_sum = None, None
-    left_sum = mongo_find_one("analysis", {"info.id": int(tid1)}, {"behavior.summary": 1})
-    right_sum = mongo_find_one("analysis", {"info.id": int(tid2)}, {"behavior.summary": 1})
+    left_sum = mongo_find_one("analysis", _mongo_task_query(tid1), {"behavior.summary": 1})
+    right_sum = mongo_find_one("analysis", _mongo_task_query(tid2), {"behavior.summary": 1})
     return get_similar_summary(left_sum, right_sum) if left_sum and right_sum else {}
 
 
@@ -96,7 +105,7 @@ def helper_percentages_elastic(es_obj, tid1, tid2, ignore_categories=None):
 
     for tid in (tid1, tid2):
         counts[tid] = {}
-        results = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid))["hits"]["hits"]
+        results = es_obj.search(index=get_analysis_index(), body=_es_task_body(tid))["hits"]["hits"]
         pids_calls = results[-1]["_source"] if results else None
         if not pids_calls:
             continue
@@ -120,11 +129,11 @@ def helper_percentages_elastic(es_obj, tid1, tid2, ignore_categories=None):
 
 def helper_summary_elastic(es_obj, tid1, tid2):
     left_sum, right_sum = None, None
-    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid1))["hits"]["hits"]
+    buf = es_obj.search(index=get_analysis_index(), body=_es_task_body(tid1))["hits"]["hits"]
     if buf:
         left_sum = buf[-1]["_source"]
 
-    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid2))["hits"]["hits"]
+    buf = es_obj.search(index=get_analysis_index(), body=_es_task_body(tid2))["hits"]["hits"]
     if buf:
         right_sum = buf[-1]["_source"]
 
@@ -148,18 +157,18 @@ def helper_different_summary_mongo(tid1, tid2):
     if not mongo_find_one:
         return {}
     left_sum, right_sum = None, None
-    left_sum = mongo_find_one("analysis", {"info.id": int(tid1)}, {"behavior.summary": 1})
-    right_sum = mongo_find_one("analysis", {"info.id": int(tid2)}, {"behavior.summary": 1})
+    left_sum = mongo_find_one("analysis", _mongo_task_query(tid1), {"behavior.summary": 1})
+    right_sum = mongo_find_one("analysis", _mongo_task_query(tid2), {"behavior.summary": 1})
     return get_different_summary(left_sum, right_sum) if left_sum and right_sum else {}
 
 
 def helper_different_summary_elastic(es_obj, tid1, tid2):
     left_sum, right_sum = None, None
-    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid1))["hits"]["hits"]
+    buf = es_obj.search(index=get_analysis_index(), body=_es_task_body(tid1))["hits"]["hits"]
     if buf:
         left_sum = buf[-1]["_source"]
 
-    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid2))["hits"]["hits"]
+    buf = es_obj.search(index=get_analysis_index(), body=_es_task_body(tid2))["hits"]["hits"]
     if buf:
         right_sum = buf[-1]["_source"]
 

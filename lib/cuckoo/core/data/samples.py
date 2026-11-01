@@ -7,6 +7,7 @@ import logging
 from .db_common import (Base, _utcnow_naive)
 from .task import (Task, TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.hooks import apply_sql_task_filter
 from lib.cuckoo.common.objects import PCAP, File, Static
 from lib.cuckoo.common.exceptions import (
     CuckooDependencyError
@@ -172,8 +173,13 @@ class SamplesMixIn:
                 .where(Sample.sha256 == sha256)
                 .where(Task.added_on >= date_since)
             )
-            return self.session.scalar(select(stmt.exists()))
+            return self.session.scalar(select(apply_sql_task_filter(stmt).exists()))
         else:
+            visible = select(Task.id).join(Sample, Task.sample_id == Sample.id).where(Sample.sha256 == sha256)
+            scoped = apply_sql_task_filter(visible)
+            if scoped is not visible:
+                # A copy only a task the submitter can't see points at is not their duplicate.
+                return bool(self.session.scalar(select(scoped.exists())))
             if not self.find_sample(sha256=sha256):
                 uniq = False
             else:
@@ -384,6 +390,11 @@ class SamplesMixIn:
     def count_samples(self) -> int:
         """Counts the amount of samples in the database."""
         stmt = select(func.count(Sample.id))
+        visible = select(Task.sample_id)
+        scoped = apply_sql_task_filter(visible)
+        if scoped is not visible:
+            # Samples are shared across owners: count those a task the viewer may see points at.
+            stmt = select(func.count()).select_from(scoped.where(Task.sample_id.is_not(None)).distinct().subquery())
         return self.session.scalar(stmt)
 
     def get_source_url(self, sample_id: int = None) -> Optional[str]:

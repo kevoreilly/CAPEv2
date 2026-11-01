@@ -1,8 +1,15 @@
+import importlib.util
 import os
 import pathlib
+import sys
 import tempfile
+from unittest.mock import MagicMock
 
 import pytest
+
+if importlib.util.find_spec("fastapi") is None:
+    sys.modules.setdefault("fastapi", MagicMock())
+    sys.modules.setdefault("fastapi.security", MagicMock())
 
 import lib.cuckoo.common.config
 import lib.cuckoo.core.analysis_manager

@@ -5,6 +5,7 @@
 import gc
 import json
 import logging
+import sys
 from contextlib import suppress
 from datetime import datetime
 
@@ -161,6 +162,26 @@ class ElasticSearchDB(Report):
         # the original dictionary and possibly compromise the following
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
+        if not report or "info" not in report:
+            log.error("Failed to get JSON document or 'info' key is missing for Task")
+            return
+
+        local_task_id = int(report["info"].get("id", 0) or 0)
+        main_task_id = None
+        attributes = (self.task or {}).get("attributes") or {}
+        if main_task_id := attributes.get("main_task_id"):
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
+                report["info"].setdefault("local_task_id", local_task_id)
+
+        from lib.cuckoo.common.hooks import run_report_hooks
+
+        run_report_hooks(report)
+        if isinstance(task_acl := attributes.get("task_acl"), dict):
+            for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
+                report["info"][k] = task_acl.get(k, default)
+        report["info"].update((self.task or {}).get("_acl_override") or {})
+
         self.fix_fields(report)
         report = json.loads(json.dumps(report, default=str), object_hook=self.date_hook)
         new_processes = insert_calls(report, elastic_db=elastic_handler)
@@ -180,3 +201,13 @@ class ElasticSearchDB(Report):
         except Exception as e:
             log.error(e)
             return
+
+        if not main_task_id and (report.get("info") or {}).get("local_task_id") is None and "lib.tenancy" in sys.modules:
+            try:
+                from lib.tenancy.hooks import _resync_retrieved_report
+
+                with suppress(Exception):
+                    elastic_handler.indices.refresh(index=get_daily_analysis_index())
+                _resync_retrieved_report(int(report["info"]["id"]))
+            except Exception as exc:
+                log.warning("Could not resync local ES ACL stamp for Task %s: %s", report["info"].get("id"), exc)

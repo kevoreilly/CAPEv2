@@ -13,6 +13,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 import lib.cuckoo.common.compare as compare
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.hooks import apply_es_filter, task_report_query
 
 enabledconf = {}
 confdata = Config("reporting").get_config()
@@ -37,6 +38,19 @@ if enabledconf["elasticsearchdb"]:
     es = elastic_handler
 
 
+def _analysis_search(body, **kwargs):
+    # Scoped like the search page: the analysis index holds every tenant's reports.
+    return es.search(index=get_analysis_index(), body=apply_es_filter(body), **kwargs)
+
+
+def _mongo_task_query(tid):
+    return task_report_query(int(tid), "mongo") or {"info.id": int(tid)}
+
+
+def _es_task_query(tid):
+    return task_report_query(int(tid), "es") or get_query_by_info_id(tid)
+
+
 # Conditional decorator for web authentication
 class conditional_login_required:
     def __init__(self, dec, condition):
@@ -53,9 +67,9 @@ class conditional_login_required:
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def left(request, left_id):
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1})
+        left = mongo_find_one("analysis", _mongo_task_query(left_id), {"target": 1, "info": 1})
     if es_as_db:
-        hits = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id))["hits"]["hits"]
+        hits = _analysis_search({"query": _es_task_query(left_id)})["hits"]["hits"]
         if hits:
             left = hits[-1]["_source"]
         else:
@@ -95,7 +109,7 @@ def left(request, left_id):
                 }
             }
         }
-        results = es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
+        results = _analysis_search(q)["hits"]["hits"]
         for item in results:
             records.append(item["_source"])
 
@@ -107,9 +121,9 @@ def left(request, left_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def hash(request, left_id, right_hash):
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1})
+        left = mongo_find_one("analysis", _mongo_task_query(left_id), {"target": 1, "info": 1})
     if es_as_db:
-        hits = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id))["hits"]["hits"]
+        hits = _analysis_search({"query": _es_task_query(left_id)})["hits"]["hits"]
         if hits:
             left = hits[-1]["_source"]
         else:
@@ -152,7 +166,7 @@ def hash(request, left_id, right_hash):
                 }
             }
         }
-        results = es.search(index=get_analysis_index(), body=q)["hits"]["hits"]
+        results = _analysis_search(q)["hits"]["hits"]
         for item in results:
             records.append(item["_source"])
 
@@ -164,15 +178,15 @@ def hash(request, left_id, right_hash):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def both(request, left_id, right_id):
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "summary": 1})
-        right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "summary": 1})
+        left = mongo_find_one("analysis", _mongo_task_query(left_id), {"target": 1, "info": 1, "summary": 1})
+        right = mongo_find_one("analysis", _mongo_task_query(right_id), {"target": 1, "info": 1, "summary": 1})
         # Execute comparison.
         counts = compare.helper_percentages_mongo(left_id, right_id)
         summary_compare = compare.helper_summary_mongo(left_id, right_id)
         summary_diff = compare.helper_different_summary_mongo(left_id, right_id)
     elif es_as_db:
-        left_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info"])["hits"]["hits"]
-        right_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info"])["hits"]["hits"]
+        left_res = _analysis_search({"query": _es_task_query(left_id)}, _source=["target", "info"])["hits"]["hits"]
+        right_res = _analysis_search({"query": _es_task_query(right_id)}, _source=["target", "info"])["hits"]["hits"]
         left = left_res[-1]["_source"] if left_res else None
         right = right_res[-1]["_source"] if right_res else None
         counts = compare.helper_percentages_elastic(es, left_id, right_id)
@@ -201,11 +215,11 @@ def both(request, left_id, right_id):
 def diff(request, left_id, right_id):
     left, right = None, None
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
-        right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
+        left = mongo_find_one("analysis", _mongo_task_query(left_id), {"target": 1, "info": 1, "behavior.processes": 1})
+        right = mongo_find_one("analysis", _mongo_task_query(right_id), {"target": 1, "info": 1, "behavior.processes": 1})
     elif es_as_db:
-        left_results = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info", "behavior.processes"])["hits"]["hits"]
-        right_results = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info", "behavior.processes"])["hits"]["hits"]
+        left_results = _analysis_search({"query": _es_task_query(left_id)}, _source=["target", "info", "behavior.processes"])["hits"]["hits"]
+        right_results = _analysis_search({"query": _es_task_query(right_id)}, _source=["target", "info", "behavior.processes"])["hits"]["hits"]
         left = left_results[-1]["_source"] if left_results else None
         right = right_results[-1]["_source"] if right_results else None
 
@@ -232,9 +246,16 @@ def diff_data(request, left_id, right_id):
     def fetch_calls(analysis_id, pid):
         record = None
         if enabledconf["mongodb"]:
-            record = mongo_find_one("analysis", {"info.id": int(analysis_id), "behavior.processes.process_id": int(pid)}, {"behavior.processes.calls": 1})
+            record = mongo_find_one(
+                "analysis",
+                {"$and": [_mongo_task_query(analysis_id), {"behavior.processes.process_id": int(pid)}]},
+                {"behavior.processes.calls": 1},
+            )
         elif es_as_db:
-            es_results = es.search(index=get_analysis_index(), body={"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": analysis_id}}]}}}, _source=["behavior.processes"])["hits"]["hits"]
+            es_results = _analysis_search(
+                {"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, _es_task_query(analysis_id)]}}},
+                _source=["behavior.processes"],
+            )["hits"]["hits"]
             record = es_results[0]["_source"] if es_results else None
 
         if not record or "behavior" not in record or "processes" not in record["behavior"]:

@@ -388,9 +388,10 @@ def resolve_user_entitlements(
             return ResourceEntitlements.deny_all()
         return ResourceEntitlements.allow_all()
 
-    if not policies and cfg.enabled and cfg.mode == "locked" and not unassigned_policy and not is_super:
+    if not policies and cfg.enabled and cfg.mode == "locked" and not unassigned_policy:
         # Locked mode isolates tenants: a user no policy covers (or whose policies are all inactive)
         # gets nothing unless CAPE_TENANCY_UNASSIGNED_GROUP_POLICY says "allow" explicitly.
+        # Box admins (when local_admins_manage_all_tenants = yes) already returned above.
         effective_unassigned = _get_unassigned_policy_setting(default="deny")
 
     return merge_group_policies(policies, unassigned_policy=effective_unassigned)

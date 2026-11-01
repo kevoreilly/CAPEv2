@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from typing import Any, Callable, MutableMapping, Optional
+from typing import Any, Callable, Mapping, MutableMapping, Optional
 
 MongoFilterHook = Callable[[str, dict[str, Any]], dict[str, Any]]
 SqlTaskFilterHook = Callable[[Any], Any]
@@ -21,6 +21,7 @@ LoginGroupsHook = Callable[[Any, set], None]
 TaskCopyScopeHook = Callable[[Any, int], contextlib.AbstractContextManager[Any]]
 TaskReportQueryHook = Callable[[int, str], Optional[dict[str, Any]]]
 ReportRetrievedHook = Callable[[int], None]
+CacheScopeHook = Callable[[], Any]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []
@@ -34,6 +35,7 @@ _login_groups_hooks: list[LoginGroupsHook] = []
 _task_copy_scope_hooks: list[TaskCopyScopeHook] = []
 _task_report_query_hooks: list[TaskReportQueryHook] = []
 _report_retrieved_hooks: list[ReportRetrievedHook] = []
+_cache_scope_hooks: list[CacheScopeHook] = []
 _cleanup_hooks: list[Callable[[], None]] = []
 
 
@@ -75,6 +77,10 @@ def register_route_filter(fn: RouteFilterHook) -> None:
 def register_submission_context_filter(fn: SubmissionContextFilterHook) -> None:
     if fn not in _submission_context_filters:
         _submission_context_filters.append(fn)
+
+
+def has_mongo_filters() -> bool:
+    return bool(_mongo_filters)
 
 
 def apply_mongo_filter(collection: str, query: dict[str, Any] | None) -> dict[str, Any]:
@@ -141,6 +147,38 @@ def task_report_query(task_id: int, store: str = "mongo") -> Optional[dict[str, 
         query = fn(int(task_id), store)
         if query is not None:
             return query
+    return None
+
+
+def is_task_own_report(task_id: int, doc_or_source: Optional[Mapping[str, Any]]) -> bool:
+    """Verify that an Elasticsearch `_source` (or Mongo doc) belongs to `task_id`'s own report.
+
+    In Elasticsearch `info.job_id` is mapped as `text`, so `match_phrase: {"info.job_id": "ui-5"}`
+    also matches `"ui-5-extra"`. When `task_report_query` is active, callers that mutate or delete
+    returned hits check this predicate so another broker report sharing `info.id` is never touched.
+    """
+    if task_report_query(int(task_id), "es") is None:
+        return True
+    if not isinstance(doc_or_source, Mapping):
+        return False
+    info = doc_or_source.get("info")
+    if not isinstance(info, Mapping):
+        return True
+    tid = int(task_id)
+    job_id = info.get("job_id")
+    return job_id is None or job_id in (f"ui-{tid}", f"local-{tid}")
+
+
+def register_cache_scope_hook(fn: CacheScopeHook) -> None:
+    if fn not in _cache_scope_hooks:
+        _cache_scope_hooks.append(fn)
+
+
+def get_cache_scope_key() -> Any:
+    for fn in _cache_scope_hooks:
+        key = fn()
+        if key is not None:
+            return key
     return None
 
 
@@ -223,6 +261,7 @@ def clear_all_hooks() -> None:
     _task_copy_scope_hooks.clear()
     _task_report_query_hooks.clear()
     _report_retrieved_hooks.clear()
+    _cache_scope_hooks.clear()
 
 
 # --- Plugin activation -------------------------------------------------------------------------

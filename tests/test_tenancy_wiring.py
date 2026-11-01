@@ -1589,8 +1589,13 @@ def test_machine_labels_are_checked_by_the_machine_name(monkeypatch):
 def test_locked_mode_keeps_superusers_without_a_group(monkeypatch):
     import lib.tenancy.resources as res
 
-    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", local_admins_manage_all_tenants=False))
     user = types.SimpleNamespace(is_authenticated=True, is_superuser=True, groups=[])
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", local_admins_manage_all_tenants=False, unassigned_user_policy="deny"))
+    ent_denied = res.resolve_user_entitlements(user)
+    assert ent_denied.unrestricted is False
+    assert ent_denied.allowed_machines == frozenset()
+
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", local_admins_manage_all_tenants=True, unassigned_user_policy="deny"))
     assert res.resolve_user_entitlements(user).unrestricted is True
 
 

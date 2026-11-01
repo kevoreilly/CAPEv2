@@ -125,6 +125,8 @@ class Machine(Base):
         self.attributes = {}
 
 class MachinesMixIn:
+    _NATIVE_TENANCY_HOOKS = True
+
     def clean_machines(self):
         """Clean old stored machines and related tables."""
         # Secondary table.

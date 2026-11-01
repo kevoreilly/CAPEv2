@@ -284,6 +284,9 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
     return None
 
 
+_MACHINE_NAME_LABELS: dict[str, str] = {}
+
+
 def node_list_machines(url, apikey):
     """
     Retrieves a list of machines from a CAPE node and yields Machine objects.
@@ -301,6 +304,8 @@ def node_list_machines(url, apikey):
     try:
         r = requests.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
+            if machine.get("name") and machine.get("label"):
+                _MACHINE_NAME_LABELS[machine["name"]] = machine["label"]
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
         raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
@@ -1550,7 +1555,18 @@ class StatusThread(threading.Thread):
                     .where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                     .order_by(Task.priority.desc(), Task.main_task_id)
                 )
-                node_machines = db.scalars(select(Machine.name).where(Machine.node_id == node.id)).all()
+                node_machine_names = list(db.scalars(select(Machine.name).where(Machine.node_id == node.id)).all())
+                node_machines = set(node_machine_names)
+                for m_name in node_machine_names:
+                    if label := _MACHINE_NAME_LABELS.get(m_name):
+                        node_machines.add(label)
+                if node_machine_names:
+                    with contextlib.suppress(Exception):
+                        for vm in main_db.list_machines(include_reserved=True):
+                            if getattr(vm, "name", None) in node_machines and getattr(vm, "label", None):
+                                node_machines.add(vm.label)
+                            elif getattr(vm, "label", None) in node_machines and getattr(vm, "name", None):
+                                node_machines.add(vm.name)
                 stmt = stmt.where(
                     or_(Task.machine.is_(None), Task.machine == "", Task.machine.in_(node_machines))
                     if node_machines

@@ -20,7 +20,7 @@ from django.http import HttpResponse
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter
+from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter, get_cache_scope_key
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
@@ -48,6 +48,7 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 from lib.downloaders import Downloaders
 
+_NATIVE_TENANCY_HOOKS = True
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
 sys.path.append(CUCKOO_ROOT)
@@ -274,12 +275,20 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
         return False
 
     t = int(time.time())
+    scope_key = get_cache_scope_key()
 
     # caches results for 10 minutes
-    if hasattr(top_asn, "cache"):
-        ct, data = top_asn.cache
-        if t - ct < 600:
-            return data
+    if scope_key is None:
+        if hasattr(top_asn, "cache"):
+            ct, data = top_asn.cache
+            if t - ct < 600:
+                return data
+    else:
+        scoped_caches = getattr(top_asn, "_scoped_caches", None)
+        if isinstance(scoped_caches, dict) and scope_key in scoped_caches:
+            ct, data = scoped_caches[scope_key]
+            if t - ct < 600:
+                return data
 
     """function that gets detection: count
     Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
@@ -309,7 +318,14 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
         data = list(data)
 
     # save to cache
-    top_asn.cache = (t, data)
+    if scope_key is None:
+        top_asn.cache = (t, data)
+    else:
+        scoped_caches = getattr(top_asn, "_scoped_caches", None)
+        if not isinstance(scoped_caches, dict) or len(scoped_caches) >= 256:
+            scoped_caches = {}
+            top_asn._scoped_caches = scoped_caches
+        scoped_caches[scope_key] = (t, data)
 
     return data
 
@@ -330,12 +346,20 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         return False
 
     t = int(time.time())
+    scope_key = get_cache_scope_key()
 
     # caches results for 10 minutes
-    if hasattr(top_detections, "cache"):
-        ct, data = top_detections.cache
-        if t - ct < 600:
-            return data
+    if scope_key is None:
+        if hasattr(top_detections, "cache"):
+            ct, data = top_detections.cache
+            if t - ct < 600:
+                return data
+    else:
+        scoped_caches = getattr(top_detections, "_scoped_caches", None)
+        if isinstance(scoped_caches, dict) and scope_key in scoped_caches:
+            ct, data = scoped_caches[scope_key]
+            if t - ct < 600:
+                return data
 
     """function that gets detection: count
     Original: https://gist.github.com/clarkenheim/fa0f9e5400412b6a0f9d
@@ -378,7 +402,14 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         data = list(data)
 
     # save to cache
-    top_detections.cache = (t, data)
+    if scope_key is None:
+        top_detections.cache = (t, data)
+    else:
+        scoped_caches = getattr(top_detections, "_scoped_caches", None)
+        if not isinstance(scoped_caches, dict) or len(scoped_caches) >= 256:
+            scoped_caches = {}
+            top_detections._scoped_caches = scoped_caches
+        scoped_caches[scope_key] = (t, data)
 
     return data
 
@@ -1489,9 +1520,14 @@ def perform_search(
             # drops non-visible records and heavy fields before materializing joined documents.
             analysis_scope = apply_mongo_filter("analysis", {})
             lookup_projection = dict(projection or perform_search_filters)
-            if not privs:
-                lookup_projection["info.tlp"] = 1
-                lookup_projection["info.user_id"] = 1
+            if not lookup_projection.get("info"):
+                if not privs:
+                    lookup_projection["info.tlp"] = 1
+                    lookup_projection["info.user_id"] = 1
+                if analysis_scope:
+                    lookup_projection["info.visibility"] = 1
+                    lookup_projection["info.tenant_id"] = 1
+                    lookup_projection["info.user_id"] = 1
             lookup_pipeline = []
             if analysis_scope:
                 lookup_pipeline.append({"$match": analysis_scope})

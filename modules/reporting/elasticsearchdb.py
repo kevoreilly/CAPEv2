@@ -202,10 +202,12 @@ class ElasticSearchDB(Report):
             log.error(e)
             return
 
-        if not main_task_id and "lib.tenancy" in sys.modules:
+        if not main_task_id and (report.get("info") or {}).get("local_task_id") is None and "lib.tenancy" in sys.modules:
             try:
                 from lib.tenancy.hooks import _resync_retrieved_report
 
+                with suppress(Exception):
+                    elastic_handler.indices.refresh(index=get_daily_analysis_index())
                 _resync_retrieved_report(int(report["info"]["id"]))
             except Exception as exc:
                 log.warning("Could not resync local ES ACL stamp for Task %s: %s", report["info"].get("id"), exc)

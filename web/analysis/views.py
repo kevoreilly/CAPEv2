@@ -44,7 +44,7 @@ from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
-from lib.cuckoo.common.hooks import apply_es_filter, task_report_query
+from lib.cuckoo.common.hooks import apply_es_filter, is_task_own_report, task_report_query
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
@@ -3739,7 +3739,11 @@ def remove(request, task_id):
         message = "Task(s) deleted."
     if es_as_db:
         es_query_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
-        analyses = es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
+        analyses = [
+            h
+            for h in es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
+            if is_task_own_report(int(task_id), h.get("_source"))
+        ]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -3766,7 +3770,11 @@ def remove(request, task_id):
     elif essearch:
         # remove es search data
         es_query_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
-        analyses = es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
+        analyses = [
+            h
+            for h in es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
+            if is_task_own_report(int(task_id), h.get("_source"))
+        ]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -3851,7 +3859,11 @@ def comments(request, task_id):
             mongo_id = report["_id"] if report else None
         if es_as_db:
             es_query = task_report_query(task_id, "es") or get_query_by_info_id(task_id)
-            hits = es.search(index=get_analysis_index(), body=apply_es_filter({"query": es_query}))["hits"]["hits"]
+            hits = [
+                h
+                for h in es.search(index=get_analysis_index(), body=apply_es_filter({"query": es_query}))["hits"]["hits"]
+                if is_task_own_report(int(task_id), h.get("_source"))
+            ]
             if hits:
                 report = hits[0]["_source"]
                 esid = hits[0]["_id"]

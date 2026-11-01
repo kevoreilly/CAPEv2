@@ -64,7 +64,7 @@ def _ensure_tenancy_indexes() -> None:
 
 
 def _resync_local_acl_stamp(report: dict, main_task_id) -> None:
-    if main_task_id or "lib.tenancy" not in sys.modules:
+    if main_task_id or (report.get("info") or {}).get("local_task_id") is not None or "lib.tenancy" not in sys.modules:
         return
     try:
         from lib.tenancy.hooks import _resync_retrieved_report

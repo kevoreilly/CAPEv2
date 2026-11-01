@@ -401,6 +401,10 @@ def _rebind_from_imports(name: str, replaced: Dict[int, Any]) -> None:
 
 def wrap_mongodb_module(mongodb_mod: Any) -> None:
     """Wrap `dev_utils.mongodb` functions in-place so `'analysis'` queries and deletes are auto-scoped."""
+    if getattr(mongodb_mod, "_NATIVE_TENANCY_HOOKS", False):
+        if not _mongo_filters:
+            register_mongo_filter(default_mongo_analysis_filter)
+        return
     mod_id = getattr(mongodb_mod, "__name__", str(id(mongodb_mod)))
     if mod_id in _patched_modules:
         return
@@ -685,7 +689,7 @@ def wrap_submission_and_web_utils(
         except ImportError:
             machines_cls = None
 
-    if machines_cls is not None:
+    if machines_cls is not None and not getattr(machines_cls, "_NATIVE_TENANCY_HOOKS", False):
         orig_list_machines = getattr(machines_cls, "list_machines", None)
         if orig_list_machines is not None and not getattr(orig_list_machines, "_cape_tenancy_wrapped", False):
 
@@ -704,7 +708,7 @@ def wrap_submission_and_web_utils(
         except ImportError:
             web_utils_mod = None
 
-    if web_utils_mod is not None:
+    if web_utils_mod is not None and not getattr(web_utils_mod, "_NATIVE_TENANCY_HOOKS", False):
         orig_tags = getattr(web_utils_mod, "load_vms_tags", None)
         if orig_tags is not None and not getattr(orig_tags, "_cape_tenancy_wrapped", False):
 
@@ -757,7 +761,7 @@ def wrap_submission_and_web_utils(
             except Exception:
                 submission_views_mod = None
 
-    if submission_views_mod is not None:
+    if submission_views_mod is not None and not getattr(submission_views_mod, "_NATIVE_TENANCY_HOOKS", False):
         if web_utils_mod is not None:
             for helper_name in ("load_vms_tags", "load_vms_exits"):
                 if hasattr(submission_views_mod, helper_name) and hasattr(web_utils_mod, helper_name):
@@ -947,4 +951,6 @@ def register_core_hooks() -> bool:
         core_hooks.register_task_report_query_hook(_own_report_query)
     if hasattr(core_hooks, "register_report_retrieved_hook"):
         core_hooks.register_report_retrieved_hook(_resync_retrieved_report)
+    if hasattr(core_hooks, "register_cache_scope_hook"):
+        core_hooks.register_cache_scope_hook(_ViewerScopedCacheFunction._scope)
     return True

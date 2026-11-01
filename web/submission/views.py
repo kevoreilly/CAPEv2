@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 sys.path.append(settings.CUCKOO_PATH)
+_NATIVE_TENANCY_HOOKS = True
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
@@ -772,7 +773,6 @@ def index(request, task_id=None, resubmit_hash=None):
                         existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         from lib.cuckoo.common.hooks import apply_submission_context_filter
-
         submission_ctx = apply_submission_context_filter(
             {
                 "title": "Submit",

@@ -255,13 +255,26 @@ def reconcile_es_stamps(
         task_owners=task_owners,
         skipped=skipped,
     ):
-        changed += len(ops)
-        if not dry_run:
-            if bulk_update is not None:
-                bulk_update(ops)
-            elif update is not None:
-                for (index, doc_id), stamp in ops:
-                    update(index, doc_id, stamp)
+        if dry_run:
+            changed += len(ops)
+            continue
+        if bulk_update is not None:
+            res = bulk_update(ops)
+            if isinstance(res, tuple) and len(res) == 2:
+                ok_count, errors = res
+                if errors:
+                    raise RuntimeError(f"Elasticsearch bulk restamp failed for {len(errors)} item(s): {errors[:3]!r}")
+                changed += int(ok_count) if isinstance(ok_count, int) else len(ops)
+            elif isinstance(res, int):
+                changed += res
+            else:
+                changed += len(ops)
+        elif update is not None:
+            for (index, doc_id), stamp in ops:
+                update(index, doc_id, stamp)
+            changed += len(ops)
+        else:
+            changed += len(ops)
     return changed
 
 
@@ -398,7 +411,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     {"_op_type": "update", "_index": index, "_id": doc_id, "doc": {"info": stamp}}
                     for (index, doc_id), stamp in ops
                 ]
-                return bulk(elastic_handler, actions, raise_on_error=False)
+                ok_count, errors = bulk(elastic_handler, actions, raise_on_error=False)
+                if errors:
+                    raise RuntimeError(f"Elasticsearch bulk restamp failed for {len(errors)} document(s): {errors[:3]!r}")
+                return ok_count
 
             skipped = []
             n = reconcile_es_stamps(

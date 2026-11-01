@@ -288,6 +288,11 @@ def own_report_job_ids(task_id: int) -> list:
     return [f"ui-{int(task_id)}", f"local-{int(task_id)}"]
 
 
+def is_own_report_job_id(task_id: int, job_id: Any) -> bool:
+    """Return True if `job_id` is None or matches `task_id`'s own job IDs (`ui-<id>`, `local-<id>`)."""
+    return job_id is None or job_id in own_report_job_ids(int(task_id))
+
+
 def own_report_mongo_query(task_id: int) -> Dict[str, Any]:
     """The Mongo filter for the own report of `task_id` (see `own_report_job_ids`)."""
     return {"info.id": int(task_id), "info.job_id": {"$in": [None, *own_report_job_ids(task_id)]}}
@@ -295,7 +300,7 @@ def own_report_mongo_query(task_id: int) -> Dict[str, Any]:
 
 def own_report_es_query(task_id: int) -> Dict[str, Any]:
     """The ES query for the own report of `task_id`; job_id is text-mapped, so callers that
-    write must still compare it exactly (phrase "ui-5" also matches "ui-5-x")."""
+    write must still compare it with `is_own_report_job_id` / `is_task_own_report`."""
     return {
         "bool": {
             "filter": [{"term": {"info.id": int(task_id)}}],

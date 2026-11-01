@@ -1567,11 +1567,10 @@ class StatusThread(threading.Thread):
                                 node_machines.add(vm.label)
                             elif getattr(vm, "label", None) in node_machines and getattr(vm, "name", None):
                                 node_machines.add(vm.name)
-                stmt = stmt.where(
-                    or_(Task.machine.is_(None), Task.machine == "", Task.machine.in_(node_machines))
-                    if node_machines
-                    else or_(Task.machine.is_(None), Task.machine == "")
-                )
+                if node_machines:
+                    stmt = stmt.where(
+                        or_(Task.machine.is_(None), Task.machine == "", Task.machine.in_(node_machines))
+                    )
 
                 # 2. Apply the dynamic tag filter.
                 if dist_conf.distributed.enable_tags and node.name in SERVER_TAGS:

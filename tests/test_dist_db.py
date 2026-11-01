@@ -418,3 +418,102 @@ def test_node_fetch_tasks_timeout():
         mock_get.assert_called_once()
         assert mock_get.call_args.kwargs.get("timeout") == 30
 
+
+def test_node_submit_task_formats_datetime_clock_for_worker_api():
+    import sys
+    from datetime import datetime
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import node_submit_task
+
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_task = MagicMock(
+        id=10,
+        main_task_id=44,
+        category="url",
+        path="http://example.test/",
+        package="ie",
+        timeout=120,
+        priority=1,
+        options="free=yes",
+        machine="win10_1",
+        platform="windows",
+        tags="x64,",
+        custom="",
+        clock=datetime(2026, 10, 31, 14, 5, 9),
+        memory=False,
+        enforce_timeout=False,
+        route="tor",
+        tlp="AMBER",
+    )
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    mock_resp = MagicMock(status_code=200)
+    mock_resp.json.return_value = {"data": {"task_ids": [88]}}
+
+    with patch("utils.dist.requests.post", return_value=mock_resp) as mock_post:
+        assert node_submit_task(10, 2, 44, db=mock_db) is True
+
+    posted = mock_post.call_args.kwargs["data"]
+    assert posted["clock"] == "10-31-2026 14:05:09"
+    assert posted["url"] == "http://example.test/"
+    assert posted["machine"] == "win10_1"
+    assert posted["tags"] == "x64"
+    assert posted["route"] == "tor"
+    assert posted["tlp"] == "AMBER"
+
+
+def test_task_timeout_option_respects_cap():
+    import sys
+    from unittest.mock import MagicMock
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import _task_timeout
+
+    assert _task_timeout(200, {}) == 200
+    assert _task_timeout(200, {"timeout": "60"}) == 60
+    assert _task_timeout(200, {"timeout": "999999"}) == 200
+    assert _task_timeout(200, {"timeout": "0"}) == 200
+    assert _task_timeout(200, {"timeout": "bad"}) == 200
+    assert _task_timeout(0, {"timeout": "120"}) == 120
+
+
+def test_dist_defines_gcs_enabled_and_resolves_worker_machine_label():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    import utils.dist as dist_mod
+
+    assert hasattr(dist_mod, "GCS_ENABLED")
+    assert isinstance(dist_mod.GCS_ENABLED, bool)
+
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "data": [{"name": "cuckoo1", "label": "win10-vm-01", "platform": "windows", "tags": ["x64"]}]
+    }
+    with patch("utils.dist.requests.get", return_value=mock_resp):
+        machines = list(dist_mod.node_list_machines("http://worker1/apiv2/", "tok"))
+    assert len(machines) == 1
+    assert machines[0].name == "cuckoo1"
+    assert dist_mod._MACHINE_NAME_LABELS["cuckoo1"] == "win10-vm-01"
+    assert dist_mod._resolve_worker_machine("cuckoo1") == "win10-vm-01"
+    assert dist_mod._resolve_worker_machine("win10-vm-01") == "win10-vm-01"
+
+
+

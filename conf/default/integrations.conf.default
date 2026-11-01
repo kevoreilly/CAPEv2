@@ -126,6 +126,8 @@ cape = no
 procdump = no
 # behavior analysis summary
 behavior = no
+# Use Malcat's CAPA instead of FLARE capa (requires the Malcat bridge and malcat to be enabled - see below).
+malcat_capa = no
 
 # external download services
 [downloaders]
@@ -155,86 +157,116 @@ sigs_path = data/flare-signatures
 # Also for accurate matching populate with libraries (i.e. import from https://github.com/danielplohmann/mcrit-data dragging and dropping all the files for each into import, 
 # or importing binaries and then editing them and marking them as libraries once imported).
 [similarity]
-
+# Global options - apply to all similarity engines
 # Hard per-job deadline (seconds) so a stuck engine can't stall processing.
 timeout = 120
 
-# ---- Engines ------------------------------------------------
-# Only listed engines are attempted. Each engine only receives files in the
-# formats it supports, so enabling more engines is safe. Currently only MCRIT is supported (https://github.com/danielplohmann/mcrit) 
-# although the integration allows adding other performative similairty engines later.
-mcrit = yes
-# Formats sent to MCRIT. MCRIT's SMDA disassembler supports PE, ELF and
-# Mach-O (x86/x64/aarch64). Narrow
-# this only if your MCRIT server runs an older SMDA: e.g.  mcrit_formats = pe.
-# As CAPE does not support OSX but only Windows and Linux macho is ommited.
-mcrit_formats = pe,elf
-
-# File sources to submit (default is memory extracted files for unpacked files).
+# File sources to submit. Default is memory-extracted / unpacked files, which
+# match best. Only formats an engine supports are sent (shellcode blobs and
+# non-executables are skipped automatically).
 similarity_payloads = yes
 similarity_procdump = yes
 similarity_dropped = no
 similarity_submittedfile = no
 
-# Skip artifacts already resolved to a known family. Set no to
-# submit everything (corpus building / re-checking known files).
+# Skip artifacts already resolved to a known family. Set no to submit
+# everything (corpus building / re-checking known files).
 only_unidentified = yes
 
-# ---- Result selection (what is SHOWN) -----------------------
+# --- Result selection (what is shown) ---
 # Minimum similarity % for a match to appear in the report.
 minimum_similarity = 50
-# Cap the number of matches returned/shown per artifact (top N by
-# score). Tunable limit on samples returned by each engine.
+# Max matches shown per artifact (top N by score).
 max_results = 3
-# Include matches that carry a family label.
+# Show matches that carry a family label / that don't (sha256 + score only).
 match_families = yes
-# Include matches with no family label (shows sha256 + score).
 match_nofamily = yes
-# If nothing clears minimum_similarity, still show the single best
-# hit flagged low-confidence. Off by default.
+# If nothing clears minimum_similarity, still show the single best hit, flagged
+# low-confidence.
 best_match = no
 # Comma-separated family substrings to suppress (case-insensitive).
 # exclude_families = msvc,mingw
-
-# Ignore matches that are mostly shared library / runtime code (Go runtime,
-# OpenSSL, the C runtime, etc.) by scoring on MCRIT's non-library-weighted
-# similarity and discarding pure-library matches. This is the robust,
-# list-free way to keep only malware-code matches and is preferred over
-# maintaining a long exclude_families list. Relies on library code in your
-# MCRIT corpus being flagged as library samples (is_library) and/or MCRIT's
-# automatic library-function detection.
+# Discard matches that are mostly shared library / runtime code, using an
+# engine's non-library-weighted score where available (preferred over a long
+# exclude_families list).
 ignore_library_matches = yes
 
-# ---- Family classification (CAPE malfamily detections)
-# When yes, a family match is promoted into CAPE's detections list (main
-# page + report header), acting as a classification engine. Only for
+# --- Family classification (promote a match into CAPE detections) ---
+# When yes, a strong family match is added to CAPE's detections list. Only for
 # artifacts with no existing family; each family added at most once per run.
 update_malfamily = no
-# SEPARATE, higher threshold for promotion. Lets low-confidence matches
-# still appear in the similarity table (minimum_similarity) while only
-# strong matches set the malware family.
+# Separate, higher threshold for promotion (low-confidence matches can still
+# show in the table without setting the malware family).
 malfamily_minimum_similarity = 80
-# Which matches become the malware family when update_malfamily = yes:
-#   top - only the single highest-similarity family per artifact (default)
-#   all - every family whose match clears malfamily_minimum_similarity
-# Either way each family is added at most once per analysis.
+# top - only the single highest-similarity family per artifact
+# all - every family clearing malfamily_minimum_similarity
 malfamily_mode = top
 
-# Concurrent submission
-# Submit multiple artifacts simultaneously. max_workers bounds simultaneous jobs.
+# --- Concurrent submission ---
+# Submit multiple artifacts at once; max_workers bounds simultaneous jobs.
 concurrent_submissions = no
 max_workers = 4
 
-# ---- MCRIT connection ---------------------------------------
-# REST API endpoint - NOT the web UI (5000), the API (8000).
+# MCRIT (https://github.com/danielplohmann/mcrit)
+mcrit = no
+# Formats sent to MCRIT (SMDA supports pe, elf, macho; CAPE omits macho).
+mcrit_formats = pe,elf
+# REST API endpoint - the API (8000), NOT the web UI (5000).
 mcrit_host = http://127.0.0.1:8000
 mcrit_apitoken =
 mcrit_username = cape
 mcrit_poll_interval = 3
-
-# Persistence:
-#   no  (default) - transient /query: matched on the worker, never
-#       stored. Nothing to delete; labelled samples never touched.
-#   yes - stored via /samples/binary for corpus building. A sha256
-#       pre-check reuses an existing sample instead of re-adding.
+# no  - transient /query, nothing stored.
+# yes - store via /samples/binary for corpus building (sha256 pre-check reuses).
 persist_samples = no
+
+# Malcat Kesakode (https://doc.malcat.fr/analysis/kesakode.html).
+# Requires the Malcat bridge running alongside Malcat (the bridge tool and instructions for using it are in utils/malcat_bridge).
+
+kesakode = no
+kesakode_formats = pe,elf
+# online  - query the live Kesakode service (spends monthly quota; returns
+#           goodware labels too). Default while offline OEM support is finalised.
+# offline - Malcat's local Kesakode DB (no quota; needs the OEM headless build).
+# auto    - offline first, escalate to online only on a miss.
+kesakode_mode = online
+# On-demand (online only): when yes, the online lookup is NOT run during
+# processing - it is deferred to a per-file button in the report, so you spend
+# tokens only on the artifacts you choose. Offline always looks up (no limit),
+# so this setting is ignored for offline/auto's offline stage.
+kesakode_on_demand = no
+# Stop online lookups once this many monthly tokens remain (quota floor), so a
+# busy pipeline can't drain the month. Enforced by the bridge on live quota.
+kesakode_quota_reserve = 10
+# --- Bridge connection ---
+kesakode_host = https://127.0.0.1:8090
+kesakode_apikey =
+# Verify the bridge TLS cert. no for a self-signed bridge on a trusted network.
+kesakode_ssl_verify = no
+
+[malcat]
+# Non-similarity Malcat features. (Kesakode code similarity is configured in
+# the [similarity] section above, with the other similarity engines.) Enable the
+# module too in processing.conf [malcat].
+# Requires the Malcat bridge running alongside Malcat (the bridge tool and instructions for using it are in utils/malcat_bridge).
+
+# Per-artifact deadline talking to the bridge (seconds).
+timeout = 120
+# Features to pull from malcat.
+# NOTE: FOR CAPA see CAPE section to use malcat. This is recommended as it is significantly faster running CAPE this way.
+anomalies = yes
+
+# Which artifact types to send to Malcat. Only supported executable formats are sent;
+# shellcode blobs and non-executables are skipped automatically.
+malcat_payloads = yes
+malcat_procdump = yes
+malcat_dropped = no
+malcat_submittedfile = no
+
+# Malcat Bridge
+# Defaults to the same bridge as Kesakode; override here if the anomalies/CAPA
+# bridge is a different instance. If blank, the [similarity] kesakode_host /
+# kesakode_apikey / kesakode_ssl_verify values are reused.
+malcat_host =
+malcat_apikey =
+malcat_ssl_verify = no

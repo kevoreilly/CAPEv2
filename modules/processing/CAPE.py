@@ -54,6 +54,16 @@ HAVE_FLARE_CAPA = False
 if integrations_conf.flare_capa.enabled and not integrations_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
+# Malcat CAPA override (faster; rendered in the same View CAPA panel).
+HAVE_MALCAT_CAPA = False
+try:
+    if integrations_conf.flare_capa.get("malcat_capa", False):
+        from lib.cuckoo.common.integrations.malcat.capa import malcat_capa_details
+
+        HAVE_MALCAT_CAPA = True
+except Exception:
+    HAVE_MALCAT_CAPA = False
+
 MISP_HASH_LOOKUP = False
 if externalservices_conf.misp.enabled:
     with suppress(Exception):
@@ -340,9 +350,12 @@ class CAPE(Processing):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if (HAVE_MALCAT_CAPA or HAVE_FLARE_CAPA) and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
                 pretime = timeit.default_timer()
-                capa_details = flare_capa_details(file_path, "procdump")
+                if HAVE_MALCAT_CAPA:
+                    capa_details = malcat_capa_details(file_path, "procdump")
+                else:
+                    capa_details = flare_capa_details(file_path, "procdump")
                 if capa_details:
                     file_info["flare_capa"] = capa_details
                 self.add_statistic_tmp("flare_capa", "time", pretime)
@@ -418,9 +431,12 @@ class CAPE(Processing):
 
         if append_file:
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and category == "CAPE" and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if (HAVE_MALCAT_CAPA or HAVE_FLARE_CAPA) and category == "CAPE" and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
                 pretime = timeit.default_timer()
-                capa_details = flare_capa_details(file_path, "cape")
+                if HAVE_MALCAT_CAPA:
+                    capa_details = malcat_capa_details(file_path, "cape")
+                else:
+                    capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
                     file_info["flare_capa"] = capa_details
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)

@@ -106,6 +106,15 @@ try:
 except (NameError, ImportError):
     print("Can't import FLARE-CAPA")
 
+# Kesakode on-demand: online lookup deferred to a per-file button. Gated on the
+# [similarity] section (kesakode config lives there, not a [kesakode] section).
+HAVE_KESAKODE_ONDEMAND = False
+try:
+    if integrations_cfg.similarity.get("kesakode") and integrations_cfg.similarity.get("kesakode_on_demand"):
+        HAVE_KESAKODE_ONDEMAND = True
+except Exception:
+    HAVE_KESAKODE_ONDEMAND = False
+
 HAVE_STRINGS = False
 if processing_cfg.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
@@ -168,6 +177,16 @@ for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "di
                     on_demand_conf[item] = True
             else:
                 enabledconf[item] = False
+
+# Kesakode on-demand lives in [similarity] (kesakode_on_demand), not a section
+# with its own on_demand key, so surface it to the template explicitly.
+try:
+    _sim = Config("integrations").get("similarity")
+    if str(_sim.get("kesakode", "no")).lower() in ("yes", "true", "1", "on") and \
+       str(_sim.get("kesakode_on_demand", "no")).lower() in ("yes", "true", "1", "on"):
+        on_demand_conf["kesakode"] = True
+except Exception:
+    pass
 
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
@@ -3962,6 +3981,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     if service in CUSTOM_SERVICES:
         pass
+    elif service == "kesakode":
+        if not HAVE_KESAKODE_ONDEMAND:
+            return render(request, "error.html", {"error": "kesakode on demand is disabled in configuration"})
     elif service in on_demand_config_mapper:
         config_section = getattr(on_demand_config_mapper[service], service, {})
         if not config_section.get("on_demand"):
@@ -4010,6 +4032,43 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             details = flare_capa_details(path, category.lower(), on_demand=True)
             if not details:
                 details = {"msg": "No results"}
+
+        elif service == "kesakode" and HAVE_KESAKODE_ONDEMAND:
+            # Deferred online Kesakode lookup for a single chosen artifact.
+            try:
+                from lib.cuckoo.common.integrations.malcat.client import MalcatBridgeError, MalcatClient
+                from lib.cuckoo.common.integrations.malcat.convert import kesakode_to_similarity_rows
+                from lib.cuckoo.common.integrations.similarity.base import _as_bool
+
+                scfg = dict(integrations_cfg.get("similarity"))
+                client = MalcatClient(
+                    host=scfg.get("kesakode_host") or "http://127.0.0.1:8090",
+                    api_key=scfg.get("kesakode_apikey") or "",
+                    ssl_verify=_as_bool(scfg.get("kesakode_ssl_verify", True)),
+                    timeout=int(scfg.get("timeout", 120) or 120),
+                )
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                payload = client.analyze(
+                    data=data, features=["kesakode"], kesakode_mode="online",
+                    quota_reserve=int(scfg.get("kesakode_quota_reserve", 10) or 0),
+                )
+                kk = (payload.get("features") or {}).get("kesakode") or {}
+                if kk.get("error"):
+                    details = {"msg": kk["error"]}
+                else:
+                    rows = kesakode_to_similarity_rows(
+                        kk,
+                        minimum_similarity=float(scfg.get("minimum_similarity", 0) or 0),
+                        max_results=int(scfg.get("max_results", 0) or 0),
+                    )
+                    # 'details' carries the rows; the storage block merges them
+                    # into the artifact's code_similarity_matches (see below).
+                    details = {"code_similarity_matches": rows} if rows else {"msg": "No results"}
+            except MalcatBridgeError as err:
+                details = {"msg": f"Kesakode bridge error: {err}"}
+            except Exception as err:
+                details = {"msg": f"Kesakode on-demand failed: {err}"}
 
         elif service == "vba2graph" and HAVE_VBA2GRAPH:
             vba2graph_func(path, task_id, sha256, on_demand=True)
@@ -4068,6 +4127,32 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     return True
         return False
 
+    def _merge_kesakode_rows(node, target_sha256, new_rows):
+        """Merge on-demand Kesakode rows into an artifact's
+        code_similarity_matches, preserving other engines' rows (e.g. MCRIT) and
+        replacing any prior Kesakode rows so re-clicks don't duplicate."""
+        if isinstance(node, dict):
+            if node.get("sha256") == target_sha256:
+                existing = [r for r in (node.get("code_similarity_matches") or [])
+                            if isinstance(r, dict) and r.get("engine") != "malcat kesakode"]
+                node["code_similarity_matches"] = existing + list(new_rows)
+                return True
+            for value in node.values():
+                if isinstance(value, (dict, list)) and _merge_kesakode_rows(value, target_sha256, new_rows):
+                    return True
+            return False
+        if isinstance(node, list):
+            for item in node:
+                if _merge_kesakode_rows(item, target_sha256, new_rows):
+                    return True
+        return False
+
+    # Kesakode on-demand stores into code_similarity_matches (merge), not a
+    # 'kesakode' key, so it renders in the existing Code Similarity row.
+    kesakode_rows = None
+    if service == "kesakode" and isinstance(details, dict) and "code_similarity_matches" in details:
+        kesakode_rows = details["code_similarity_matches"]
+
     if details is not False:
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
@@ -4076,16 +4161,26 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         servicedata = {}
         if category == "CAPE":
-            _set_service_by_sha256(buf.get(category, {}).get("payloads", []) or [], sha256, service, details)
+            if kesakode_rows is not None:
+                _merge_kesakode_rows(buf.get(category, {}).get("payloads", []) or [], sha256, kesakode_rows)
+            else:
+                _set_service_by_sha256(buf.get(category, {}).get("payloads", []) or [], sha256, service, details)
             servicedata = buf.get(category)
         elif category in ("procdump", "procmemory", "dropped"):
-            _set_service_by_sha256(buf.get(category) or [], sha256, service, details)
+            if kesakode_rows is not None:
+                _merge_kesakode_rows(buf.get(category) or [], sha256, kesakode_rows)
+            else:
+                _set_service_by_sha256(buf.get(category) or [], sha256, service, details)
             servicedata = buf.get(category)
         elif category == "target.file":
             servicedata = buf.get("target", {}).get("file", {})
             if servicedata:
                 if service == "xlsdeobf":
                     servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                elif service == "kesakode" and kesakode_rows is not None:
+                    existing = [r for r in (servicedata.get("code_similarity_matches") or [])
+                                if isinstance(r, dict) and r.get("engine") != "malcat kesakode"]
+                    servicedata["code_similarity_matches"] = existing + list(kesakode_rows)
                 elif extractedfile:
                     _set_service_by_sha256(servicedata, sha256, service, details)
                 else:

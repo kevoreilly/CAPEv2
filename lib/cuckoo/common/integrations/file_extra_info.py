@@ -77,6 +77,17 @@ HAVE_FLARE_CAPA = False
 if integration_conf.flare_capa.enabled and not integration_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
+# Malcat CAPA override: when [flare_capa] malcat_capa = yes, route CAPA to the
+# Malcat bridge (faster) instead of FLARE, rendered in the same View CAPA panel.
+HAVE_MALCAT_CAPA = False
+try:
+    if integration_conf.flare_capa.get("malcat_capa", False):
+        from lib.cuckoo.common.integrations.malcat.capa import malcat_capa_details
+
+        HAVE_MALCAT_CAPA = True
+except Exception:
+    HAVE_MALCAT_CAPA = False
+
 HAVE_FLOSS = False
 if integration_conf.floss.enabled and not integration_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
@@ -187,9 +198,12 @@ def static_file_info(
             with PortableExecutable(file_path) as pe:
                 data_dictionary["pe"] = pe.run(task_id)
 
-        if HAVE_FLARE_CAPA and "flare_capa" not in data_dictionary:
+        if (HAVE_MALCAT_CAPA or HAVE_FLARE_CAPA) and "flare_capa" not in data_dictionary:
             # https://github.com/mandiant/capa/issues/2620
-            capa_details = flare_capa_details(file_path, "static")
+            if HAVE_MALCAT_CAPA:
+                capa_details = malcat_capa_details(file_path, "static")
+            else:
+                capa_details = flare_capa_details(file_path, "static")
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 

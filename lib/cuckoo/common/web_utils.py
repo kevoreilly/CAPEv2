@@ -20,7 +20,7 @@ from django.http import HttpResponse
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_es_filter
+from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
@@ -205,7 +205,6 @@ def load_vms_exits(force: bool = False):
                     print(e)
 
         cached_exits = dict(_all_nodes_exits)
-    from lib.cuckoo.common.hooks import apply_route_filter
 
     allowed_exits = set(apply_route_filter(list(cached_exits.keys()), "exit"))
     return {k: v for k, v in cached_exits.items() if k in allowed_exits}
@@ -823,11 +822,15 @@ def download_file(**kwargs):
         socks5s_random = ""
         vpn_random = ""
 
-        if routing_conf.socks5.random_socks5 and socks5s:
-            socks5s_random = choice(list(socks5s.keys()))
+        # Only routes the submitter may use (route filter hooks; identity without them).
+        socks5_names = apply_route_filter(list(socks5s.keys()), "socks5") if socks5s else []
+        vpn_names = apply_route_filter(list(vpns.keys()), "vpn") if vpns else []
 
-        if routing_conf.vpn.random_vpn and vpns:
-            vpn_random = choice(list(vpns.keys()))
+        if routing_conf.socks5.random_socks5 and socks5_names:
+            socks5s_random = choice(socks5_names)
+
+        if routing_conf.vpn.random_vpn and vpn_names:
+            vpn_random = choice(vpn_names)
 
         if vpn_random and socks5s_random:
             route = choice((vpn_random, socks5s_random))
@@ -1165,6 +1168,8 @@ def validate_task(tid, status=TASK_REPORTED):
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
+            if not task:
+                return {"error": True, "error_value": "Task does not exist"}
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
@@ -1470,20 +1475,34 @@ def perform_search(
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
             query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            analysis_scope = apply_mongo_filter("analysis", {})
             pipeline = [
-                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                # Stages 1-4: Find, unwind, group, sort IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
-                {"$limit": search_limit},
-                # Stage 6: Join with the tasks collection
-                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
-                # Stage 7: Unpack the joined doc
-                {"$unwind": "$task_doc"},
-                # Stage 8: Make the task doc the new root
-                {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
+            if not analysis_scope:
+                pipeline.append({"$limit": search_limit})
+            pipeline.extend(
+                [
+                    # Join with the analysis collection using MongoDB 4.4+ compatible localField/foreignField
+                    {
+                        "$lookup": {
+                            "from": "analysis",
+                            "localField": "_id",
+                            "foreignField": "info.id",
+                            "as": "task_doc",
+                        }
+                    },
+                    {"$unwind": "$task_doc"},
+                    {"$replaceRoot": {"newRoot": "$task_doc"}},
+                ]
+            )
+            if analysis_scope:
+                # Limit after scoping, or a viewer's own older analyses fall outside the window.
+                pipeline.extend([{"$match": analysis_scope}, {"$limit": search_limit}])
 
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):

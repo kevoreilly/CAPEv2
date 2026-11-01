@@ -143,31 +143,18 @@ def process(
         with db.session.begin():
             RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
-            if (visibility is not None or tenant_id is not None) and task_id:
-                with suppress(Exception):
-                    from cape_tenancy.acl import ensure_acl_schema, set_task_acl
-
-                    ensure_acl_schema(db.engine)
-                    with db.session.begin():
-                        set_task_acl(
-                            db.session,
-                            int(main_task_id or task_id),
-                            user_id=results["info"].get("user_id") or task_dict.get("user_id"),
-                            tenant_id=int(tenant_id) if tenant_id is not None else results["info"].get("tenant_id"),
-                            visibility=visibility if visibility in ("public", "tenant", "private") else (results["info"].get("visibility") or "private"),
-                        )
-            if attributes := task_dict.get("attributes"):
-                if isinstance(task_acl := attributes.get("task_acl"), dict):
-                    for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
-                        if k in task_acl:
-                            results["info"][k] = task_acl[k]
+            if main_task_id:
+                results["info"].setdefault("local_task_id", task_id)
             from lib.cuckoo.common.hooks import run_report_hooks
 
-            run_report_hooks(results)
-            if visibility in ("public", "tenant", "private"):
-                results["info"]["visibility"] = visibility
-            if tenant_id is not None:
-                results["info"]["tenant_id"] = int(tenant_id)
+            run_report_hooks(
+                results,
+                task=task_dict,
+                db=db,
+                visibility=visibility,
+                tenant_id=tenant_id,
+                stage="process",
+            )
         if memory_debugging:
             gc.collect()
             log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))

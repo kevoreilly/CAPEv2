@@ -520,13 +520,9 @@ def init_modules():
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
     check_snapshot_state()
 
-    if getattr(cuckoo, "multitenancy", {}).get("enabled", False) or getattr(cuckoo, "object_storage", {}).get("enabled", False):
-        try:
-            from lib.tenancy.hooks import register_core_hooks
+    from lib.cuckoo.common.hooks import bootstrap_tenancy
 
-            register_core_hooks()
-        except Exception as e:
-            log.exception("Failed to initialize lib.tenancy hooks: %s", e)
+    bootstrap_tenancy(cuckoo)
 
     for category, entries in list_plugins().items():
         log.debug('Imported "%s" modules:', category)

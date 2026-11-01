@@ -19,6 +19,11 @@ from lib.cuckoo.common.hooks import (
 )
 
 
+def setup_function():
+    # Other modules (tests/test_tenancy.py) register the real hooks at import/run time.
+    clear_all_hooks()
+
+
 def teardown_function():
     clear_all_hooks()
 

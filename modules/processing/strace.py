@@ -321,7 +321,7 @@ class Processes:
         data = ""
         for key in unfinished.keys():
             for head in unfinished[key]:
-                for tail in resumed[key]:
+                for tail in resumed.get(key, []):
                     if head["syscall"] != tail["syscall"]:
                         continue
                     data += " ".join([str(key), tail["time"], head["unfinished"] + tail["resumed"] + "\n"])

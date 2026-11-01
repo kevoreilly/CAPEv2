@@ -155,6 +155,8 @@ def denormalize_files_from_reports(reports):
                     # Reduce the size of the $in clause when there are large numbers of file refs by
                     # making multiple requests, passing batches of refs in.
                     for file_doc in mongo_find(FILES_COLL, {"_id": {"$in": batch}}, {TASK_IDS_KEY: 0}):
+                        file_doc.pop("static_preview_malware_conf", None)
+                        file_doc.pop("static_preview_enriched", None)
                         file_docs[file_doc.pop("_id")] = file_doc
 
                 for file_dict in file_dicts:

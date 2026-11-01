@@ -277,11 +277,14 @@ def mongo_update_many(collection: str, query, update):
 
 
 @graceful_auto_reconnect
-def mongo_update_one(collection: str, query, update, bypass_document_validation: bool = False):
+def mongo_update_one(collection: str, query, update, bypass_document_validation: bool = False, upsert: bool = False):
     if isinstance(update, dict) and update.get("$set"):
         for hook in hooks[mongo_update_one][collection]:
             update["$set"] = hook(update["$set"])
-    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)])
+    kwargs = {"bypass_document_validation": bypass_document_validation, "upsert": upsert}
+    if not upsert or (isinstance(query, dict) and "_id" in query):
+        kwargs["hint"] = [("_id", 1)]
+    return getattr(results_db, collection).update_one(query, update, **kwargs)
 
 
 @graceful_auto_reconnect

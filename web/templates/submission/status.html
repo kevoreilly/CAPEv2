@@ -2,120 +2,242 @@
 {% block content %}
 
 <div class="row justify-content-center" id="status-container">
-    <div class="col-lg-8" id="status-card"
-         {% if not completed and status != "failed_analysis" and status != "failed_processing" %}
-         hx-get="{% url 'submission_status' task_id %}" 
-         hx-trigger="every 5s" 
-         hx-select="#status-card" 
-         hx-swap="outerHTML"
-         {% endif %}>
-        <div class="card bg-dark shadow-lg border-secondary mb-4">
-            <div class="card-header border-secondary bg-transparent py-3 d-flex justify-content-between align-items-center">
-                <h4 class="mb-0 text-white">
-                    <i class="fas fa-microscope me-2 text-info"></i>Analysis Status: Task #{{task_id}}
-                </h4>
-                {% if completed %}
-                    <span class="badge bg-success px-3 py-2">COMPLETED</span>
-                {% elif status == "distributed" %}
-                    <span class="badge bg-info px-3 py-2">DISTRIBUTED</span>
-                {% else %}
-                    <span class="badge bg-warning text-dark px-3 py-2">IN PROGRESS</span>
-                {% endif %}
-            </div>
-            <div class="card-body p-4 text-center">
-                <div class="mb-4">
-                    <div class="text-white-50 small text-uppercase mb-2">Target</div>
-                    <div class="h5 text-info font-monospace text-break">{{target}}</div>
+    <div class="col-lg-10">
+        <!-- Persistent Auto-Redirect Controls (outside #status-card so HTMX polling preserves state) -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 px-1 gap-2">
+            <span class="text-white-50 small">
+                <i class="fas fa-bolt me-1 text-info"></i>Static triage available immediately while dynamic execution runs
+            </span>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                {% if interactive %}
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="auto-guac-toggle">
+                    <label class="form-check-label text-info small" for="auto-guac-toggle">
+                        Auto-open VM console when ready
+                    </label>
                 </div>
+                {% endif %}
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="auto-redirect-toggle" checked>
+                    <label class="form-check-label text-white-50 small" for="auto-redirect-toggle">
+                        Auto-redirect to full report when ready
+                    </label>
+                </div>
+            </div>
+        </div>
 
-                {% if completed %}
-                    <div class="py-5">
-                        <i class="fas fa-check-circle fa-5x text-success mb-4 animate__animated animate__bounceIn"></i>
-                        <h3>Ready!</h3>
-                        <p class="text-white-50">The analysis has finished and the report is generated.</p>
-                        <a href="{% url 'report' task_id %}" class="btn btn-primary btn-lg mt-3 px-5 shadow">
-                            <i class="fas fa-file-alt me-2"></i>View Full Report
-                        </a>
+        <div id="status-card"
+             {% if not completed and status != "failed_analysis" and status != "failed_processing" %}
+             hx-get="{% url 'submission_status' task_id %}"
+             hx-trigger="every 5s"
+             hx-select="#status-card"
+             hx-swap="outerHTML"
+             {% endif %}>
+            <div class="card bg-dark shadow-lg border-secondary mb-3">
+                <div class="card-header border-secondary bg-transparent py-2 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white">
+                        <i class="fas fa-microscope me-2 text-info"></i>Analysis Status: Task #{{task_id}}
+                        <small class="text-info font-monospace ms-2">{{target}}</small>
+                    </h5>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if completed %}
+                            <span class="badge bg-success px-3 py-2">COMPLETED</span>
+                        {% elif status == "distributed" %}
+                            <span class="badge bg-info px-3 py-2">DISTRIBUTED</span>
+                        {% elif status == "failed_analysis" or status == "failed_processing" %}
+                            <span class="badge bg-danger px-3 py-2">FAILED</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark px-3 py-2">{{status|upper}}</span>
+                        {% endif %}
                     </div>
-                    <script>
-                        setTimeout(function() {
-                            window.location.href = "{% url 'report' task_id %}";
-                        }, 2000);
-                    </script>
-                {% elif status == "failed_analysis" or status == "failed_processing" %}
-                    <div class="py-5">
-                        <i class="fas fa-exclamation-triangle fa-5x text-danger mb-4"></i>
-                        <h3 class="text-danger">Analysis Failed</h3>
-                        <p class="text-white-50">Something went wrong during the analysis or processing phase.</p>
-                        <a href="{% url 'submission' %}" class="btn btn-outline-warning mt-3">
-                            <i class="fas fa-redo me-2"></i>Try Submitting Again
-                        </a>
-                    </div>
-                {% else %}
-                    <div class="py-5">
-                        <!-- Pulse Animation -->
-                        <div class="status-pulse mb-5 mx-auto"></div>
-                        
-                        <h3 class="text-white mb-2">Analyzing...</h3>
-                        <p class="text-white-50 mb-4">Current Stage: <span class="badge bg-info">{{status|upper}}</span></p>
+                </div>
+                <div class="card-body py-3 px-4">
+                    {% if completed %}
+                        <div class="d-flex flex-wrap align-items-center justify-content-between py-1">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle fa-2x text-success me-3"></i>
+                                <div>
+                                    <h5 class="mb-0 text-white">Analysis Complete</h5>
+                                    <small class="text-white-50">The full dynamic and static analysis report is ready.</small>
+                                </div>
+                            </div>
+                            <a href="{% url 'report' task_id %}" class="btn btn-primary px-4 shadow mt-2 mt-sm-0">
+                                <i class="fas fa-file-alt me-2"></i>View Full Report
+                            </a>
+                        </div>
+                        <script>
+                            (function() {
+                                var reportUrl = "{% url 'report' task_id %}";
+                                var toggle = document.getElementById("auto-redirect-toggle");
+                                if (!toggle || toggle.checked) {
+                                    setTimeout(function() {
+                                        if (!toggle || toggle.checked) {
+                                            window.location.href = reportUrl;
+                                        }
+                                    }, 1500);
+                                }
+                                if (toggle && !toggle.dataset.redirectBound) {
+                                    toggle.dataset.redirectBound = "1";
+                                    toggle.addEventListener("change", function() {
+                                        if (toggle.checked) {
+                                            window.location.href = reportUrl;
+                                        }
+                                    });
+                                }
+                            })();
+                        </script>
+                    {% elif status == "failed_analysis" or status == "failed_processing" %}
+                        <div class="d-flex flex-wrap align-items-center justify-content-between py-1">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-exclamation-triangle fa-2x text-danger me-3"></i>
+                                <div>
+                                    <h5 class="mb-0 text-danger">Analysis Failed ({{status}})</h5>
+                                    <small class="text-white-50">Dynamic execution or post-processing encountered an error. Static file details remain available below.</small>
+                                </div>
+                            </div>
+                            <a href="{% url 'submission' %}" class="btn btn-outline-warning btn-sm mt-2 mt-sm-0">
+                                <i class="fas fa-redo me-1"></i>Try Submitting Again
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="row align-items-center">
+                            <div class="col-md-5 d-flex align-items-center mb-3 mb-md-0">
+                                <div class="status-pulse me-3 flex-shrink-0"></div>
+                                <div>
+                                    <div class="text-white fw-bold">Dynamic Analysis in Progress...</div>
+                                    <div class="text-white-50 small d-flex flex-wrap align-items-center gap-2 mt-1">
+                                        <span>Current Stage: <span class="badge bg-info text-dark">{{status|upper}}</span></span>
+                                        {% if queue_position %}
+                                            <span class="badge bg-secondary" id="queue-position-badge"><i class="fas fa-list-ol me-1"></i>Queue #{{queue_position}}</span>
+                                        {% endif %}
+                                        {% if elapsed_time %}
+                                            <span class="text-info" id="elapsed-time-badge"><i class="far fa-clock me-1"></i>{{elapsed_time}}</span>
+                                        {% endif %}
+                                        <span><i class="fas fa-sync fa-spin me-1"></i>Polls every 5s</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-7">
+                                <!-- Progress Steps -->
+                                <div class="row text-center">
+                                    <div class="col-3">
+                                        <div class="rounded-circle bg-success mx-auto mb-1 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;">
+                                            <i class="fas fa-check text-white x-small"></i>
+                                        </div>
+                                        <div class="x-small text-uppercase text-white-50">Submitted</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="rounded-circle {% if status == 'pending' or status == 'distributed' %}bg-info animate-pulse{% elif status == 'running' or status == 'processing' or completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-1 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;">
+                                            {% if status == 'pending' or status == 'distributed' %}<i class="fas fa-clock text-white x-small"></i>{% elif status == 'running' or status == 'processing' or completed %}<i class="fas fa-check text-white x-small"></i>{% endif %}
+                                        </div>
+                                        <div class="x-small text-uppercase text-white-50">{% if status == 'distributed' %}Distributed{% else %}Pending{% endif %}</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="rounded-circle {% if status == 'running' %}bg-info animate-pulse{% elif status == 'processing' or completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-1 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;">
+                                            {% if status == 'running' %}<i class="fas fa-running text-white x-small"></i>{% elif status == 'processing' or completed %}<i class="fas fa-check text-white x-small"></i>{% endif %}
+                                        </div>
+                                        <div class="x-small text-uppercase text-white-50">Running</div>
+                                    </div>
+                                    <div class="col-3">
+                                        <div class="rounded-circle {% if status == 'processing' %}bg-info animate-pulse{% elif completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-1 d-flex align-items-center justify-content-center" style="width: 26px; height: 26px;">
+                                            {% if status == 'processing' %}<i class="fas fa-cogs text-white x-small"></i>{% elif completed %}<i class="fas fa-check text-white x-small"></i>{% endif %}
+                                        </div>
+                                        <div class="x-small text-uppercase text-white-50">{% if status == 'processing' %}Processing{% else %}Reported{% endif %}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
                         {% if session_data %}
-                            <div class="alert alert-primary bg-opacity-10 border-primary text-start mx-auto" style="max-width: 450px;">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-desktop fa-2x me-3 text-info"></i>
-                                    <div>
-                                        <div class="fw-bold">Interactive Session Available</div>
-                                        <small class="text-white-50">You can interact with the VM while it runs.</small>
+                            <div class="alert alert-primary bg-opacity-10 border-primary text-start mt-3 mb-0 py-2">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-desktop fa-lg me-3 text-info"></i>
+                                        <div>
+                                            <div class="fw-bold small text-white">Interactive VM Session Ready</div>
+                                            <small class="text-white-50">The VM is running and ready for human interaction.</small>
+                                        </div>
                                     </div>
-                                    <button class="btn btn-sm btn-info ms-auto" onclick='window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_blank");'>
-                                        Join Session
-                                    </button>
+                                    <div class="d-flex align-items-center gap-2 ms-auto">
+                                        <a href="/guac/{{task_id}}/{{session_data}}/" class="btn btn-sm btn-info">
+                                            <i class="fas fa-play me-1"></i>Open Console
+                                        </a>
+                                        <a href="/guac/{{task_id}}/{{session_data}}/" target="_blank" rel="noopener" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-external-link-alt me-1"></i>New Tab
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <script>
+                                (function() {
+                                    var guacUrl = "/guac/{{task_id}}/{{session_data}}/";
+                                    var storageKey = "cape_guac_opened_{{task_id}}";
+                                    var guacToggle = document.getElementById("auto-guac-toggle");
+                                    if (guacToggle && guacToggle.checked && !sessionStorage.getItem(storageKey)) {
+                                        sessionStorage.setItem(storageKey, "1");
+                                        window.location.href = guacUrl;
+                                    }
+                                    if (guacToggle && !guacToggle.dataset.guacBound) {
+                                        guacToggle.dataset.guacBound = "1";
+                                        guacToggle.addEventListener("change", function() {
+                                            if (guacToggle.checked) {
+                                                sessionStorage.setItem(storageKey, "1");
+                                                window.location.href = guacUrl;
+                                            }
+                                        });
+                                    }
+                                })();
+                            </script>
+                        {% elif interactive and status != "processing" %}
+                            <div class="alert alert-secondary bg-opacity-10 border-secondary text-start mt-3 mb-0 py-2">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-desktop fa-lg me-3 text-info"></i>
+                                        <div>
+                                            <div class="fw-bold small text-white">Interactive VM Session Enabled</div>
+                                            <small class="text-white-50">Waiting for VM startup. Review static analysis below or open the console waiting room.</small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 ms-auto">
+                                        <a href="{% url 'remote_session' task_id %}" class="btn btn-sm btn-outline-info">
+                                            <i class="fas fa-external-link-alt me-1"></i>Start Session #{{task_id}}
+                                        </a>
+                                        <a href="{% url 'remote_session' task_id %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-window-restore me-1"></i>New Tab
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         {% endif %}
-
-                        <div class="mt-5 text-white-50 small">
-                            <i class="fas fa-sync fa-spin me-2"></i>This page updates automatically every 5 seconds.
-                        </div>
-                    </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        <!-- Progress Steps (Visual only for now) -->
-        <div class="row text-center mt-2 opacity-50">
-            <div class="col-3">
-                <div class="rounded-circle bg-success mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
-                    <i class="fas fa-check text-white small"></i>
-                </div>
-                <div class="x-small text-uppercase">Submitted</div>
+        <!-- Static Analysis Preview (sibling of #status-card; preserved across 5s HTMX status polls) -->
+        {% if file %}
+        <div id="static-preview-container"
+             {% if not static_enriched %}
+             hx-get="{% url 'submission_status' task_id %}?static=1"
+             hx-trigger="load"
+             hx-swap="innerHTML"
+             {% endif %}>
+            {% if not static_enriched %}
+            <div class="alert alert-info bg-dark border-info text-info d-flex align-items-center py-2 px-3 mb-3">
+                <i class="fas fa-spinner fa-spin me-2"></i>
+                <span class="small">Running static analysis (YARA, CAPE config extractors, PE/format parsers, DIE/TriD, strings)...</span>
             </div>
-            <div class="col-3">
-                <div class="rounded-circle {% if status == 'pending' or status == 'distributed' %}bg-info animate-pulse{% elif status == 'running' or completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
-                    {% if status == 'pending' or status == 'distributed' %}<i class="fas fa-clock text-white small"></i>{% elif status == 'running' or completed %}<i class="fas fa-check text-white small"></i>{% endif %}
-                </div>
-                <div class="x-small text-uppercase">{% if status == 'distributed' %}Distributed{% else %}Pending{% endif %}</div>
-            </div>
-            <div class="col-3">
-                <div class="rounded-circle {% if status == 'running' %}bg-info animate-pulse{% elif completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
-                    {% if status == 'running' %}<i class="fas fa-running text-white small"></i>{% elif completed %}<i class="fas fa-check text-white small"></i>{% endif %}
-                </div>
-                <div class="x-small text-uppercase">Running</div>
-            </div>
-            <div class="col-3">
-                <div class="rounded-circle {% if completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
-                    {% if completed %}<i class="fas fa-check text-white small"></i>{% endif %}
-                </div>
-                <div class="x-small text-uppercase">Reported</div>
-            </div>
+            {% endif %}
+            {% include "submission/_static_preview.html" %}
         </div>
+        {% endif %}
     </div>
 </div>
 
 <style>
 .status-pulse {
-  width: 80px;
-  height: 80px;
+  width: 36px;
+  height: 36px;
   background-color: #3498db;
   border-radius: 50%;
   position: relative;
@@ -123,9 +245,9 @@
 }
 
 @keyframes pulse {
-  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(52, 152, 219, 0); }
-  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
+  0% { transform: scale(0.85); box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 12px rgba(52, 152, 219, 0); }
+  100% { transform: scale(0.85); box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); }
 }
 
 .animate-pulse { animation: pulse 2s infinite ease-in-out; }

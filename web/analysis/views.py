@@ -3738,7 +3738,8 @@ def remove(request, task_id):
             delete_folder(analyses_path)
         message = "Task(s) deleted."
     if es_as_db:
-        analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+        es_query_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
+        analyses = es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -3764,7 +3765,8 @@ def remove(request, task_id):
                 )
     elif essearch:
         # remove es search data
-        analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+        es_query_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
+        analyses = es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:

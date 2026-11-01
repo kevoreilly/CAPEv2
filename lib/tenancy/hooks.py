@@ -24,7 +24,7 @@ from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
 
-from lib.tenancy.acl import TaskAcl, ensure_acl_schema, ensure_acl_schema_once, resolve_task_scope, set_task_acl
+from lib.tenancy.acl import TaskAcl, ensure_acl_schema_once, resolve_task_scope, set_task_acl
 from lib.tenancy.context import (
     get_current_entitlements,
     get_current_submission_visibility,
@@ -215,6 +215,24 @@ _mongo_filters: List[MongoFilterFn] = []
 _sql_filters: List[SqlFilterFn] = []
 _es_filters: List[EsFilterFn] = []
 _patched_modules: set[str] = set()
+_undo_callbacks: List[Callable[[], None]] = []
+
+
+def _record_attr_patch(target: Any, attr: str, orig_val: Any) -> None:
+    _undo_callbacks.append(lambda t=target, a=attr, v=orig_val: setattr(t, a, v))
+
+
+def _restore_all_wrapped() -> None:
+    while _undo_callbacks:
+        cb = _undo_callbacks.pop()
+        try:
+            cb()
+        except Exception:
+            pass
+    _patched_modules.clear()
+    _mongo_filters.clear()
+    _sql_filters.clear()
+    _es_filters.clear()
 
 
 def default_mongo_analysis_filter(
@@ -377,11 +395,12 @@ def _rebind_from_imports(name: str, replaced: Dict[int, Any]) -> None:
     for mod in list(sys.modules.values()):
         held = getattr(mod, name, None) if mod is not None else None
         if held is not None and id(held) in replaced:
+            _record_attr_patch(mod, name, held)
             setattr(mod, name, replaced[id(held)])
 
 
 def wrap_mongodb_module(mongodb_mod: Any) -> None:
-    """Wrap `dev_utils.mongodb` functions in-place so `'analysis'` queries are auto-scoped."""
+    """Wrap `dev_utils.mongodb` functions in-place so `'analysis'` queries and deletes are auto-scoped."""
     mod_id = getattr(mongodb_mod, "__name__", str(id(mongodb_mod)))
     if mod_id in _patched_modules:
         return
@@ -390,6 +409,7 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
         register_mongo_filter(default_mongo_analysis_filter)
 
     replaced: Dict[int, Any] = {}  # id(original) -> wrapper
+    orig_find_raw = getattr(mongodb_mod, "mongo_find", None)
     for fn_name in ("mongo_find", "mongo_find_one"):
         orig = getattr(mongodb_mod, fn_name, None)
         if orig is None or getattr(orig, "_cape_tenancy_wrapped", False):
@@ -401,6 +421,7 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
             return _orig(collection, scoped_q, *args, **kwargs)
 
         _wrapped._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+        _record_attr_patch(mongodb_mod, fn_name, orig)
         setattr(mongodb_mod, fn_name, _wrapped)
         replaced[id(orig)] = _wrapped
 
@@ -415,24 +436,83 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
             return _orig(collection, pipeline, *args, **kwargs)
 
         _wrapped_agg._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+        _record_attr_patch(mongodb_mod, "mongo_aggregate", orig_agg)
         setattr(mongodb_mod, "mongo_aggregate", _wrapped_agg)
         replaced[id(orig_agg)] = _wrapped_agg
 
+    orig_del = getattr(mongodb_mod, "mongo_delete_data", None)
+    if orig_del is not None and not getattr(orig_del, "_cape_tenancy_wrapped", False):
+
+        @functools.wraps(orig_del)
+        def _wrapped_del(task_ids: Any, *args: Any, _orig=orig_del, **kwargs: Any):
+            mt_on = multitenancy_config().enabled
+            viewer = get_current_viewer()
+            delete_many = getattr(mongodb_mod, "mongo_delete_many", None)
+            if (not mt_on and (viewer is None or viewer.see_all)) or orig_find_raw is None or delete_many is None:
+                return _orig(task_ids, *args, **kwargs)
+
+            tids = [int(task_ids)] if isinstance(task_ids, int) else [int(t) for t in (task_ids or [])]
+            if not tids:
+                return None
+
+            from lib.tenancy.acl import own_report_mongo_query
+
+            clauses = [
+                apply_mongo_filters("analysis", own_report_mongo_query(tid) if mt_on else {"info.id": tid})
+                for tid in tids
+            ]
+            doc_q = clauses[0] if len(clauses) == 1 else {"$or": clauses}
+            proj = {"_id": 1, "info.id": 1, "behavior.processes.calls": 1}
+            try:
+                docs = list(orig_find_raw("analysis", doc_q, proj, no_hooks=True))
+            except TypeError:
+                docs = list(orig_find_raw("analysis", doc_q, proj))
+            if not docs:
+                return None
+
+            call_ids: List[Any] = []
+            doc_ids: List[Any] = []
+            matched_tids: List[int] = []
+            for d in docs:
+                if "_id" in d:
+                    doc_ids.append(d["_id"])
+                tid_val = (d.get("info") or {}).get("id")
+                if isinstance(tid_val, int) and tid_val not in matched_tids:
+                    matched_tids.append(tid_val)
+                for proc in ((d.get("behavior") or {}).get("processes") or []):
+                    if isinstance(proc, dict):
+                        call_ids.extend(proc.get("calls") or [])
+            if call_ids:
+                delete_many("calls", {"_id": {"$in": call_ids}})
+            if doc_ids:
+                delete_many("analysis", {"_id": {"$in": doc_ids}})
+            reg = getattr(mongodb_mod, "hooks", None)
+            if reg is not None and matched_tids:
+                for hook in reg[_wrapped_del]["analysis"]:
+                    hook(matched_tids)
+            return None
+
+        _wrapped_del._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+        _record_attr_patch(mongodb_mod, "mongo_delete_data", orig_del)
+        setattr(mongodb_mod, "mongo_delete_data", _wrapped_del)
+        replaced[id(orig_del)] = _wrapped_del
+
     # Modules imported before this ran (web_utils, via the core hooks) did
     # `from dev_utils.mongodb import mongo_aggregate` and still hold the unscoped originals.
-    for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
+    for name in ("mongo_find", "mongo_find_one", "mongo_aggregate", "mongo_delete_data"):
         _rebind_from_imports(name, replaced)
     # The originals look their result hooks up as hooks[mongo_find], a module global that now
     # names the wrapper: share the registrations (files-collection denormalization) with it.
     registry = getattr(mongodb_mod, "hooks", None)
     if registry is not None:
-        for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
+        for name in ("mongo_find", "mongo_find_one", "mongo_aggregate", "mongo_delete_data"):
             wrapper = getattr(mongodb_mod, name, None)
             for orig_id, new in replaced.items():
                 if new is wrapper:
                     for key in list(registry):
                         if id(key) == orig_id:
                             registry[wrapper] = registry[key]
+                            _undo_callbacks.append(lambda r=registry, w=wrapper: r.pop(w, None))
 
     _patched_modules.add(mod_id)
 
@@ -543,11 +623,16 @@ def wrap_submission_and_web_utils(
                         if sess is not None and (
                             multitenancy_config().enabled or owner_id is not None or sub_vis is not None
                         ):
+                            raw_sess = sess() if callable(sess) else sess
                             bind = getattr(sess, "bind", None) or (
-                                sess.get_bind() if hasattr(sess, "get_bind") else None
+                                raw_sess.get_bind() if hasattr(raw_sess, "get_bind") else None
                             )
-                            if bind is not None:
-                                ensure_acl_schema(bind)
+                            if raw_sess is not None and hasattr(raw_sess, "in_transaction") and raw_sess.in_transaction():
+                                from lib.tenancy.acl import AclBase
+
+                                AclBase.metadata.create_all(raw_sess.connection(), checkfirst=True)
+                            elif bind is not None:
+                                ensure_acl_schema_once(bind)
                             with sess.begin():
                                 set_task_acl(
                                     sess,
@@ -557,10 +642,11 @@ def wrap_submission_and_web_utils(
                                     visibility=vis,
                                 )
                     except Exception:
-                        pass
+                        log.exception("tenancy: failed to record TaskAcl for task %s", task_id)
                 return task_id
 
             _wrapped_task_add._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(tasking_cls, "add", orig_add)
             setattr(tasking_cls, "add", _wrapped_task_add)
 
         orig_reschedule = getattr(tasking_cls, "reschedule", None)
@@ -590,6 +676,7 @@ def wrap_submission_and_web_utils(
                     _copy_denied.reset(denied)
 
             _wrapped_reschedule._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(tasking_cls, "reschedule", orig_reschedule)
             setattr(tasking_cls, "reschedule", _wrapped_reschedule)
 
     if machines_cls is None:
@@ -608,6 +695,7 @@ def wrap_submission_and_web_utils(
                 return default_machine_list_filter(res)
 
             _wrapped_list_machines._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(machines_cls, "list_machines", orig_list_machines)
             setattr(machines_cls, "list_machines", _wrapped_list_machines)
 
     if web_utils_mod is None:
@@ -628,6 +716,7 @@ def wrap_submission_and_web_utils(
                 return sorted(default_tag_list_filter(tags))
 
             _wrapped_load_vms_tags._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(web_utils_mod, "load_vms_tags", orig_tags)
             setattr(web_utils_mod, "load_vms_tags", _wrapped_load_vms_tags)
 
         orig_exits = getattr(web_utils_mod, "load_vms_exits", None)
@@ -638,9 +727,13 @@ def wrap_submission_and_web_utils(
                 exits = _orig(*args, **kwargs)
                 if not exits:
                     return exits
+                if isinstance(exits, dict):
+                    allowed = set(default_route_list_filter(list(exits.keys()), route_type="exit"))
+                    return {k: v for k, v in exits.items() if k in allowed}
                 return sorted(default_route_list_filter(exits, route_type="exit"))
 
             _wrapped_load_vms_exits._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(web_utils_mod, "load_vms_exits", orig_exits)
             setattr(web_utils_mod, "load_vms_exits", _wrapped_load_vms_exits)
 
         # These cache their (now viewer-scoped) aggregation on the function object they look up
@@ -651,6 +744,7 @@ def wrap_submission_and_web_utils(
                 continue
 
             scoped = _ViewerScopedCacheFunction(orig_cached)
+            _record_attr_patch(web_utils_mod, cached_name, orig_cached)
             setattr(web_utils_mod, cached_name, scoped)
             _rebind_from_imports(cached_name, {id(orig_cached): scoped})
 
@@ -667,7 +761,11 @@ def wrap_submission_and_web_utils(
         if web_utils_mod is not None:
             for helper_name in ("load_vms_tags", "load_vms_exits"):
                 if hasattr(submission_views_mod, helper_name) and hasattr(web_utils_mod, helper_name):
-                    setattr(submission_views_mod, helper_name, getattr(web_utils_mod, helper_name))
+                    cur_helper = getattr(submission_views_mod, helper_name)
+                    new_helper = getattr(web_utils_mod, helper_name)
+                    if cur_helper is not new_helper:
+                        _record_attr_patch(submission_views_mod, helper_name, cur_helper)
+                        setattr(submission_views_mod, helper_name, new_helper)
 
         orig_render = getattr(submission_views_mod, "render", None)
         if orig_render is not None and not getattr(orig_render, "_cape_tenancy_wrapped", False):
@@ -687,6 +785,7 @@ def wrap_submission_and_web_utils(
                 return _orig(request, template_name, context, *args, **kwargs)
 
             _wrapped_render._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(submission_views_mod, "render", orig_render)
             setattr(submission_views_mod, "render", _wrapped_render)
 
 
@@ -826,6 +925,8 @@ def register_core_hooks() -> bool:
     except ImportError:
         return False
 
+    if hasattr(core_hooks, "register_cleanup_hook"):
+        core_hooks.register_cleanup_hook(_restore_all_wrapped)
     core_hooks.register_mongo_filter(lambda collection, query: default_mongo_analysis_filter(collection, query))
     core_hooks.register_sql_task_filter(default_sql_task_query_filter)
     core_hooks.register_es_filter(lambda body: default_es_query_filter(body))

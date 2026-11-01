@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import re
+import sys
 import urllib.parse
 import uuid
 from xml.etree import ElementTree as ET
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.conf import settings
 from guacamole.client import GuacamoleClient
 
 from lib.cuckoo.common.config import Config
@@ -88,6 +90,108 @@ def _check_vm_running(vm_label):
     return False
 
 
+def _cleanup_db_session(db):
+    """Return any thread-local scoped_session connection to the pool."""
+    sess = getattr(db, "session", None)
+    if sess is not None and hasattr(sess, "remove"):
+        try:
+            sess.remove()
+        except Exception:
+            pass
+
+
+def _db_delete_guac_session(token):
+    db = Database()
+    try:
+        db.delete_guac_session(token)
+    finally:
+        _cleanup_db_session(db)
+
+
+def _db_is_task_active(task_id):
+    db = Database()
+    try:
+        task = db.view_task(task_id)
+        return bool(task and task.status in ACTIVE_GUAC_TASK_STATUSES)
+    finally:
+        _cleanup_db_session(db)
+
+
+def _db_unlock_machine_if_locked(vm_label):
+    db = Database()
+    try:
+        machine = db.view_machine_by_label(vm_label)
+        if machine and machine.locked:
+            db.unlock_machine(machine)
+            sess = getattr(db, "session", None)
+            if sess is not None and hasattr(sess, "commit"):
+                sess.commit()
+    finally:
+        _cleanup_db_session(db)
+
+
+def _db_resolve_and_authorize_connect(token, user):
+    """Look up the guac session, verify task state, and enforce auth/tenancy in one sync unit."""
+    web_auth = bool(getattr(settings, "WEB_AUTHENTICATION", False)) if settings.configured else False
+    if web_auth and not getattr(user, "is_authenticated", False):
+        return None, "unauthenticated"
+
+    mt_enabled = False
+    if "lib.tenancy" in sys.modules:
+        from lib.tenancy.policy import multitenancy_config
+
+        mt_enabled = bool(multitenancy_config().enabled)
+
+    db = Database()
+    try:
+        session_data = db.get_guac_session(token)
+        if not session_data:
+            return None, "missing_token"
+
+        task_id = int(session_data["task_id"])
+        task = None
+        if task_id > 0:
+            task = db.view_task(task_id)
+            if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                return session_data, "inactive_task"
+
+        if "lib.tenancy" in sys.modules and (mt_enabled or web_auth):
+            from lib.tenancy.acl import ensure_acl_schema_once, resolve_task_scope
+            from lib.tenancy.middleware import default_viewer_resolver
+            from lib.tenancy.policy import PRIVATE, PUBLIC, ResourceScope, can_toggle
+            from lib.tenancy.resources import resolve_user_entitlements
+
+            viewer = default_viewer_resolver(user)
+            if task_id <= 0:
+                if not viewer.see_all:
+                    return session_data, "forbidden"
+            else:
+                entitlements = resolve_user_entitlements(user)
+                if not entitlements.unrestricted and not entitlements.allow_interactive:
+                    return session_data, "forbidden"
+                if not viewer.see_all:
+                    sess = getattr(db, "session", None)
+                    engine = getattr(db, "engine", None)
+                    fallback_uid = getattr(task, "user_id", None) or None
+                    if sess is not None and engine is not None:
+                        ensure_acl_schema_once(engine)
+                        raw_sess = sess() if callable(sess) else sess
+                        scope = resolve_task_scope(raw_sess, task_id, fallback_user_id=fallback_uid)
+                    else:
+                        default_vis = PUBLIC if (not mt_enabled and fallback_uid is None) else PRIVATE
+                        scope = ResourceScope(
+                            owner_id=fallback_uid,
+                            tenant_id=None,
+                            visibility=default_vis,
+                        )
+                    if (mt_enabled or scope.owner_id is not None) and not can_toggle(viewer, scope):
+                        return session_data, "forbidden"
+
+        return dict(session_data), None
+    finally:
+        _cleanup_db_session(db)
+
+
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     subprotocols = ["guacamole"]
 
@@ -111,8 +215,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         if not self.guac_token:
             return
         try:
-            db = Database()
-            await sync_to_async(db.delete_guac_session)(self.guac_token)
+            await sync_to_async(_db_delete_guac_session)(self.guac_token)
             self.guac_token = None
         except Exception as e:
             logger.error("Failed to delete guac session %s: %s", self.guac_token, e)
@@ -152,11 +255,15 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 await self.close()
                 return
 
-            # 2. Look up session in DB
-            db = Database()
-            session_data = await sync_to_async(db.get_guac_session)(token)
+            # 2. Look up session in DB, verify active task, and enforce auth/tenancy
+            user = self.scope.get("user")
+            session_data, rejection = await sync_to_async(_db_resolve_and_authorize_connect)(token, user)
 
-            if not session_data:
+            if rejection == "unauthenticated":
+                logger.warning("WebSocket rejected: unauthenticated user")
+                await self.close()
+                return
+            if rejection == "missing_token" or not session_data:
                 logger.warning("WebSocket rejected: token not found in DB")
                 await self.close()
                 return
@@ -166,18 +273,24 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             self.vm_label = session_data["vm_label"]
             vm_label = self.vm_label
 
+            if rejection == "inactive_task":
+                logger.warning(
+                    "WebSocket rejected: task %s is not active for guac", self.guac_task_id
+                )
+                await self._delete_guac_session()
+                await self.close()
+                return
+            if rejection == "forbidden":
+                logger.warning(
+                    "WebSocket rejected: user not authorized for guac session on task %s",
+                    self.guac_task_id,
+                )
+                self.guac_token = None
+                await self.close()
+                return
+
             vnc_port = None
             if self.guac_task_id > 0:
-                # 3. Verify task can still host an interactive session
-                task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
-                    logger.warning(
-                        "WebSocket rejected: task %s is not active for guac", self.guac_task_id
-                    )
-                    await self._delete_guac_session()
-                    await self.close()
-                    return
-
                 # 4. Look up VNC port server-side from libvirt
                 vnc_port = await sync_to_async(_get_vnc_port)(vm_label)
                 if not vnc_port:
@@ -343,9 +456,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 await asyncio.sleep(TASK_POLL_INTERVAL)
                 if not self.guac_task_id:
                     break
-                db = Database()
-                task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                active = await sync_to_async(_db_is_task_active)(self.guac_task_id)
+                if not active:
                     logger.info(
                         "Task %s no longer running, disconnecting guac session",
                         self.guac_task_id,
@@ -370,11 +482,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
                 if not is_running:
                     logger.info("VM %s is no longer running, unlocking and disconnecting", self.vm_label)
-                    db = Database()
-                    machine = await sync_to_async(db.view_machine_by_label)(self.vm_label)
-                    if machine and machine.locked:
-                        await sync_to_async(db.unlock_machine)(machine)
-                        await sync_to_async(db.session.commit)()
+                    await sync_to_async(_db_unlock_machine_if_locked)(self.vm_label)
                     await self._close_websocket()
                     break
         except asyncio.CancelledError:

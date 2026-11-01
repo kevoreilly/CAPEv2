@@ -4,6 +4,28 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+class _CreateModelIfAbsent(migrations.CreateModel):
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        with schema_editor.connection.cursor() as cursor:
+            tables = set(schema_editor.connection.introspection.table_names(cursor))
+        if model._meta.db_table not in tables:
+            super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
+class _AddFieldIfAbsent(migrations.AddField):
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        column = model._meta.get_field(self.name).column
+        with schema_editor.connection.cursor() as cursor:
+            existing_cols = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, model._meta.db_table)
+            }
+        if column not in existing_cols:
+            super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,7 +33,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
+        _CreateModelIfAbsent(
             name='Tenant',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -23,12 +45,12 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
             ],
         ),
-        migrations.AddField(
+        _AddFieldIfAbsent(
             model_name='userprofile',
             name='is_tenant_admin',
             field=models.BooleanField(default=False),
         ),
-        migrations.AddField(
+        _AddFieldIfAbsent(
             model_name='userprofile',
             name='tenant',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='members', to='users.tenant'),

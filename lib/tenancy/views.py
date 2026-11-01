@@ -68,6 +68,8 @@ def _extract_visibility_param(request: Any) -> Optional[str]:
 
 
 def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[ResourceScope]]:
+    from sqlalchemy.orm import Session
+
     from lib.cuckoo.core.database import Database
 
     db = Database()
@@ -75,12 +77,16 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
     if task is None:
         return None, None
     ensure_acl_schema_once(db.engine)
-    session = db.session
-    scope = resolve_task_scope(session, task_id, fallback_user_id=getattr(task, "user_id", None))
+    session = Session(db.engine, expire_on_commit=False, future=True)
+    try:
+        scope = resolve_task_scope(session, task_id, fallback_user_id=getattr(task, "user_id", None))
+    except Exception:
+        session.close()
+        raise
     return session, scope
 
 
-_MONGO_RETRY_DEADLINE = 12.0  # seconds: a typical replica-set election
+_MONGO_RETRY_DEADLINE = 5.0  # seconds: bounded retry budget while holding row lock
 
 
 def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict) -> Any:
@@ -247,8 +253,62 @@ def tasks_set_visibility(
 
         return _json_response({"error": False, "data": {"task_id": tid, "visibility": vis}}, status=200)
     finally:
-        if session is not None and hasattr(session, "close"):
-            session.close()
+        if session is not None:
+            if hasattr(session, "remove"):
+                session.remove()
+            elif hasattr(session, "close"):
+                session.close()
+
+
+_INTERCEPTED_STORAGE_VIEWS = frozenset(
+    {
+        "file_nl",
+        "filereport",
+        "full_memory_dump_file",
+        "full_memory_dump_strings",
+        "file",
+        "vtupload",
+        "pcapstream",
+        "on_demand",
+    }
+)
+
+_FILEREPORT_FORMATS = {
+    "protobuf": "report.protobuf",
+    "json": "report.json",
+    "html": "report.html",
+    "htmlsummary": "summary-report.html",
+    "pdf": "report.pdf",
+    "maec": "report.maec-4.1.xml",
+    "maec5": "report.maec-5.0.json",
+    "metadata": "report.metadata.xml",
+    "misp": "misp.json",
+    "litereport": "lite.json",
+    "cents": "cents.rules",
+    "parti": "report.parti",
+}
+
+
+def _check_storage_view_login_required(request: Any, view_name: str) -> Optional[Any]:
+    """Enforce the same @conditional_login_required gate as web/analysis/views.py before intercepting."""
+    if view_name == "file_nl":
+        return None
+    try:
+        from django.conf import settings
+
+        if not settings.configured or not bool(getattr(settings, "WEB_AUTHENTICATION", False)):
+            return None
+        if bool(getattr(settings, "ANON_VIEW", False)) and view_name != "file":
+            return None
+        user = getattr(request, "user", None)
+        if getattr(user, "is_authenticated", False):
+            return None
+        from django.contrib.auth.views import redirect_to_login
+
+        full_path = request.get_full_path() if hasattr(request, "get_full_path") else getattr(request, "path", "/")
+        return redirect_to_login(full_path)
+    except Exception:
+        return None
 
 
 def dispatch_object_storage_view(
@@ -267,8 +327,14 @@ def dispatch_object_storage_view(
         return None
 
     view_name = _view_name(view_func)  # DRF's @api_view wrapper is named "view"
-    if not view_name:
+    if not view_name or view_name not in _INTERCEPTED_STORAGE_VIEWS:
         return None
+    if view_name == "file" and not ("category" in view_kwargs or view_args):
+        return None  # apiv2's files/get "file"
+
+    login_redirect = _check_storage_view_login_required(request, view_name)
+    if login_redirect is not None:
+        return login_redirect
 
     from lib.tenancy.storage import views as storage_views
 
@@ -279,18 +345,35 @@ def dispatch_object_storage_view(
         return storage_views.central_file_nl(request, category, task_id, dlfile)
 
     if view_name == "filereport":
+        try:
+            from django.conf import settings
+
+            if settings.configured and not bool(getattr(settings, "ALLOW_DL_REPORTS_TO_ALL", True)):
+                user = getattr(request, "user", None)
+                is_anon = user is None or bool(getattr(user, "is_anonymous", False)) or not bool(
+                    getattr(user, "is_authenticated", True)
+                )
+                prof = getattr(user, "userprofile", None)
+                disallowed_by_profile = prof is not None and hasattr(prof, "reports") and not bool(prof.reports)
+                if is_anon or disallowed_by_profile:
+                    from django.shortcuts import render
+
+                    return render(
+                        request,
+                        "error.html",
+                        {
+                            "error": "You don't have permissions to download reports. Ask admin to enable it for you in user profile."
+                        },
+                    )
+        except Exception:
+            pass
         task_id = view_kwargs.get("task_id") or (view_args[0] if len(view_args) > 0 else None)
         key = view_kwargs.get("category") or view_kwargs.get("key") or (view_args[1] if len(view_args) > 1 else None)
-        formats = {
-            "json": "report.json",
-            "html": "report.html",
-            "htmlsummary": "summary-report.html",
-            "pdf": "report.pdf",
-            "maec": "report.maec-1.1.xml",
-            "metadata": "report.metadata.xml",
-            "litereport": "litereport.json",
-        }
-        fname = formats.get(str(key), "report.json")
+        fname = _FILEREPORT_FORMATS.get(str(key))
+        if not fname:
+            from django.shortcuts import render
+
+            return render(request, "error.html", {"error": "File not found"}, status=404)
         return storage_views.central_filereport(request, task_id, fname)
 
     if view_name == "full_memory_dump_file":
@@ -305,7 +388,7 @@ def dispatch_object_storage_view(
             ("memory.dmp.strings.zip", "memory.dmp.strings"),
         )
 
-    if view_name == "file" and ("category" in view_kwargs or view_args):  # not apiv2's files/get "file"
+    if view_name == "file":
         category = view_kwargs.get("category") or (view_args[0] if len(view_args) > 0 else None)
         task_id = view_kwargs.get("task_id") or (view_args[1] if len(view_args) > 1 else None)
         dlfile = view_kwargs.get("dlfile") or (view_args[2] if len(view_args) > 2 else None)
@@ -317,8 +400,9 @@ def dispatch_object_storage_view(
             CUCKOO_ROOT = ""
 
         if category in zip_categories:
-            if category == "memdumpzip" and dlfile and ANALYSIS_BASE_PATH:
-                dest = os.path.join(ANALYSIS_BASE_PATH, str(task_id), "memory", f"{dlfile}.dmp")
+            if category == "memdumpzip" and dlfile and (CUCKOO_ROOT or ANALYSIS_BASE_PATH):
+                analyses_root = os.path.join(CUCKOO_ROOT, "storage", "analyses") if CUCKOO_ROOT else ANALYSIS_BASE_PATH
+                dest = os.path.join(analyses_root, str(task_id), "memory", f"{dlfile}.dmp")
                 storage_views.central_stage_one(request, task_id, f"memory/{dlfile}.dmp", dest)
             elif category == "staticzip" and dlfile and CUCKOO_ROOT:
                 # Staged under binaries/<dlfile> for every later reader: it must be this task's sample.

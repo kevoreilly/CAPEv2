@@ -618,7 +618,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             platform=task.platform,
             tags=task.tags,
             custom=task.custom,
-            clock=task.clock,
+            clock=task.clock.strftime("%m-%d-%Y %H:%M:%S") if hasattr(task.clock, "strftime") else task.clock,
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
             route=task.route,
@@ -1316,8 +1316,18 @@ class Retriever(threading.Thread):
 
 
 def _task_timeout(timeout, options):
-    """A timeout= option overrides the task's timeout; other "...timeout=" options don't (they zeroed it)."""
-    return options["timeout"] if options.get("timeout") else timeout
+    """A positive timeout= option overrides the task's timeout up to the task's own cap."""
+    base = int(timeout) if timeout else 0
+    raw = options.get("timeout")
+    if raw is None or raw == "":
+        return base
+    try:
+        opt_val = int(raw)
+    except (TypeError, ValueError):
+        return base
+    if opt_val <= 0:
+        return base
+    return min(opt_val, base) if base > 0 else opt_val
 
 
 class StatusThread(threading.Thread):
@@ -1539,6 +1549,12 @@ class StatusThread(threading.Thread):
                     select(Task)
                     .where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                     .order_by(Task.priority.desc(), Task.main_task_id)
+                )
+                node_machines = db.scalars(select(Machine.name).where(Machine.node_id == node.id)).all()
+                stmt = stmt.where(
+                    or_(Task.machine.is_(None), Task.machine == "", Task.machine.in_(node_machines))
+                    if node_machines
+                    else or_(Task.machine.is_(None), Task.machine == "")
                 )
 
                 # 2. Apply the dynamic tag filter.

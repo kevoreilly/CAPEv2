@@ -418,3 +418,49 @@ def test_node_fetch_tasks_timeout():
         mock_get.assert_called_once()
         assert mock_get.call_args.kwargs.get("timeout") == 30
 
+
+def test_node_submit_task_formats_datetime_clock_for_worker_api():
+    import sys
+    from datetime import datetime
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import node_submit_task
+
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_task = MagicMock(
+        id=10,
+        main_task_id=44,
+        category="url",
+        path="http://example.test/",
+        package="",
+        timeout=120,
+        priority=1,
+        options="",
+        machine="",
+        platform="windows",
+        tags="",
+        custom="",
+        clock=datetime(2026, 10, 31, 14, 5, 9),
+        memory=False,
+        enforce_timeout=False,
+        route="none",
+        tlp=None,
+    )
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    mock_resp = MagicMock(status_code=200)
+    mock_resp.json.return_value = {"data": {"task_ids": [88]}}
+
+    with patch("utils.dist.requests.post", return_value=mock_resp) as mock_post:
+        assert node_submit_task(10, 2, 44, db=mock_db) is True
+
+    posted = mock_post.call_args.kwargs["data"]
+    assert posted["clock"] == "10-31-2026 14:05:09"
+

@@ -10,6 +10,19 @@
 from django.db import migrations
 
 
+class _RemoveFieldIfPresent(migrations.RemoveField):
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.model_name)
+        column = model._meta.get_field(self.name).column
+        with schema_editor.connection.cursor() as cursor:
+            existing_cols = {
+                col.name
+                for col in schema_editor.connection.introspection.get_table_description(cursor, model._meta.db_table)
+            }
+        if column in existing_cols:
+            super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -17,7 +30,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(model_name="userprofile", name="is_tenant_admin"),
+        _RemoveFieldIfPresent(model_name="userprofile", name="is_tenant_admin"),
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.RemoveField(model_name="userprofile", name="tenant"),

@@ -100,16 +100,22 @@ def get_calls_index():
 
 
 def delete_analysis_and_related_calls(task_id: str):
-    analyses = elastic_handler.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+    from lib.cuckoo.common.hooks import apply_es_filter, task_report_query
+
+    es_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
+    analyses = elastic_handler.search(index=get_analysis_index(), body=es_body)["hits"]["hits"]
     if analyses:
         log.debug("Deleting analysis data for Task %s", task_id)
-        for analysis in analyses:
-            analysis = analysis["_source"]
-            for process in analysis["behavior"].get("processes", []):
-                for call in process["calls"]:
+        for hit in analyses:
+            analysis = hit["_source"]
+            for process in (analysis.get("behavior") or {}).get("processes", []):
+                for call in process.get("calls", []):
                     elastic_handler.delete_by_query(index=get_calls_index(), body={"query": {"match": {"_id": call}}})
 
-            elastic_handler.delete_by_query(index=get_analysis_index(), body={"query": get_query_by_info_id(task_id)})
+            if "_index" in hit and "_id" in hit:
+                elastic_handler.delete(index=hit["_index"], id=hit["_id"])
+            else:
+                elastic_handler.delete_by_query(index=get_analysis_index(), body=es_body)
         log.debug("Deleted previous ElasticsearchDB data for Task %s", task_id)
 
 

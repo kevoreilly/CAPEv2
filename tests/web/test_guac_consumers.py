@@ -397,3 +397,82 @@ class TestGuacConsumers:
 
         connected, _ = await communicator.connect()
         assert connected is False
+
+    async def test_consumer_rejects_unauthenticated_when_web_auth_enabled(self, guac_consumer_app_factory, monkeypatch):
+        monkeypatch.setattr(consumers.settings, "WEB_AUTHENTICATION", True)
+        guac_consumer_app, _ = guac_consumer_app_factory(
+            fake_db=FakeDatabase(task=SimpleNamespace(id=123, status="running", user_id=5)),
+        )
+
+        anon_comm = _make_communicator(guac_consumer_app, "session_unauth", "123_unauth")
+        connected, _ = await anon_comm.connect()
+        assert connected is False
+
+        auth_comm = _make_communicator(guac_consumer_app, "session_auth", "123_auth")
+        auth_comm.scope["user"] = SimpleNamespace(id=5, is_authenticated=True, is_staff=False, is_superuser=False)
+        connected, subprotocol = await auth_comm.connect()
+        assert connected is True
+        assert subprotocol == "guacamole"
+        await auth_comm.disconnect()
+        await asyncio.wait_for(auth_comm.wait(), timeout=1)
+
+
+def test_guac_settings_includes_db_transaction_middleware():
+    guac_settings = import_module("web.guac_settings")
+    assert "web.middleware.DBTransactionMiddleware" in guac_settings.MIDDLEWARE
+
+
+def test_consumer_tenancy_authorization_and_session_cleanup(monkeypatch):
+    import lib.tenancy  # noqa: F401
+    from lib.tenancy.policy import MultitenancyConfig, Viewer
+    from lib.tenancy.resources import ResourceEntitlements
+
+    removed = []
+    fake_scoped = SimpleNamespace(remove=lambda: removed.append(True))
+    fake_db = FakeDatabase(
+        session_data={"task_id": 123, "vm_label": "win10_1", "guest_ip": "192.168.56.10"},
+        task=SimpleNamespace(id=123, status="running", user_id=10),
+    )
+    fake_db.session = fake_scoped
+    monkeypatch.setattr(consumers, "Database", lambda: fake_db)
+    monkeypatch.setattr(
+        "lib.tenancy.policy.multitenancy_config",
+        lambda: MultitenancyConfig(
+            enabled=True,
+            mode="shared",
+            default_visibility="private",
+            local_admins_manage_all_tenants=True,
+        ),
+    )
+    monkeypatch.setattr(
+        "lib.tenancy.middleware.default_viewer_resolver",
+        lambda u: Viewer(user_id=u.id, tenant_id=1, is_authenticated=True, is_local_admin=bool(u.is_superuser)),
+    )
+
+    non_owner = SimpleNamespace(id=99, is_authenticated=True, is_staff=False, is_superuser=False)
+    owner = SimpleNamespace(id=10, is_authenticated=True, is_staff=False, is_superuser=False)
+    admin = SimpleNamespace(id=1, is_authenticated=True, is_staff=True, is_superuser=True)
+
+    # Interactive disabled -> denied even for task owner
+    monkeypatch.setattr(
+        "lib.tenancy.resources.resolve_user_entitlements",
+        lambda u: ResourceEntitlements(unrestricted=False, allow_interactive=False),
+    )
+    assert consumers._db_resolve_and_authorize_connect(TEST_TOKEN, owner)[1] == "forbidden"
+    assert len(removed) == 1
+
+    # Interactive enabled -> non-owner denied, owner allowed
+    monkeypatch.setattr(
+        "lib.tenancy.resources.resolve_user_entitlements",
+        lambda u: ResourceEntitlements(unrestricted=False, allow_interactive=True),
+    )
+    assert consumers._db_resolve_and_authorize_connect(TEST_TOKEN, non_owner)[1] == "forbidden"
+    session_data, err = consumers._db_resolve_and_authorize_connect(TEST_TOKEN, owner)
+    assert err is None and session_data["task_id"] == 123
+
+    # Direct VNC (task_id=0) requires see_all
+    fake_db._session_data["task_id"] = 0
+    assert consumers._db_resolve_and_authorize_connect(TEST_TOKEN, owner)[1] == "forbidden"
+    _, admin_err = consumers._db_resolve_and_authorize_connect(TEST_TOKEN, admin)
+    assert admin_err is None
+    assert len(removed) == 5

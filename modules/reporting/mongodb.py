@@ -4,6 +4,7 @@
 
 import gc
 import logging
+import sys
 from contextlib import suppress
 from lib.cuckoo.common.iocs import dump_iocs
 from lib.cuckoo.common.abstracts import Report
@@ -14,17 +15,63 @@ from lib.cuckoo.common.config import Config
 try:
     from pymongo.errors import InvalidDocument, OperationFailure
 
-    from dev_utils.mongodb import mongo_collection_names, mongo_delete_data, mongo_find_one, mongo_insert_one, mongo_update_one
+    from dev_utils.mongodb import (
+        mongo_collection_names,
+        mongo_create_index,
+        mongo_delete_data,
+        mongo_find_one,
+        mongo_insert_one,
+        mongo_update_one,
+    )
 
     HAVE_MONGO = True
 except ImportError:
     HAVE_MONGO = False
+    mongo_create_index = None
 
 MONGOSIZELIMIT = 0x1000000
 MEGABYTE = 0x100000
 
 log = logging.getLogger(__name__)
 reporting_conf = Config("reporting")
+_tenancy_indexes_ensured = False
+
+
+def _ensure_tenancy_indexes() -> None:
+    global _tenancy_indexes_ensured
+    if _tenancy_indexes_ensured or mongo_create_index is None or "lib.tenancy" not in sys.modules:
+        return
+    try:
+        from lib.tenancy.policy import multitenancy_config
+
+        if not multitenancy_config().enabled:
+            return
+        mongo_create_index(
+            "analysis",
+            [("info.visibility", 1), ("info.tenant_id", 1), ("info.user_id", 1)],
+            background=True,
+            name="ix_analysis_tenancy_scope",
+        )
+        mongo_create_index(
+            "analysis",
+            [("info.job_id", 1)],
+            background=True,
+            name="ix_analysis_job_id",
+        )
+        _tenancy_indexes_ensured = True
+    except Exception as exc:
+        log.debug("Could not create tenancy MongoDB indexes: %s", exc)
+
+
+def _resync_local_acl_stamp(report: dict, main_task_id) -> None:
+    if main_task_id or "lib.tenancy" not in sys.modules:
+        return
+    try:
+        from lib.tenancy.hooks import _resync_retrieved_report
+
+        _resync_retrieved_report(int(report["info"]["id"]))
+    except Exception as exc:
+        log.warning("Could not resync local ACL stamp for Task %s: %s", (report.get("info") or {}).get("id"), exc)
 
 
 class MongoDB(Report):
@@ -151,9 +198,12 @@ class MongoDB(Report):
         report["info"].update((self.task or {}).get("_acl_override") or {})
 
         # Delete old data just before inserting new one to avoid "missing report" window
-
-        # or data loss if insertion fails during preparation (e.g. OOM)
-        ids_to_delete = {local_task_id, int(report["info"]["id"])}
+        # or data loss if insertion fails during preparation (e.g. OOM).
+        # When main_task_id renumbered info.id on a worker, never include worker-local local_task_id
+        # (which collides with an unrelated central task sharing that number in shared MongoDB).
+        _ensure_tenancy_indexes()
+        report_id = int(report["info"]["id"])
+        ids_to_delete = [report_id] if (main_task_id and report_id != local_task_id) else sorted({local_task_id, report_id})
         log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
         mongo_delete_data(list(ids_to_delete))
 
@@ -194,6 +244,7 @@ class MongoDB(Report):
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)
+                _resync_local_acl_stamp(report, main_task_id)
                 return
             parent_key, psize = self.debug_dict_size(report)[0]
             log.warning("Largest parent key: %s (%d MB)", parent_key, int(psize) // MEGABYTE)
@@ -242,3 +293,6 @@ class MongoDB(Report):
                     log.error("Failed to insert report into MongoDB even after attempting to fix large documents for Task %s", report["info"]["id"])
         except Exception as e:
             log.exception("Failed to store report in MongoDB for Task %s: %s", report["info"]["id"], e)
+            return
+
+        _resync_local_acl_stamp(report, main_task_id)

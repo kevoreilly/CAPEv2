@@ -56,17 +56,20 @@ _BODY_LIST_ONLY_VIEWS = ("tag_tasks",)
 _MAX_TASK_ID_RANGE = 1000
 # Deployment-wide views a tenant-scoped viewer must not reach: statistics aggregates every
 # tenant's tasks with raw SQL, yara_uploader writes rules every tenant's analyses (and guests) use.
-_ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader")
-# Views that only read on GET but change the task on POST (tasks/status: status=finish stops it).
-_MANAGE_ON_POST_VIEW_NAMES = ("tasks_status",)
+_ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader", "ban_user", "ban_all_user_tasks")
+_ANON_NOT_VIEWABLE_VIEWS = ("file", "remove", "pending", "filtered_chunk", "search_behavior", "statistics_data")
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+# Views that only read on GET but change or control the task on POST (tasks/status: status=finish, tasks_file_stream).
+_MANAGE_ON_POST_VIEW_NAMES = ("tasks_status", "tasks_file_stream")
 # Route kwargs joined onto a task directory as a path: a separator walks out of it.
-_PATH_KWARGS = ("filename",)
+_PATH_KWARGS = ("filename", "dlfile")
 # apiv2 views that follow a recovered task's custom "Recovery_<id>" to that copy (validate_task,
 # tasks_view); the others act on the task named in the route.
 _RECOVERY_FOLLOWING_VIEW_NAMES = (
-    "tasks_view", "tasks_report", "tasks_iocs", "tasks_screenshot", "tasks_pcap", "tasks_evtx", "tasks_dropped",
-    "tasks_selfextracted", "tasks_surifile", "tasks_mitmdump", "tasks_payloadfiles", "tasks_procdumpfiles",
-    "tasks_procmemory", "tasks_fullmemory", "tasks_config", "tasks_delete", "file",
+    "tasks_view", "tasks_report", "tasks_iocs", "tasks_screenshot", "tasks_pcap", "tasks_tlspcap",
+    "tasks_pcap_variant", "tasks_evtx", "tasks_dropped", "tasks_selfextracted", "tasks_surifile",
+    "tasks_mitmdump", "tasks_keys", "tasks_etw", "tasks_bulkzip", "tasks_payloadfiles",
+    "tasks_procdumpfiles", "tasks_procmemory", "tasks_fullmemory", "tasks_config", "tasks_delete", "file",
 )
 _SUBMISSION_VIEW_NAMES = (
     "tasks_create_file",
@@ -83,6 +86,17 @@ def _web_authentication_enabled() -> bool:
 
         if settings.configured:
             return bool(getattr(settings, "WEB_AUTHENTICATION", False))
+    except Exception:
+        pass
+    return False
+
+
+def _anon_view_enabled() -> bool:
+    try:
+        from django.conf import settings
+
+        if settings.configured:
+            return bool(getattr(settings, "ANON_VIEW", False))
     except Exception:
         pass
     return False
@@ -291,9 +305,16 @@ def _is_vmless_submission(request: Any, view_func: Callable[..., Any], params: D
 
 
 def _is_console_view(request: Any, view_func: Callable[..., Any]) -> bool:
-    """Views that open (or hand out the session for) a live guac console on a task's VM."""
+    """Views that open (or hand out the session for) a live guac console or live guest retrieval on a task's VM."""
     path = _route_path(request).lower()
-    return "/guac/" in path or "remote_session" in path or "remote_session" in _view_name(view_func).lower()
+    vname = _view_name(view_func).lower()
+    if "/guac/" in path or "remote_session" in path or "remote_session" in vname:
+        return True
+    if vname == "tasks_file_stream" and str(getattr(request, "method", "") or "").upper() == "POST":
+        params = _extract_submission_params(request)
+        if not str(params.get("is_local") or "").strip():
+            return True
+    return False
 
 
 def _is_direct_vnc_view(view_func: Callable[..., Any]) -> bool:
@@ -368,6 +389,10 @@ def _drf_media_match(parser_type: str, content_type: str) -> bool:
 
 
 def _apply_normalized_submission_params(request: Any, normalized: Dict[str, Any]) -> None:
+    try:
+        request._tenancy_normalized_params = {k: normalized[k] for k in ("route", "tags", "timeout") if k in normalized}
+    except Exception:
+        pass
     for attr in ("POST", "data"):
         store = getattr(request, attr, None)
         if store is None:
@@ -521,10 +546,14 @@ class TenancyMiddleware:
         ):
             return self.forbidden_response_factory(request, "Interactive sessions are not permitted for your group")
 
+        view_name = _view_name(view_func)
+        anon_reaches_admin_view = _route_path(request).startswith(("/apiv2/", "/api/")) or (
+            _anon_view_enabled() and view_name not in _ANON_NOT_VIEWABLE_VIEWS
+        )
         if (
             not viewer.see_all
-            and viewer.is_authenticated  # anonymous: the view's own login check redirects
-            and _view_name(view_func) in _ADMIN_ONLY_VIEW_NAMES
+            and (viewer.is_authenticated or anon_reaches_admin_view)
+            and view_name in _ADMIN_ONLY_VIEW_NAMES
             and (multitenancy_config().enabled or _web_authentication_enabled())  # per-user PRIVATE tasks too
         ):
             return self.forbidden_response_factory(request, "Restricted to administrators")
@@ -534,7 +563,7 @@ class TenancyMiddleware:
             # path_info: routes resolve without the SCRIPT_NAME prefix a sub-path mount adds to path.
             # The resolver strips leading slashes, so //audit/ routes there too.
             and _route_path(request).lstrip("/").split("/", 1)[0] == "audit"
-            and multitenancy_config().enabled
+            and (multitenancy_config().enabled or _web_authentication_enabled())
         ):
             # Audit test sessions are deployment-wide: reloading, queueing and deleting them is box admin work.
             return self.forbidden_response_factory(request, "Restricted to administrators")
@@ -581,7 +610,9 @@ class TenancyMiddleware:
                     # The web host itself fetches a dlnexec URL, outside any VM route.
                     return self.forbidden_response_factory(request, "Download & execute needs internet access, which your group does not have.")
                 _apply_normalized_submission_params(request, normalized)
-            if not viewer.see_all and not self._posted_hashes_visible(viewer, raw_params):
+            if not viewer.see_all and not self._posted_hashes_visible(
+                viewer, raw_params, has_task_id=bool(_task_ids_from_kwargs(view_kwargs))
+            ):
                 return self.deny_response_factory(request, "Sample not found in database")
 
         if not viewer.see_all:
@@ -633,14 +664,30 @@ class TenancyMiddleware:
 
         return dispatch_object_storage_view(request, view_func, view_args, view_kwargs)
 
-    def _posted_hashes_visible(self, viewer: ViewerContext, params: Dict[str, Any]) -> bool:
+    def _posted_hashes_visible(
+        self, viewer: ViewerContext, params: Dict[str, Any], *, has_task_id: bool = False
+    ) -> bool:
         """Hashes a submission names in its body: resubmit (`hash`) and download services (`hashes`).
 
         Both read storage/binaries/<hash> first, so a stored sample the viewer cannot read would be
         re-analysed as theirs. A download-service hash that isn't stored is fetched from outside.
         """
+        raw_resubmit = str(params.get("hash") or "")
+        if raw_resubmit.strip():
+            for part in raw_resubmit.split(","):
+                item = part.strip()
+                if not item:
+                    continue
+                if "/" in item or "\\" in item or ".." in item or "\x00" in item:
+                    return False
+                if not has_task_id and not (
+                    len(item) in (32, 40, 64, 128) and all(c in _HEX_DIGITS for c in item)
+                ):
+                    return False
         for field, must_exist in (("hash", True), ("hashes", False)):
             for value in _posted_hash_tokens(str(params.get(field) or "")):
+                if not all(c in _HEX_DIGITS for c in value):
+                    continue
                 hash_field = _HASH_FIELD_BY_LEN.get(len(value)) or ("sha512" if len(value) == 128 else None)
                 if not hash_field:
                     continue  # not a hash: the view rejects it
@@ -758,22 +805,36 @@ def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
     field = _BODY_TASK_ID_FIELDS.get(view_name)
     if not field:
         return []
+
+    def _expand(raw_val: Any) -> list:
+        if isinstance(raw_val, (list, tuple)):
+            return [str(part).strip() for part in raw_val if str(part).strip()]
+        return [part.strip() for part in str(raw_val).split(",") if part.strip()]
+
+    collected: list = []
     post = getattr(request, "POST", None)
-    raw = post.get(field, "") if post is not None and hasattr(post, "get") else ""
-    if not raw:
-        try:  # hunt/tag/ posts JSON: {"task_ids": [...], "tag": ...}
-            body = getattr(request, "body", b"")
-        except Exception:  # the stream was already consumed (multipart read by an earlier middleware)
-            return ["<unreadable body>"]
+    post_raw = post.get(field, "") if post is not None and hasattr(post, "get") else ""
+    if post_raw:
+        collected.extend(_expand(post_raw))
+
+    try:  # hunt/tag/ and DRF views may also read JSON from request.body even when POST is populated
+        body = getattr(request, "body", b"")
+    except Exception:  # the stream was already consumed (multipart read by an earlier middleware)
+        return collected if collected else ["<unreadable body>"]
+    if body:
         try:
-            raw = json.loads(body or b"{}").get(field, "")
+            parsed = json.loads(body)
         except (ValueError, AttributeError, TypeError):
-            return []  # malformed: the view itself rejects it
-        if raw and view_name in _BODY_LIST_ONLY_VIEWS and not isinstance(raw, list):
-            return ["<not a list>"]  # "12" would mean tasks 1 and 2
-    if isinstance(raw, (list, tuple)):
-        return [str(part).strip() for part in raw if str(part).strip()]
-    return [part.strip() for part in str(raw).split(",") if part.strip()]
+            parsed = None
+        if isinstance(parsed, dict) and field in parsed:
+            json_raw = parsed.get(field, "")
+            if json_raw and view_name in _BODY_LIST_ONLY_VIEWS and not isinstance(json_raw, list):
+                return ["<not a list>"]  # "12" would mean tasks 1 and 2
+            if json_raw:
+                for item in _expand(json_raw):
+                    if item not in collected:
+                        collected.append(item)
+    return collected
 
 
 def _sample_filter_from_kwargs(view_kwargs: Dict[str, Any], include_typed: bool = True) -> Dict[str, Any]:
@@ -802,17 +863,23 @@ def default_task_scope_resolver(task_id: int) -> Optional[ResourceScope]:
     """Production task resolver: the task's `TaskAcl` scope, or None when the task does not exist."""
     from lib.tenancy.views import _default_session_and_task_scope
 
-    return _default_session_and_task_scope(task_id)[1]
+    session, scope = _default_session_and_task_scope(task_id)
+    if session is not None and hasattr(session, "close"):
+        session.close()
+    return scope
 
 
 def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str, Any]) -> bool:
     """A sample is visible when the viewer can read at least one task that analysed it."""
-    from sqlalchemy import and_, select
+    if viewer.see_all:
+        return True
+    from sqlalchemy import and_, or_, select
 
     from lib.cuckoo.core.data.samples import Sample
     from lib.cuckoo.core.data.task import Task
     from lib.cuckoo.core.database import Database
-    from lib.tenancy.acl import ensure_acl_schema_once, resolve_task_scope
+    from lib.tenancy.acl import TaskAcl, ensure_acl_schema_once
+    from lib.tenancy.hooks import default_sql_task_acl_clause
 
     conds = []
     for key, value in sample_filter.items():
@@ -825,12 +892,26 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
             conds.append(getattr(Sample, key) == str(value).lower())
     if not conds:
         return False
+
+    if multitenancy_config().enabled:
+        vis_clause = default_sql_task_acl_clause(Task.id, Task.user_id, viewer)
+    else:
+        ownerless_acl = (TaskAcl.task_id.is_not(None)) & (TaskAcl.user_id.is_(None))
+        ownerless_task = (TaskAcl.task_id.is_(None)) & ((Task.user_id.is_(None)) | (Task.user_id == 0))
+        arms = [TaskAcl.visibility == PUBLIC, ownerless_acl, ownerless_task]
+        base_clause = default_sql_task_acl_clause(Task.id, Task.user_id, viewer)
+        if base_clause is not None:
+            arms.append(base_clause)
+        vis_clause = or_(*arms)
+
     db = Database()
     ensure_acl_schema_once(db.engine)
-    session = db.session
-    rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds)))
-    # Stops at the first readable task; most lookups are by the sample's own submitter.
-    return any(can_read(viewer, resolve_task_scope(session, tid, fallback_user_id=uid)) for tid, uid in rows)
+    stmt = select(Task.id).join(Sample, Task.sample_id == Sample.id).outerjoin(TaskAcl, TaskAcl.task_id == Task.id)
+    if vis_clause is not None:
+        conds.append(vis_clause)
+    stmt = stmt.where(and_(*conds)).limit(1)
+    with db.session.begin():
+        return db.session.scalar(stmt) is not None
 
 
 def _posted_hash_tokens(text: str) -> set:

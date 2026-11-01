@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, select
 from sqlalchemy.orm import Session
 
 from lib.tenancy.acl import TaskAcl, own_report_job_ids
@@ -110,6 +110,7 @@ def plan_reconcile_stamps(
     *,
     chunk_size: int = 500,
     fallback_visibility: str = PRIVATE,
+    preserve_public_without_acl: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
     skipped: Optional[List[Any]] = None,
 ) -> Iterable[List[Tuple[Any, Dict[str, Any]]]]:
@@ -124,7 +125,8 @@ def plan_reconcile_stamps(
     `ui-<info.id>` or `local-<info.id>`. Any other doc (a broker job's) is left alone and its key
     appended to `skipped`. A matched doc without an ACL row is
     stamped `fallback_visibility` with no tenant, owned (as `resolve_task_scope` resolves it) by
-    its task's `tasks.user_id`.
+    its task's `tasks.user_id` (unless `preserve_public_without_acl` is True and the doc already
+    carries `visibility='public'` with `tenant_id=None`).
     """
     if fallback_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid fallback_visibility: {fallback_visibility!r}")
@@ -160,6 +162,8 @@ def plan_reconcile_stamps(
             else:
                 stamp = dict(fallback)
                 stamp["user_id"] = owners.get(tid) or None  # tasks.user_id 0 is add()'s "no owner"
+                if preserve_public_without_acl and doc.get("visibility") == PUBLIC and doc.get("tenant_id") is None:
+                    stamp["visibility"] = PUBLIC
             if any(doc.get(field) != stamp[field] for field in _STAMP_FIELDS):
                 ops.append((doc["key"], stamp))
         return ops
@@ -203,6 +207,7 @@ def reconcile_mongo_stamps(
     collection: str = "analysis",
     chunk_size: int = 500,
     dry_run: bool = False,
+    preserve_public_without_acl: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
     skipped: Optional[List[Any]] = None,
 ) -> int:
@@ -211,7 +216,12 @@ def reconcile_mongo_stamps(
     docs = (_doc_from_info(d["_id"], d.get("info")) for d in raw)
     changed = 0
     for ops in plan_reconcile_stamps(
-        session, docs, chunk_size=chunk_size, task_owners=task_owners, skipped=skipped
+        session,
+        docs,
+        chunk_size=chunk_size,
+        preserve_public_without_acl=preserve_public_without_acl,
+        task_owners=task_owners,
+        skipped=skipped,
     ):
         changed += len(ops)
         if not dry_run:
@@ -226,9 +236,11 @@ def reconcile_es_stamps(
     session: Session,
     *,
     scan: Callable[[], Iterable[Dict[str, Any]]],
-    update: Callable[[str, str, Dict[str, Any]], Any],
+    update: Optional[Callable[[str, str, Dict[str, Any]], Any]] = None,
+    bulk_update: Optional[Callable[[List[Tuple[Tuple[str, str], Dict[str, Any]]]], Any]] = None,
     chunk_size: int = 500,
     dry_run: bool = False,
+    preserve_public_without_acl: bool = False,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
     skipped: Optional[List[Any]] = None,
 ) -> int:
@@ -236,12 +248,20 @@ def reconcile_es_stamps(
     docs = (_doc_from_info((h["_index"], h["_id"]), (h.get("_source") or {}).get("info")) for h in scan())
     changed = 0
     for ops in plan_reconcile_stamps(
-        session, docs, chunk_size=chunk_size, task_owners=task_owners, skipped=skipped
+        session,
+        docs,
+        chunk_size=chunk_size,
+        preserve_public_without_acl=preserve_public_without_acl,
+        task_owners=task_owners,
+        skipped=skipped,
     ):
         changed += len(ops)
         if not dry_run:
-            for (index, doc_id), stamp in ops:
-                update(index, doc_id, stamp)
+            if bulk_update is not None:
+                bulk_update(ops)
+            elif update is not None:
+                for (index, doc_id), stamp in ops:
+                    update(index, doc_id, stamp)
     return changed
 
 
@@ -273,13 +293,16 @@ def runs_dist_tasks(session: Session) -> Optional[int]:
     from lib.cuckoo.core.data.task import Task
     from lib.tenancy.storage.artifact_storage import job_id_from_custom
 
-    for task_id, custom in session.execute(select(Task.id, Task.custom).where(Task.custom.like("%job_id=ui-%"))):
+    for tid, custom in session.execute(select(Task.id, Task.custom).where(Task.custom.like("%job_id=ui-%"))):
         if str(job_id_from_custom(custom) or "").startswith("ui-"):
-            return task_id
-    rows = session.execute(select(Task.id, Task.attributes).where(Task.attributes.is_not(None))).yield_per(1000)
-    for task_id, attributes in rows:
+            return tid
+    attr_stmt = select(Task.id, Task.attributes).where(
+        Task.attributes.is_not(None),
+        cast(Task.attributes, String).like('%"main_task_id"%'),
+    )
+    for tid, attributes in session.execute(attr_stmt).yield_per(1000):
         if isinstance(attributes, dict) and attributes.get("main_task_id"):
-            return task_id
+            return tid
     return None
 
 
@@ -299,6 +322,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="count docs that would change, write nothing")
     parser.add_argument(
         "--task", type=int, help="only re-apply this task's current task_acl to its report (e.g. after a worker reprocess)"
+    )
+    parser.add_argument(
+        "--preserve-public",
+        action="store_true",
+        help="preserve visibility='public' on tenantless legacy docs that have no task_acl row",
     )
     parser.add_argument(
         "--force", action="store_true", help="run although this node looks like a worker (only on the main/central server)"
@@ -351,11 +379,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 find=_find,
                 bulk_update=_bulk,
                 dry_run=args.dry_run,
+                preserve_public_without_acl=args.preserve_public,
                 skipped=skipped,
             )
             _report("mongodb", n, skipped)
         if reporting.elasticsearchdb.enabled:
-            from elasticsearch.helpers import scan
+            from elasticsearch.helpers import bulk, scan
 
             from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
 
@@ -364,16 +393,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     elastic_handler, index=get_analysis_index(), query={"query": {"match_all": {}}}, _source=_INFO_PROJECTION
                 )
 
-            def _update(index: str, doc_id: str, stamp: Dict[str, Any]) -> Any:
-                # body=: CAPE's client is elasticsearch-py 7.x (see dev_utils.elasticsearchdb).
-                return elastic_handler.update(index=index, id=doc_id, body={"doc": {"info": stamp}})
+            def _es_bulk(ops: List[Tuple[Tuple[str, str], Dict[str, Any]]]) -> Any:
+                actions = [
+                    {"_op_type": "update", "_index": index, "_id": doc_id, "doc": {"info": stamp}}
+                    for (index, doc_id), stamp in ops
+                ]
+                return bulk(elastic_handler, actions, raise_on_error=False)
 
             skipped = []
             n = reconcile_es_stamps(
                 session,
                 scan=_scan,
-                update=_update,
+                bulk_update=_es_bulk,
                 dry_run=args.dry_run,
+                preserve_public_without_acl=args.preserve_public,
                 skipped=skipped,
             )
             _report("elasticsearch", n, skipped)

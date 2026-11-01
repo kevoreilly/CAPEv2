@@ -2043,3 +2043,91 @@ def test_reconcile_cli_can_resync_one_task(monkeypatch):
     monkeypatch.setattr(backfill, "runs_dist_tasks", lambda session: 9)
     assert main(["--task", "42"]) == 2 and resynced == [42]
     assert main(["--task", "42", "--force"]) == 0 and resynced == [42, 42]
+
+
+def test_toggle_visibility_cas_converts_concurrent_insert_integrity_error_to_conflict(monkeypatch):
+    from sqlalchemy.exc import IntegrityError
+
+    from lib.tenancy.acl import VisibilityConflictError
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    with Session(engine) as session:
+        orig_flush = session.flush
+        monkeypatch.setattr(
+            session,
+            "flush",
+            lambda *a, **k: (
+                (_ for _ in ()).throw(IntegrityError("INSERT INTO task_acl", {}, Exception("UNIQUE constraint failed")))
+                if session.new
+                else orig_flush(*a, **k)
+            ),
+        )
+        with pytest.raises(VisibilityConflictError):
+            toggle_task_visibility_cas(session, 999, PUBLIC, owner_id=7)
+
+
+def test_plan_reconcile_stamps_preserve_public_without_acl():
+    from lib.tenancy.backfill import plan_reconcile_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    docs = [
+        {"key": "pub_ok", "id": 1, "job_id": None, "user_id": 5, "tenant_id": None, "visibility": "public", "visibility_seq": 1},
+        {"key": "legacy_tenant", "id": 2, "job_id": None, "user_id": 5, "tenant_id": 3, "visibility": "public", "visibility_seq": 1},
+        {"key": "unstamped", "id": 3, "job_id": None, "user_id": None, "tenant_id": None, "visibility": None, "visibility_seq": None},
+    ]
+    with Session(engine) as session:
+        batches = list(
+            plan_reconcile_stamps(
+                session,
+                docs,
+                preserve_public_without_acl=True,
+                task_owners=lambda ids: {1: 5, 2: 5, 3: 8},
+            )
+        )
+    ops = dict(batches[0])
+    assert "pub_ok" not in ops  # already public, tenant_id=None, user_id=5, seq=1
+    assert ops["legacy_tenant"]["visibility"] == PRIVATE and ops["legacy_tenant"]["tenant_id"] is None
+    assert ops["unstamped"]["visibility"] == PRIVATE and ops["unstamped"]["user_id"] == 8
+
+
+def test_reconcile_es_stamps_supports_bulk_update():
+    from lib.tenancy.backfill import reconcile_es_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    hits = [{"_index": "cape", "_id": "a", "_source": {"info": {"id": 10}}}]
+    bulked = []
+    with Session(engine) as session:
+        set_task_acl(session, 10, user_id=4, tenant_id=2, visibility="tenant")
+        session.commit()
+        changed = reconcile_es_stamps(
+            session,
+            scan=lambda: hits,
+            bulk_update=lambda ops: bulked.extend(ops),
+        )
+    assert changed == 1
+    assert bulked == [(("cape", "a"), {"user_id": 4, "tenant_id": 2, "visibility": "tenant", "visibility_seq": 1})]
+
+
+def test_runs_dist_tasks_skips_empty_attributes_rows():
+    from lib.cuckoo.core.data.db_common import Base
+    from lib.cuckoo.core.data.task import Task
+    from lib.tenancy.backfill import runs_dist_tasks
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        local = Task("a")
+        local.category = "file"
+        session.add(local)
+        session.commit()
+        assert runs_dist_tasks(session) is None
+
+        remote = Task("b")
+        remote.category = "file"
+        remote.attributes = {"main_task_id": 500}
+        session.add(remote)
+        session.commit()
+        assert runs_dist_tasks(session) == remote.id

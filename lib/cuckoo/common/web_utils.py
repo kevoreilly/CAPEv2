@@ -1168,6 +1168,18 @@ def validate_task(tid, status=TASK_REPORTED):
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
+            if not task:
+                return {"error": True, "error_value": "Task does not exist"}
+            if tid != task_id and "lib.tenancy" in sys.modules:
+                from lib.tenancy.context import get_current_viewer
+                from lib.tenancy.middleware import default_task_scope_resolver
+                from lib.tenancy.policy import can_read
+
+                viewer = get_current_viewer()
+                if viewer is not None and not viewer.see_all:
+                    scope = default_task_scope_resolver(task_id)
+                    if scope is None or not can_read(viewer, scope):
+                        return {"error": True, "error_value": "Task does not exist"}
 
     if status and status not in ALL_DB_STATUSES:
         return {"error": True, "error_value": "Specified wrong task status"}
@@ -1473,6 +1485,17 @@ def perform_search(
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
             query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            # The joined docs are analysis documents: scope and project inside $lookup so mongod
+            # drops non-visible records and heavy fields before materializing joined documents.
+            analysis_scope = apply_mongo_filter("analysis", {})
+            lookup_projection = dict(projection or perform_search_filters)
+            if not privs:
+                lookup_projection["info.tlp"] = 1
+                lookup_projection["info.user_id"] = 1
+            lookup_pipeline = []
+            if analysis_scope:
+                lookup_pipeline.append({"$match": analysis_scope})
+            lookup_pipeline.append({"$project": lookup_projection})
             pipeline = [
                 # Stages 1-5: Find, unwind, group, sort, limit IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
@@ -1481,14 +1504,20 @@ def perform_search(
                 {"$sort": {"_id": -1}},
                 {"$limit": search_limit},
                 # Stage 6: Join with the tasks collection
-                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
+                {
+                    "$lookup": {
+                        "from": "analysis",
+                        "localField": "_id",
+                        "foreignField": "info.id",
+                        "pipeline": lookup_pipeline,
+                        "as": "task_doc",
+                    }
+                },
                 # Stage 7: Unpack the joined doc
                 {"$unwind": "$task_doc"},
                 # Stage 8: Make the task doc the new root
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
-            # The joined docs are analysis documents: scope them like any analysis query.
-            analysis_scope = apply_mongo_filter("analysis", {})
             if analysis_scope:
                 # Limit after scoping, or a viewer's own older analyses fall outside the window.
                 pipeline.remove({"$limit": search_limit})
@@ -1634,29 +1663,37 @@ def parse_request_arguments(request, keyword="POST"):
             - cape (str): CAPE argument.
     """
     # Django uses request.POST and API uses request.data
-    static = getattr(request, keyword).get("static", "")
-    referrer = validate_referrer(getattr(request, keyword).get("referrer"))
-    package = getattr(request, keyword).get("package", "")
-    timeout = force_int(getattr(request, keyword).get("timeout"))
-    priority = force_int(getattr(request, keyword).get("priority"))
-    options = getattr(request, keyword).get("options", "")
-    machine = getattr(request, keyword).get("machine", "")
-    platform = getattr(request, keyword).get("platform", "")
-    tags_tasks = getattr(request, keyword).get("tags_tasks")
-    tags = getattr(request, keyword).get("tags")
-    custom = getattr(request, keyword).get("custom", "")
-    memory = force_bool(getattr(request, keyword).get("memory", False))
-    clock = getattr(request, keyword).get("clock", "")
+    source = getattr(request, keyword)
+    tenancy_overrides = getattr(request, "_tenancy_normalized_params", None)
+
+    def _get_arg(name, default=None):
+        if isinstance(tenancy_overrides, dict) and name in tenancy_overrides:
+            return tenancy_overrides[name]
+        return source.get(name, default)
+
+    static = _get_arg("static", "")
+    referrer = validate_referrer(_get_arg("referrer"))
+    package = _get_arg("package", "")
+    timeout = force_int(_get_arg("timeout"))
+    priority = force_int(_get_arg("priority"))
+    options = _get_arg("options", "")
+    machine = _get_arg("machine", "")
+    platform = _get_arg("platform", "")
+    tags_tasks = _get_arg("tags_tasks")
+    tags = _get_arg("tags")
+    custom = _get_arg("custom", "")
+    memory = force_bool(_get_arg("memory", False))
+    clock = _get_arg("clock", "")
     if not clock:
         clock = datetime.utcfromtimestamp(0)
     elif "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
-    unique = force_bool(getattr(request, keyword).get("unique", False))
-    tlp = getattr(request, keyword).get("tlp")
-    lin_options = getattr(request, keyword).get("lin_options", "")
-    route = getattr(request, keyword).get("route", "")
-    cape = getattr(request, keyword).get("cape", "")
+    enforce_timeout = force_bool(_get_arg("enforce_timeout", False))
+    unique = force_bool(_get_arg("unique", False))
+    tlp = _get_arg("tlp")
+    lin_options = _get_arg("lin_options", "")
+    route = _get_arg("route", "")
+    cape = _get_arg("cape", "")
 
     if referrer:
         if options:

@@ -38,6 +38,9 @@ def _carry_public_visibility(bind, insp):
     are ids in the old users_tenant table, not lib.tenancy tenant ids, so copying them could hand
     a task to an unrelated group. 'tenant' and 'private' tasks keep the owner-only default.
     """
+    has_public = bind.execute(sa.text("SELECT 1 FROM tasks WHERE visibility = 'public' LIMIT 1")).first()
+    if not has_public:
+        return
     if "task_acl" not in insp.get_table_names():
         op.create_table(
             "task_acl",

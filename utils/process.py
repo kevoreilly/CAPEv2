@@ -154,10 +154,10 @@ def process(
                 task_dict["_acl_override"] = acl_override
             # A dist task's ACL lives on the main server: this node's row with that id is another task.
             if not main_task_id and (visibility is not None or tenant_id is not None) and task_id:
-                with suppress(Exception):
-                    from cape_tenancy.acl import ensure_acl_schema, set_task_acl
+                try:
+                    from lib.tenancy.acl import ensure_acl_schema_once, set_task_acl
 
-                    ensure_acl_schema(db.engine)
+                    ensure_acl_schema_once(db.engine)
                     with db.session.begin():
                         set_task_acl(
                             db.session,
@@ -167,6 +167,8 @@ def process(
                             # without --visibility keep the task's own (the report hook has not stamped info yet)
                             visibility=visibility if visibility in ("public", "tenant", "private") else None,
                         )
+                except Exception:
+                    log.exception("Failed to update TaskAcl for task %s", task_id)
             if main_task_id:
                 # A dist task's report is the main server's (mongodb reporting files it under that id):
                 # mark it so the report hooks don't stamp it from this node's task_acl.

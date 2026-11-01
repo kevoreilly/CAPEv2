@@ -1676,7 +1676,15 @@ def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monke
 
 
 @pytest.mark.parametrize(
-    "options, expected", [("enforce_timeout=1", 120), ("xtimeout=5", 120), ("timeout=60", "60"), ("", 120)]
+    "options, expected",
+    [
+        ("enforce_timeout=1", 120),
+        ("xtimeout=5", 120),
+        ("timeout=60", 60),
+        ("timeout=0", 120),
+        ("timeout=300", 120),
+        ("", 120),
+    ],
 )
 def test_dist_takes_the_timeout_option_only_from_timeout(options, expected):
     # "timeout=" in options matched enforce_timeout=1 too and set the task's timeout to 0, which the
@@ -2032,10 +2040,17 @@ def test_task_file_stream_stays_inside_the_tasks_own_directory(db, temp_pe32, te
         db.create_guest(m, "kvm", db.session.get(v.Task, own))
     with db.session.begin():
         db.set_machine_status("win1", "running")
+        db.set_status(own, "running")
+    (storage / "binaries").mkdir(parents=True)
+    (storage / "binaries" / "deadbeef").write_bytes(b"SAMPLE")
     (storage / "analyses" / str(victim) / "reports").mkdir(parents=True)
     (storage / "analyses" / str(victim) / "reports" / "report.json").write_bytes(b"VICTIM")
     (storage / "analyses" / str(own) / "logs").mkdir(parents=True)
     (storage / "analyses" / str(own) / "logs" / "a.log").write_bytes(b"OWN")
+    (storage / "analyses" / str(own) / "binary").symlink_to(storage / "binaries" / "deadbeef")
+    (storage / "analyses" / str(own) / "logs" / "escape.json").symlink_to(
+        storage / "analyses" / str(victim) / "reports" / "report.json"
+    )
     user = types.SimpleNamespace(id=8, is_authenticated=True, is_staff=False, is_superuser=False)
 
     def stream(filepath):
@@ -2044,8 +2059,15 @@ def test_task_file_stream_stays_inside_the_tasks_own_directory(db, temp_pe32, te
         return v.tasks_file_stream(req, task_id=str(own))
 
     assert next(iter(stream("logs/a.log").streaming_content)) == b"OWN"  # it tails while the VM runs
+    assert next(iter(stream("binary").streaming_content)) == b"SAMPLE"  # symlink into storage/binaries works
     resp = stream(f"../{victim}/reports/report.json")
     assert not hasattr(resp, "streaming_content") and resp.data["error"] is True
+    escape_resp = stream("logs/escape.json")
+    assert not hasattr(escape_resp, "streaming_content") and escape_resp.data["error"] is True
+    with db.session.begin():
+        db.set_status(own, "completed")
+    stale_resp = stream("logs/a.log")
+    assert not hasattr(stale_resp, "streaming_content") and stale_resp.data["error"] is True
 
 
 def test_wrapped_mongo_reads_keep_the_modules_result_hooks(monkeypatch):
@@ -2863,3 +2885,365 @@ def test_tenancy_mongo_writer_retries_a_reconnect_within_a_deadline(monkeypatch)
     with pytest.raises(DuplicateKeyError):
         tviews._default_mongo_update_one("analysis", {}, {})
     assert len(attempts) == 1 and sleeps == []
+
+
+def test_tasks_status_finish_requires_running_task_and_guest(db, temp_pe32, monkeypatch):
+    import apiv2.views as v
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    monkeypatch.setattr(v.apiconf.user_stop, "enabled", True)
+    post_calls = []
+    monkeypatch.setattr(
+        v.requests,
+        "get",
+        lambda url, **kw: types.SimpleNamespace(json=lambda: {"environ": {"TMP": "C:\\Temp"}}),
+    )
+    monkeypatch.setattr(
+        v.requests,
+        "post",
+        lambda url, **kw: post_calls.append((url, kw)) or types.SimpleNamespace(status_code=200, text="ok"),
+    )
+
+    tid = db.add_path(str(temp_pe32), user_id=8)
+    user = types.SimpleNamespace(id=8, is_authenticated=True, is_staff=False, is_superuser=False)
+
+    def post_finish():
+        req = APIRequestFactory().post(f"/apiv2/tasks/status/{tid}/", {"status": "finish"}, format="json")
+        force_authenticate(req, user=user)
+        try:
+            return v.tasks_status(req, task_id=str(tid))
+        finally:
+            db.session.remove()
+
+    # Pending task without guest -> rejected
+    assert post_finish().data == {"error": True, "error_value": "Task is not running"}
+    assert post_calls == []
+
+    with db.session.begin():
+        m = db.add_machine(
+            name="win_finish",
+            label="win_finish",
+            arch="x64",
+            ip="127.0.0.1",
+            platform="windows",
+            tags="",
+            interface="eth0",
+            snapshot=None,
+            resultserver_ip="1.1.1.1",
+            resultserver_port=2042,
+            reserved=False,
+        )
+    with db.session.begin():
+        db.create_guest(m, "kvm", db.session.get(v.Task, tid))
+        db.set_machine_status("win_finish", "running")
+
+    # Machine running, but task still pending -> rejected
+    assert post_finish().data == {"error": True, "error_value": "Task is not running"}
+    assert post_calls == []
+
+    # Task running + guest present + machine running -> allowed
+    with db.session.begin():
+        db.set_status(tid, "running")
+    resp = post_finish()
+    assert len(post_calls) == 1
+    assert resp.data["data"] == "ok"
+
+
+def test_recovery_following_endpoints_and_validate_task_enforce_target_acl(db, temp_pe32, temp_pe64, mt_enabled):
+    import lib.cuckoo.common.web_utils as wu
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.middleware import _RECOVERY_FOLLOWING_VIEW_NAMES
+
+    for expected_view in ("tasks_tlspcap", "tasks_pcap_variant", "tasks_keys", "tasks_etw", "tasks_bulkzip"):
+        assert expected_view in _RECOVERY_FOLLOWING_VIEW_NAMES
+
+    victim = db.add_path(str(temp_pe32), user_id=7)
+    own_rec = db.add_path(str(temp_pe64), user_id=8, custom=f"Recovery_{victim}")
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        db.set_status(victim, "reported")
+        db.set_status(own_rec, "recovered")
+        set_task_acl(db.session, victim, user_id=7, tenant_id=1, visibility="private")
+        set_task_acl(db.session, own_rec, user_id=8, tenant_id=2, visibility="private")
+
+    set_current_viewer(_viewer(8, 2))
+    denied = wu.validate_task(own_rec)
+    assert denied["error"] is True and denied["error_value"] == "Task does not exist"
+
+    set_current_viewer(_viewer(7, 1))
+    allowed = wu.validate_task(own_rec)
+    assert allowed["error"] is False and allowed["rtid"] == victim
+
+
+def test_task_ids_from_body_blocks_form_plus_json_smuggling():
+    from lib.tenancy.middleware import _task_ids_from_body
+
+    def _tag_tasks(request):
+        return None
+
+    _tag_tasks.__name__ = "tag_tasks"
+    req = types.SimpleNamespace(POST={"task_ids": "1"}, body=b'{"task_ids": [999]}')
+    assert set(_task_ids_from_body(req, _tag_tasks)) == {"1", "999"}
+
+
+def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch):
+    from django.test import RequestFactory
+    import submission.views as sv
+
+    mw = TenancyMiddleware(lambda r: None)
+    viewer = _viewer(8, 2)
+    assert mw._posted_hashes_visible(viewer, {"hash": "../../999/binary"}, has_task_id=False) is False
+    assert mw._posted_hashes_visible(viewer, {"hash": "not_a_hex_hash"}, has_task_id=False) is False
+
+    # Empty task_id with traversal hash must not resolve via analysis folder fallback in index() resubmit
+    req = RequestFactory().post("/submit/", data={"hash": "../../999/binary"})
+    req.user = types.SimpleNamespace(id=8, is_authenticated=True, is_staff=False, is_superuser=False)
+    monkeypatch.setattr(sv, "render", lambda request, tpl, ctx=None, **kw: (tpl, ctx))
+    tpl, _ = sv.index(req, task_id="")
+    assert tpl == "error.html"
+
+
+def test_anonymous_blocked_on_admin_api_and_audit_under_web_auth(monkeypatch):
+    from django.test import RequestFactory
+    from lib.tenancy.policy import MultitenancyConfig
+
+    cfg_on = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    cfg_off = MultitenancyConfig(
+        enabled=False, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg_on)
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: cfg_on)
+    monkeypatch.setattr("lib.tenancy.middleware._web_authentication_enabled", lambda: True)
+    mw = TenancyMiddleware(lambda r: None)
+
+    def _yara_uploader(request):
+        return None
+
+    _yara_uploader.__name__ = "yara_uploader"
+    anon = types.SimpleNamespace(id=None, is_authenticated=False, is_staff=False, is_superuser=False)
+
+    api_req = RequestFactory().post("/apiv2/yara_uploader/")
+    api_req.user = anon
+    resp = mw.process_view(api_req, _yara_uploader, (), {})
+    assert resp is not None and _status(resp) == 403
+
+    # Audit endpoint blocked for non-admin under WEB_AUTHENTICATION=True even when MT=off
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg_off)
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: cfg_off)
+    regular_user = types.SimpleNamespace(id=8, is_authenticated=True, is_staff=False, is_superuser=False)
+    audit_req = RequestFactory().get("/audit/")
+    audit_req.user = regular_user
+
+    def _audit_index(request):
+        return None
+
+    _audit_index.__name__ = "audit_index"
+    audit_resp = mw.process_view(audit_req, _audit_index, (), {})
+    assert audit_resp is not None and _status(audit_resp) == 403
+
+
+def test_ban_user_tasks_commits_and_parse_request_arguments_honors_normalized_params(db, temp_pe32):
+    from sqlalchemy.orm import Session
+    import lib.cuckoo.common.web_utils as wu
+    from lib.cuckoo.core.data.task import TASK_BANNED, Task
+
+    tid = db.add_path(str(temp_pe32), user_id=42)
+    db.ban_user_tasks(42)
+    with Session(db.engine) as verify_sess:
+        assert verify_sess.get(Task, tid).status == TASK_BANNED
+
+    req = types.SimpleNamespace(
+        data={"dlnexec": "http://example.test/a.exe", "timeout": "900", "route": "internet"},
+        _tenancy_normalized_params={"timeout": "120", "route": "inetsim", "tags": "pool_a"},
+    )
+    parsed = wu.parse_request_arguments(req, keyword="data")
+    # (static, package, timeout, priority, options, machine, platform, tags, ..., route, cape)
+    assert parsed[2] == 120
+    assert parsed[7] == "pool_a"
+    assert parsed[16] == "inetsim"
+
+
+def test_object_storage_dispatch_login_formats_and_memdump_staging(tmp_path, monkeypatch):
+    import analysis.views as av
+    from django.conf import settings
+    from django.http import HttpResponse
+    from django.test import RequestFactory
+    import lib.tenancy.storage.artifact_storage as art_mod
+    import lib.tenancy.storage.config as storage_cfg
+    import lib.tenancy.storage.scope as scope_mod
+    import lib.tenancy.storage.views as storage_views
+    import lib.tenancy.views as tv
+    from lib.tenancy.storage.config import ObjectStorageConfig
+
+    store_root = tmp_path / "store"
+    reports_dir = store_root / "results" / "ui-10" / "reports"
+    mem_dir = store_root / "results" / "ui-10" / "memory"
+    reports_dir.mkdir(parents=True)
+    mem_dir.mkdir(parents=True)
+    (reports_dir / "report.maec-4.1.xml").write_bytes(b"<maec/>")
+    (reports_dir / "lite.json").write_bytes(b'{"lite":true}')
+    (mem_dir / "404.dmp").write_bytes(b"MEMDUMP")
+
+    cfg = ObjectStorageConfig(enabled=True, backend="local", local_root=str(store_root))
+    monkeypatch.setattr(storage_cfg, "object_storage_config", lambda: cfg)
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: cfg)
+    monkeypatch.setattr(art_mod, "object_storage_config", lambda: cfg)
+    monkeypatch.setattr(art_mod, "_job_id_for_task", lambda tid, scope=None: f"ui-{tid}")
+    monkeypatch.setattr(scope_mod, "viewer_scope", lambda u: None)
+    monkeypatch.setattr(
+        "django.shortcuts.render",
+        lambda request, tpl, ctx=None, status=200: HttpResponse(str(ctx), status=status),
+    )
+    monkeypatch.setattr(
+        storage_views,
+        "render",
+        lambda request, tpl, ctx=None, status=200: HttpResponse(str(ctx), status=status),
+    )
+
+    def _filereport_view(request, *a, **kw):
+        return None
+
+    _filereport_view.__name__ = "filereport"
+
+    def _file_view(request, *a, **kw):
+        return None
+
+    _file_view.__name__ = "file"
+
+    # 1. WEB_AUTHENTICATION=True redirects unauthenticated calls to login
+    monkeypatch.setattr(settings, "WEB_AUTHENTICATION", True)
+    monkeypatch.setattr(settings, "ANON_VIEW", False, raising=False)
+    anon_req = RequestFactory().get("/analysis/10/export/")
+    anon_req.user = types.SimpleNamespace(id=None, is_authenticated=False)
+    redir = tv.dispatch_object_storage_view(anon_req, _filereport_view, (), {"task_id": "10", "category": "maec"})
+    assert redir.status_code == 302
+
+    # 2. Authenticated user gets maec & litereport, 404 on unknown format, error when ALLOW_DL_REPORTS_TO_ALL=False
+    auth_user = types.SimpleNamespace(
+        id=5,
+        is_authenticated=True,
+        is_superuser=False,
+        userprofile=types.SimpleNamespace(reports=False),
+    )
+    monkeypatch.setattr(settings, "ALLOW_DL_REPORTS_TO_ALL", True, raising=False)
+    req = RequestFactory().get("/filereport/10/maec/")
+    req.user = auth_user
+    maec_resp = tv.dispatch_object_storage_view(req, _filereport_view, (), {"task_id": "10", "category": "maec"})
+    assert b"".join(maec_resp.streaming_content) == b"<maec/>"
+    lite_resp = tv.dispatch_object_storage_view(req, _filereport_view, (), {"task_id": "10", "category": "litereport"})
+    assert b"".join(lite_resp.streaming_content) == b'{"lite":true}'
+    assert tv.dispatch_object_storage_view(req, _filereport_view, (), {"task_id": "10", "category": "nosuchfmt"}).status_code == 404
+
+    monkeypatch.setattr(settings, "ALLOW_DL_REPORTS_TO_ALL", False, raising=False)
+    denied_dl = tv.dispatch_object_storage_view(req, _filereport_view, (), {"task_id": "10", "category": "maec"})
+    assert b"permissions to download reports" in denied_dl.content
+
+    # 3. memdumpzip stages into CUCKOO_ROOT/storage/analyses/<id>/memory/<pid>.dmp before delegating
+    cape_root = tmp_path / "cape_root"
+    monkeypatch.setattr(av, "CUCKOO_ROOT", str(cape_root))
+    passthrough = tv.dispatch_object_storage_view(
+        req, _file_view, (), {"category": "memdumpzip", "task_id": "10", "dlfile": "404"}
+    )
+    assert passthrough is None
+    assert (cape_root / "storage" / "analyses" / "10" / "memory" / "404.dmp").read_bytes() == b"MEMDUMP"
+
+
+def test_wrapped_mongo_delete_data_preserves_broker_docs_and_clear_all_hooks_restores(mt_enabled):
+    import lib.cuckoo.common.hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.context import set_current_viewer
+
+    set_current_viewer(_viewer(8, 2))
+
+    analysis_docs = [
+        {
+            "_id": "own1",
+            "info": {"id": 50, "job_id": "ui-50", "user_id": 8, "tenant_id": 2, "visibility": "private"},
+            "behavior": {"processes": [{"calls": ["c1"]}]},
+        },
+        {
+            "_id": "broker1",
+            "info": {"id": 50, "job_id": "ext-uuid-1", "user_id": 99, "tenant_id": 9, "visibility": "private"},
+            "behavior": {"processes": [{"calls": ["c2"]}]},
+        },
+    ]
+    seen_find_queries = []
+    deleted_ops = []
+
+    def orig_find(collection, flt, proj=None, **kw):
+        seen_find_queries.append(flt)
+        return [d for d in analysis_docs if d["info"]["job_id"] == "ui-50" and d["info"]["user_id"] == 8]
+
+    def orig_del(ids):
+        return None
+
+    fake_mod = types.ModuleType("fake_mongo_del")
+    fake_mod.mongo_find = orig_find
+    fake_mod.mongo_find_one = lambda *a, **k: None
+    fake_mod.mongo_aggregate = lambda *a, **k: []
+    fake_mod.mongo_delete_data = orig_del
+    fake_mod.mongo_delete_many = lambda coll, flt: deleted_ops.append((coll, flt))
+
+    try:
+        thooks.register_core_hooks()
+        thooks.wrap_mongodb_module(fake_mod)
+        assert fake_mod.mongo_delete_data is not orig_del
+        fake_mod.mongo_delete_data(50)
+        assert len(seen_find_queries) == 1 and "$and" in seen_find_queries[0]
+        assert ("calls", {"_id": {"$in": ["c1"]}}) in deleted_ops
+        assert ("analysis", {"_id": {"$in": ["own1"]}}) in deleted_ops
+    finally:
+        core_hooks.clear_all_hooks()
+    assert fake_mod.mongo_find is orig_find
+    assert fake_mod.mongo_delete_data is orig_del
+
+
+def test_wrapped_load_vms_exits_preserves_dict_return_type():
+    import lib.cuckoo.common.hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.context import set_current_entitlements
+
+    fake_wu = types.ModuleType("fake_web_utils_exits")
+    fake_wu.load_vms_tags = lambda: ["tag_a", "tag_b"]
+    fake_wu.load_vms_exits = lambda: {"vpn_eu": ["worker1"], "vpn_us": ["worker1", "worker2"]}
+
+    try:
+        thooks.wrap_submission_and_web_utils(
+            machines_cls=types.SimpleNamespace(),
+            tasking_cls=types.SimpleNamespace(),
+            web_utils_mod=fake_wu,
+            submission_views_mod=types.SimpleNamespace(),
+        )
+        set_current_entitlements(_ent(allowed_routes=frozenset({"vpn_eu"})))
+        res = fake_wu.load_vms_exits()
+        assert isinstance(res, dict)
+        assert res == {"vpn_eu": ["worker1"]}
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_file_backed_sqlite_add_path_commits_task_acl_without_deadlock(tmp_path, temp_pe32, mt_enabled):
+    import lib.cuckoo.common.hooks as core_hooks
+    from lib.cuckoo.core.database import _Database
+    from lib.tenancy.acl import TaskAcl
+    from lib.tenancy.context import set_current_submission_visibility, set_current_viewer
+    from lib.tenancy.hooks import register_core_hooks
+    from sqlalchemy.orm import Session
+
+    db_file = tmp_path / "cape_file_backed.db"
+    file_db = _Database(dsn=f"sqlite:///{db_file}", schema_check=False)
+    ensure_acl_schema(file_db.engine)
+    register_core_hooks()
+    try:
+        set_current_viewer(_viewer(12, 4))
+        set_current_submission_visibility("tenant")
+        tid = file_db.add_path(str(temp_pe32), user_id=12)
+        assert tid is not None
+        with Session(file_db.engine) as check_sess:
+            acl = check_sess.get(TaskAcl, tid)
+            assert acl is not None and (acl.user_id, acl.tenant_id, acl.visibility) == (12, 4, "tenant")
+    finally:
+        core_hooks.clear_all_hooks()
+        file_db.engine.dispose()

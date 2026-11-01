@@ -241,6 +241,15 @@ def toggle_task_visibility_cas(
 
     try:
         session.flush()
+    except Exception as exc:
+        from sqlalchemy.exc import IntegrityError
+
+        session.rollback()
+        if isinstance(exc, IntegrityError):
+            raise VisibilityConflictError(f"Task {task_id} visibility changed concurrently") from exc
+        raise
+
+    try:
         if mongo_update_one is not None:
             written.append(lambda s: sync_stamp_to_mongo(s, mongo_update_one=mongo_update_one))
             sync_stamp_to_mongo(stamp, mongo_update_one=mongo_update_one)

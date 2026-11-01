@@ -34,6 +34,7 @@ _login_groups_hooks: list[LoginGroupsHook] = []
 _task_copy_scope_hooks: list[TaskCopyScopeHook] = []
 _task_report_query_hooks: list[TaskReportQueryHook] = []
 _report_retrieved_hooks: list[ReportRetrievedHook] = []
+_cleanup_hooks: list[Callable[[], None]] = []
 
 
 def register_mongo_filter(fn: MongoFilterHook) -> None:
@@ -148,6 +149,11 @@ def register_report_retrieved_hook(fn: ReportRetrievedHook) -> None:
         _report_retrieved_hooks.append(fn)
 
 
+def register_cleanup_hook(fn: Callable[[], None]) -> None:
+    if fn not in _cleanup_hooks:
+        _cleanup_hooks.append(fn)
+
+
 def run_report_retrieved_hooks(task_id: int) -> None:
     """Another node's report for task_id has landed in this server's stores (e.g. dist fetched it)."""
     for fn in _report_retrieved_hooks:
@@ -199,6 +205,12 @@ def apply_submission_context_filter(context: MutableMapping[str, Any]) -> Mutabl
 
 
 def clear_all_hooks() -> None:
+    for fn in list(reversed(_cleanup_hooks)):
+        try:
+            fn()
+        except Exception:
+            logging.getLogger(__name__).exception("cleanup hook failed")
+    _cleanup_hooks.clear()
     _mongo_filters.clear()
     _sql_task_filters.clear()
     _es_filters.clear()

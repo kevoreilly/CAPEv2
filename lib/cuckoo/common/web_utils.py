@@ -1516,47 +1516,33 @@ def perform_search(
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
             query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
-            # The joined docs are analysis documents: scope and project inside $lookup so mongod
-            # drops non-visible records and heavy fields before materializing joined documents.
             analysis_scope = apply_mongo_filter("analysis", {})
-            lookup_projection = dict(projection or perform_search_filters)
-            if not lookup_projection.get("info"):
-                if not privs:
-                    lookup_projection["info.tlp"] = 1
-                    lookup_projection["info.user_id"] = 1
-                if analysis_scope:
-                    lookup_projection["info.visibility"] = 1
-                    lookup_projection["info.tenant_id"] = 1
-                    lookup_projection["info.user_id"] = 1
-            lookup_pipeline = []
-            if analysis_scope:
-                lookup_pipeline.append({"$match": analysis_scope})
-            lookup_pipeline.append({"$project": lookup_projection})
             pipeline = [
-                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                # Stages 1-4: Find, unwind, group, sort IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
-                {"$limit": search_limit},
-                # Stage 6: Join with the tasks collection
-                {
-                    "$lookup": {
-                        "from": "analysis",
-                        "localField": "_id",
-                        "foreignField": "info.id",
-                        "pipeline": lookup_pipeline,
-                        "as": "task_doc",
-                    }
-                },
-                # Stage 7: Unpack the joined doc
-                {"$unwind": "$task_doc"},
-                # Stage 8: Make the task doc the new root
-                {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
+            if not analysis_scope:
+                pipeline.append({"$limit": search_limit})
+            pipeline.extend(
+                [
+                    # Join with the analysis collection using MongoDB 4.4+ compatible localField/foreignField
+                    {
+                        "$lookup": {
+                            "from": "analysis",
+                            "localField": "_id",
+                            "foreignField": "info.id",
+                            "as": "task_doc",
+                        }
+                    },
+                    {"$unwind": "$task_doc"},
+                    {"$replaceRoot": {"newRoot": "$task_doc"}},
+                ]
+            )
             if analysis_scope:
                 # Limit after scoping, or a viewer's own older analyses fall outside the window.
-                pipeline.remove({"$limit": search_limit})
                 pipeline.extend([{"$match": analysis_scope}, {"$limit": search_limit}])
 
             if not privs:

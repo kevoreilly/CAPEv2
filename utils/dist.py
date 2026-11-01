@@ -70,6 +70,7 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
+GCS_ENABLED = False
 if gcp_conf.samples_pubsub.enabled:
     from lib.cuckoo.common.gcp import (
         GCP,
@@ -285,6 +286,20 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
 
 
 _MACHINE_NAME_LABELS: dict[str, str] = {}
+
+
+def _resolve_worker_machine(machine_value: str | None) -> str | None:
+    """Translate a VM name to its hypervisor label when submitting to a worker API."""
+    if not machine_value:
+        return machine_value
+    if label := _MACHINE_NAME_LABELS.get(machine_value):
+        return label
+    with contextlib.suppress(Exception):
+        vm = main_db.view_machine(machine_value)
+        if vm is not None and getattr(vm, "label", None):
+            _MACHINE_NAME_LABELS[machine_value] = vm.label
+            return vm.label
+    return machine_value
 
 
 def node_list_machines(url, apikey):
@@ -619,7 +634,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             timeout=task.timeout,
             priority=task.priority,
             options=task.options,
-            machine=task.machine,
+            machine=_resolve_worker_machine(task.machine),
             platform=task.platform,
             tags=task.tags,
             custom=task.custom,
@@ -1556,6 +1571,12 @@ class StatusThread(threading.Thread):
                     .order_by(Task.priority.desc(), Task.main_task_id)
                 )
                 node_machine_names = list(db.scalars(select(Machine.name).where(Machine.node_id == node.id)).all())
+                if node_machine_names and getattr(node, "url", None) and any(
+                    m_name not in _MACHINE_NAME_LABELS for m_name in node_machine_names
+                ):
+                    with contextlib.suppress(Exception):
+                        for _ in node_list_machines(node.url, getattr(node, "apikey", "")):
+                            pass
                 node_machines = set(node_machine_names)
                 for m_name in node_machine_names:
                     if label := _MACHINE_NAME_LABELS.get(m_name):
@@ -1644,7 +1665,13 @@ class StatusThread(threading.Thread):
         """
         global SERVER_TAGS
         # Get available node tags
-        machines = db.scalars(select(Machine).where(Machine.node_id == node_id))
+        machines = list(db.scalars(select(Machine).where(Machine.node_id == node_id)).all())
+        if machines and any(m.name not in _MACHINE_NAME_LABELS for m in machines):
+            with contextlib.suppress(Exception):
+                node = db.scalar(select(Node).where(Node.id == node_id))
+                if node is not None and getattr(node, "url", None):
+                    for _ in node_list_machines(node.url, getattr(node, "apikey", "")):
+                        pass
         # Todo need all?
 
         # Get available tag combinations

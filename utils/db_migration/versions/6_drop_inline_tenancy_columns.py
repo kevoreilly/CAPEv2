@@ -24,20 +24,36 @@ def upgrade():
         op.drop_index("ix_tasks_tenant_id", table_name="tasks")
     columns = {col["name"] for col in insp.get_columns("tasks")}
     if "visibility" in columns:
-        _carry_public_visibility(bind, insp)
+        _carry_public_visibility(bind, insp, columns)
         op.drop_column("tasks", "visibility")
     if "tenant_id" in columns:
         op.drop_column("tasks", "tenant_id")
 
 
-def _carry_public_visibility(bind, insp):
+def _carry_public_visibility(bind, insp, columns=()):
     """Preserve explicitly public tasks in lib.tenancy's task_acl before the column goes.
 
     Tasks with no task_acl row resolve to owner-only, so without this every task an operator
     made public silently turns private. Only 'public' is carried: legacy tasks.tenant_id values
     are ids in the old users_tenant table, not lib.tenancy tenant ids, so copying them could hand
     a task to an unrelated group. 'tenant' and 'private' tasks keep the owner-only default.
+    On single-tenant installs where multitenancy was never used (all tenant_id values NULL and
+    [multitenancy] enabled = no), skip creating task_acl so pre-MT tasks are not locked as public.
     """
+    mt_enabled = False
+    try:
+        from lib.cuckoo.common.config import Config
+
+        mt_enabled = bool(getattr(Config(), "multitenancy", {}).get("enabled", False))
+    except Exception:
+        mt_enabled = False
+    has_tenant_rows = (
+        bind.execute(sa.text("SELECT 1 FROM tasks WHERE tenant_id IS NOT NULL LIMIT 1")).first() is not None
+        if "tenant_id" in columns
+        else False
+    )
+    if not mt_enabled and not has_tenant_rows:
+        return
     has_public = bind.execute(sa.text("SELECT 1 FROM tasks WHERE visibility = 'public' LIMIT 1")).first()
     if not has_public:
         return

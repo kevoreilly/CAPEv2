@@ -464,3 +464,31 @@ def test_node_submit_task_formats_datetime_clock_for_worker_api():
     posted = mock_post.call_args.kwargs["data"]
     assert posted["clock"] == "10-31-2026 14:05:09"
 
+
+def test_dist_defines_gcs_enabled_and_resolves_worker_machine_label():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    import utils.dist as dist_mod
+
+    assert hasattr(dist_mod, "GCS_ENABLED")
+    assert isinstance(dist_mod.GCS_ENABLED, bool)
+
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {
+        "data": [{"name": "cuckoo1", "label": "win10-vm-01", "platform": "windows", "tags": ["x64"]}]
+    }
+    with patch("utils.dist.requests.get", return_value=mock_resp):
+        machines = list(dist_mod.node_list_machines("http://worker1/apiv2/", "tok"))
+    assert len(machines) == 1
+    assert machines[0].name == "cuckoo1"
+    assert dist_mod._MACHINE_NAME_LABELS["cuckoo1"] == "win10-vm-01"
+    assert dist_mod._resolve_worker_machine("cuckoo1") == "win10-vm-01"
+    assert dist_mod._resolve_worker_machine("win10-vm-01") == "win10-vm-01"
+
+

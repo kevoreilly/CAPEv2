@@ -1,8 +1,7 @@
-from allauth.account.middleware import AccountMiddleware
-
-
 class DisableAllauthMiddleware:
     def __init__(self, get_response):
+        from allauth.account.middleware import AccountMiddleware
+
         self.get_response = get_response
         # Instantiate the real AllAuth middleware that we will be wrapping.
         self.allauth_middleware = AccountMiddleware(get_response)

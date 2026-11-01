@@ -321,10 +321,11 @@ def mongo_delete_data(task_ids: int | Sequence[int]) -> None:
             task_ids = [task_ids]
 
         if task_ids:
-            if has_mongo_filters():
-                tids = [int(t) for t in task_ids]
+            tids = [int(t) for t in task_ids]
+            own_queries = {tid: task_report_query(tid, "mongo") for tid in tids}
+            if has_mongo_filters() or any(own_queries.values()):
                 clauses = [
-                    apply_mongo_filter("analysis", task_report_query(tid, "mongo") or {"info.id": tid})
+                    apply_mongo_filter("analysis", own_queries[tid] or {"info.id": tid})
                     for tid in tids
                 ]
                 doc_q = clauses[0] if len(clauses) == 1 else {"$or": clauses}
@@ -351,8 +352,15 @@ def mongo_delete_data(task_ids: int | Sequence[int]) -> None:
                 if doc_ids:
                     mongo_delete_many("analysis", {"_id": {"$in": doc_ids}})
                 if matched_tids:
-                    for hook in hooks[mongo_delete_data]["analysis"]:
-                        hook(matched_tids)
+                    unshared_tids = [
+                        tid
+                        for tid in matched_tids
+                        if mongo_find_one("analysis", {"info.id": tid}, {"_id": 1}, no_hooks=True) is None
+                    ]
+                    if unshared_tids:
+                        mongo_delete_calls(task_ids=unshared_tids)
+                        for hook in hooks[mongo_delete_data]["analysis"]:
+                            hook(unshared_tids)
                 return
 
             mongo_delete_calls(task_ids=task_ids)

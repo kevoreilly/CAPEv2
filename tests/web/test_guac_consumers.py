@@ -418,19 +418,34 @@ class TestGuacConsumers:
 
 
 def test_guac_settings_includes_db_transaction_middleware():
-    import ast
+    import os
+    import subprocess
+    import sys
     from pathlib import Path
 
-    guac_settings_path = Path(__file__).resolve().parents[2] / "web" / "web" / "guac_settings.py"
-    tree = ast.parse(guac_settings_path.read_text(encoding="utf-8"))
-    middleware = None
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "MIDDLEWARE":
-                    middleware = ast.literal_eval(node.value)
-    assert middleware is not None
-    assert "web.middleware.DBTransactionMiddleware" in middleware
+    repo_root = Path(__file__).resolve().parents[2]
+    web_dir = repo_root / "web"
+    env = os.environ.copy()
+    for k in ("https_proxy", "http_proxy", "no_proxy", "ftp_proxy", "all_proxy"):
+        env.pop(k, None)
+    env["DJANGO_SETTINGS_MODULE"] = "web.guac_settings"
+    env["PYTHONPATH"] = f"{web_dir}:{repo_root}"
+    code = (
+        "import django; django.setup(); "
+        "from django.conf import settings; "
+        "from django.core.handlers.base import BaseHandler; "
+        "assert 'web.middleware.DBTransactionMiddleware' in settings.MIDDLEWARE; "
+        "BaseHandler().load_middleware()"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(web_dir),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert proc.returncode == 0, f"stdout={proc.stdout}\nstderr={proc.stderr}"
 
 
 def test_consumer_tenancy_authorization_and_session_cleanup(monkeypatch):

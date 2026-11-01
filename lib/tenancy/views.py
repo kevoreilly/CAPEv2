@@ -291,8 +291,6 @@ _FILEREPORT_FORMATS = {
 
 def _check_storage_view_login_required(request: Any, view_name: str) -> Optional[Any]:
     """Enforce the same @conditional_login_required gate as web/analysis/views.py before intercepting."""
-    if view_name == "file_nl":
-        return None
     try:
         from django.conf import settings
 

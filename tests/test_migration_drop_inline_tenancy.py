@@ -57,6 +57,24 @@ def test_upgrade_skips_creating_task_acl_when_no_public_tasks_exist(monkeypatch)
         assert "task_acl" not in sa.inspect(conn).get_table_names()
 
 
+def test_upgrade_skips_public_carry_when_multitenancy_was_never_used(monkeypatch):
+    engine = sa.create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "CREATE TABLE tasks (id INTEGER PRIMARY KEY, user_id INTEGER, tenant_id INTEGER, visibility VARCHAR(16) NOT NULL DEFAULT 'private')"
+            )
+        )
+        conn.execute(sa.text("INSERT INTO tasks VALUES (1, 0, NULL, 'public'), (2, 7, NULL, 'public')"))
+
+        mod = _load_migration()
+        monkeypatch.setattr(mod, "op", Operations(MigrationContext.configure(conn)))
+        mod.upgrade()
+
+        assert "visibility" not in {c["name"] for c in sa.inspect(conn).get_columns("tasks")}
+        assert "task_acl" not in sa.inspect(conn).get_table_names()
+
+
 def test_django_users_migrations_0004_and_0005_are_idempotent_on_existing_tables():
     from types import SimpleNamespace
 

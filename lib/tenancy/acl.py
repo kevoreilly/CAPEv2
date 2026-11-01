@@ -140,7 +140,7 @@ def set_task_acl(
     """
     if visibility is not None and visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {visibility!r}")
-    row = session.get(TaskAcl, int(task_id))
+    row = session.get(TaskAcl, int(task_id), with_for_update=True, populate_existing=True)
     if row is None:
         row = TaskAcl(
             task_id=int(task_id),
@@ -270,6 +270,12 @@ def toggle_task_visibility_cas(
         _restamp(replace(stamp, visibility=stricter))
         session.rollback()
         raise
+
+    if _VISIBILITY_ORDER.index(new_visibility) < _VISIBILITY_ORDER.index(prior_visibility):
+        # Tightening: if the reporter inserted the report while our SQL transaction was uncommitted,
+        # its pre-insert stamp read prior_visibility and our pre-commit update_one matched 0 docs.
+        # Restamping after commit closes that window.
+        _restamp(stamp)
 
     return stamp
 

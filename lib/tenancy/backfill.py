@@ -111,6 +111,9 @@ def plan_reconcile_stamps(
     chunk_size: int = 500,
     fallback_visibility: str = PRIVATE,
     preserve_public_without_acl: bool = False,
+    adopt_public_without_acl: bool = False,
+    abort_on_unrecorded_public: bool = False,
+    unrecorded_public: Optional[List[int]] = None,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
     skipped: Optional[List[Any]] = None,
 ) -> Iterable[List[Tuple[Any, Dict[str, Any]]]]:
@@ -162,8 +165,23 @@ def plan_reconcile_stamps(
             else:
                 stamp = dict(fallback)
                 stamp["user_id"] = owners.get(tid) or None  # tasks.user_id 0 is add()'s "no owner"
-                if preserve_public_without_acl and doc.get("visibility") == PUBLIC and doc.get("tenant_id") is None:
-                    stamp["visibility"] = PUBLIC
+                if doc.get("visibility") == PUBLIC and doc.get("tenant_id") is None:
+                    if unrecorded_public is not None and tid is not None and tid not in unrecorded_public:
+                        unrecorded_public.append(tid)
+                    if abort_on_unrecorded_public:
+                        continue
+                    if preserve_public_without_acl or adopt_public_without_acl:
+                        stamp["visibility"] = PUBLIC
+                        if adopt_public_without_acl and tid is not None and tid not in by_task:
+                            new_row = TaskAcl(
+                                task_id=int(tid),
+                                user_id=stamp["user_id"],
+                                tenant_id=None,
+                                visibility=PUBLIC,
+                                visibility_seq=1,
+                            )
+                            session.add(new_row)
+                            by_task[int(tid)] = new_row
             if any(doc.get(field) != stamp[field] for field in _STAMP_FIELDS):
                 ops.append((doc["key"], stamp))
         return ops
@@ -208,6 +226,9 @@ def reconcile_mongo_stamps(
     chunk_size: int = 500,
     dry_run: bool = False,
     preserve_public_without_acl: bool = False,
+    adopt_public_without_acl: bool = False,
+    abort_on_unrecorded_public: bool = False,
+    unrecorded_public: Optional[List[int]] = None,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
     skipped: Optional[List[Any]] = None,
 ) -> int:
@@ -220,6 +241,9 @@ def reconcile_mongo_stamps(
         docs,
         chunk_size=chunk_size,
         preserve_public_without_acl=preserve_public_without_acl,
+        adopt_public_without_acl=adopt_public_without_acl and not dry_run,
+        abort_on_unrecorded_public=abort_on_unrecorded_public,
+        unrecorded_public=unrecorded_public,
         task_owners=task_owners,
         skipped=skipped,
     ):
@@ -229,6 +253,8 @@ def reconcile_mongo_stamps(
                 collection,
                 [({"_id": key}, {"$set": {f"info.{k}": v for k, v in stamp.items()}}) for key, stamp in ops],
             )
+    if adopt_public_without_acl and not dry_run:
+        session.commit()
     return changed
 
 
@@ -241,6 +267,9 @@ def reconcile_es_stamps(
     chunk_size: int = 500,
     dry_run: bool = False,
     preserve_public_without_acl: bool = False,
+    adopt_public_without_acl: bool = False,
+    abort_on_unrecorded_public: bool = False,
+    unrecorded_public: Optional[List[int]] = None,
     task_owners: Optional[Callable[[Iterable[int]], Dict[int, Any]]] = None,
     skipped: Optional[List[Any]] = None,
 ) -> int:
@@ -252,6 +281,9 @@ def reconcile_es_stamps(
         docs,
         chunk_size=chunk_size,
         preserve_public_without_acl=preserve_public_without_acl,
+        adopt_public_without_acl=adopt_public_without_acl and not dry_run,
+        abort_on_unrecorded_public=abort_on_unrecorded_public,
+        unrecorded_public=unrecorded_public,
         task_owners=task_owners,
         skipped=skipped,
     ):
@@ -275,6 +307,8 @@ def reconcile_es_stamps(
             changed += len(ops)
         else:
             changed += len(ops)
+    if adopt_public_without_acl and not dry_run:
+        session.commit()
     return changed
 
 
@@ -338,14 +372,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument(
         "--preserve-public",
+        "--adopt-public-from-reports",
+        dest="preserve_public",
         action="store_true",
-        help="preserve visibility='public' on tenantless legacy docs that have no task_acl row",
+        help="adopt visibility='public' into task_acl for tenantless public reports that have no task_acl row",
+    )
+    parser.add_argument(
+        "--demote-public",
+        action="store_true",
+        help="demote tenantless public reports that have no task_acl row to private",
     )
     parser.add_argument(
         "--force", action="store_true", help="run although this node looks like a worker (only on the main/central server)"
     )
     args = parser.parse_args(argv)
     verb = "would be restamped" if args.dry_run else "restamped"
+    abort_on_unrecorded_public = not (args.preserve_public or args.demote_public or args.dry_run)
+    unrecorded_public: List[int] = []
 
     def _report(store: str, changed: int, skipped: List[Any]) -> None:
         print(f"{store}: {changed} analysis docs {verb}; {len(skipped)} left alone (a broker job's report)")
@@ -393,6 +436,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 bulk_update=_bulk,
                 dry_run=args.dry_run,
                 preserve_public_without_acl=args.preserve_public,
+                adopt_public_without_acl=args.preserve_public,
+                abort_on_unrecorded_public=abort_on_unrecorded_public,
+                unrecorded_public=unrecorded_public,
                 skipped=skipped,
             )
             _report("mongodb", n, skipped)
@@ -423,7 +469,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 bulk_update=_es_bulk,
                 dry_run=args.dry_run,
                 preserve_public_without_acl=args.preserve_public,
+                adopt_public_without_acl=args.preserve_public,
+                abort_on_unrecorded_public=abort_on_unrecorded_public,
+                unrecorded_public=unrecorded_public,
                 skipped=skipped,
             )
             _report("elasticsearch", n, skipped)
+        if abort_on_unrecorded_public and unrecorded_public:
+            print(
+                f"found {len(unrecorded_public)} public report(s) with no task_acl row (tasks: {unrecorded_public[:20]}); "
+                "re-run with --adopt-public-from-reports (or --preserve-public) to record them in task_acl, "
+                "or --demote-public to restamp them private",
+                file=sys.stderr,
+            )
+            return 3
     return 0

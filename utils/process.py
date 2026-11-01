@@ -159,7 +159,7 @@ def process(
 
                     ensure_acl_schema_once(db.engine)
                     with db.session.begin():
-                        set_task_acl(
+                        acl_row = set_task_acl(
                             db.session,
                             int(task_id),
                             user_id=results["info"].get("user_id") or task_dict.get("user_id"),
@@ -167,6 +167,8 @@ def process(
                             # without --visibility keep the task's own (the report hook has not stamped info yet)
                             visibility=visibility if visibility in ("public", "tenant", "private") else None,
                         )
+                        acl_override["visibility_seq"] = acl_row.visibility_seq
+                        task_dict["_acl_override"] = acl_override
                 except Exception:
                     log.exception("Failed to update TaskAcl for task %s", task_id)
             if main_task_id:

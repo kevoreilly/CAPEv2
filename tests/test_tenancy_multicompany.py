@@ -35,7 +35,22 @@ from lib.tenancy.acl import (
 )
 from lib.tenancy.context import (
     set_current_entitlements,
+    set_current_submission_visibility,
+    set_current_viewer,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_tenancy_context_and_hooks():
+    set_current_viewer(None)
+    set_current_entitlements(None)
+    set_current_submission_visibility(None)
+    core_hooks.clear_all_hooks()
+    yield
+    set_current_viewer(None)
+    set_current_entitlements(None)
+    set_current_submission_visibility(None)
+    core_hooks.clear_all_hooks()
 from lib.tenancy.hooks import (
     default_es_query_filter,
     default_machine_list_filter,
@@ -989,9 +1004,8 @@ def test_copilot_4_and_5_es_and_mongo_reporters_skip_resync_for_renumbered_bridg
 
 
 def test_copilot_6_and_7_perform_search_avoids_info_path_collision_and_preserves_custom_projection(monkeypatch):
-    """Copilot #6 & #7: `perform_search` must not add `info.tlp`/`info.user_id` when `info: 1` is
-    already in the projection (avoiding MongoDB path collision), and must include `info.visibility`,
-    `info.tenant_id`, and `info.user_id` inside `$lookup` when a custom projection omits `info`."""
+    """MongoDB 4.4+ compatible `$lookup` (no `pipeline` alongside `localField`/`foreignField`),
+    post-join `$match` before `$limit`, and caller custom `$project`."""
     import lib.cuckoo.common.web_utils as wu
 
     seen_pipelines: List[List[Dict[str, Any]]] = []
@@ -1002,30 +1016,127 @@ def test_copilot_6_and_7_perform_search_avoids_info_path_collision_and_preserves
         lambda coll, q: {**q, "info.tenant_id": G_ACME_IR} if coll == "analysis" else q
     )
     try:
-        # 1. Default projection (has "info": 1) -> no "info.*" subfields in lookup $project
         wu.perform_search("sha256", "a" * 64, privs=False, user_id=U_ALICE_IR)
         default_pipe = seen_pipelines[-1]
         lookup_stage = next(s["$lookup"] for s in default_pipe if "$lookup" in s)
-        lookup_proj = next(s["$project"] for s in lookup_stage["pipeline"] if "$project" in s)
-        assert lookup_proj.get("info") == 1
-        assert "info.tlp" not in lookup_proj
-        assert "info.user_id" not in lookup_proj
+        assert "pipeline" not in lookup_stage
+        assert lookup_stage["localField"] == "_id"
+        assert lookup_stage["foreignField"] == "info.id"
+        assert {"$match": {"info.tenant_id": G_ACME_IR}} in default_pipe
 
-        # 2. Custom projection without "info": 1 -> lookup $project preserves info.visibility/tenant_id/user_id/tlp
         custom_proj = {"target.file.sha256": 1, "info.id": 1}
         wu.perform_search("sha256", "a" * 64, projection=custom_proj, privs=False, user_id=U_ALICE_IR)
         custom_pipe = seen_pipelines[-1]
-        lookup_stage_2 = next(s["$lookup"] for s in custom_pipe if "$lookup" in s)
-        lookup_proj_2 = next(s["$project"] for s in lookup_stage_2["pipeline"] if "$project" in s)
-        assert "info" not in lookup_proj_2
-        assert lookup_proj_2["info.tlp"] == 1
-        assert lookup_proj_2["info.user_id"] == 1
-        assert lookup_proj_2["info.visibility"] == 1
-        assert lookup_proj_2["info.tenant_id"] == 1
-        # Final stage projects only the caller's custom_proj
         assert custom_pipe[-1] == {"$project": custom_proj}
     finally:
         core_hooks.clear_all_hooks()
+
+
+def test_tightening_toggle_restamps_after_commit_and_storage_file_nl_login_gate(multicompany_env, monkeypatch):
+    """Tightening `toggle_task_visibility_cas` restamps stores both before and after `session.commit()`,
+    and `_check_storage_view_login_required` enforces login on `file_nl` when `WEB_AUTHENTICATION=True`."""
+    from lib.tenancy.views import _check_storage_view_login_required
+
+    mongo_calls = []
+    with multicompany_env.SessionLocal() as session:
+        toggle_task_visibility_cas(
+            session,
+            T_INITECH_PUBLIC,
+            PRIVATE,
+            expected_prior=PUBLIC,
+            mongo_update_one=lambda col, flt, upd: mongo_calls.append(upd["$set"]["info.visibility"]),
+        )
+    # Tightening PUBLIC -> PRIVATE stamps before commit AND restamps after commit
+    assert mongo_calls == [PRIVATE, PRIVATE]
+
+    from django.conf import settings
+
+    monkeypatch.setattr(settings, "WEB_AUTHENTICATION", True, raising=False)
+    monkeypatch.setattr(settings, "ANON_VIEW", False, raising=False)
+    anon_req = types.SimpleNamespace(
+        user=types.SimpleNamespace(is_authenticated=False),
+        get_full_path=lambda: "/analysis/1/file_nl/dropped/abc/",
+    )
+    resp = _check_storage_view_login_required(anon_req, "file_nl")
+    assert resp is not None and getattr(resp, "status_code", None) == 302
+
+
+def test_mongo_delete_data_preserves_shared_file_refs_and_reconcile_cli_handles_rowless_public(
+    multicompany_env, monkeypatch, capsys
+):
+    """`mongo_delete_data` skips `clean_UnusedFile_on_mongodb_delete` when another report shares `info.id`,
+    and `tenancy_reconcile.py` exits 3 on rowless public reports unless `--adopt-public-from-reports` or `--demote-public`."""
+    import dev_utils.mongodb as mongo_mod
+    from lib.tenancy.backfill import reconcile_mongo_stamps
+    from lib.tenancy.hooks import register_core_hooks
+
+    monkeypatch.setattr(
+        "lib.tenancy.hooks.multitenancy_config",
+        lambda: MultitenancyConfig(
+            enabled=True,
+            mode="locked",
+            default_visibility=PRIVATE,
+            local_admins_manage_all_tenants=True,
+        ),
+    )
+    register_core_hooks()
+
+    remaining_docs = [{"_id": "broker-doc"}]
+    cleaned_tids: List[int] = []
+    deleted_calls: List[Any] = []
+    monkeypatch.setattr(
+        mongo_mod,
+        "mongo_find",
+        lambda coll, q, proj=None, **kw: [{"_id": "own-doc", "info": {"id": 55}, "behavior": {"processes": [{"calls": ["c1"]}]}}],
+    )
+    monkeypatch.setattr(mongo_mod, "mongo_delete_many", lambda coll, q: True)
+    monkeypatch.setattr(mongo_mod, "mongo_delete_calls", lambda task_ids: deleted_calls.append(list(task_ids)))
+    monkeypatch.setattr(
+        mongo_mod,
+        "mongo_find_one",
+        lambda coll, q, proj=None, **kw: remaining_docs[0] if remaining_docs else None,
+    )
+    monkeypatch.setitem(mongo_mod.hooks[mongo_mod.mongo_delete_data], "analysis", [lambda tids: cleaned_tids.extend(tids)])
+
+    # 1. Another analysis doc still shares info.id=55 -> do NOT clean shared files or call chunks by info.id
+    mongo_mod.mongo_delete_data(55)
+    assert cleaned_tids == []
+    assert deleted_calls == []
+
+    # 2. No remaining analysis doc shares info.id=55 -> cleans orphaned calls and runs unused-file hook
+    remaining_docs.clear()
+    mongo_mod.mongo_delete_data(55)
+    assert cleaned_tids == [55]
+    assert deleted_calls == [[55]]
+
+    # 3. Reconcile adopts rowless public reports into task_acl when adopt_public_without_acl=True
+    raw_docs = [{"_id": "m1", "info": {"id": 8888, "visibility": PUBLIC, "tenant_id": None, "user_id": 11, "visibility_seq": 1}}]
+    with multicompany_env.SessionLocal() as session:
+        unrec: List[int] = []
+        changed = reconcile_mongo_stamps(
+            session,
+            find=lambda c, q, p: iter(raw_docs),
+            bulk_update=lambda c, ops: len(ops),
+            abort_on_unrecorded_public=True,
+            unrecorded_public=unrec,
+            task_owners=lambda ids: {8888: 11},
+        )
+        assert changed == 0
+        assert unrec == [8888]
+        assert session.get(TaskAcl, 8888) is None
+
+        changed_adopt = reconcile_mongo_stamps(
+            session,
+            find=lambda c, q, p: iter(raw_docs),
+            bulk_update=lambda c, ops: len(ops),
+            preserve_public_without_acl=True,
+            adopt_public_without_acl=True,
+            task_owners=lambda ids: {8888: 11},
+        )
+        assert changed_adopt == 0
+        adopted = session.get(TaskAcl, 8888)
+        assert adopted is not None and adopted.visibility == PUBLIC and adopted.user_id == 11
+
 
 
 def test_copilot_8_dist_node_list_machines_tracks_vm_labels_for_pinned_tasks(monkeypatch):

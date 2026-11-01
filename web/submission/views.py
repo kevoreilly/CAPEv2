@@ -18,6 +18,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
 sys.path.append(settings.CUCKOO_PATH)
+_NATIVE_TENANCY_HOOKS = True
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
@@ -445,11 +446,16 @@ def index(request, task_id=None, resubmit_hash=None):
             list_of_tasks, details = process_new_task_files(request, samples, details, opt_filename, unique)
 
         elif task_category == "resubmit":
-            for hash in samples:
+            hex_digits = frozenset("0123456789abcdefABCDEF")
+            for raw_hash in samples:
+                hash = raw_hash.strip()
+                if not hash or "/" in hash or "\\" in hash or ".." in hash or "\x00" in hash:
+                    details["errors"].append({raw_hash: "Invalid hash for resubmission"})
+                    continue
                 paths = []
-                if len(hash) in (32, 40, 64):
+                if len(hash) in (32, 40, 64) and all(c in hex_digits for c in hash):
                     paths = db.sample_path_by_hash(hash)
-                else:
+                elif task_id:
                     task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
                     if path_exists(task_binary):
                         paths.append(task_binary)
@@ -474,12 +480,18 @@ def index(request, task_id=None, resubmit_hash=None):
                                         break
                             if path:
                                 paths.append(path)
+                else:
+                    details["errors"].append({hash: "Invalid hash for resubmission"})
+                    continue
 
-                if not paths:
+                if not paths and task_id:
                     for folder_name in ("selfextracted", "files", "procdump", "CAPE"):
                         # Self Extracted support folder
-                        path = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), folder_name, hash)
-                        if path_exists(path):
+                        folder_dir = os.path.abspath(
+                            os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), folder_name)
+                        )
+                        path = os.path.abspath(os.path.join(folder_dir, hash))
+                        if path.startswith(folder_dir + os.sep) and path_exists(path):
                             paths.append(path)
 
                 if not paths:
@@ -761,7 +773,6 @@ def index(request, task_id=None, resubmit_hash=None):
                         existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
         from lib.cuckoo.common.hooks import apply_submission_context_filter
-
         submission_ctx = apply_submission_context_filter(
             {
                 "title": "Submit",

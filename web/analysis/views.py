@@ -44,6 +44,7 @@ from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
+from lib.cuckoo.common.hooks import apply_es_filter, is_task_own_report, task_report_query
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
@@ -3737,7 +3738,12 @@ def remove(request, task_id):
             delete_folder(analyses_path)
         message = "Task(s) deleted."
     if es_as_db:
-        analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+        es_query_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
+        analyses = [
+            h
+            for h in es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
+            if is_task_own_report(int(task_id), h.get("_source"))
+        ]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -3763,7 +3769,12 @@ def remove(request, task_id):
                 )
     elif essearch:
         # remove es search data
-        analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+        es_query_body = apply_es_filter({"query": task_report_query(int(task_id), "es") or get_query_by_info_id(task_id)})
+        analyses = [
+            h
+            for h in es.search(index=get_analysis_index(), body=es_query_body)["hits"]["hits"]
+            if is_task_own_report(int(task_id), h.get("_source"))
+        ]
         if len(analyses) > 1:
             message = "Multiple tasks with this ID deleted."
         elif len(analyses) == 1:
@@ -3841,13 +3852,24 @@ def comments(request, task_id):
         if not comment:
             return render(request, "error.html", {"error": "No comment provided."})
 
+        report = mongo_id = esid = None
         if enabledconf["mongodb"]:
-            report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
+            report_query = task_report_query(task_id) or {"info.id": int(task_id)}
+            report = mongo_find_one("analysis", report_query, {"info.comments": 1, "_id": 1}, sort=[("_id", -1)])
+            mongo_id = report["_id"] if report else None
         if es_as_db:
-            query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
-            report = query["_source"]
-            esid = query["_id"]
-            esidx = query["_index"]
+            es_query = task_report_query(task_id, "es") or get_query_by_info_id(task_id)
+            hits = [
+                h
+                for h in es.search(index=get_analysis_index(), body=apply_es_filter({"query": es_query}))["hits"]["hits"]
+                if is_task_own_report(int(task_id), h.get("_source"))
+            ]
+            if hits:
+                report = hits[0]["_source"]
+                esid = hits[0]["_id"]
+                esidx = hits[0]["_index"]
+        if not report:
+            return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
         if "comments" in report["info"]:
             curcomments = report["info"]["comments"]
         else:
@@ -3866,9 +3888,10 @@ def comments(request, task_id):
         # status can be posted/removed
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
-        if enabledconf["mongodb"]:
-            mongo_update_one("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
-        if es_as_db:
+        if mongo_id is not None:
+            # By _id: the doc read above, not whichever report shares its info.id.
+            mongo_update_one("analysis", {"_id": mongo_id}, {"$set": {"info.comments": curcomments}})
+        if esid is not None:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
 
@@ -4070,7 +4093,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     if details is not False:
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
+        report_query = task_report_query(task_id) or {"info.id": int(task_id)}
+        buf = mongo_find_one("analysis", report_query, {"_id": 1, category: 1}, no_hooks=True)
         if not buf:
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 

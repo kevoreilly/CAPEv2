@@ -5,7 +5,9 @@ import time
 from typing import Callable, Sequence
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_mongo_filter
+from lib.cuckoo.common.hooks import apply_mongo_filter, has_mongo_filters, task_report_query
+
+_NATIVE_TENANCY_HOOKS = True
 
 log = logging.getLogger(__name__)
 logging.getLogger("pymongo").setLevel(logging.ERROR)
@@ -285,7 +287,11 @@ def mongo_update_one(collection: str, query, update, bypass_document_validation:
 
 
 @graceful_auto_reconnect
-def mongo_aggregate(collection: str, query, max_time_ms=None):
+def mongo_aggregate(collection: str, query, max_time_ms=None, no_hooks=False):
+    if not no_hooks and isinstance(query, list):
+        scoped_q = apply_mongo_filter(collection, {})
+        if scoped_q:
+            query = [{"$match": scoped_q}, *query]
     if max_time_ms is None:
         max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
     return getattr(results_db, collection).aggregate(query, maxTimeMS=max_time_ms)
@@ -315,6 +321,48 @@ def mongo_delete_data(task_ids: int | Sequence[int]) -> None:
             task_ids = [task_ids]
 
         if task_ids:
+            tids = [int(t) for t in task_ids]
+            own_queries = {tid: task_report_query(tid, "mongo") for tid in tids}
+            if has_mongo_filters() or any(own_queries.values()):
+                clauses = [
+                    apply_mongo_filter("analysis", own_queries[tid] or {"info.id": tid})
+                    for tid in tids
+                ]
+                doc_q = clauses[0] if len(clauses) == 1 else {"$or": clauses}
+                docs = list(
+                    mongo_find("analysis", doc_q, {"_id": 1, "info.id": 1, "behavior.processes.calls": 1}, no_hooks=True)
+                )
+                if not docs:
+                    return
+                call_ids = [
+                    cid
+                    for d in docs
+                    for proc in ((d.get("behavior") or {}).get("processes") or [])
+                    if isinstance(proc, dict)
+                    for cid in (proc.get("calls") or [])
+                ]
+                doc_ids = [d["_id"] for d in docs if "_id" in d]
+                matched_tids = list(
+                    dict.fromkeys(
+                        d["info"]["id"] for d in docs if isinstance((d.get("info") or {}).get("id"), int)
+                    )
+                )
+                if call_ids:
+                    mongo_delete_many("calls", {"_id": {"$in": call_ids}})
+                if doc_ids:
+                    mongo_delete_many("analysis", {"_id": {"$in": doc_ids}})
+                if matched_tids:
+                    unshared_tids = [
+                        tid
+                        for tid in matched_tids
+                        if mongo_find_one("analysis", {"info.id": tid}, {"_id": 1}, no_hooks=True) is None
+                    ]
+                    if unshared_tids:
+                        mongo_delete_calls(task_ids=unshared_tids)
+                        for hook in hooks[mongo_delete_data]["analysis"]:
+                            hook(unshared_tids)
+                return
+
             mongo_delete_calls(task_ids=task_ids)
             mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
             for hook in hooks[mongo_delete_data]["analysis"]:

@@ -186,3 +186,83 @@ def test_extract_pkcs7_der_bytes_and_get_digital_signers():
     assert signer["issuer_commonName"] == "Test Signer"
 
 
+def test_get_digital_signers_crl_distribution_points_without_full_name():
+    import datetime
+    import struct
+    from unittest.mock import MagicMock
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives.serialization import pkcs7
+    from cryptography.x509.oid import NameOID
+    import pefile
+
+    import lib.cuckoo.common.integrations.parse_pe as parse_pe
+
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, "CRL Test Signer"),
+    ])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    crl_dp = x509.CRLDistributionPoints([
+        # 1. DistributionPoint with relative_name and full_name=None
+        x509.DistributionPoint(
+            full_name=None,
+            relative_name=x509.RelativeDistinguishedName([x509.NameAttribute(NameOID.COMMON_NAME, "CRL1")]),
+            reasons=None,
+            crl_issuer=None,
+        ),
+        # 2. DistributionPoint with crl_issuer only (both full_name=None and relative_name=None)
+        x509.DistributionPoint(
+            full_name=None,
+            relative_name=None,
+            reasons=None,
+            crl_issuer=[x509.DirectoryName(issuer)],
+        ),
+        # 3. DistributionPoint with full_name containing a URI and a DirectoryName
+        x509.DistributionPoint(
+            full_name=[
+                x509.DirectoryName(issuer),
+                x509.UniformResourceIdentifier("http://crl.example.com/root.crl"),
+            ],
+            relative_name=None,
+            reasons=None,
+            crl_issuer=None,
+        ),
+    ])
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(987654321)
+        .not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=365))
+        .add_extension(crl_dp, critical=False)
+        .sign(private_key, hashes.SHA256())
+    )
+
+    pkcs7_der = pkcs7.serialize_certificates([cert], serialization.Encoding.DER)
+    header_offset = 64
+    total_entry_len = 8 + len(pkcs7_der)
+    win_cert_header = struct.pack("<IHH", total_entry_len, 0x0200, 0x0002)
+    pe_data = (b"\x90" * header_offset) + win_cert_header + pkcs7_der
+
+    pe_helper = parse_pe.PortableExecutable("/tmp/fake_crl_signed.exe")
+    fake_pe = MagicMock()
+    dir_index = pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_SECURITY"]
+    fake_dir_entry = MagicMock(VirtualAddress=header_offset, Size=total_entry_len)
+    fake_pe.OPTIONAL_HEADER.DATA_DIRECTORY = [MagicMock()] * (dir_index + 1)
+    fake_pe.OPTIONAL_HEADER.DATA_DIRECTORY[dir_index] = fake_dir_entry
+    fake_pe.write.return_value = pe_data
+
+    signers = pe_helper.get_digital_signers(fake_pe)
+    assert len(signers) == 1
+    signer = signers[0]
+    assert signer["extensions_cRLDistributionPoints_0"] == "CN=CRL1"
+    assert "extensions_cRLDistributionPoints_1" not in signer
+    assert signer["extensions_cRLDistributionPoints_2"] == "http://crl.example.com/root.crl"
+
+
+

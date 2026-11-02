@@ -881,8 +881,15 @@ class PortableExecutable:
                                         cert_data[f"extensions_{extension.oid._name}_{index}"] = qualifier
                     elif extension.oid._name == "cRLDistributionPoints":
                         for index, point in enumerate(extension.value):
-                            for full_name in point.full_name:
-                                cert_data[f"extensions_{extension.oid._name}_{index}"] = full_name.value
+                            if point.full_name:
+                                for full_name in point.full_name:
+                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = (
+                                        full_name.value.rfc4514_string()
+                                        if hasattr(full_name.value, "rfc4514_string")
+                                        else full_name.value
+                                    )
+                            elif point.relative_name:
+                                cert_data[f"extensions_{extension.oid._name}_{index}"] = point.relative_name.rfc4514_string()
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":

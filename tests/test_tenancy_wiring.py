@@ -3009,7 +3009,7 @@ def test_task_ids_from_body_blocks_form_plus_json_smuggling():
     assert set(_task_ids_from_body(req, _tag_tasks)) == {"1", "999"}
 
 
-def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch):
+def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch, db):
     from django.test import RequestFactory
     import submission.views as sv
 
@@ -3024,6 +3024,13 @@ def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch):
     monkeypatch.setattr(sv, "render", lambda request, tpl, ctx=None, **kw: (tpl, ctx))
     tpl, _ = sv.index(req, task_id="")
     assert tpl == "error.html"
+
+    # Wrapped index() must forward resubmit_hash (not sha256) to submission.views.index
+    get_req = RequestFactory().get("/submit/")
+    get_req.user = req.user
+    tpl_get, ctx_get = sv.index(get_req, resubmit_hash="a" * 64)
+    assert tpl_get == "submission/index.html"
+    assert ctx_get["resubmit"] == "a" * 64
 
 
 def test_anonymous_blocked_on_admin_api_and_audit_under_web_auth(monkeypatch):

@@ -7,7 +7,7 @@ import logging
 import shlex
 import stat
 import subprocess
-from threading import Thread, Event
+from threading import Thread
 
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
@@ -30,7 +30,6 @@ class Package:
         # Добавляем переменные для поддержки strace
         self.nc = NetlogFile()
         self.thread = None
-        self._read_ready_ev = Event()
         self.proc = None
 
     def set_pids(self, pids):
@@ -49,11 +48,10 @@ class Package:
         """Check."""
         return True
 
-    def thread_send_strace_buffer(self):
-        """A thread that reads strace output and sends it to the host machine."""
-        self._read_ready_ev.wait()
-        if self.proc and self.proc.stderr:
-            for line in self.proc.stderr:
+    def thread_send_strace_buffer(self, stderr):
+        """Read the trace pipe belonging to one launched process."""
+        if stderr:
+            for line in stderr:
                 try:
                     append_buffer_to_host(line, self.nc)
                 except ConnectionResetError:
@@ -74,9 +72,6 @@ class Package:
 
         log.info("Executing with strace: %s", final_cmd)
 
-        self.thread = Thread(target=self.thread_send_strace_buffer, daemon=True)
-        self.thread.start()
-
         self.proc = subprocess.Popen(
             final_cmd,
             env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"},
@@ -84,7 +79,8 @@ class Package:
             shell=True
         )
 
-        self._read_ready_ev.set()
+        self.thread = Thread(target=self.thread_send_strace_buffer, args=(self.proc.stderr,), daemon=True)
+        self.thread.start()
 
         return self.proc.pid
 

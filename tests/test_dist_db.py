@@ -470,8 +470,9 @@ def test_node_submit_task_formats_datetime_clock_for_worker_api():
     assert posted["tlp"] == "AMBER"
 
 
-def test_task_timeout_option_respects_cap():
+def test_task_timeout_option_respects_cap(monkeypatch):
     import sys
+    from types import SimpleNamespace
     from unittest.mock import MagicMock
 
     mock_fastapi = MagicMock()
@@ -479,14 +480,20 @@ def test_task_timeout_option_respects_cap():
         sys.modules["fastapi"] = mock_fastapi
         sys.modules["fastapi.security"] = mock_fastapi.security
 
+    import utils.dist as dist_mod
     from utils.dist import _task_timeout
 
+    monkeypatch.setattr(dist_mod, "web_conf", SimpleNamespace(public=SimpleNamespace(enabled=False, timeout=0)))
     assert _task_timeout(200, {}) == 200
     assert _task_timeout(200, {"timeout": "60"}) == 60
     assert _task_timeout(200, {"timeout": "999999"}) == 200
     assert _task_timeout(200, {"timeout": "0"}) == 200
     assert _task_timeout(200, {"timeout": "bad"}) == 200
     assert _task_timeout(0, {"timeout": "120"}) == 120
+
+    monkeypatch.setattr(dist_mod, "web_conf", SimpleNamespace(public=SimpleNamespace(enabled=True, timeout=180)))
+    assert _task_timeout(0, {"timeout": "999999"}) == 180
+    assert _task_timeout(300, {"timeout": "999999"}) == 180
 
 
 def test_dist_defines_gcs_enabled_and_resolves_worker_machine_label():
@@ -503,17 +510,28 @@ def test_dist_defines_gcs_enabled_and_resolves_worker_machine_label():
     assert hasattr(dist_mod, "GCS_ENABLED")
     assert isinstance(dist_mod.GCS_ENABLED, bool)
 
-    mock_resp = MagicMock()
-    mock_resp.json.return_value = {
-        "data": [{"name": "cuckoo1", "label": "win10-vm-01", "platform": "windows", "tags": ["x64"]}]
+    dist_mod._MACHINE_NAME_LABELS.clear()
+    dist_mod._NODE_MACHINE_LABELS.clear()
+
+    mock_resp_w1 = MagicMock()
+    mock_resp_w1.json.return_value = {
+        "data": [{"name": "cuckoo1", "label": "win10-w1-01", "platform": "windows", "tags": ["x64"]}]
     }
-    with patch("utils.dist.requests.get", return_value=mock_resp):
-        machines = list(dist_mod.node_list_machines("http://worker1/apiv2/", "tok"))
-    assert len(machines) == 1
-    assert machines[0].name == "cuckoo1"
-    assert dist_mod._MACHINE_NAME_LABELS["cuckoo1"] == "win10-vm-01"
-    assert dist_mod._resolve_worker_machine("cuckoo1") == "win10-vm-01"
-    assert dist_mod._resolve_worker_machine("win10-vm-01") == "win10-vm-01"
+    mock_resp_w2 = MagicMock()
+    mock_resp_w2.json.return_value = {
+        "data": [{"name": "cuckoo1", "label": "win10-w2-01", "platform": "windows", "tags": ["x64"]}]
+    }
+    with patch("utils.dist.requests.get", side_effect=[mock_resp_w1, mock_resp_w2]) as mock_get:
+        machines_w1 = list(dist_mod.node_list_machines("http://worker1/apiv2/", "tok1"))
+        machines_w2 = list(dist_mod.node_list_machines("http://worker2/apiv2/", "tok2"))
+
+    assert mock_get.call_args_list[0].kwargs.get("timeout") == 30
+    assert len(machines_w1) == 1 and machines_w1[0].name == "cuckoo1"
+    assert len(machines_w2) == 1 and machines_w2[0].name == "cuckoo1"
+    assert dist_mod._resolve_worker_machine("cuckoo1", "http://worker1/apiv2/") == "win10-w1-01"
+    assert dist_mod._resolve_worker_machine("cuckoo1", "http://worker2/apiv2/") == "win10-w2-01"
+    assert dist_mod._resolve_worker_machine("win10-w1-01", "http://worker1/apiv2/") == "win10-w1-01"
+    assert dist_mod._resolve_worker_machine("win10-w2-01", "http://worker2/apiv2/") == "win10-w2-01"
 
 
 

@@ -92,10 +92,15 @@ def _vm_target_for_task(task_id):
     task = db.view_task(int(task_id), details=True)
     if not task:
         return None, None
+    status = getattr(task, "status", None)
+    if status == "pending":
+        return "", None
+    if status != "running":
+        return None, None
     # Only the VM this task is running on: task.machine is what was requested, and that VM may
     # be running someone else's task while this one is pending.
     guest = getattr(task, "guest", None)
-    if task.status != "running" or not guest or not guest.label:
+    if not guest or not getattr(guest, "label", None):
         return "", None
     machine = db.view_machine_by_label(guest.label)
     return guest.label, (getattr(machine, "ip", "") or "")
@@ -109,22 +114,22 @@ def index(request, task_id, session_data):
     if machinery not in machinery_available:
         return _error(request, task_id, f"Machinery type '{machinery}' is not supported")
 
+    try:
+        session_id = urlsafe_b64decode(session_data).decode("utf8").split("|")[0]
+    except Exception as e:
+        return _error(request, task_id, str(e))
+
+    label, guest_ip = _vm_target_for_task(task_id)
+    if label == "":
+        return render(request, "guac/wait.html", {"task_id": task_id})  # not running yet
+    if not label:
+        return _error(request, task_id, "No VM is associated with this task")
+
     conn = None
     try:
         conn = libvirt.open(machinery_dsn)
         if not conn:
             return _error(request, task_id, "Could not connect to hypervisor")
-
-        try:
-            session_id = urlsafe_b64decode(session_data).decode("utf8").split("|")[0]
-        except Exception as e:
-            return _error(request, task_id, str(e))
-
-        label, guest_ip = _vm_target_for_task(task_id)
-        if label == "":
-            return render(request, "guac/wait.html", {"task_id": task_id})  # not running yet
-        if not label:
-            return _error(request, task_id, "No VM is associated with this task")
 
         try:
             dom = conn.lookupByName(label)

@@ -290,19 +290,32 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
 
 
 _MACHINE_NAME_LABELS: dict[str, str] = {}
+_NODE_MACHINE_LABELS: dict[str, dict[str, str]] = {}
 
 
-def _resolve_worker_machine(machine_value: str | None) -> str | None:
+def _normalize_node_url(url: str | None) -> str:
+    return (url or "").rstrip("/")
+
+
+def _resolve_worker_machine(machine_value: str | None, node_url: str | None = None) -> str | None:
     """Translate a VM name to its hypervisor label when submitting to a worker API."""
     if not machine_value:
         return machine_value
-    if label := _MACHINE_NAME_LABELS.get(machine_value):
+    norm_url = _normalize_node_url(node_url)
+    if norm_url and (node_map := _NODE_MACHINE_LABELS.get(norm_url)):
+        if label := node_map.get(machine_value):
+            return label
+        if machine_value in node_map.values():
+            return machine_value
+    if not norm_url and (label := _MACHINE_NAME_LABELS.get(machine_value)):
         return label
     with contextlib.suppress(Exception):
         vm = main_db.view_machine(machine_value)
         if vm is not None and getattr(vm, "label", None):
             _MACHINE_NAME_LABELS[machine_value] = vm.label
             return vm.label
+    if label := _MACHINE_NAME_LABELS.get(machine_value):
+        return label
     return machine_value
 
 
@@ -321,10 +334,19 @@ def node_list_machines(url, apikey):
         HTTPException: If the request to the CAPE node fails or returns an error.
     """
     try:
-        r = requests.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        norm_url = _normalize_node_url(url)
+        r = requests.get(
+            urljoin(url, "machines/list/"),
+            headers={"Authorization": f"Token {apikey}"},
+            verify=False,
+            timeout=30,
+        )
+        node_map = _NODE_MACHINE_LABELS.setdefault(norm_url, {}) if norm_url else {}
         for machine in r.json()["data"]:
             if machine.get("name") and machine.get("label"):
                 _MACHINE_NAME_LABELS[machine["name"]] = machine["label"]
+                if norm_url:
+                    node_map[machine["name"]] = machine["label"]
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
         raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
@@ -638,7 +660,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             timeout=task.timeout,
             priority=task.priority,
             options=task.options,
-            machine=_resolve_worker_machine(task.machine),
+            machine=_resolve_worker_machine(task.machine, getattr(node, "url", None)),
             platform=task.platform,
             tags=task.tags,
             custom=task.custom,
@@ -1335,7 +1357,7 @@ class Retriever(threading.Thread):
 
 
 def _task_timeout(timeout, options):
-    """A positive timeout= option overrides the task's timeout up to the task's own cap."""
+    """A positive timeout= option overrides the task's timeout up to the task's or public cap."""
     base = int(timeout) if timeout else 0
     raw = options.get("timeout")
     if raw is None or raw == "":
@@ -1346,7 +1368,11 @@ def _task_timeout(timeout, options):
         return base
     if opt_val <= 0:
         return base
-    return min(opt_val, base) if base > 0 else opt_val
+    cap = base
+    if getattr(web_conf, "public", None) and getattr(web_conf.public, "enabled", False) and getattr(web_conf.public, "timeout", 0):
+        pub_cap = int(web_conf.public.timeout)
+        cap = min(cap, pub_cap) if cap > 0 else pub_cap
+    return min(opt_val, cap) if cap > 0 else opt_val
 
 
 class StatusThread(threading.Thread):
@@ -1569,18 +1595,19 @@ class StatusThread(threading.Thread):
                     .where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                     .order_by(Task.priority.desc(), Task.main_task_id)
                 )
+                norm_node_url = _normalize_node_url(getattr(node, "url", None))
                 node_machine_names = list(db.scalars(select(Machine.name).where(Machine.node_id == node.id)).all())
-                if node_machine_names and getattr(node, "url", None) and any(
-                    m_name not in _MACHINE_NAME_LABELS for m_name in node_machine_names
-                ):
+                if node_machine_names and norm_node_url and norm_node_url not in _NODE_MACHINE_LABELS:
+                    _NODE_MACHINE_LABELS[norm_node_url] = {}
                     with contextlib.suppress(Exception):
                         for _ in node_list_machines(node.url, getattr(node, "apikey", "")):
                             pass
+                node_label_map = _NODE_MACHINE_LABELS.get(norm_node_url, {}) if norm_node_url else _MACHINE_NAME_LABELS
                 node_machines = set(node_machine_names)
                 for m_name in node_machine_names:
-                    if label := _MACHINE_NAME_LABELS.get(m_name):
+                    if label := node_label_map.get(m_name):
                         node_machines.add(label)
-                if node_machine_names:
+                if node_machine_names and (node.name == main_server_name or not node_label_map):
                     with contextlib.suppress(Exception):
                         for vm in main_db.list_machines(include_reserved=True):
                             if getattr(vm, "name", None) in node_machines and getattr(vm, "label", None):
@@ -1665,10 +1692,12 @@ class StatusThread(threading.Thread):
         global SERVER_TAGS
         # Get available node tags
         machines = list(db.scalars(select(Machine).where(Machine.node_id == node_id)).all())
-        if machines and any(m.name not in _MACHINE_NAME_LABELS for m in machines):
+        if machines:
             with contextlib.suppress(Exception):
                 node = db.scalar(select(Node).where(Node.id == node_id))
-                if node is not None and getattr(node, "url", None):
+                norm_node_url = _normalize_node_url(getattr(node, "url", None)) if node is not None else ""
+                if norm_node_url and norm_node_url not in _NODE_MACHINE_LABELS:
+                    _NODE_MACHINE_LABELS[norm_node_url] = {}
                     for _ in node_list_machines(node.url, getattr(node, "apikey", "")):
                         pass
         # Todo need all?

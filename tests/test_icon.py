@@ -187,7 +187,10 @@ def test_extract_pkcs7_der_bytes_and_get_digital_signers():
 
 
 def test_get_digital_signers_crl_distribution_points_without_full_name():
+    import base64
     import datetime
+    import ipaddress
+    import json
     import struct
     from unittest.mock import MagicMock
 
@@ -195,7 +198,7 @@ def test_get_digital_signers_crl_distribution_points_without_full_name():
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives.serialization import pkcs7
-    from cryptography.x509.oid import NameOID
+    from cryptography.x509.oid import AuthorityInformationAccessOID, NameOID, ObjectIdentifier
     import pefile
 
     import lib.cuckoo.common.integrations.parse_pe as parse_pe
@@ -220,7 +223,7 @@ def test_get_digital_signers_crl_distribution_points_without_full_name():
             reasons=None,
             crl_issuer=[x509.DirectoryName(issuer)],
         ),
-        # 3. DistributionPoint with full_name containing a URI and a DirectoryName
+        # 3. DistributionPoint with full_name containing multiple entries (DirectoryName + URI)
         x509.DistributionPoint(
             full_name=[
                 x509.DirectoryName(issuer),
@@ -230,6 +233,30 @@ def test_get_digital_signers_crl_distribution_points_without_full_name():
             reasons=None,
             crl_issuer=None,
         ),
+        # 4. DistributionPoint with a single full_name entry
+        x509.DistributionPoint(
+            full_name=[
+                x509.UniformResourceIdentifier("http://crl2.example.com/sub.crl"),
+            ],
+            relative_name=None,
+            reasons=None,
+            crl_issuer=None,
+        ),
+    ])
+    aia = x509.AuthorityInformationAccess([
+        x509.AccessDescription(
+            AuthorityInformationAccessOID.CA_ISSUERS,
+            x509.DirectoryName(issuer),
+        ),
+        x509.AccessDescription(
+            AuthorityInformationAccessOID.OCSP,
+            x509.IPAddress(ipaddress.IPv4Address("192.0.2.10")),
+        ),
+    ])
+    san = x509.SubjectAlternativeName([
+        x509.IPAddress(ipaddress.IPv4Address("192.0.2.1")),
+        x509.RegisteredID(ObjectIdentifier("1.2.840.113549.1.1.1")),
+        x509.OtherName(ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"), b"\x0c\x04test"),
     ])
     cert = (
         x509.CertificateBuilder()
@@ -240,6 +267,8 @@ def test_get_digital_signers_crl_distribution_points_without_full_name():
         .not_valid_before(now - datetime.timedelta(days=1))
         .not_valid_after(now + datetime.timedelta(days=365))
         .add_extension(crl_dp, critical=False)
+        .add_extension(aia, critical=False)
+        .add_extension(san, critical=False)
         .sign(private_key, hashes.SHA256())
     )
 
@@ -262,7 +291,15 @@ def test_get_digital_signers_crl_distribution_points_without_full_name():
     signer = signers[0]
     assert signer["extensions_cRLDistributionPoints_0"] == "CN=CRL1"
     assert "extensions_cRLDistributionPoints_1" not in signer
-    assert signer["extensions_cRLDistributionPoints_2"] == "http://crl.example.com/root.crl"
+    assert signer["extensions_cRLDistributionPoints_2_0"] == "CN=CRL Test Signer"
+    assert signer["extensions_cRLDistributionPoints_2_1"] == "http://crl.example.com/root.crl"
+    assert signer["extensions_cRLDistributionPoints_3"] == "http://crl2.example.com/sub.crl"
+    assert signer["extensions_authorityInfoAccess_caIssuers"] == "CN=CRL Test Signer"
+    assert signer["extensions_authorityInfoAccess_OCSP"] == "192.0.2.10"
+    assert signer["extensions_subjectAltName_0"] == "192.0.2.1"
+    assert signer["extensions_subjectAltName_1"] == "1.2.840.113549.1.1.1"
+    assert signer["extensions_subjectAltName_2"] == base64.b64encode(b"\x0c\x04test").decode()
+    assert json.loads(json.dumps(signer)) == signer
 
 
 

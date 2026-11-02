@@ -105,7 +105,10 @@ class Archive(Package):
                     extracted_files.add(file_path)
 
                     try:
-                        result = subprocess.run([file_util_path, file_path], capture_output=True, text=True, check=True, encoding="utf-8")
+                        result = subprocess.run(
+                            [file_util_path, "--brief", file_path],
+                            capture_output=True, text=True, check=True, encoding="utf-8",
+                        )
                         file_info = result.stdout
                         for word in target_words:
                             if word in file_info:

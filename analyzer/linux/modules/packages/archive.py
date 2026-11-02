@@ -90,7 +90,7 @@ class Archive(Package):
 
         extracted_files = set()
         extracted_archives = set()
-        for i in range(0, recursion_depth):
+        for _ in range(recursion_depth):
 
             packs = []
             target_words = {'archive', 'compress', 'image', 'filesystem'}
@@ -118,11 +118,8 @@ class Archive(Package):
                         continue
 
             if packs:
-                j = 0
                 for p in packs:
-                    pack_name = os.path.basename(p)
-                    output_dir = os.path.join(root, str(i), str(j), pack_name)
-                    os.makedirs(output_dir, exist_ok=True)
+                    output_dir = tempfile.mkdtemp(prefix="nested-", dir=root)
 
                     try:
                         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
@@ -130,8 +127,6 @@ class Archive(Package):
                         extracted_archives.add(p)
                     except Exception as e:
                         log.warning("Extraction failed for %s: %s", p, e)
-
-                    j += 1
             else:
                 break
 

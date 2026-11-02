@@ -13,18 +13,6 @@ from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
-FILE_EXT_OF_INTEREST = [
-    ".sh",
-    ".py",
-    ".deb",
-    ".jar",
-    ".pl",
-    ".whl",
-    ".js",
-    ".ps1",
-    ""
-]
-
 
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
     """Extracts a nested archive file.
@@ -264,19 +252,6 @@ def unrar_extractor(unrar_binary, extract_path, archive_path):
 
     return os.listdir(extract_path)
 
-
-def get_interesting_files(file_names):
-    """
-    Using a regular expression that matches interesting file extensions, return interesting files
-    """
-    interesting_files = []
-
-    for f in file_names:
-        file = Path(f)
-        if file.suffix in FILE_EXT_OF_INTEREST:
-            interesting_files.append(f)
-
-    return interesting_files
 
 
 def upload_extracted_files(root, files_at_root):

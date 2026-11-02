@@ -127,3 +127,42 @@ def test_archive_results_register_with_pid_consumer(prepare_archive, monkeypatch
         assert analyzer.SEEN_LIST == expected
     finally:
         package.finish()
+
+
+@pytest.mark.parametrize("kind, name", [
+    ("script", "nested/RUN.SH"),
+    ("elf", "nested/payload.unusual"),
+])
+def test_discovery_dispatches_payloads_beside_readme(prepare_archive, tmp_path, kind, name):
+    if kind == "elf" and sys.platform != "linux":
+        pytest.skip("Requires an ELF Python interpreter")
+    contents = b"printf 'two words\\n'" if kind == "script" else Path(sys.executable).read_bytes()
+    package, extraction, _ = prepare_archive(
+        {"README": b"documentation", name: contents},
+        {"arguments": "-c \"print('two words')\""},
+    )
+    outputs = []
+    launched = []
+
+    def execute(command):
+        child = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            stdout, stderr = child.communicate(timeout=5)
+            assert child.returncode == 0, stderr
+            outputs.append(stdout)
+            launched.append(child.pid)
+            return child.pid
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.communicate()
+
+    package.execute = execute
+    try:
+        assert package.start(str(tmp_path / "sample.zip")) == launched
+        assert len(launched) == 1
+        assert outputs == [b"two words\n"]
+        mode = Path(extraction.call_args.args[2], name).stat().st_mode
+        assert stat.S_IMODE(mode) == (0o740 if kind == "elf" else 0o640)
+    finally:
+        package.finish()

@@ -17,7 +17,6 @@ from lib.common.zip_utils import (
     attempt_multiple_passwords,
     extract_archive,
     get_file_names,
-    get_interesting_files,
     upload_extracted_files,
 )
 
@@ -157,15 +156,10 @@ class Archive(Package):
         if not file_name:
             ret_list = []
 
-            # Attempt to find at least one valid exe extension in the archive
-            interesting_files = get_interesting_files(file_names)
-
-            if not interesting_files:
-                log.debug("No interesting files found, auto executing the first file: %s", file_names[0])
-                interesting_files.append(file_names[0])
-
-            log.debug("Missing file option, auto executing: %s", interesting_files)
-            for interesting_file in interesting_files:
+            # Let the dispatcher recognize extensions case-insensitively and ELF
+            # contents independently of suffix, rather than filtering twice.
+            log.debug("Missing file option, inspecting extracted members: %s", file_names)
+            for interesting_file in file_names:
                 file_path = os.path.join(root, interesting_file)
                 pid = self.execute_interesting_file(root, interesting_file, file_path)
                 if pid is not None:

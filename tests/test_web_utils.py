@@ -11,6 +11,7 @@ from lib.cuckoo.common.path_utils import path_delete, path_write_file
 from lib.cuckoo.common.web_utils import (
     _download_file,
     download_file,
+    download_from_3rdparty,
     force_int,
     get_file_content,
     parse_request_arguments,
@@ -385,6 +386,51 @@ def test_generic_demux_preserves_machine_all_until_platform_is_known(
     assert result["task_ids"] == [104]
     assert observed["machine"] == "all"
     assert observed["platform"] == ""
+
+
+def test_download_from_3rdparty_sanitizes_filenames_and_rejects_dot_hashes(tmp_path, monkeypatch):
+    import os
+
+    sample_hash = "a" * 64
+    cached_sample = tmp_path / "cached.bin"
+    cached_sample.write_bytes(b"MZ-cached")
+
+    observed_paths = []
+
+    class FakeDatabase:
+        def sample_path_by_hash(self, h, **_kwargs):
+            return [str(cached_sample)] if h == sample_hash else []
+
+    def fake_download_file(**kwargs):
+        observed_paths.append(kwargs["path"])
+        return "ok", {"task_ids": [201], "errors": []}
+
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.cfg.cuckoo.tmppath", str(tmp_path))
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.db", FakeDatabase())
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.download_file", fake_download_file)
+
+    details = {"errors": []}
+    res = download_from_3rdparty(sample_hash, "../../etc/passwd", details)
+    assert res["task_ids"] == [201]
+    assert len(observed_paths) == 1
+    assert os.path.basename(observed_paths[0]) == "passwd"
+    assert os.path.realpath(observed_paths[0]).startswith(os.path.realpath(str(tmp_path / "cape-external")) + os.sep)
+
+    # "." or ".." opt_filename must fall back to the sanitized hash, never to base_dir itself.
+    observed_paths.clear()
+    for dot_name in (".", ".."):
+        details = {"errors": []}
+        download_from_3rdparty(sample_hash, dot_name, details)
+        assert len(observed_paths) == 1
+        assert os.path.dirname(os.path.realpath(observed_paths[0])) != os.path.realpath(str(tmp_path / "cape-external"))
+        assert os.path.basename(observed_paths[0]) != dot_name
+        observed_paths.clear()
+
+    # "." or ".." hash entries must be rejected before creating a temp dir.
+    details = {"errors": []}
+    download_from_3rdparty(".,..", ".", details)
+    assert details["errors"] == [{".": "Invalid hash"}, {"..": "Invalid hash"}]
+    assert observed_paths == []
 
 
 if __name__ == "__main__":

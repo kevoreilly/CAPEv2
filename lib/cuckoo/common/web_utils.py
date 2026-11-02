@@ -685,16 +685,24 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
     for h in get_hash_list(samples):
-        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
-        if opt_filename:
-            safe_name = path_get_filename(opt_filename)
-            if not safe_name or safe_name in (".", ".."):
-                safe_name = sanitize_filename(h)
-            filename = f"{base_dir}/{safe_name}"
-        else:
-            filename = f"{base_dir}/{sanitize_filename(h)}"
+        safe_h = sanitize_filename(path_get_filename(h))
+        if not safe_h or safe_h in (".", ".."):
+            details["errors"].append({h: "Invalid hash"})
+            continue
 
-        if os.path.realpath(filename) != os.path.realpath(base_dir) and not os.path.realpath(filename).startswith(os.path.realpath(base_dir) + os.sep):
+        if opt_filename:
+            safe_name = sanitize_filename(path_get_filename(opt_filename))
+            if not safe_name or safe_name in (".", ".."):
+                safe_name = safe_h
+        else:
+            safe_name = safe_h
+
+        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
+        filename = f"{base_dir}/{safe_name}"
+
+        if os.path.dirname(os.path.realpath(filename)) != os.path.realpath(base_dir):
+            with suppress(OSError):
+                os.rmdir(base_dir)
             details["errors"].append({h: "Invalid filename"})
             continue
 

@@ -170,7 +170,12 @@ class ElasticSearchDB(Report):
         if main_task_id := attributes.get("main_task_id"):
             with suppress(ValueError, TypeError):
                 report["info"]["id"] = int(main_task_id)
-                report["info"].setdefault("local_task_id", local_task_id)
+                if local_task_id:
+                    report["info"].setdefault("local_task_id", local_task_id)
+
+        if not int(report["info"].get("id", 0) or 0):
+            log.error("Task ID is missing in report['info']")
+            return
 
         from lib.cuckoo.common.hooks import run_report_hooks
 

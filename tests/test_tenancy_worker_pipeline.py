@@ -516,3 +516,77 @@ def test_elasticsearchdb_reporter_dist_acl_and_refresh(monkeypatch):
         assert refreshed == []
     finally:
         core_hooks.clear_all_hooks()
+
+
+def test_mongodb_reporter_object_storage_renumbering_deletes_only_central_id(monkeypatch, tmp_path):
+    core_hooks, analysis = _setup(monkeypatch, tmp_path)
+    deleted_ids = []
+    inserted = []
+    m = _mongo(monkeypatch, inserted)
+    monkeypatch.setattr(m, "mongo_delete_data", lambda ids: deleted_ids.append(list(ids)))
+    try:
+        results = {
+            "info": {"id": 9, "custom": "job_id=ui-3"},
+            "behavior": {"processes": [], "processtree": [], "summary": {}},
+        }
+        reporter = m.MongoDB()
+        reporter.task = {"id": 9, "attributes": {}}
+        reporter.set_path(str(analysis))
+        reporter.run(results)
+    finally:
+        core_hooks.clear_all_hooks()
+    assert deleted_ids == [[3]]
+    assert inserted[-1]["info"]["id"] == 3
+
+
+def test_elasticsearchdb_reporter_returns_early_when_task_id_missing(monkeypatch):
+    import copy
+    import modules.reporting.elasticsearchdb as es_mod
+
+    deleted = []
+    indexed = []
+    fake_es = types.SimpleNamespace(
+        index=lambda index, body=None, **kw: indexed.append((index, body or kw.get("document"))),
+        indices=types.SimpleNamespace(refresh=lambda index: None),
+    )
+    monkeypatch.setattr(es_mod, "HAVE_ELASTICSEARCH", True, raising=False)
+    monkeypatch.setattr(es_mod, "elastic_handler", fake_es, raising=False)
+    monkeypatch.setattr(es_mod, "daily_analysis_index_exists", lambda: True, raising=False)
+    monkeypatch.setattr(es_mod, "daily_calls_index_exists", lambda: True, raising=False)
+    monkeypatch.setattr(es_mod, "delete_analysis_and_related_calls", lambda tid: deleted.append(tid), raising=False)
+    monkeypatch.setattr(es_mod, "get_json_document", lambda results, path: copy.deepcopy(results), raising=False)
+
+    reporter = es_mod.ElasticSearchDB()
+    reporter.analysis_path = "/tmp/nonexistent"
+    reporter.options = types.SimpleNamespace(enabled=True, calls=False, cuckoo_Compatibility=False)
+    reporter.task = {"id": 0, "attributes": {}}
+    reporter.run({"info": {}, "behavior": {"processes": []}})
+
+    assert deleted == []
+    assert indexed == []
+
+
+def test_hooks_section_enabled_string_booleans_and_keyword_subset_report_hook():
+    from lib.cuckoo.common import hooks as core_hooks
+
+    for falsy in ("false", "False", "0", "no", "off", ""):
+        cfg = types.SimpleNamespace(multitenancy={"enabled": falsy})
+        assert core_hooks._section_enabled(cfg, "multitenancy") is False
+
+    for truthy in ("true", "True", "1", "yes", "on"):
+        cfg = types.SimpleNamespace(multitenancy={"enabled": truthy})
+        assert core_hooks._section_enabled(cfg, "multitenancy") is True
+
+    seen = []
+
+    def stage_only_hook(results, stage=None):
+        seen.append((results["info"]["id"], stage))
+
+    core_hooks.clear_all_hooks()
+    try:
+        core_hooks.register_report_hook(stage_only_hook)
+        core_hooks.run_report_hooks({"info": {"id": 12}}, task={"id": 12}, stage="mongodb")
+    finally:
+        core_hooks.clear_all_hooks()
+    assert seen == [(12, "mongodb")]
+

@@ -5,6 +5,7 @@ All hooks are zero-overhead no-ops when no external plugin is installed.
 
 from __future__ import annotations
 
+import functools
 import inspect
 import logging
 from typing import Any, Callable, MutableMapping, Optional
@@ -127,19 +128,39 @@ def run_report_retrieved_hooks(task_id: int) -> None:
             logging.getLogger(__name__).exception("report-retrieved hook failed for task %s", task_id)
 
 
-def _accepts_report_context(fn: Callable[..., Any]) -> bool:
+@functools.lru_cache(maxsize=None)
+def _report_hook_spec(fn: Callable[..., Any]) -> tuple[bool, frozenset[str]]:
     try:
         params = list(inspect.signature(fn).parameters.values())
     except (TypeError, ValueError):
-        return False
-    return any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params) or len(params) > 1
+        return False, frozenset()
+    has_varkw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params)
+    accepted = frozenset(
+        p.name
+        for p in params[1:]
+        if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    )
+    return has_varkw, accepted
+
+
+def _accepts_report_context(fn: Callable[..., Any]) -> bool:
+    has_varkw, accepted = _report_hook_spec(fn)
+    return has_varkw or bool(accepted)
 
 
 def run_report_hooks(results: dict[str, Any], **context: Any) -> None:
     for fn in _report_hooks:
-        if context and _accepts_report_context(fn):
-            fn(results, **context)
-        elif not context or context.get("stage") in (None, "process", "mongodb", "elasticsearchdb"):
+        if context:
+            has_varkw, accepted = _report_hook_spec(fn)
+            if has_varkw:
+                fn(results, **context)
+                continue
+            if accepted:
+                filtered = {k: v for k, v in context.items() if k in accepted}
+                if filtered:
+                    fn(results, **filtered)
+                    continue
+        if not context or context.get("stage") in (None, "process", "mongodb", "elasticsearchdb"):
             fn(results)
 
 
@@ -203,12 +224,19 @@ def clear_all_hooks() -> None:
 # enablement check and error policy live in one place. lib.tenancy is imported only when enabled.
 
 
+def _coerce_bool(val: Any) -> bool:
+    if isinstance(val, str):
+        return val.strip().lower() in ("1", "true", "yes", "on")
+    return bool(val)
+
+
 def _section_enabled(cfg: Any, name: str) -> bool:
     section = getattr(cfg, name, None) or {}
     try:
-        return bool(section.get("enabled", False))
+        raw = section.get("enabled", False)
     except AttributeError:
-        return bool(getattr(section, "enabled", False))
+        raw = getattr(section, "enabled", False)
+    return _coerce_bool(raw)
 
 
 def bootstrap_tenancy(cfg: Any, settings_globals: Optional[MutableMapping[str, Any]] = None) -> bool:

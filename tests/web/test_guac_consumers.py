@@ -15,9 +15,10 @@ TEST_VNC_PORT = 5901
 
 
 class FakeTask:
-    def __init__(self, task_id, status="running"):
+    def __init__(self, task_id, status="running", guest=None):
         self.id = task_id
         self.status = status
+        self.guest = guest
 
 
 class FakeDatabase:
@@ -31,13 +32,15 @@ class FakeDatabase:
         }
         self._task = task or FakeTask(123, "running")
         self.deleted_sessions = []
+        self.view_task_details_args = []
 
     def get_guac_session(self, token):
         if str(token) == TEST_TOKEN:
             return dict(self._session_data)
         return None
 
-    def view_task(self, task_id):
+    def view_task(self, task_id, details=False):
+        self.view_task_details_args.append(details)
         if int(task_id) == self._task.id:
             return self._task
         return None
@@ -405,6 +408,19 @@ class TestGuacConsumers:
 
         connected, _ = await communicator.connect()
         assert connected is False
+
+    async def test_consumer_rejects_mismatched_guest_vm_label(self, guac_consumer_app_factory):
+        fake_db = FakeDatabase(
+            task=FakeTask(123, "running", guest=SimpleNamespace(label="win10_2")),
+        )
+        guac_consumer_app, fake_db = guac_consumer_app_factory(fake_db=fake_db)
+        communicator = _make_communicator(guac_consumer_app, "session_mismatch", "123_session_mismatch")
+
+        connected, _ = await communicator.connect()
+        assert connected is False
+        assert fake_db.view_task_details_args == [True]
+        assert fake_db.deleted_sessions == [TEST_TOKEN]
+        assert FakeGuacamoleClient.instances == []
 
 
 def test_vm_target_for_task_distinguishes_pending_running_and_completed(monkeypatch):

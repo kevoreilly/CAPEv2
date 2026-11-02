@@ -114,7 +114,9 @@ class GuestManager:
             connect=3,
             read=2,
             backoff_factor=0.5,
-            allowed_methods=None,
+            # Only replay idempotent methods after a read failure. A POST may
+            # already have started the analyzer before its response is lost.
+            allowed_methods=Retry.DEFAULT_ALLOWED_METHODS,
             raise_on_status=False,
         )
         adapter = HTTPAdapter(max_retries=retry)

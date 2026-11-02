@@ -9,6 +9,8 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.signals import email_confirmed, user_logged_in, user_signed_up
 from django import forms
 from django.conf import settings
+
+from lib.cuckoo.common.hooks import run_login_groups_hooks
 from django.contrib.auth.models import User
 from django.dispatch import receiver
 from django.shortcuts import render
@@ -284,55 +286,6 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
     return changed
 
 
-def reconcile_tenant(user, user_groups: set) -> None:
-    """Set UserProfile.tenant + is_tenant_admin from the user's IdP groups.
-
-    One-tenant-per-user (v1): exactly one membership match is expected.
-      >1 match -> fail closed (unset + warn; a user mapped to multiple
-                  tenant-groups is a v1 misconfiguration)
-      0 match  -> no tenant
-    The caller skips this entirely when the groups claim is ABSENT (misconfig
-    guard), mirroring role reconciliation; a present-but-empty claim is honoured.
-    """
-    from users.models import Tenant, UserProfile
-
-    def _g(vals):
-        # A tenant's idp_groups/admin_idp_groups come from a JSONField. Normalize
-        # defensively so a MALFORMED config can't mis-match a tenant: a bare string is
-        # ONE group (NOT an iterable of characters — else a member of group "a"/"c"/…
-        # would spuriously match), a list/tuple/set is filtered to hashable strings (so
-        # a nested dict can't TypeError the set intersection and 500 the login), and any
-        # other type fails closed to the empty set.
-        if isinstance(vals, str):
-            return {vals}
-        if isinstance(vals, (list, tuple, set)):
-            return {g for g in vals if isinstance(g, str)}
-        return set()
-
-    # Filter in Python rather than an idp_groups__contains query: the Django auth
-    # DB is sqlite, where JSONField contains/contained_by lookups are unsupported
-    # (supports_json_field_contains=False -> NotSupportedError). Tenant counts are
-    # small per deployment, so this O(n) scan is negligible.
-    matches = [t for t in Tenant.objects.filter(active=True) if user_groups & _g(t.idp_groups)]
-    prof, _ = UserProfile.objects.get_or_create(user=user)
-    if len(matches) == 1:
-        t = matches[0]
-        new_tenant, new_admin = t, bool(user_groups & _g(t.admin_idp_groups))
-    else:
-        if len(matches) > 1:
-            log.warning(
-                "user %s matches multiple tenants %s; leaving tenant unset",
-                user.username, [t.slug for t in matches],
-            )
-        new_tenant, new_admin = None, False
-    # Only write when something actually changed — avoid a needless UPDATE on
-    # every SSO login.
-    if prof.tenant_id != getattr(new_tenant, "id", None) or bool(prof.is_tenant_admin) != new_admin:
-        prof.tenant = new_tenant
-        prof.is_tenant_admin = new_admin
-        prof.save(update_fields=["tenant", "is_tenant_admin"])
-
-
 # ── Account adapters ──────────────────────────────────────────────────────────
 
 disposable_domain_list = []
@@ -481,7 +434,7 @@ def _reconcile_sso_user_on_login(sender, request, user, **kwargs):
     extra = getattr(sociallogin.account, "extra_data", None) or {}
     if _apply_idp_roles_and_email(user, extra):
         user.save()
-    # Tenant + tenant-admin reconciliation — same absent-claim guard as roles:
+    # Group membership reconciliation — same absent-claim guard as roles:
     # only touch tenant membership when the groups claim is actually present.
     oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
     claim = oidc_cfg.get("groups_claim") or "groups"
@@ -490,4 +443,6 @@ def _reconcile_sso_user_on_login(sender, request, user, **kwargs):
     # as absent and skip tenant reconciliation entirely — SSO users would log in
     # with no tenant/tenant-admin membership. _extract_groups already normalizes.
     if claim in _claims(extra):
-        reconcile_tenant(user, _extract_groups(extra))
+        # Group/tenant membership is a plugin concern (lib.tenancy maps IdP groups onto
+        # Django groups); a no-op when no plugin is registered.
+        run_login_groups_hooks(user, _extract_groups(extra))

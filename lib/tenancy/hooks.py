@@ -1086,6 +1086,7 @@ def wrap_submission_and_web_utils(
                     if rtid is not None and str(rtid) != str(task_id):
                         viewer = get_current_viewer()
                         if viewer is not None and not viewer.see_all:
+                            from lib.cuckoo.core.data.task import Task
                             from lib.cuckoo.core.database import Database
                             from lib.tenancy.policy import can_read
 
@@ -1093,6 +1094,11 @@ def wrap_submission_and_web_utils(
                             ensure_acl_schema_once(db_inst.engine)
                             with db_inst.session.begin():
                                 t_obj = res.get("task")
+                                if t_obj is None:
+                                    try:
+                                        t_obj = db_inst.session.get(Task, int(rtid))
+                                    except Exception:
+                                        t_obj = None
                                 fb_uid = getattr(t_obj, "user_id", None) if t_obj is not None else None
                                 scope = resolve_task_scope(db_inst.session, int(rtid), fallback_user_id=fb_uid)
                             if not can_read(viewer, scope):
@@ -1448,14 +1454,15 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
     if isinstance(info, dict) and main_task_id:
         info.setdefault("local_task_id", info.get("id"))
 
-    try:
-        from lib.tenancy.storage.config import object_storage_config
-        from lib.tenancy.storage.reporting import upload_analysis_artifacts
+    if stage != "acl_probe":
+        try:
+            from lib.tenancy.storage.config import object_storage_config
+            from lib.tenancy.storage.reporting import upload_analysis_artifacts
 
-        if object_storage_config().enabled:
-            upload_analysis_artifacts(results)
-    except Exception:
-        pass
+            if object_storage_config().enabled:
+                upload_analysis_artifacts(results)
+        except Exception:
+            pass
 
     info = results.get("info")
     if not isinstance(info, dict):

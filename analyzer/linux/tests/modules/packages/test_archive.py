@@ -1,6 +1,7 @@
 import stat
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -105,5 +106,24 @@ def test_archive_discovers_7zip(prepare_archive, monkeypatch, tmp_path, availabl
             discovery.setattr(abstracts.os.path, "isfile", lambda path: path in available)
             assert package.start(str(tmp_path / "sample.zip")) == [4242]
         assert extraction.call_args.args[0] == expected
+    finally:
+        package.finish()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Analyzer requires Linux")
+@pytest.mark.parametrize("members, expected", [
+    ({"README": b"documentation", "run.sh": b"echo safe"}, {4242}),
+    ({"README": b"documentation"}, set()),
+])
+def test_archive_results_register_with_pid_consumer(prepare_archive, monkeypatch, tmp_path, members, expected):
+    import analyzer
+
+    monkeypatch.setattr(analyzer, "PROCESS_LIST", set())
+    monkeypatch.setattr(analyzer, "SEEN_LIST", set())
+    package, _, _ = prepare_archive(members)
+    try:
+        analyzer.add_pids(package.start(str(tmp_path / "sample.zip")))
+        assert analyzer.PROCESS_LIST == expected
+        assert analyzer.SEEN_LIST == expected
     finally:
         package.finish()

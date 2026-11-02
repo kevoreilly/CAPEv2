@@ -167,7 +167,9 @@ class Archive(Package):
             log.debug("Missing file option, auto executing: %s", interesting_files)
             for interesting_file in interesting_files:
                 file_path = os.path.join(root, interesting_file)
-                ret_list.append(self.execute_interesting_file(root, interesting_file, file_path))
+                pid = self.execute_interesting_file(root, interesting_file, file_path)
+                if pid is not None:
+                    ret_list.append(pid)
 
             return ret_list
         else:

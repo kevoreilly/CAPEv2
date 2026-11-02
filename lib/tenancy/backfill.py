@@ -353,6 +353,68 @@ def runs_dist_tasks(session: Session) -> Optional[int]:
     return None
 
 
+def _is_multitenancy_enabled() -> bool:
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return bool(getattr(Config(), "multitenancy", {}).get("enabled", False))
+    except Exception:
+        return False
+
+
+def cleanup_legacy_inline_schema(engine, *, dry_run: bool = False) -> Dict[str, int]:
+    """Clean up legacy inline-tenancy SQL state (`tasks.visibility='public'` and `users_userprofile.is_tenant_admin`)."""
+    import sqlalchemy as sa
+
+    from lib.tenancy.acl import ensure_acl_schema
+
+    stats = {"public_tasks_carried": 0, "dropped_is_tenant_admin": 0}
+    with engine.begin() as conn:
+        insp = sa.inspect(conn)
+        tables = set(insp.get_table_names())
+        if "tasks" in tables:
+            columns = {c["name"] for c in insp.get_columns("tasks")}
+            if "visibility" in columns:
+                has_tenant_rows = (
+                    conn.execute(sa.text("SELECT 1 FROM tasks WHERE tenant_id IS NOT NULL LIMIT 1")).first() is not None
+                    if "tenant_id" in columns
+                    else False
+                )
+                if _is_multitenancy_enabled() or has_tenant_rows:
+                    if dry_run:
+                        if "task_acl" in tables:
+                            cnt = conn.execute(
+                                sa.text(
+                                    "SELECT COUNT(*) FROM tasks t WHERE t.visibility = 'public' "
+                                    "AND NOT EXISTS (SELECT 1 FROM task_acl a WHERE a.task_id = t.id)"
+                                )
+                            ).scalar()
+                        else:
+                            cnt = conn.execute(sa.text("SELECT COUNT(*) FROM tasks WHERE visibility = 'public'")).scalar()
+                        stats["public_tasks_carried"] = int(cnt or 0)
+                    else:
+                        has_public = conn.execute(sa.text("SELECT 1 FROM tasks WHERE visibility = 'public' LIMIT 1")).first()
+                        if has_public is not None:
+                            if "task_acl" not in tables:
+                                ensure_acl_schema(conn)
+                            res = conn.execute(
+                                sa.text(
+                                    "INSERT INTO task_acl (task_id, user_id, tenant_id, visibility, visibility_seq) "
+                                    "SELECT t.id, t.user_id, NULL, 'public', 1 FROM tasks t "
+                                    "WHERE t.visibility = 'public' "
+                                    "AND NOT EXISTS (SELECT 1 FROM task_acl a WHERE a.task_id = t.id)"
+                                )
+                            )
+                            stats["public_tasks_carried"] = int(res.rowcount or 0)
+        if "users_userprofile" in tables:
+            up_cols = {c["name"] for c in insp.get_columns("users_userprofile")}
+            if "is_tenant_admin" in up_cols:
+                if not dry_run:
+                    conn.execute(sa.text("ALTER TABLE users_userprofile DROP COLUMN is_tenant_admin"))
+                stats["dropped_is_tenant_admin"] = 1
+    return stats
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """`utils/tenancy_reconcile.py [--dry-run]`: restamp Mongo/ES report docs from `task_acl`.
 
@@ -417,6 +479,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 file=sys.stderr,
             )
             return 2
+        cleanup_legacy_inline_schema(db.engine, dry_run=args.dry_run)
         if reporting.mongodb.enabled:
             from pymongo import UpdateOne
 

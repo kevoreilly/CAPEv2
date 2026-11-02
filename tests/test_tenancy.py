@@ -2131,3 +2131,63 @@ def test_runs_dist_tasks_skips_empty_attributes_rows():
         session.add(remote)
         session.commit()
         assert runs_dist_tasks(session) == remote.id
+
+
+def test_cleanup_legacy_inline_schema_carries_public_tasks_and_drops_is_tenant_admin(monkeypatch):
+    import sqlalchemy as sa
+
+    import lib.tenancy.backfill as backfill
+    from lib.tenancy.acl import TaskAcl, resolve_task_scope
+
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "CREATE TABLE tasks (id INTEGER PRIMARY KEY, user_id INTEGER, tenant_id INTEGER, visibility VARCHAR(16) NOT NULL DEFAULT 'private')"
+            )
+        )
+        conn.execute(sa.text("INSERT INTO tasks VALUES (1, 7, 3, 'public'), (2, 7, 3, 'tenant'), (3, 8, NULL, 'private')"))
+        conn.execute(
+            sa.text(
+                "CREATE TABLE users_userprofile (id INTEGER PRIMARY KEY, subscription VARCHAR(50), reports BOOL, is_tenant_admin BOOL NOT NULL)"
+            )
+        )
+
+    monkeypatch.setattr(backfill, "_is_multitenancy_enabled", lambda: False)
+    dry = backfill.cleanup_legacy_inline_schema(engine, dry_run=True)
+    assert dry == {"public_tasks_carried": 1, "dropped_is_tenant_admin": 1}
+    assert "task_acl" not in sa.inspect(engine).get_table_names()
+
+    stats = backfill.cleanup_legacy_inline_schema(engine, dry_run=False)
+    assert stats == {"public_tasks_carried": 1, "dropped_is_tenant_admin": 1}
+    assert "is_tenant_admin" not in {c["name"] for c in sa.inspect(engine).get_columns("users_userprofile")}
+
+    with Session(engine) as session:
+        assert session.get(TaskAcl, 1).visibility == "public"
+        assert session.get(TaskAcl, 1).tenant_id is None
+        assert resolve_task_scope(session, 2, fallback_user_id=7).visibility == "private"
+
+
+def test_cleanup_legacy_inline_schema_skips_public_carry_when_multitenancy_was_never_used(monkeypatch):
+    import sqlalchemy as sa
+
+    import lib.tenancy.backfill as backfill
+
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "CREATE TABLE tasks (id INTEGER PRIMARY KEY, user_id INTEGER, tenant_id INTEGER, visibility VARCHAR(16) NOT NULL DEFAULT 'private')"
+            )
+        )
+        conn.execute(sa.text("INSERT INTO tasks VALUES (1, 0, NULL, 'public'), (2, 7, NULL, 'public')"))
+
+    monkeypatch.setattr(backfill, "_is_multitenancy_enabled", lambda: False)
+    stats = backfill.cleanup_legacy_inline_schema(engine, dry_run=False)
+    assert stats == {"public_tasks_carried": 0, "dropped_is_tenant_admin": 0}
+    assert "task_acl" not in sa.inspect(engine).get_table_names()
+
+    monkeypatch.setattr(backfill, "_is_multitenancy_enabled", lambda: True)
+    stats_on = backfill.cleanup_legacy_inline_schema(engine, dry_run=False)
+    assert stats_on["public_tasks_carried"] == 2
+

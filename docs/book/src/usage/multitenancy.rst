@@ -80,7 +80,18 @@ restamp them from ``task_acl`` instead. Stop the web and processing services,
 then run (MongoDB and/or Elasticsearch, whichever is enabled)::
 
     poetry run python utils/tenancy_reconcile.py --dry-run
-    poetry run python utils/tenancy_reconcile.py
+    poetry run python utils/tenancy_reconcile.py --adopt-public-from-reports
+
+In addition to restamping MongoDB and Elasticsearch reports from ``task_acl``,
+``utils/tenancy_reconcile.py`` automatically:
+
+* Carries over any ``tasks.visibility = 'public'`` rows into ``task_acl`` with
+  ``tenant_id = NULL`` if ``tasks.visibility`` has not been dropped yet (or
+  adopts public reports without a ``task_acl`` row when passed
+  ``--adopt-public-from-reports``; pass ``--demote-public`` instead to demote
+  unrecorded public reports to ``private``).
+* Drops the legacy ``users_userprofile.is_tenant_admin`` column left behind by
+  the retired ``users.0004`` migration if present on the SQL database.
 
 A report with no ``task_acl`` row is restamped ``private`` to its task's
 submitter (``tasks.user_id``), as the web UI already resolves it, or to no one,

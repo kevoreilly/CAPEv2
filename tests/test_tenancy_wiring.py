@@ -1667,19 +1667,31 @@ def test_machine_all_expansion_by_label_is_kept(db, temp_pe32, monkeypatch):
 def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monkeypatch):
     # The main node's add() applied the group's pool tag, route and timeout cap; the worker's
     # dist account is unrestricted, so dropping them ran the URL anywhere, with any route.
+    import contextlib
     import logging
     import logging.handlers
     import requests
 
     monkeypatch.setattr(logging.handlers, "TimedRotatingFileHandler", lambda *a, **kw: logging.NullHandler())
     dist = pytest.importorskip("utils.dist")
-    node = types.SimpleNamespace(name="worker1", url="http://worker1/apiv2/", apikey="k")
+    node = types.SimpleNamespace(id=1, name="worker1", url="http://worker1/apiv2/", apikey="k")
     task = types.SimpleNamespace(
-        tags="pool_alpha", main_task_id=5, category="url", path="http://a.test/", package="", timeout=120,
+        id=1, tags="pool_alpha", main_task_id=5, category="url", path="http://a.test/", package="", timeout=120,
         priority=1, options="", machine="", platform="", custom="", clock=None, memory=False,
         enforce_timeout=False, route="none", tlp=None,
     )
-    fake_db = types.SimpleNamespace(scalar=lambda q: node, get=lambda model, tid: task, close=lambda: None)
+    fake_db = types.SimpleNamespace(
+        scalar=lambda q: node,
+        get=lambda model, tid: task,
+        commit=lambda: None,
+        rollback=lambda: None,
+        close=lambda: None,
+    )
+    monkeypatch.setattr(
+        dist,
+        "main_db",
+        types.SimpleNamespace(session=types.SimpleNamespace(begin=contextlib.nullcontext), set_status=lambda *a: None),
+    )
     posted = {}
 
     def post(url, data=None, **kw):

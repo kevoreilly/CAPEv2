@@ -573,10 +573,12 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         db = session()
         session_managed = True
 
+    node = None
+    task = None
+    check = False
     try:
         node = db.scalar(select(Node).where(Node.id == node_id))
         task = db.get(Task, task_id)
-        check = False
 
         if node.name == main_server_name:
             if session_managed:
@@ -634,8 +636,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         def _fail_task_submission():
             task.finished = True
             task.retrieved = True
-            main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
             try:
+                with main_db.session.begin():
+                    main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
                 db.commit()
             except Exception as exc:
                 log.exception(exc)
@@ -734,7 +737,8 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     r.content,
                 )
                 if b"File too big, enable" in r.content:
-                    main_db.set_status(task.main_task_id, TASK_BANNED)
+                    with main_db.session.begin():
+                        main_db.set_status(task.main_task_id, TASK_BANNED)
             if task.task_id:
                 # log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
                 log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, task.task_id)

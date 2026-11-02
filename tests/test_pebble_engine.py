@@ -3,6 +3,8 @@ import os
 import pickle
 import time
 
+import pytest
+
 from lib.cuckoo.core.data.task import TASK_COMPLETED
 from lib.cuckoo.core.processing_engine.pebble import PebbleEngine
 from lib.cuckoo.core.processing_engine.source import TaskSource
@@ -623,6 +625,62 @@ def test_is_pool_healthy_handles_stopped_and_raising_active():
     created_pool = _BaseMockPool(created_status)
     created_pool.active = False
     assert PebbleEngine._is_pool_healthy(created_pool) is True
+
+
+@pytest.mark.parametrize("completion", ["callback", "stalled", "broken_pool"])
+def test_failure_remains_excluded_until_status_commit(db, temp_pe32, completion):
+    """The supervisor must not pick a completed row while failure is committing.
+
+    Re-enter both reapers at that boundary too: keeping the row excluded must
+    not allow a second owner to cancel/fail a callback already committing it.
+    """
+    from pebble import ProcessFuture
+
+    with db.session.begin():
+        failed_id = db.add_path(temp_pe32)
+        other_id = db.add_path(temp_pe32)
+        db.set_status(failed_id, TASK_COMPLETED)
+        db.set_status(other_id, TASK_COMPLETED)
+
+    class CommittingSource(TaskSource):
+        attempts = 0
+
+        def mark_failed(self, task_id):
+            self.attempts += 1
+            if self.attempts == 1:
+                # The row is still COMPLETED until super().mark_failed commits.
+                candidates = self.fetch(limit=2, exclude_ids=set(engine._pending.values()))
+                assert [task.id for task in candidates] == [other_id]
+                assert not engine._wake.is_set(), "capacity released before status commit"
+                engine._reap_stalled()
+                engine._fail_all_pending("concurrent pool recreation")
+            super().mark_failed(task_id)
+
+    source = CommittingSource(db)
+    engine = PebbleEngine(
+        task_fn=lambda task: None, worker_init=lambda: None, source=source,
+        parallel=2, timeout=1, stall_grace=1,
+    )
+    future = ProcessFuture()
+    engine._pending[future] = failed_id
+    engine._scheduled_at[future] = time.monotonic() - 3600
+    if completion == "callback":
+        future.set_exception(RuntimeError("worker failed"))
+        future.add_done_callback(engine._done)
+    else:
+        # cancel() invokes _done synchronously; it must not steal reaper ownership.
+        future.add_done_callback(engine._done)
+        if completion == "stalled":
+            engine._reap_stalled()
+        else:
+            engine._fail_all_pending("pool unhealthy")
+
+    assert source.attempts == 1
+    assert [task.id for task in source.fetch(limit=2, exclude_ids=set())] == [other_id]
+    assert engine._pending == {}
+    assert engine._scheduled_at == {}
+    assert engine._finalizing == set()
+    assert engine._wake.is_set()
 
 
 

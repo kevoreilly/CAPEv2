@@ -68,6 +68,7 @@ class PebbleEngine(ProcessingEngine):
         self._wake = threading.Event()
         self._pending = {}  # future -> task_id
         self._scheduled_at = {}  # future -> time.monotonic() when scheduled
+        self._finalizing = set()  # futures claimed by a callback or failure reaper
         self._pool_created_at = 0.0  # set by _new_pool(); start of the pickup clock
 
     def _safe_mark_failed(self, task_id):
@@ -79,30 +80,40 @@ class PebbleEngine(ProcessingEngine):
         except Exception as db_error:
             log.exception("[%s] Failed to mark task as FAILED_PROCESSING: %s", task_id, db_error)
 
+    def _release_pending(self, future):
+        """Release exclusion/capacity only after the terminal status is recorded."""
+        with self._lock:
+            self._pending.pop(future, None)
+            self._scheduled_at.pop(future, None)
+            self._finalizing.discard(future)
+            self._wake.set()
+
     def _done(self, future):
         """Pebble done-callback: fires in the pool's internal thread."""
         with self._lock:
-            task_id = self._pending.pop(future, None)
-            self._scheduled_at.pop(future, None)
-            self._wake.set()
-
-        if task_id is None or future.cancelled():
-            return
+            task_id = self._pending.get(future)
+            if task_id is None or future in self._finalizing:
+                return
+            self._finalizing.add(future)
 
         try:
-            future.result()
-            log.info("Reports generation completed for Task #%s", task_id)
-        except CancelledError:
-            return
-        except TimeoutError as error:
-            fn_name = getattr(getattr(self.task_fn, "func", self.task_fn), "__name__", self.task_fn)
-            log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, fn_name)
-            self._safe_mark_failed(task_id)
-        except BaseException as error:
-            # BaseException, not Exception: anything escaping this callback
-            # propagates into pebble's message-manager thread and kills it.
-            log.exception("[%s] Exception when processing task: %s", task_id, error)
-            self._safe_mark_failed(task_id)
+            if future.cancelled():
+                return
+            try:
+                future.result()
+                log.info("Reports generation completed for Task #%s", task_id)
+            except CancelledError:
+                return
+            except TimeoutError as error:
+                fn_name = getattr(getattr(self.task_fn, "func", self.task_fn), "__name__", self.task_fn)
+                log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, fn_name)
+                self._safe_mark_failed(task_id)
+            except BaseException as error:
+                # Anything escaping kills pebble's message-manager thread.
+                log.exception("[%s] Exception when processing task: %s", task_id, error)
+                self._safe_mark_failed(task_id)
+        finally:
+            self._release_pending(future)
 
     def _reap_stalled(self):
         """Fail tasks that were scheduled but never ran or stalled past deadline.
@@ -136,16 +147,15 @@ class PebbleEngine(ProcessingEngine):
             deadline = (self.timeout + self.stall_grace) if is_running else pickup_grace
 
             with self._lock:
-                if future not in self._pending:
+                if future not in self._pending or future in self._finalizing:
                     continue
                 started = self._scheduled_at.get(future, now)
                 if not is_running:
                     started = max(started, self._pool_created_at)
                 if now - started < deadline:
                     continue
-                task_id = self._pending.pop(future, None)
-                self._scheduled_at.pop(future, None)
-                self._wake.set()
+                task_id = self._pending[future]
+                self._finalizing.add(future)
 
             if is_running:
                 log.error(
@@ -160,10 +170,13 @@ class PebbleEngine(ProcessingEngine):
                     deadline,
                 )
             try:
-                future.cancel()
-            except Exception:
-                pass
-            self._safe_mark_failed(task_id)
+                try:
+                    future.cancel()
+                except Exception:
+                    pass
+                self._safe_mark_failed(task_id)
+            finally:
+                self._release_pending(future)
 
     def _new_pool(self):
         """Create a fresh fork-context pebble process pool."""
@@ -194,18 +207,19 @@ class PebbleEngine(ProcessingEngine):
     def _fail_all_pending(self, reason):
         """Fail and cancel all currently pending tasks when a pool breaks."""
         with self._lock:
-            items = list(self._pending.items())
-            self._pending.clear()
-            self._scheduled_at.clear()
-            self._wake.set()
+            items = [(future, task_id) for future, task_id in self._pending.items() if future not in self._finalizing]
+            self._finalizing.update(future for future, _ in items)
 
         for future, task_id in items:
             log.error("[%s] Pebble pool broken (%s); marking in-flight task failed", task_id, reason)
             try:
-                future.cancel()
-            except Exception:
-                pass
-            self._safe_mark_failed(task_id)
+                try:
+                    future.cancel()
+                except Exception:
+                    pass
+                self._safe_mark_failed(task_id)
+            finally:
+                self._release_pending(future)
 
     def run(self):
         """Drive the pebble pool loop, mirroring the historical autoprocess body."""

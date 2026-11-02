@@ -12,7 +12,7 @@ import shutil
 from tempfile import NamedTemporaryFile
 
 import pytest
-from sqlalchemy import select, func
+from sqlalchemy import event, select, func
 from sqlalchemy.exc import SQLAlchemyError
 
 from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
@@ -114,6 +114,51 @@ class TestDatabaseEngine:
             # Add task URL.
             db.add_url("http://foo.bar")
             assert db.session.scalar(count_stmt) == 2
+
+    @pytest.mark.parametrize("finish", ("commit", "rollback"))
+    def test_add_url_leaves_transaction_to_caller(self, db: _Database, finish):
+        db.session.remove()
+        session = db.session()
+        assert not session.in_transaction()
+        commits = []
+        rollbacks = []
+
+        def record_commit(connection):
+            commits.append(connection)
+
+        def record_rollback(connection):
+            rollbacks.append(connection)
+
+        event.listen(db.engine, "commit", record_commit)
+        event.listen(db.engine, "rollback", record_rollback)
+        try:
+            clock = datetime.datetime(2026, 1, 2, 3, 4, 5)
+            task_id = db.add_url("https://owned.example/", user_id=42, tags="owned", clock=clock)
+            transaction = session.get_transaction()
+            assert transaction is not None
+            assert transaction.is_active
+            assert commits == []
+            assert rollbacks == []
+
+            session.flush()
+            getattr(session, finish)()
+            assert not transaction.is_active
+            assert not session.in_transaction()
+            assert len(commits) == (finish == "commit")
+            assert len(rollbacks) == (finish == "rollback")
+        finally:
+            event.remove(db.engine, "commit", record_commit)
+            event.remove(db.engine, "rollback", record_rollback)
+
+        db.session.remove()
+        with db.session.begin():
+            task = db.session.get(Task, task_id)
+            if finish == "rollback":
+                assert task is None
+            else:
+                assert task.user_id == 42
+                assert task.clock == clock
+                assert {tag.name for tag in task.tags} == {"owned", "x64", "x86"}
 
     @pytest.mark.parametrize(
         "detected_platform",

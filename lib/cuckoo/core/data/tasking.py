@@ -238,9 +238,9 @@ class TasksMixIn:
             for k, v in attributes.items():
                 task.set_attribute(k, v)
 
-        # Use a transaction so that we can return an ID.
-        with self.session.begin():
-            self.session.add(task)
+        # Obtain an ID without committing the caller's transaction.
+        self.session.add(task)
+        self.session.flush()
 
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:

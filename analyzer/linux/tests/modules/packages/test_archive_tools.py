@@ -1,6 +1,7 @@
 import io
 import shutil
 import subprocess
+import stat
 from pathlib import Path
 from unittest.mock import Mock
 from zipfile import ZipFile
@@ -73,3 +74,39 @@ def test_recursive_output_does_not_collide_with_members(real_archive_package, tm
     assert children[0].read_text() == "printf nested-ok"
     package.finish()
     assert not root.exists()
+
+
+@pytest.fixture(params=[True, False], ids=["encrypted-headers", "visible-headers"])
+def encrypted_archive(request, seven_zip, tmp_path):
+    source = tmp_path / "payload.sh"
+    source.write_text("printf encrypted-ok")
+    target = tmp_path / "sample.7z"
+    subprocess.run(
+        [seven_zip, "a", "-t7z", "-mhe=on" if request.param else "-mhe=off", "-psecret", str(target), source.name],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    return target
+
+
+@pytest.mark.parametrize("password, multiple", [("secret", "no"), ("wrong:secret", "yes")])
+def test_encrypted_members_are_extracted_before_discovery(
+    real_archive_package, encrypted_archive, password, multiple
+):
+    package, outputs = real_archive_package({"password": password, "enable_multi_password": multiple})
+    pids = package.start(str(encrypted_archive))
+    assert len(pids) == 1 and isinstance(pids[0], int)
+    assert outputs == [b"encrypted-ok"]
+    root = Path(package._extraction_dir.name)
+    assert (root / "payload.sh").read_text() == "printf encrypted-ok"
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+
+
+def test_wrong_password_cleans_partial_extraction(real_archive_package, encrypted_archive, tmp_path):
+    package, outputs = real_archive_package({"password": "wrong"})
+    before = set(tmp_path.iterdir())
+    with pytest.raises(archive.CuckooPackageError):
+        package.start(str(encrypted_archive))
+    assert outputs == []
+    assert set(tmp_path.iterdir()) == before

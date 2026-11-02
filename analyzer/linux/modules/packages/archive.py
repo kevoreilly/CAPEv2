@@ -16,7 +16,6 @@ from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
     attempt_multiple_passwords,
     extract_archive,
-    get_file_names,
     upload_extracted_files,
 )
 
@@ -80,13 +79,8 @@ class Archive(Package):
         recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
         file_util_path = self.get_path_app_in_path("file") if recursion_depth > 0 else None
 
-        file_names = get_file_names(seven_zip_path, path)
-        if len(file_names):
-            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-            extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
-
-        if not file_names:
-            raise CuckooPackageError("Empty archive")
+        try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+        extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
 
         extracted_files = set()
         extracted_archives = set()
@@ -130,10 +124,7 @@ class Archive(Package):
             else:
                 break
 
-        # Handle special characters that 7ZIP cannot
-        # We have the file names according to 7ZIP output (file_names)
-        # We have the file names that were actually extracted (files at root)
-        # If these values are different, replace all
+        # Discover actual extracted paths, including password-protected members.
         log.debug("Extracted archives:%s", extracted_archives)
         files_at_root = [
             os.path.relpath(p, root)
@@ -143,6 +134,9 @@ class Archive(Package):
         ]
         log.debug(files_at_root)
         file_names = files_at_root
+
+        if not file_names:
+            raise CuckooPackageError("Empty archive")
 
         upload_extracted_files(root, files_at_root)
 

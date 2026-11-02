@@ -15,7 +15,6 @@ from modules.packages import archive
 def prepare_archive(monkeypatch, tmp_path):
     monkeypatch.setattr(abstracts, "NetlogFile", Mock)
     monkeypatch.setenv("TEMP", str(tmp_path))
-    monkeypatch.setattr(archive, "get_file_names", lambda *args: ["run.sh"])
 
     def prepare(members, options=None):
         package = archive.Archive(options=options or {})
@@ -166,3 +165,10 @@ def test_discovery_dispatches_payloads_beside_readme(prepare_archive, tmp_path, 
         assert stat.S_IMODE(mode) == (0o740 if kind == "elf" else 0o640)
     finally:
         package.finish()
+
+
+def test_empty_extraction_is_reported_and_cleaned(prepare_archive, tmp_path):
+    package, extraction, _ = prepare_archive({})
+    with pytest.raises(archive.CuckooPackageError, match="Empty archive"):
+        package.start(str(tmp_path / "sample.zip"))
+    assert not Path(extraction.call_args.args[2]).exists()

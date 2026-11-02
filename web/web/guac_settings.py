@@ -65,6 +65,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "web.middleware.DBTransactionMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # AuthenticationMiddleware populates request.user from the session. guac/views.py's index
     # gates the live-VM tunnel on request.user (when WEB_AUTHENTICATION is on). Without this

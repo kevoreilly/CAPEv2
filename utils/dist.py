@@ -70,6 +70,7 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
+GCS_ENABLED = False
 if gcp_conf.samples_pubsub.enabled:
     from lib.cuckoo.common.gcp import (
         GCP,
@@ -622,7 +623,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             platform=task.platform,
             tags=task.tags,
             custom=task.custom,
-            clock=task.clock,
+            clock=task.clock.strftime("%m-%d-%Y %H:%M:%S") if hasattr(task.clock, "strftime") else task.clock,
             memory=task.memory,
             enforce_timeout=task.enforce_timeout,
             route=task.route,
@@ -682,7 +683,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options, "attributes": attributes_json},
+                    data={**data, "url": task.path},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,

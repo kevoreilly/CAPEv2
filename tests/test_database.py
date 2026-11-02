@@ -160,6 +160,42 @@ class TestDatabaseEngine:
                 assert task.clock == clock
                 assert {tag.name for tag in task.tags} == {"owned", "x64", "x86"}
 
+    def test_add_path_reuses_concurrent_sample_without_rolling_back_outer_transaction(
+        self, db: _Database, temp_filename: str, monkeypatch
+    ):
+        with db.session.begin():
+            existing_sample = db.register_sample(tasking.File(temp_filename))
+            sample_id = existing_sample.id
+
+        scalar = db.session.scalar
+        sample_lookups = []
+
+        def stale_first_sample_lookup(statement, *args, **kwargs):
+            sample_lookups.append(statement)
+            if len(sample_lookups) == 1:
+                # Another submitter won the insert after our initial lookup.
+                return None
+            return scalar(statement, *args, **kwargs)
+
+        with db.session.begin():
+            before_id = db.add_url("https://before.example/")
+            with monkeypatch.context() as patch:
+                patch.setattr(db.session, "scalar", stale_first_sample_lookup)
+                task_id = db.add_path(temp_filename)
+
+            assert db.session().is_active
+            assert db.session.get(Task, task_id).sample_id == sample_id
+            after_id = db.add_url("https://after.example/")
+
+        # Both surrounding writes must survive the failed duplicate INSERT,
+        # not just remain in the identity map of the submitting session.
+        db.session.remove()
+        with db.session.begin():
+            assert db.session.scalar(select(func.count(Sample.id))) == 1
+            assert db.session.get(Task, task_id).sample_id == sample_id
+            assert db.session.get(Task, before_id).target == "https://before.example/"
+            assert db.session.get(Task, after_id).target == "https://after.example/"
+
     @pytest.mark.parametrize(
         "detected_platform",
         ("windows", "linux"),

@@ -163,7 +163,7 @@ class TasksMixIn:
             sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
             if not sample:
                 try:
-                    with self.session.begin():
+                    with self.session.begin_nested():
                         sample = Sample(
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),

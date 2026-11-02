@@ -38,5 +38,6 @@ class Browser(Auxiliary, Thread):
                 ie = Process()
                 if not url:
                     url = "https://www.yahoo.com/"
-                ie.execute(path=iexplore, args=f'"{url}"', suspended=False)
+                if ie.execute(path=iexplore, args=f'"{url}"'):
+                    ie.resume()
                 ie.close()

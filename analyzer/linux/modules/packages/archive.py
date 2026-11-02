@@ -35,6 +35,7 @@ class Archive(Package):
         ("usr", "bin", "python3"),
         ("usr", "bin", "pwsh"),
         ("usr", "bin", "7z"),
+        ("usr", "bin", "7zz"),
         ("usr", "bin", "file"),
         ("usr", "bin", "unrar"),
         ("usr", "bin", "bash"),

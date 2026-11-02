@@ -91,3 +91,19 @@ def test_failed_finish_cleans_extraction(prepare_archive, tmp_path):
     with pytest.raises(RuntimeError, match="closed connection"):
         package.finish()
     assert not root.exists()
+
+
+@pytest.mark.parametrize("available, expected", [
+    ({"/usr/bin/7z", "/usr/bin/7zz"}, "/usr/bin/7z"),
+    ({"/usr/bin/7zz"}, "/usr/bin/7zz"),
+])
+def test_archive_discovers_7zip(prepare_archive, monkeypatch, tmp_path, available, expected):
+    package, extraction, _ = prepare_archive({"run.sh": b"echo safe"})
+    del package.get_path_app_in_path
+    try:
+        with monkeypatch.context() as discovery:
+            discovery.setattr(abstracts.os.path, "isfile", lambda path: path in available)
+            assert package.start(str(tmp_path / "sample.zip")) == [4242]
+        assert extraction.call_args.args[0] == expected
+    finally:
+        package.finish()

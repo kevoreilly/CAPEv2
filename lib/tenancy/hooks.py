@@ -1207,7 +1207,7 @@ def wrap_submission_and_web_utils(
             def _wrapped_sub_index(
                 request: Any,
                 task_id: Any = None,
-                sha256: Any = None,
+                resubmit_hash: Any = None,
                 *args: Any,
                 _orig=orig_sub_index,
                 _sv=submission_views_mod,
@@ -1221,7 +1221,9 @@ def wrap_submission_and_web_utils(
                         task_id is not None and not str(task_id).isdigit()
                     ):
                         return _sv.render(request, "error.html", {"error": "Invalid sample hash"})
-                return _orig(request, task_id=task_id, sha256=sha256, *args, **kwargs)
+                if "sha256" in kwargs and resubmit_hash is None:
+                    resubmit_hash = kwargs.pop("sha256")
+                return _orig(request, task_id=task_id, resubmit_hash=resubmit_hash, *args, **kwargs)
 
             _wrapped_sub_index._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             if custom_sub_views:

@@ -1667,19 +1667,31 @@ def test_machine_all_expansion_by_label_is_kept(db, temp_pe32, monkeypatch):
 def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monkeypatch):
     # The main node's add() applied the group's pool tag, route and timeout cap; the worker's
     # dist account is unrestricted, so dropping them ran the URL anywhere, with any route.
+    import contextlib
     import logging
     import logging.handlers
     import requests
 
     monkeypatch.setattr(logging.handlers, "TimedRotatingFileHandler", lambda *a, **kw: logging.NullHandler())
     dist = pytest.importorskip("utils.dist")
-    node = types.SimpleNamespace(name="worker1", url="http://worker1/apiv2/", apikey="k")
+    node = types.SimpleNamespace(id=1, name="worker1", url="http://worker1/apiv2/", apikey="k")
     task = types.SimpleNamespace(
-        tags="pool_alpha", main_task_id=5, category="url", path="http://a.test/", package="", timeout=120,
+        id=1, tags="pool_alpha", main_task_id=5, category="url", path="http://a.test/", package="", timeout=120,
         priority=1, options="", machine="", platform="", custom="", clock=None, memory=False,
         enforce_timeout=False, route="none", tlp=None,
     )
-    fake_db = types.SimpleNamespace(scalar=lambda q: node, get=lambda model, tid: task, close=lambda: None)
+    fake_db = types.SimpleNamespace(
+        scalar=lambda q: node,
+        get=lambda model, tid: task,
+        commit=lambda: None,
+        rollback=lambda: None,
+        close=lambda: None,
+    )
+    monkeypatch.setattr(
+        dist,
+        "main_db",
+        types.SimpleNamespace(session=types.SimpleNamespace(begin=contextlib.nullcontext), set_status=lambda *a: None),
+    )
     posted = {}
 
     def post(url, data=None, **kw):
@@ -3009,7 +3021,7 @@ def test_task_ids_from_body_blocks_form_plus_json_smuggling():
     assert set(_task_ids_from_body(req, _tag_tasks)) == {"1", "999"}
 
 
-def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch):
+def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch, db):
     from django.test import RequestFactory
     import submission.views as sv
 
@@ -3024,6 +3036,13 @@ def test_resubmit_rejects_non_hex_path_traversal_hashes(monkeypatch):
     monkeypatch.setattr(sv, "render", lambda request, tpl, ctx=None, **kw: (tpl, ctx))
     tpl, _ = sv.index(req, task_id="")
     assert tpl == "error.html"
+
+    # Wrapped index() must forward resubmit_hash (not sha256) to submission.views.index
+    get_req = RequestFactory().get("/submit/")
+    get_req.user = req.user
+    tpl_get, ctx_get = sv.index(get_req, resubmit_hash="a" * 64)
+    assert tpl_get == "submission/index.html"
+    assert ctx_get["resubmit"] == "a" * 64
 
 
 def test_anonymous_blocked_on_admin_api_and_audit_under_web_auth(monkeypatch):

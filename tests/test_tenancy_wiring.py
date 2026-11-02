@@ -2944,8 +2944,12 @@ def test_tasks_status_finish_requires_running_task_and_guest(db, temp_pe32, monk
 
 def test_recovery_following_endpoints_and_validate_task_enforce_target_acl(db, temp_pe32, temp_pe64, mt_enabled):
     import lib.cuckoo.common.web_utils as wu
+    from lib.tenancy.acl import TaskAcl
     from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import register_core_hooks
     from lib.tenancy.middleware import _RECOVERY_FOLLOWING_VIEW_NAMES
+
+    register_core_hooks()
 
     for expected_view in ("tasks_tlspcap", "tasks_pcap_variant", "tasks_keys", "tasks_etw", "tasks_bulkzip"):
         assert expected_view in _RECOVERY_FOLLOWING_VIEW_NAMES
@@ -2966,6 +2970,20 @@ def test_recovery_following_endpoints_and_validate_task_enforce_target_acl(db, t
     set_current_viewer(_viewer(7, 1))
     allowed = wu.validate_task(own_rec)
     assert allowed["error"] is False and allowed["rtid"] == victim
+
+    # Legacy target task without a TaskAcl row falls back to tasks.user_id
+    with db.session.begin():
+        acl_row = db.session.get(TaskAcl, victim)
+        if acl_row is not None:
+            db.session.delete(acl_row)
+
+    set_current_viewer(_viewer(8, 2))
+    denied_fallback = wu.validate_task(own_rec)
+    assert denied_fallback["error"] is True and denied_fallback["error_value"] == "Task does not exist"
+
+    set_current_viewer(_viewer(7, 1))
+    allowed_fallback = wu.validate_task(own_rec)
+    assert allowed_fallback["error"] is False and allowed_fallback["rtid"] == victim
 
 
 def test_task_ids_from_body_blocks_form_plus_json_smuggling():

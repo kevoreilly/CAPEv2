@@ -593,7 +593,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             from lib.cuckoo.common.hooks import run_report_hooks
 
             acl_probe = {"info": {"id": task.main_task_id}}
-            run_report_hooks(acl_probe)
+            run_report_hooks(acl_probe, stage="acl_probe")
             if len(acl_probe["info"]) > 1:
                 task_attributes["task_acl"] = {
                     k: v
@@ -631,6 +631,18 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         # Add timeout to requests
         request_timeout = 300  # 5 minutes for large files
 
+        def _fail_task_submission():
+            task.finished = True
+            task.retrieved = True
+            main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
+            try:
+                db.commit()
+            except Exception as exc:
+                log.exception(exc)
+                db.rollback()
+            if session_managed:
+                db.close()
+
         if task.category in ("file", "pcap"):
             if task.category == "pcap":
                 data["pcap"] = 1
@@ -639,16 +651,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             # If the file does not exist anymore, ignore it and move on
             # to the next file.
             if not path_exists(task.path):
-                task.finished = True
-                task.retrieved = True
-                main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
-                try:
-                    db.commit()
-                except Exception as e:
-                    log.exception(e)
-                    db.rollback()
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
             try:
                 # Use context manager for file
@@ -663,16 +666,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     )
             except (OSError, requests.RequestException) as e:
                 log.error("Error submitting file task (Main: %d): %s", task.main_task_id, e)
-                task.finished = True
-                task.retrieved = True
-                main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
-                try:
-                    db.commit()
-                except Exception as e:
-                    log.exception(e)
-                    db.rollback()
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
         elif task.category == "url":
             url = urljoin(node.url, "tasks/create/url/")
@@ -686,11 +680,13 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                 )
             except requests.RequestException as e:
                 log.error("Error submitting url task (Main: %d): %s", task.main_task_id, e)
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
         elif task.category == "static":
             url = urljoin(node.url, "tasks/create/static/")
+            if not path_exists(task.path):
+                _fail_task_submission()
+                return
             try:
                 with open(task.path, "rb") as f:
                     r = requests.post(
@@ -703,8 +699,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     )
             except (OSError, requests.RequestException) as e:
                 log.error("Error submitting static task (Main: %d): %s", task.main_task_id, e)
-                if session_managed:
-                    db.close()
+                _fail_task_submission()
                 return
         else:
             log.debug("Target category is: %s", task.category)

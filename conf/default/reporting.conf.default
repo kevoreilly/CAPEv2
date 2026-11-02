@@ -106,8 +106,9 @@ index_filenames = no
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
 
-# Enable TLS on the connection. Required for managed backends like Amazon DocumentDB
-# (a tlscafile alone does NOT enable TLS in pymongo). Default off = today's behavior.
+# Override TLS on the connection, for example for Amazon DocumentDB.
+# Unset: PyMongo infers TLS from tlscafile and MongoDB URI/SRV options.
+# Explicit yes/no overrides URI/SRV options. Do not combine no with tlscafile.
 # tls = no
 # Retryable writes. Amazon DocumentDB rejects them, so set this to no when pointing at
 # DocumentDB. Default yes = pymongo's own default (unchanged for stock MongoDB).

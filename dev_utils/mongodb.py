@@ -50,22 +50,23 @@ if repconf.mongodb.enabled:
         try:
             host = repconf.mongodb.get("host", "127.0.0.1")
             port = repconf.mongodb.get("port", 27017)
+            tls_options = {}
+            if repconf.mongodb.get("tls") is not None:
+                tls_options["tls"] = _truthy(repconf.mongodb.get("tls"))
             client = MongoClient(
                 host=host,
                 port=port,
                 username=repconf.mongodb.get("username"),
                 password=repconf.mongodb.get("password"),
                 authSource=repconf.mongodb.get("authsource", "cuckoo"),
-                # DocumentDB (and managed MongoDB) needs TLS explicitly on (a CA file alone
-                # does NOT enable TLS in pymongo) and retryWrites OFF (DocumentDB
-                # rejects retryable writes). Both default to today's single-node
-                # behavior: tls off, retryWrites on (pymongo's own default).
-                tls=_truthy(repconf.mongodb.get("tls", False), False),
+                # Leave TLS inference to PyMongo unless explicitly configured:
+                # CA files and MongoDB URI/SRV options can already enable TLS.
                 tlsCAFile=repconf.mongodb.get("tlscafile", None),
                 retryWrites=_truthy(repconf.mongodb.get("retrywrites", True), True),
                 connect=True, # Force connection now to catch issues
                 serverSelectionTimeoutMS=5000,
                 socketTimeoutMS=30000,
+                **tls_options,
             )
             # Ping the server to ensure it's alive
             client.admin.command('ping')

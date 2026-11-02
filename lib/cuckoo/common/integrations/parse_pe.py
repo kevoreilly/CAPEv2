@@ -145,6 +145,16 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
     return True
 
 
+def _serialize_general_name_value(value):
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode()
+    if hasattr(value, "rfc4514_string"):
+        return value.rfc4514_string()
+    if hasattr(value, "dotted_string"):
+        return value.dotted_string
+    return value if isinstance(value, str) else str(value)
+
+
 def _extract_pkcs7_der_bytes(pe_data: bytes, address: int, size: int) -> bytes:
     """Extract PKCS#7 bCertificate payload from PE IMAGE_DIRECTORY_ENTRY_SECURITY.
 
@@ -882,28 +892,30 @@ class PortableExecutable:
                     elif extension.oid._name == "cRLDistributionPoints":
                         for index, point in enumerate(extension.value):
                             if point.full_name:
-                                for full_name in point.full_name:
-                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = (
-                                        full_name.value.rfc4514_string()
-                                        if hasattr(full_name.value, "rfc4514_string")
-                                        else full_name.value
+                                if len(point.full_name) == 1:
+                                    cert_data[f"extensions_{extension.oid._name}_{index}"] = _serialize_general_name_value(
+                                        point.full_name[0].value
                                     )
+                                else:
+                                    for sub_index, full_name in enumerate(point.full_name):
+                                        cert_data[f"extensions_{extension.oid._name}_{index}_{sub_index}"] = (
+                                            _serialize_general_name_value(full_name.value)
+                                        )
                             elif point.relative_name:
                                 cert_data[f"extensions_{extension.oid._name}_{index}"] = point.relative_name.rfc4514_string()
                     elif extension.oid._name == "authorityInfoAccess":
                         for authority_info in extension.value:
                             if authority_info.access_method._name == "caIssuers":
-                                cert_data[f"extensions_{extension.oid._name}_caIssuers"] = authority_info.access_location.value
+                                cert_data[f"extensions_{extension.oid._name}_caIssuers"] = _serialize_general_name_value(
+                                    authority_info.access_location.value
+                                )
                             elif authority_info.access_method._name == "OCSP":
-                                cert_data[f"extensions_{extension.oid._name}_OCSP"] = authority_info.access_location.value
+                                cert_data[f"extensions_{extension.oid._name}_OCSP"] = _serialize_general_name_value(
+                                    authority_info.access_location.value
+                                )
                     elif extension.oid._name == "subjectAltName":
                         for index, name in enumerate(extension.value._general_names):
-                            if isinstance(name.value, bytes):
-                                cert_data[f"extensions_{extension.oid._name}_{index}"] = base64.b64encode(name.value).decode()
-                            else:
-                                cert_data[f"extensions_{extension.oid._name}_{index}"] = (
-                                    name.value.rfc4514_string() if hasattr(name.value, "rfc4514_string") else name.value
-                                )
+                            cert_data[f"extensions_{extension.oid._name}_{index}"] = _serialize_general_name_value(name.value)
             except ValueError:
                 continue
 

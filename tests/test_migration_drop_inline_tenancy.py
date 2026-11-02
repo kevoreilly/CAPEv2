@@ -68,11 +68,32 @@ def test_upgrade_skips_public_carry_when_multitenancy_was_never_used(monkeypatch
         conn.execute(sa.text("INSERT INTO tasks VALUES (1, 0, NULL, 'public'), (2, 7, NULL, 'public')"))
 
         mod = _load_migration()
+        monkeypatch.setattr(mod, "_is_multitenancy_enabled", lambda: False)
         monkeypatch.setattr(mod, "op", Operations(MigrationContext.configure(conn)))
         mod.upgrade()
 
         assert "visibility" not in {c["name"] for c in sa.inspect(conn).get_columns("tasks")}
         assert "task_acl" not in sa.inspect(conn).get_table_names()
+
+
+def test_upgrade_carries_public_when_multitenancy_enabled_without_tenant_rows(monkeypatch):
+    engine = sa.create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "CREATE TABLE tasks (id INTEGER PRIMARY KEY, user_id INTEGER, tenant_id INTEGER, visibility VARCHAR(16) NOT NULL DEFAULT 'private')"
+            )
+        )
+        conn.execute(sa.text("INSERT INTO tasks VALUES (1, 7, NULL, 'public'), (2, 8, NULL, 'private')"))
+
+        mod = _load_migration()
+        monkeypatch.setattr(mod, "_is_multitenancy_enabled", lambda: True)
+        monkeypatch.setattr(mod, "op", Operations(MigrationContext.configure(conn)))
+        mod.upgrade()
+
+        assert "visibility" not in {c["name"] for c in sa.inspect(conn).get_columns("tasks")}
+        rows = conn.execute(sa.text("SELECT task_id, user_id, tenant_id, visibility FROM task_acl")).all()
+        assert rows == [(1, 7, None, "public")]
 
 
 def test_django_users_migrations_0004_and_0005_are_idempotent_on_existing_tables():

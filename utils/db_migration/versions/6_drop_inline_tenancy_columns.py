@@ -30,6 +30,15 @@ def upgrade():
         op.drop_column("tasks", "tenant_id")
 
 
+def _is_multitenancy_enabled():
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return bool(getattr(Config(), "multitenancy", {}).get("enabled", False))
+    except Exception:
+        return False
+
+
 def _carry_public_visibility(bind, insp, columns=()):
     """Preserve explicitly public tasks in lib.tenancy's task_acl before the column goes.
 
@@ -40,13 +49,7 @@ def _carry_public_visibility(bind, insp, columns=()):
     On single-tenant installs where multitenancy was never used (all tenant_id values NULL and
     [multitenancy] enabled = no), skip creating task_acl so pre-MT tasks are not locked as public.
     """
-    mt_enabled = False
-    try:
-        from lib.cuckoo.common.config import Config
-
-        mt_enabled = bool(getattr(Config(), "multitenancy", {}).get("enabled", False))
-    except Exception:
-        mt_enabled = False
+    mt_enabled = _is_multitenancy_enabled()
     has_tenant_rows = (
         bind.execute(sa.text("SELECT 1 FROM tasks WHERE tenant_id IS NOT NULL LIMIT 1")).first() is not None
         if "tenant_id" in columns

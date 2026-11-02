@@ -127,29 +127,30 @@ class Package:
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
         """Based on file extension or file contents, run relevant analysis package"""
+        quoted_path = shlex.quote(file_path)
         if file_name.lower().endswith((".sh")):
-            exec_string = f'{"/usr/bin/bash"} "{file_path}"'
+            exec_string = f"/usr/bin/bash {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".pl"):
-            exec_string = f'{"/usr/bin/perl"} "{file_path}"'
+            exec_string = f"/usr/bin/perl {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".py"):
-            exec_string = f'{"/usr/bin/python3"} "{file_path}"'
+            exec_string = f"/usr/bin/python3 {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".whl"):
-            exec_string = f'{"/usr/bin/python3"} -m pip install "{file_path}"'
+            exec_string = f"/usr/bin/python3 -m pip install {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".deb"):
-            exec_string = f'{"/usr/bin/dpkg"} -i "{file_path}"'
+            exec_string = f"/usr/bin/dpkg -i {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".jar"):
-            exec_string = f'{"/usr/bin/java"} -jar "{file_path}"'
+            exec_string = f"/usr/bin/java -jar {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith((".js")):
-            exec_string = f'{"/usr/bin/node"} "{file_path}"'
+            exec_string = f"/usr/bin/node {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".ps1"):
-            exec_string = f'{"/usr/bin/pwsh"} -NoProfile -File "{file_path}"'
+            exec_string = f"/usr/bin/pwsh -NoProfile -File {quoted_path}"
             return self.execute(exec_string)
         elif is_elf_image(file_path):
             resolved_root = os.path.realpath(root)

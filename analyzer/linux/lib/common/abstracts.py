@@ -4,6 +4,8 @@
 
 import os
 import logging
+import shlex
+import stat
 import subprocess
 from threading import Thread, Event
 
@@ -154,7 +156,12 @@ class Package:
             exec_string = f'{"/usr/bin/pwsh"} -NoProfile -File "{file_path}"'
             return self.execute(exec_string)
         elif is_elf_image(file_path):
-            exec_string = f'{"/usr/bin/sh"} -c "{file_path} {self.options.get(OPT_ARGUMENTS, "")}"'
+            resolved_root = os.path.realpath(root)
+            resolved_path = os.path.realpath(file_path)
+            if os.path.commonpath((resolved_root, resolved_path)) != resolved_root:
+                raise CuckooPackageError("Executable is outside the extraction directory")
+            os.chmod(file_path, os.stat(file_path).st_mode | stat.S_IXUSR)
+            exec_string = f'{shlex.quote(file_path)} {self.options.get(OPT_ARGUMENTS, "")}'
             return self.execute(exec_string)
 
     def get_pids(self):

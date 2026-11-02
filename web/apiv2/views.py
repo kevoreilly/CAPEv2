@@ -45,6 +45,7 @@ from lib.cuckoo.common.utils import (
     delete_folder,
     get_options,
     get_user_filename,
+    path_get_filename,
     sanitize_filename,
     store_temp_file,
 )
@@ -3000,12 +3001,18 @@ def yara_uploader(request):
                 {"status": "error", "message": f"Invalid or missing category. Allowed categories: {ALLOWED_YARA_CATEGORIES}"},
                 status=400,
             )
-        """
-        if request.user.is_authenticated and request.user.username not in ALLOWED_UPLOADERS:
-            return Response(
-                {"status": "error", "message": f"User '{request.user.username}' is not authorized to upload YARA rules."}, status=403
-            )
-        """
+        if not getattr(request.user, "is_authenticated", False):
+            raw_user = getattr(getattr(request, "_request", None), "user", None)
+            if getattr(raw_user, "is_authenticated", False):
+                request.user = raw_user
+            elif ApiKeyAuthentication is not None:
+                with suppress(Exception):
+                    auth_res = ApiKeyAuthentication().authenticate(request)
+                    if auth_res:
+                        request.user, request.auth = auth_res
+
+        if apiconf.yara_uploader.get("auth_only", False) and not request.user.is_authenticated:
+            return Response({"status": "error", "message": "Authentication required"}, status=401)
         if "file" not in request.FILES:
             return Response({"status": "error", "message": "No file provided"}, status=400)
 
@@ -3055,6 +3062,13 @@ def yara_uploader(request):
             if not family:
                 return Response({"status": "error", "message": "Missing 'family' in metadata"}, status=400)
 
+            if (
+                not isinstance(family, str)
+                or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}", family)
+                or ".." in family
+            ):
+                return Response({"status": "error", "message": "Invalid family name"}, status=400)
+
             # Now iterate all rules to inject cape_type / author if needed
             for rule in rules:
                 rule_metadata = rule.get("metadata", [])
@@ -3071,7 +3085,7 @@ def yara_uploader(request):
                 rule["metadata"] = rule_metadata
 
             # Define destination path
-            original_filename = os.path.basename(uploaded_file.name)  # Basic safety
+            original_filename = path_get_filename(uploaded_file.name or "")  # Basic safety
             if category == "monitor":
                 dest_dir = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yara")
             else:
@@ -3081,15 +3095,23 @@ def yara_uploader(request):
             if not os.path.exists(dest_dir):
                 os.makedirs(dest_dir, exist_ok=True)
 
-            original_dest_path = os.path.join(dest_dir, original_filename)
+            original_dest_path = os.path.join(dest_dir, original_filename) if original_filename else ""
 
-            if os.path.exists(original_dest_path):
+            if (
+                original_filename.endswith((".yar", ".yara"))
+                and os.path.isfile(original_dest_path)
+            ):
                 filename = original_filename
                 dest_path = original_dest_path
             else:
                 # Fallback to standard naming
                 filename = f"{family}.yar"
                 dest_path = os.path.join(dest_dir, filename)
+
+            dest_path_real = os.path.realpath(dest_path)
+            dest_dir_real = os.path.realpath(dest_dir)
+            if os.path.dirname(dest_path_real) != dest_dir_real:
+                return Response({"status": "error", "message": "Invalid destination path"}, status=400)
 
             # Check if file exists to append
             if os.path.exists(dest_path):

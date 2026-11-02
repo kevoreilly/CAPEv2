@@ -23,7 +23,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
+from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_ip_address,
@@ -632,11 +632,26 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
     if not path_exists(folder):
         path_mkdir(folder, exist_ok=True)
     for h in get_hash_list(samples):
-        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
+        safe_h = sanitize_filename(path_get_filename(h))
+        if not safe_h or safe_h in (".", ".."):
+            details["errors"].append({h: "Invalid hash"})
+            continue
+
         if opt_filename:
-            filename = f"{base_dir}/{opt_filename}"
+            safe_name = sanitize_filename(path_get_filename(opt_filename))
+            if not safe_name or safe_name in (".", ".."):
+                safe_name = safe_h
         else:
-            filename = f"{base_dir}/{sanitize_filename(h)}"
+            safe_name = safe_h
+
+        base_dir = tempfile.mkdtemp(prefix="third_party", dir=folder)
+        filename = f"{base_dir}/{safe_name}"
+
+        if os.path.dirname(os.path.realpath(filename)) != os.path.realpath(base_dir):
+            with suppress(OSError):
+                os.rmdir(base_dir)
+            details["errors"].append({h: "Invalid filename"})
+            continue
 
         content = False
         details["path"] = filename

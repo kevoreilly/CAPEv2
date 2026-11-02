@@ -14,7 +14,33 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, MutableMapping
 from lib.tenancy.policy import multitenancy_config
 
 _ROUTE_PREFIXES = ("vpn", "socks5", "socks", "gw", "exit")
-_TRUE_STRINGS = ("1", "true", "yes", "on")
+# Routes analysis_manager handles by name (plus the nexthop pool's policy tokens): a typed pattern
+# such as "vpn:*" never matches them.
+_BUILTIN_ROUTES = ("none", "drop", "false", "internet", "inetsim", "tor", "nexthop", "random", "roundrobin")
+
+
+def _known_route_types(name: str) -> FrozenSet[str]:
+    """The route types a bare route name is configured as: what a typed pattern may match it by."""
+    types: set[str] = set()
+    try:
+        from lib.cuckoo.core.rooter import _load_socks5_operational, gateways, vpns
+
+        if name in {str(k).lower() for k in vpns}:
+            types.add("vpn")
+        if name in {str(k).lower() for k in (_load_socks5_operational() or {})}:
+            types.update(("socks5", "socks"))
+        if name in {str(k).lower() for k in gateways}:
+            types.add("gw")
+    except Exception:
+        pass
+    try:
+        from lib.cuckoo.common.web_utils import load_vms_exits
+
+        if name in {str(k).lower() for k in (load_vms_exits() or {})}:
+            types.add("exit")
+    except Exception:
+        pass
+    return frozenset(types)
 
 
 def _norm_token(value: Any) -> str:
@@ -133,12 +159,12 @@ class ResourceEntitlements:
             prefix, bare = norm.split(":", 1)
             if bare:
                 candidates.add(bare)
-        else:
-            if rtype:
-                candidates.add(f"{rtype}:{norm}")
-            else:
-                for pfx in _ROUTE_PREFIXES:
-                    candidates.add(f"{pfx}:{norm}")
+        elif norm in _BUILTIN_ROUTES:
+            candidates = {norm}
+        elif not rtype:
+            # A bare name matches a typed pattern only as the type it is configured as: "vpn:*"
+            # must not cover a socks5 proxy, a nexthop gateway or a raw tun interface.
+            candidates.update(f"{pfx}:{norm}" for pfx in _known_route_types(norm) if pfx in _ROUTE_PREFIXES)
 
         return any(_match_patterns(cand, self.allowed_routes) for cand in candidates)
 
@@ -277,12 +303,10 @@ def merge_group_policies(
     if not has_unrestricted_vm_pool:
         for pol in ordered:
             pol_forced = _norm_set(getattr(pol, "forced_machine_tags", None))
-            pol_machines = _norm_set(getattr(pol, "allowed_machines", None))
+            # A policy that lists machines but no pool tag doesn't lift another policy's pool:
+            # "first available" is confined by forced tags alone.
             if pol_forced:
                 forced_tags = pol_forced
-                break
-            if pol_machines:
-                forced_tags = frozenset()
                 break
 
     for ft in forced_tags:
@@ -305,7 +329,7 @@ def merge_group_policies(
     )
 
 
-def _get_unassigned_policy_setting() -> str:
+def _get_unassigned_policy_setting(default: str = "allow") -> str:
     try:
         from django.conf import settings
 
@@ -315,7 +339,7 @@ def _get_unassigned_policy_setting() -> str:
                 return _norm_token(val)
     except Exception:
         pass
-    return "allow"
+    return default
 
 
 def resolve_user_entitlements(
@@ -335,7 +359,7 @@ def resolve_user_entitlements(
         return ResourceEntitlements.allow_all()
 
     is_super = bool(getattr(user, "is_superuser", False))
-    if is_super and (not cfg.enabled or cfg.allow_superuser_all):
+    if is_super and (not cfg.enabled or cfg.local_admins_manage_all_tenants):
         return ResourceEntitlements.allow_all()
 
     explicit_policies = getattr(user, "sandbox_policies", None)
@@ -364,8 +388,11 @@ def resolve_user_entitlements(
             return ResourceEntitlements.deny_all()
         return ResourceEntitlements.allow_all()
 
-    if not policies:
-        return merge_group_policies([], unassigned_policy=effective_unassigned)
+    if not policies and cfg.enabled and cfg.mode == "locked" and not unassigned_policy:
+        # Locked mode isolates tenants: a user no policy covers (or whose policies are all inactive)
+        # gets nothing unless CAPE_TENANCY_UNASSIGNED_GROUP_POLICY says "allow" explicitly.
+        # Box admins (when local_admins_manage_all_tenants = yes) already returned above.
+        effective_unassigned = _get_unassigned_policy_setting(default="deny")
 
     return merge_group_policies(policies, unassigned_policy=effective_unassigned)
 
@@ -451,21 +478,117 @@ def filter_submission_form_context(
     return context
 
 
-def _has_interactive_option(options_str: str) -> bool:
+def _has_option(options_str: str, key: str) -> bool:
+    """True if `key=<value>` is set in a CAPE options string to anything but a false-ish value."""
     for item in (options_str or "").split(","):
         part = item.strip()
         if "=" in part:
             k, v = part.split("=", 1)
-            if k.strip().lower() == "interactive" and v.strip().lower() in _TRUE_STRINGS:
+            if k.strip().lower() == key and v.strip():  # the guest treats any value as on
                 return True
     return False
+
+
+def _label_name_allowed(entitlements: "ResourceEntitlements", machine_name_of: Any, label: str) -> bool:
+    try:
+        name = machine_name_of(label)
+    except Exception:
+        return False
+    return bool(name) and entitlements.can_use_machine(name)  # "" would mean "first available"
+
+
+def _option_keys(options_str: str) -> set:
+    return {k.strip().lower() for k, sep, _ in (i.partition("=") for i in (options_str or "").split(",")) if sep}
+
+
+def _sslproxy_requested(options_str: str) -> bool:
+    """On for any sslproxy key whose value SSLProxy (case-sensitive) does not read as off."""
+    for item in (options_str or "").split(","):
+        k, sep, v = item.partition("=")
+        if sep and k.strip().lower() == "sslproxy" and v.strip() not in ("0", "no", "false", ""):
+            return True
+    return False
+
+
+def _sslproxy_rt_table(route: str) -> str:
+    """The routing table SSLProxy sends upstream through for `route` (its own lookup); '' = host's."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        conf = Config("routing")
+        route = route or str(conf.routing.route or "")
+        if not route or route in ("none", "None", "drop", "false", "inetsim", "tor", "internet"):
+            return ""
+        if hasattr(conf, route):
+            return str(getattr(conf.get(route), "rt_table", "") or "")
+        return route if route.startswith("tun") else ""
+    except Exception:
+        return ""
+
+
+def _has_interactive_option(options_str: str) -> bool:
+    return _has_option(options_str, "interactive")
+
+
+def _default_timeout() -> int:
+    """cuckoo.conf [timeouts] default: what a task submitted with timeout 0 runs for."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return int(Config("cuckoo").timeouts.default or 0)
+    except Exception:
+        return 0
+
+
+def _clamp_option_timeouts(options_str: str, cap: int) -> str:
+    """Cap `timeout=` in an options string: dist copies it into the task timeout it forwards."""
+    parts = []
+    for item in options_str.split(","):
+        k, sep, v = item.partition("=")
+        if sep and k.strip().lower() == "timeout":
+            try:
+                n = int(v.strip())
+            except ValueError:
+                n = 0
+            if n <= 0 or n > cap:
+                item = f"{k}={cap}"
+        parts.append(item)
+    return ",".join(parts)
+
+
+def _routing_conf_default_route() -> Optional[str]:
+    """routing.conf [routing] route: what analysis_manager uses for a task without a route."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return _norm_token(Config("routing").routing.route) or None
+    except Exception:
+        return None
+
+
+_UNSET: Any = object()
 
 
 def validate_and_normalize_submission(
     params: Mapping[str, Any],
     entitlements: Optional[ResourceEntitlements],
+    *,
+    global_route: Any = _UNSET,
+    default_timeout: Any = _UNSET,
+    vmless: bool = False,
+    resolve_omitted_route: bool = True,
+    machine_name_of: Optional[Any] = None,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
-    """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`)."""
+    """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`).
+
+    Also applied to the final `Database.add` kwargs, where `machine` is one VM name or empty
+    ("first available") and `options` already carries `interactive=1`.
+    `global_route` is routing.conf's default route and `default_timeout` cuckoo.conf's default
+    timeout (both read from the config when not given). `vmless` (static, PCAP) skips the
+    "first available" pool and route checks: no VM runs those tasks. The middleware passes
+    `resolve_omitted_route=False`: routing.conf's random_vpn/random_socks5 pick a route for an
+    omitted one after it, so the final `add` check resolves it instead.
+    """
     normalized: Dict[str, Any] = dict(params) if params else {}
     if entitlements is None or entitlements.unrestricted:
         return True, None, normalized
@@ -474,7 +597,7 @@ def validate_and_normalize_submission(
     options_str = str(normalized.get("options") or "")
     lin_options_str = str(normalized.get("lin_options") or "")
     if (
-        interactive_val in _TRUE_STRINGS
+        interactive_val  # the submit view enables it for any non-empty value
         or _has_interactive_option(options_str)
         or _has_interactive_option(lin_options_str)
     ) and not entitlements.allow_interactive:
@@ -487,23 +610,69 @@ def validate_and_normalize_submission(
             if m.lower() == "all":
                 if not entitlements.can_use_machine("all"):
                     return False, "Submitting to all VMs is not permitted for your group.", {}
-            elif not entitlements.can_use_machine(m):
+            elif not entitlements.can_use_machine(m) and not (
+                # The API and scheduler address VMs by label; policies name machines.
+                machine_name_of is not None and _label_name_allowed(entitlements, machine_name_of, m)
+            ):
                 return False, f"Machine '{m}' is not permitted for your group.", {}
-    else:
+    elif not vmless:
         if not entitlements.can_use_machine(""):
             return False, "No analysis VMs are permitted for your group.", {}
+        if "*" not in entitlements.allowed_machines and not entitlements.forced_machine_tags:
+            # The scheduler would pick any VM: only a pool tag confines "first available".
+            return False, "Choose an analysis VM: your group has no default machine pool.", {}
 
     route_raw = str(normalized.get("route") or "").strip()
-    tor_flag = _norm_token(normalized.get("tor")) in _TRUE_STRINGS
+    if route_raw:
+        # analysis_manager compares routes exactly: "none " or "NONE" would install no drop rules.
+        route_raw = _norm_token(route_raw) if _norm_token(route_raw) in _BUILTIN_ROUTES else route_raw
+        normalized["route"] = route_raw
+    tor_flag = (
+        _norm_token(normalized.get("tor"))
+        or _has_option(options_str, "tor")
+        or _has_option(lin_options_str, "tor")
+    )
     if tor_flag and not entitlements.can_use_route("tor"):
         return False, "Route 'tor' is not permitted for your group.", {}
 
-    if not route_raw and entitlements.default_route:
+    if vmless:
+        pass
+    elif not route_raw and entitlements.default_route:
         route_raw = entitlements.default_route
         normalized["route"] = route_raw
+    elif not route_raw and resolve_omitted_route:
+        # No route means routing.conf's default, which this group may not be allowed.
+        fallback = _routing_conf_default_route() if global_route is _UNSET else _norm_token(global_route)
+        if not (fallback and entitlements.can_use_route(fallback)):
+            if not entitlements.can_use_route("none"):
+                return False, "Choose a network route: the default route is not permitted for your group.", {}
+            route_raw = "none"
+            normalized["route"] = route_raw
+        # An allowed default stays unset, as for everyone else: the worker that runs the task
+        # applies its own routing.conf (names there are case-sensitive; exits are per node).
 
-    if route_raw and not entitlements.can_use_route(route_raw):
+    if route_raw and not vmless and not entitlements.can_use_route(route_raw):
         return False, f"Route '{route_raw}' is not permitted for your group.", {}
+
+    all_options = f"{options_str},{lin_options_str}"
+    if _has_option(all_options, "netns"):
+        return False, "The netns option is not permitted for your group.", {}
+    # These auxiliaries proxy the VM's traffic out through the host. SSLProxy uses the routing
+    # table of the route's routing.conf section (a VPN's), else the host's own; the others always
+    # the host's. Matched as loosely as the modules (and dist's option re-serialization) read them.
+    if not vmless and not entitlements.can_use_route("internet"):
+        lowered = all_options.lower()
+        requested = [
+            name
+            for name, on in (
+                ("sslproxy", _sslproxy_requested(all_options) and not _sslproxy_rt_table(route_raw)),
+                ("mitmdump", "mitmdump" in lowered),  # Mitmdump enables on the bare substring
+                ("polarproxy", "polarproxy" in _option_keys(all_options) or "polarproxy=" in lowered),
+            )
+            if on
+        ]
+        if requested:
+            return False, f"The {requested[0]} option needs internet access, which your group does not have.", {}
 
     tags_raw = str(normalized.get("tags") or "").strip()
     user_tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
@@ -525,10 +694,36 @@ def validate_and_normalize_submission(
             req_timeout = int(normalized.get("timeout") or 0)
         except (TypeError, ValueError):
             req_timeout = 0
-        if req_timeout <= 0 or req_timeout > entitlements.max_timeout:
+        if req_timeout <= 0:
+            # 0 runs for cuckoo.conf's default: keep it unless that exceeds the cap.
+            dflt = _default_timeout() if default_timeout is _UNSET else int(default_timeout or 0)
+            # Pinned either way: a dist worker would run 0 for its own, possibly longer, default.
+            normalized["timeout"] = str(dflt if 0 < dflt <= entitlements.max_timeout else entitlements.max_timeout)
+        elif req_timeout > entitlements.max_timeout:
             normalized["timeout"] = str(entitlements.max_timeout)
+        for key in ("options", "lin_options"):
+            if "timeout" in str(normalized.get(key) or "").lower():
+                normalized[key] = _clamp_option_timeouts(str(normalized[key]), entitlements.max_timeout)
 
     return True, None, normalized
+
+
+def machine_name_by_label(db: Any = None) -> Any:
+    """label -> Machine.name: machine=all and the API address VMs by label, policies by name."""
+
+    def _lookup(label: str) -> Optional[str]:
+        try:
+            if db is None:
+                from lib.cuckoo.core.database import Database
+
+                vm = Database().view_machine_by_label(label)
+            else:
+                vm = db.view_machine_by_label(label)
+        except Exception:
+            return None
+        return getattr(vm, "name", None) if vm is not None else None
+
+    return _lookup
 
 
 def reconcile_idp_groups_to_django_groups(

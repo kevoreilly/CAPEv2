@@ -1,3 +1,9 @@
+### [02.11.2026]
+* Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):
+    * Extracted multi-tenancy and remote object storage into the opt-in `lib.tenancy` package behind lightweight hooks (`lib/cuckoo/common/hooks.py`), leaving single-tenant installs free of runtime and schema overhead.
+    * Added Django `Group`-native tenancy and per-group sandbox resource entitlements (`GroupSandboxPolicy` for VMs, network routes, and machine tags), side-table `TaskAcl` with monotonic `visibility_seq` compare-and-swap (CAS) synchronization, and vendor-neutral object storage backends (`s3`, `gcs`, `azure`, `local`).
+    * Added `utils/tenancy_reconcile.py` (`--dry-run`, `--adopt-public-from-reports`, `--demote-public`, `--task <id>`) to restamp MongoDB/Elasticsearch reports, preserve public task visibility in `task_acl`, and drop legacy inline-tenancy SQL columns when upgrading an install that ran the earlier inline tenancy code (see `docs/book/src/usage/multitenancy.rst`).
+
 ### [14.10.2026]
 * `analyzer/windows`: expand environment variables in `executiondir`/`curdir` in `Process.execute()`, fall back to `CreateProcessW` without `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` when launching with `explorer.exe` as parent fails (e.g. `ERROR_ELEVATION_REQUIRED` on installers with `requireAdministrator` manifests), and keep the analysis running for the full timeout when `enforce_timeout` is enabled even if `package.start()` fails.
 

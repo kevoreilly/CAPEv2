@@ -44,6 +44,7 @@ if HAVE_DJANGO_ADMIN:
 
     class GroupSandboxPolicyInline(admin.StackedInline):
         model = GroupSandboxPolicy
+        fk_name = "group"
         can_delete = True
         extra = 0
         verbose_name = "Sandbox Resource Policy (VMs, Routes, Tags)"

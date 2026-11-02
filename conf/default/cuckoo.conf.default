@@ -259,10 +259,10 @@ mode = shared
 # Explicit default visibility override ("private", "tenant", or "public").
 # Leave empty to derive from `mode`.
 default_visibility =
-# Whether local box administrators may manage tasks across all tenants.
+# Whether Django superusers see and manage tasks across all tenants (break-glass see-all).
 local_admins_manage_all_tenants = yes
-# Whether Django superusers bypass tenant scoping (break-glass see-all).
-allow_superuser_all = yes
+# Whether anyone who can read a task may comment on it. Off: commenting needs manage rights.
+readers_can_comment = no
 
 [object_storage]
 # [BETA] Central / remote object storage integration (S3, MinIO, GCS, Azure, NFS).

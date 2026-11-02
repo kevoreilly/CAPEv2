@@ -1476,6 +1476,15 @@ def perform_search(
             split_by = "," if "," in query_val else " "
             query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
             analysis_scope = apply_mongo_filter("analysis", {})
+            privs_match = None
+            if not privs:
+                if force_bool(web_cfg.general.get("public_searches", True)):
+                    if not force_bool(web_cfg.tlp.get("public_red", False)):
+                        privs_match = {"$or": [{"info.tlp": {"$nin": ["red", "Red", "RED"]}}, {"info.user_id": user_id}]}
+                else:
+                    privs_match = {"info.user_id": user_id}
+
+            limit_after_lookup = bool(analysis_scope or privs_match is not None)
             pipeline = [
                 # Stages 1-4: Find, unwind, group, sort IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
@@ -1483,7 +1492,7 @@ def perform_search(
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
             ]
-            if not analysis_scope:
+            if not limit_after_lookup:
                 pipeline.append({"$limit": search_limit})
             pipeline.extend(
                 [
@@ -1501,15 +1510,12 @@ def perform_search(
                 ]
             )
             if analysis_scope:
-                # Limit after scoping, or a viewer's own older analyses fall outside the window.
-                pipeline.extend([{"$match": analysis_scope}, {"$limit": search_limit}])
-
-            if not privs:
-                if force_bool(web_cfg.general.get("public_searches", True)):
-                    if not force_bool(web_cfg.tlp.get("public_red", False)):
-                        pipeline.append({"$match": {"$or": [{"info.tlp": {"$nin": ["red", "Red", "RED"]}}, {"info.user_id": user_id}]}})
-                else:
-                    pipeline.append({"$match": {"info.user_id": user_id}})
+                pipeline.append({"$match": analysis_scope})
+            if privs_match is not None:
+                pipeline.append({"$match": privs_match})
+            if limit_after_lookup:
+                # Limit after scoping/privilege filtering, or a viewer's own older analyses fall outside the window.
+                pipeline.append({"$limit": search_limit})
 
             # Stage 9: Add your custom projection
             pipeline.append({"$project": projection or perform_search_filters})

@@ -395,6 +395,17 @@ def test_hash_search_limits_after_scoping(monkeypatch):
     assert stages.count("$limit") == 1
     assert stages.index("$limit") > stages.index("$replaceRoot")
 
+    # Non-privileged search with restricted public_searches also limits after the post-lookup privilege $match
+    seen.clear()
+    monkeypatch.setitem(web_utils.web_cfg.general, "public_searches", False)
+    web_utils.perform_search("sha256", "a" * 64, search_limit=5, user_id=7, privs=False)
+    unpriv_stages = [next(iter(stage)) for stage in seen[0]]
+    assert unpriv_stages.count("$limit") == 1
+    replace_idx = unpriv_stages.index("$replaceRoot")
+    limit_idx = unpriv_stages.index("$limit")
+    assert limit_idx > replace_idx
+    assert "$match" in unpriv_stages[replace_idx + 1 : limit_idx]
+
 
 class _User:
     def __init__(self, uid):
@@ -2897,7 +2908,8 @@ def test_tasks_status_finish_requires_running_task_and_guest(db, temp_pe32, monk
         lambda url, **kw: post_calls.append((url, kw)) or types.SimpleNamespace(status_code=200, text="ok"),
     )
 
-    tid = db.add_path(str(temp_pe32), user_id=8)
+    with db.session.begin():
+        tid = db.add_path(str(temp_pe32), user_id=8)
     user = types.SimpleNamespace(id=8, is_authenticated=True, is_staff=False, is_superuser=False)
 
     def post_finish():

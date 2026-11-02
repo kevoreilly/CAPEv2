@@ -145,10 +145,15 @@ class MongoDB(Report):
 
         # Delete old data just before inserting new one to avoid "missing report" window
         # or data loss if insertion fails during preparation (e.g. OOM).
-        # When main_task_id renumbered info.id on a worker, never include worker-local local_task_id
-        # (which collides with an unrelated central task sharing that number in shared MongoDB).
+        # When main_task_id or object-storage bridging renumbered info.id on a worker, never include
+        # worker-local local_task_id (which collides with an unrelated central task in shared MongoDB).
         report_id = int(report["info"]["id"])
-        ids_to_delete = [report_id] if (main_task_id and report_id != local_task_id) else sorted({local_task_id, report_id})
+        renumbered = bool(
+            main_task_id
+            or report["info"].get("local_task_id") is not None
+            or report["info"].get("_renumbered_from") is not None
+        )
+        ids_to_delete = [report_id] if (renumbered and report_id != local_task_id) else sorted({local_task_id, report_id})
         log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
         mongo_delete_data(list(ids_to_delete))
 

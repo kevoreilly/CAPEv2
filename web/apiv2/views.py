@@ -1171,7 +1171,13 @@ def tasks_status(request, task_id):
         return Response(resp)
 
     resp = {}
-    task = db.view_task(task_id)
+    if request.method == "POST":
+        try:
+            task = db.view_task(task_id, details=True)
+        except TypeError:
+            task = db.view_task(task_id)
+    else:
+        task = db.view_task(task_id)
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)
@@ -2873,7 +2879,10 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
     resp = {}
-    task = db.view_task(task_id)
+    try:
+        task = db.view_task(task_id, details=True)
+    except TypeError:
+        task = db.view_task(task_id)
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)

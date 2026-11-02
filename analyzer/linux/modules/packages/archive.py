@@ -1,8 +1,7 @@
 import logging
 import os
-import shutil
+import tempfile
 import subprocess
-from pathlib import Path
 
 from lib.common.abstracts import Package
 from lib.common.constants import (
@@ -57,28 +56,29 @@ class Archive(Package):
     option_names = sorted(set(ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
 
     def start(self, path):
-        # seven_zip_path = os.path.join(os.getcwd(), "7z")
-        # if not os.path.exists(seven_zip_path):
-        # Let's hope it's in the VM image
+        # Children may still need sibling members after start() returns.
+        self._extraction_dir = tempfile.TemporaryDirectory(prefix="cape-archive-", dir=os.getenv("TEMP"))
+        try:
+            return self._start(path, self._extraction_dir.name)
+        except Exception:
+            self._extraction_dir.cleanup()
+            raise
+
+    def finish(self):
+        try:
+            return super().finish()
+        finally:
+            if hasattr(self, "_extraction_dir"):
+                self._extraction_dir.cleanup()
+
+    def _start(self, path, root):
         try:
             seven_zip_path = self.get_path_app_in_path("7z")
         except CuckooPackageError:
             seven_zip_path = self.get_path_app_in_path("7zz")
         password = self.options.get(OPT_PASSWORD, "infected")
-        archive_name = Path(path).name
         recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
         file_util_path = self.get_path_app_in_path("file") if recursion_depth > 0 else None
-
-        # We are extracting the archive to /<archive_name> rather than the TEMP directory because
-        # actors are using LNK files that use relative directory traversal at arbitrary depth.
-        # They expect to find the root of the drive.
-        root = os.path.join("/", archive_name)
-
-        # Check if root exists already due to the file path
-        if os.path.exists(root) and os.path.isfile(root):
-            root = os.path.join("/", "extracted_iso", archive_name)
-
-        os.makedirs(root, exist_ok=True)
 
         file_names = get_file_names(seven_zip_path, path)
         if len(file_names):
@@ -150,23 +150,6 @@ class Archive(Package):
         file_names = files_at_root
 
         upload_extracted_files(root, files_at_root)
-
-        # Copy these files to the root directory, just in case!
-        dirs = []
-        for item in os.listdir(root):
-            d = os.path.join(root, item)
-            if os.path.isdir(d):
-                if d not in dirs:
-                    dirs.append(d)
-                    try:
-                        shutil.copytree(d, os.path.join("/", item))
-                    except Exception as e:
-                        log.warning("Couldn't copy %s to root %s", d, str(e))
-            else:
-                try:
-                    shutil.copy(d, "/")
-                except Exception as e:
-                    log.warning("Couldn't copy %s to root %s", d, str(e))
 
         file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.

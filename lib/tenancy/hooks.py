@@ -1558,6 +1558,120 @@ def _resync_local_acl_stamp(results: Dict[str, Any], main_task_id: Optional[int]
         log.debug("Post-insert tenancy stamp resync skipped for task %s: %s", tid, e)
 
 
+def _lookup_existing_report_stamp(remote_task_id: int, job_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Resolve the tenancy stamp of an existing report for `remote_task_id` from MongoDB/ES."""
+    candidates: List[Dict[str, Any]] = []
+
+    mongo_mod = sys.modules.get("dev_utils.mongodb") or sys.modules.get("modules.reporting.mongodb")
+    mongo_find_one = getattr(mongo_mod, "mongo_find_one", None) if mongo_mod is not None else None
+    if callable(mongo_find_one):
+        from lib.tenancy.acl import is_own_report_job_id, own_report_mongo_query
+
+        if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
+            m_query: Dict[str, Any] = {"info.job_id": str(job_id)}
+        else:
+            m_query = own_report_mongo_query(int(remote_task_id))
+        m_proj = {
+            "info.id": 1,
+            "info.job_id": 1,
+            "info.user_id": 1,
+            "info.tenant_id": 1,
+            "info.visibility": 1,
+            "info.visibility_seq": 1,
+        }
+        tok = _skip_mongo_filter_ctx.set(True)
+        m_doc = None
+        try:
+            try:
+                m_doc = mongo_find_one("analysis", m_query, m_proj, no_hooks=True)
+            except TypeError:
+                try:
+                    m_doc = mongo_find_one("analysis", m_query, m_proj)
+                except TypeError:
+                    m_doc = mongo_find_one("analysis", m_query)
+        except Exception:
+            m_doc = None
+        finally:
+            _skip_mongo_filter_ctx.reset(tok)
+
+        if isinstance(m_doc, dict):
+            m_info = m_doc.get("info")
+            if isinstance(m_info, dict):
+                match_ok = False
+                if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
+                    match_ok = m_info.get("job_id") == str(job_id)
+                else:
+                    match_ok = is_task_own_report(int(remote_task_id), m_doc)
+                if match_ok:
+                    vis = m_info.get("visibility")
+                    v_seq = int(m_info.get("visibility_seq") or 0)
+                    if vis in VISIBILITIES and v_seq > 0:
+                        candidates.append({
+                            "user_id": m_info.get("user_id"),
+                            "tenant_id": m_info.get("tenant_id"),
+                            "visibility": vis,
+                            "visibility_seq": v_seq,
+                        })
+
+    es_client = None
+    get_analysis_index = None
+    for es_mod_name in ("dev_utils.elasticsearchdb", "modules.reporting.elasticsearchdb"):
+        es_mod = sys.modules.get(es_mod_name)
+        if es_mod is None:
+            continue
+        cand_client = getattr(es_mod, "es", None) or getattr(es_mod, "elastic_handler", None)
+        cand_idx = getattr(es_mod, "get_analysis_index", None) or getattr(es_mod, "get_daily_analysis_index", None)
+        if cand_client is not None and callable(cand_idx) and hasattr(cand_client, "search"):
+            es_client = cand_client
+            get_analysis_index = cand_idx
+            break
+    if es_client is not None and callable(get_analysis_index) and hasattr(es_client, "search"):
+        from lib.tenancy.acl import is_own_report_job_id, own_report_es_query
+
+        if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
+            es_q: Dict[str, Any] = {"match_phrase": {"info.job_id": str(job_id)}}
+        else:
+            es_q = own_report_es_query(int(remote_task_id))
+        raw_hits = []
+        try:
+            try:
+                idx = get_analysis_index()
+            except TypeError:
+                idx = None
+            if idx:
+                res = es_client.search(index=idx, body={"query": es_q})
+                raw_hits = res.get("hits", {}).get("hits", []) if isinstance(res, dict) else []
+        except Exception:
+            raw_hits = []
+
+        for hit in raw_hits:
+            src = hit.get("_source") if isinstance(hit, dict) else None
+            if not isinstance(src, dict):
+                continue
+            h_info = src.get("info")
+            if not isinstance(h_info, dict):
+                continue
+            if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
+                if h_info.get("job_id") != str(job_id):
+                    continue
+            else:
+                if not is_task_own_report(int(remote_task_id), src):
+                    continue
+            vis = h_info.get("visibility")
+            v_seq = int(h_info.get("visibility_seq") or 0)
+            if vis in VISIBILITIES and v_seq > 0:
+                candidates.append({
+                    "user_id": h_info.get("user_id"),
+                    "tenant_id": h_info.get("tenant_id"),
+                    "visibility": vis,
+                    "visibility_seq": v_seq,
+                })
+
+    if candidates:
+        return max(candidates, key=lambda c: int(c.get("visibility_seq") or 0))
+    return None
+
+
 def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
     """Stamp tenancy fields (`TaskAcl` or `dist.py` env vars) and ship artifacts when `[object_storage]` is enabled."""
     stage = context.get("stage")
@@ -1610,6 +1724,9 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
     if not isinstance(info, dict):
         return
 
+    renumbered = bool(info.get("local_task_id") is not None or main_task_id is not None)
+    remote_tid = main_task_id if main_task_id is not None else info.get("id")
+
     cli_vis = context.get("visibility")
     cli_tid = context.get("tenant_id")
     acl_override: Dict[str, Any] = {}
@@ -1652,12 +1769,33 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
             for k, default in (("user_id", None), ("tenant_id", None), ("visibility", "private"), ("visibility_seq", 0)):
                 val = task_acl.get(k, default)
                 info[k] = default if val is None and default is not None else val
+
+        if (
+            renumbered
+            and stage != "acl_probe"
+            and remote_tid is not None
+            and (multitenancy_config().enabled or isinstance(task_acl, dict))
+        ):
+            cached_remote = task.get("_existing_remote_acl") if isinstance(task, dict) else None
+            fresh_stamp = _lookup_existing_report_stamp(int(remote_tid), info.get("job_id"))
+            candidates = [s for s in (cached_remote, fresh_stamp) if isinstance(s, dict)]
+            best_remote = max(candidates, key=lambda s: int(s.get("visibility_seq") or 0)) if candidates else None
+            if best_remote is not None and isinstance(task, dict):
+                task["_existing_remote_acl"] = dict(best_remote)
+            if best_remote is not None and int(best_remote.get("visibility_seq") or 0) > int(info.get("visibility_seq") or 0):
+                for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
+                    if k in best_remote:
+                        info[k] = best_remote[k]
+
         eff_override = (task.get("_acl_override") if isinstance(task, dict) else None) or acl_override
         if isinstance(eff_override, dict) and eff_override:
-            db_newer = stamped_from_db and int(info.get("visibility_seq") or 0) > int(eff_override.get("visibility_seq") or 0)
+            eff_seq = eff_override.get("visibility_seq")
+            db_newer = stamped_from_db and int(info.get("visibility_seq") or 0) > int(eff_seq or 0)
             for k in ("tenant_id", "visibility", "visibility_seq"):
                 if k in eff_override and eff_override[k] is not None:
                     if db_newer and k in ("visibility", "visibility_seq"):
+                        continue
+                    if k == "visibility_seq" and int(eff_override[k]) <= int(info.get("visibility_seq") or 0):
                         continue
                     info[k] = eff_override[k]
 
@@ -1670,7 +1808,6 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
         return
     # Filed under the main/central server's task id (dist, object-storage bridge): this node's
     # task_acl row with that number is not that task's ACL; the stamp that server sent applies.
-    renumbered = info.get("local_task_id") is not None
     if not renumbered:
         try:
             from lib.cuckoo.core.database import Database

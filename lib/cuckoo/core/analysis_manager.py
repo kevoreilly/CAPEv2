@@ -745,6 +745,7 @@ class AnalysisManager(threading.Thread):
                 str(self.socks5s[self.route]["dnsport"]),
                 str(self.socks5s[self.route]["port"]),
             )
+            self._rooter_response_check()
             self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
 
         elif str(self.route).lower() in ("none", "drop", "false"):
@@ -768,12 +769,14 @@ class AnalysisManager(threading.Thread):
 
         if self.interface:
             self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
+            self._rooter_response_check()
             if self.no_local_routing:
                 input_interface = "dirty-line"
                 # Traffic from lan to machine
                 self.rooter_response = rooter(
                     "forward_enable", input_interface, self.machine.interface, "0.0.0.0/0", self.machine.ip
                 )
+                self._rooter_response_check()
             else:
                 input_interface = self.machine.interface
             # Traffic outbound from machine
@@ -795,6 +798,7 @@ class AnalysisManager(threading.Thread):
                     "tcp",
                     str(self.machine.resultserver_port),
                 )
+                self._rooter_response_check()
                 self.rooter_response = rooter(
                     "forward_enable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip
                 )
@@ -808,7 +812,8 @@ class AnalysisManager(threading.Thread):
         self.log.info("Enabled route '%s'.", self.route)
 
         if self.no_local_routing:
-            rooter("add_dev_to_vrf", self.machine.interface)
+            self.rooter_response = rooter("add_dev_to_vrf", self.machine.interface)
+            self._rooter_response_check()
         elif self.rt_table:
             self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)
             self._rooter_response_check()
@@ -889,7 +894,7 @@ class AnalysisManager(threading.Thread):
             )
             disable("libvirt_fwo_disable", self.machine.interface, self.machine.ip)
 
-        elif str(self.route).lower() in ("none", "drop", "false"):
+        elif self.route is not None and str(self.route).lower() in ("none", "drop", "false"):
             disable("drop_disable", self.machine.ip, str(self.machine.resultserver_port))
         elif self.route and self.route[:3] == "tun":
             self.log.info("Disable tunnel interface: %s", self.interface)

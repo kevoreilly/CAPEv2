@@ -693,3 +693,89 @@ class TestAnalysisManager:
         assert len(error_records) == 1
         assert "Rooter error during analysis" in error_records[0].message
         assert not any("failure in AnalysisManager.run" in r.message for r in caplog.records)
+
+    @pytest.mark.parametrize(
+        "failing_cmd,call_index",
+        [
+            ("libvirt_fwo_enable", 0),
+            ("forward_enable", 0),
+            ("forward_enable", 2),
+            ("add_dev_to_vrf", 0),
+        ],
+    )
+    def test_route_network_checks_intermediate_rooter_calls(
+        self,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        failing_cmd: str,
+        call_index: int,
+    ):
+        """Intermediate rooter() calls in route_network must not have their errors overwritten by later calls."""
+        from types import SimpleNamespace
+
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.socks5s = {}
+        mocker.patch.object(analysis_man, "task", SimpleNamespace(route=None, id=task.id))
+        mocker.patch.object(machine, "resultserver_port", 2042, create=True)
+        mocker.patch(
+            "lib.cuckoo.core.analysis_manager.Config",
+            return_value=SimpleNamespace(
+                routing=SimpleNamespace(
+                    route="internet",
+                    internet="eth9",
+                    rt_table="main",
+                    no_local_routing=True,
+                    nat=False,
+                    reject_segments="none",
+                    reject_hostports="none",
+                    verify_interface=False,
+                ),
+                inetsim=SimpleNamespace(enabled=False),
+                tor=SimpleNamespace(enabled=False),
+                vpn=SimpleNamespace(enabled=False),
+                socks5=SimpleNamespace(enabled=False),
+            ),
+        )
+        counts: dict[str, int] = {}
+
+        def fake_rooter(command, *args, **kwargs):
+            idx = counts.get(command, 0)
+            counts[command] = idx + 1
+            if command == "nic_available":
+                return {"output": True, "exception": None}
+            if command == failing_cmd and idx == call_index:
+                return {"output": "", "exception": f"{command}#{idx} failed"}
+            return {"output": "", "exception": None}
+
+        mocker.patch("lib.cuckoo.core.analysis_manager.rooter", side_effect=fake_rooter)
+
+        with pytest.raises(CuckooRooterError, match=f"{failing_cmd}#{call_index} failed"):
+            analysis_man.route_network()
+
+    def test_route_network_socks5_enable_error_not_masked_by_fwo(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        from types import SimpleNamespace
+
+        from lib.cuckoo.common.exceptions import CuckooRooterError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.socks5s = {"proxy1": {"dnsport": 5353, "port": 1080}}
+        mocker.patch.object(analysis_man, "task", SimpleNamespace(route="proxy1", id=task.id))
+        mocker.patch.object(machine, "resultserver_port", 2042, create=True)
+
+        def fake_rooter(command, *args, **kwargs):
+            if command == "socks5_enable":
+                return {"output": "", "exception": "socks5_enable failed"}
+            return {"output": "", "exception": None}
+
+        mock_rooter = mocker.patch("lib.cuckoo.core.analysis_manager.rooter", side_effect=fake_rooter)
+
+        with pytest.raises(CuckooRooterError, match="socks5_enable failed"):
+            analysis_man.route_network()
+
+        assert [c.args[0] for c in mock_rooter.call_args_list] == ["socks5_enable"]

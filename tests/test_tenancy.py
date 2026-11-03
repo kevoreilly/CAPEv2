@@ -723,7 +723,14 @@ def test_reconcile_mongo_stamps_writes_by_document_id():
 
     assert written == [
         (
-            {"_id": "oid-1"},
+            {
+                "_id": "oid-1",
+                "$or": [
+                    {"info.visibility_seq": {"$lte": 1}},
+                    {"info.visibility_seq": {"$exists": False}},
+                    {"info.visibility_seq": None},
+                ],
+            },
             {"$set": {"info.user_id": 10, "info.tenant_id": 5, "info.visibility": TENANT, "info.visibility_seq": 1}},
         )
     ]
@@ -765,6 +772,44 @@ def test_reconcile_cli_initializes_the_database_first(monkeypatch):
     monkeypatch.setattr(config_mod, "Config", lambda name: types.SimpleNamespace(mongodb=off, elasticsearchdb=off))
     assert main(["--dry-run"]) == 0
     assert calls[:2] == ["init", "db"]
+
+
+def test_full_reconcile_enforces_visibility_seq_cas_in_mongo_and_es():
+    from lib.tenancy.acl import toggle_task_visibility_cas
+    from lib.tenancy.backfill import _es_reconcile_action, reconcile_mongo_stamps
+
+    engine = create_engine("sqlite:///:memory:")
+    ensure_acl_schema(engine)
+    mongo_docs = [
+        {"_id": "m1", "info": {"id": 1, "user_id": 8, "tenant_id": 2, "visibility": "private", "visibility_seq": 1}}
+    ]
+    with Session(engine) as session:
+        set_task_acl(session, 1, user_id=8, tenant_id=2, visibility="public")
+        session.commit()
+
+        def _find(coll, q, proj):
+            return list(mongo_docs)
+
+        def _concurrent_bulk(coll, ops):
+            toggle_task_visibility_cas(session, 1, "private")
+            mongo_docs[0]["info"]["visibility"] = "private"
+            mongo_docs[0]["info"]["visibility_seq"] = 2
+            for flt, doc_upd in ops:
+                for doc in mongo_docs:
+                    if _matches(doc, flt):
+                        for k, v in doc_upd.get("$set", {}).items():
+                            _, sub = k.split(".", 1)
+                            doc["info"][sub] = v
+
+        reconcile_mongo_stamps(session, find=_find, bulk_update=_concurrent_bulk, task_owners=lambda ids: {})
+        assert mongo_docs[0]["info"]["visibility"] == "private"
+        assert mongo_docs[0]["info"]["visibility_seq"] == 2
+
+    es_act = _es_reconcile_action("cape-analysis-2026", "es-1", {"visibility": "public", "visibility_seq": 1})
+    assert "script" in es_act
+    assert "ctx.op = 'noop'" in es_act["script"]["source"]
+    assert es_act["script"]["params"]["stamp"]["visibility_seq"] == 1
+
 
 
 def test_tasks_set_visibility_endpoint(monkeypatch):

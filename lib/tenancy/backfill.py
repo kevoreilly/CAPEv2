@@ -217,6 +217,35 @@ def _doc_from_info(key: Any, info: Any) -> Dict[str, Any]:
 _INFO_PROJECTION = ["info.id", "info.job_id"] + [f"info.{field}" for field in _STAMP_FIELDS]
 
 
+def _mongo_reconcile_filter(key: Any, stamp: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "_id": key,
+        "$or": [
+            {"info.visibility_seq": {"$lte": int(stamp["visibility_seq"])}},
+            {"info.visibility_seq": {"$exists": False}},
+            {"info.visibility_seq": None},
+        ],
+    }
+
+
+def _es_reconcile_action(index: str, doc_id: str, stamp: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "_op_type": "update",
+        "_index": index,
+        "_id": doc_id,
+        "script": {
+            "lang": "painless",
+            "source": (
+                "def s = ctx._source.info != null ? ctx._source.info.visibility_seq : null;"
+                " if (s != null && s > params.stamp.visibility_seq) { ctx.op = 'noop'; }"
+                " else { if (ctx._source.info == null) { ctx._source.info = [:]; }"
+                " for (e in params.stamp.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); } }"
+            ),
+            "params": {"stamp": stamp},
+        },
+    }
+
+
 def reconcile_mongo_stamps(
     session: Session,
     *,
@@ -251,7 +280,10 @@ def reconcile_mongo_stamps(
         if not dry_run:
             bulk_update(
                 collection,
-                [({"_id": key}, {"$set": {f"info.{k}": v for k, v in stamp.items()}}) for key, stamp in ops],
+                [
+                    (_mongo_reconcile_filter(key, stamp), {"$set": {f"info.{k}": v for k, v in stamp.items()}})
+                    for key, stamp in ops
+                ],
             )
     if adopt_public_without_acl and not dry_run:
         session.commit()
@@ -516,10 +548,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 )
 
             def _es_bulk(ops: List[Tuple[Tuple[str, str], Dict[str, Any]]]) -> Any:
-                actions = [
-                    {"_op_type": "update", "_index": index, "_id": doc_id, "doc": {"info": stamp}}
-                    for (index, doc_id), stamp in ops
-                ]
+                actions = [_es_reconcile_action(index, doc_id, stamp) for (index, doc_id), stamp in ops]
                 ok_count, errors = bulk(elastic_handler, actions, raise_on_error=False)
                 if errors:
                     raise RuntimeError(f"Elasticsearch bulk restamp failed for {len(errors)} document(s): {errors[:3]!r}")

@@ -30,6 +30,7 @@ from lib.tenancy.context import (
     get_current_submission_visibility,
     get_current_viewer,
 )
+import lib.tenancy.policy as _policy_mod
 from lib.tenancy.policy import (
     PRIVATE,
     PUBLIC,
@@ -38,10 +39,14 @@ from lib.tenancy.policy import (
     ResourceScope,
     ViewerContext,
     default_visibility as resolve_default_visibility,
-    multitenancy_config,
+    multitenancy_config as _orig_multitenancy_config,
     viewer_scope_es_filter,
     viewer_scope_match,
 )
+
+
+def multitenancy_config():
+    return getattr(_policy_mod, "multitenancy_config", _orig_multitenancy_config)()
 from lib.tenancy.resources import (
     ResourceEntitlements,
     filter_submission_form_context,
@@ -269,6 +274,12 @@ def _restore_all_wrapped() -> None:
     _es_filters.clear()
 
 
+# Set while a `no_hooks=True` MongoDB read is in progress so inner filter hooks are bypassed.
+_skip_mongo_filter_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "cape_tenancy_skip_mongo_filter", default=False
+)
+
+
 def default_mongo_analysis_filter(
     collection: str,
     query: Optional[Dict[str, Any]],
@@ -276,7 +287,7 @@ def default_mongo_analysis_filter(
 ) -> Dict[str, Any]:
     """Automatically scope queries on the MongoDB `'analysis'` collection to `viewer`."""
     base_query = dict(query) if query else {}
-    if collection != "analysis":
+    if collection != "analysis" or _skip_mongo_filter_ctx.get():
         return base_query
 
     active_viewer = viewer if viewer is not None else get_current_viewer()
@@ -451,8 +462,15 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
         @functools.wraps(orig)
         def _wrapped(collection: str, query: Dict[str, Any], *args: Any, _orig=orig, **kwargs: Any):
             if kwargs.get("no_hooks"):
-                kwargs = {k: v for k, v in kwargs.items() if k != "no_hooks"}
-                return _orig(collection, query, *args, **kwargs)
+                tok = _skip_mongo_filter_ctx.set(True)
+                try:
+                    try:
+                        return _orig(collection, query, *args, **kwargs)
+                    except TypeError:
+                        stripped = {k: v for k, v in kwargs.items() if k != "no_hooks"}
+                        return _orig(collection, query, *args, **stripped)
+                finally:
+                    _skip_mongo_filter_ctx.reset(tok)
             scoped_q = apply_mongo_filters(collection, query)
             return _orig(collection, scoped_q, *args, **kwargs)
 
@@ -617,6 +635,74 @@ class _ViewerScopedCacheFunction:
         self._caches[self._scope()] = value
 
 
+# Set while compare or on_demand views execute so task-ID lookups resolve the task's own report per-request.
+_own_report_lookup_ctx: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "cape_tenancy_own_report_lookup", default=False
+)
+
+
+def _ensure_own_report_wrappers(mod: Any, core_hooks: Any, *, include_es: bool = False) -> None:
+    if mod is None:
+        return
+    if include_es:
+        es_obj = getattr(mod, "es", None)
+        orig_search = getattr(es_obj, "search", None) if es_obj is not None else None
+        if (
+            callable(orig_search)
+            and not getattr(orig_search, "_cape_own_report_wrapped", False)
+            and not getattr(orig_search, "_cape_tenancy_wrapped", False)
+        ):
+
+            def _ctx_scoped_search(index: Any, body: Any = None, query: Any = None, _os=orig_search, **kw: Any):
+                if not _own_report_lookup_ctx.get():
+                    if body is not None:
+                        return _os(index=index, body=body, **kw)
+                    if query is not None:
+                        return _os(index=index, query=query, **kw)
+                    return _os(index=index, **kw)
+                eff_body = body if body is not None else ({"query": query} if query is not None else {})
+                if isinstance(eff_body, dict):
+                    eff_body = core_hooks.apply_es_filter(eff_body)
+                return _os(index=index, body=eff_body, **kw)
+
+            _ctx_scoped_search._cape_own_report_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(es_obj, "search", orig_search)
+            setattr(es_obj, "search", _ctx_scoped_search)
+
+    orig_q_by_id = getattr(mod, "get_query_by_info_id", None)
+    if callable(orig_q_by_id) and not getattr(orig_q_by_id, "_cape_own_report_wrapped", False):
+
+        def _ctx_scoped_q_by_id(tid: Any, *a: Any, _oq=orig_q_by_id, **kw: Any):
+            if _own_report_lookup_ctx.get():
+                own = task_report_query(int(tid), "es")
+                if own is not None:
+                    return own
+            return _oq(tid, *a, **kw)
+
+        _ctx_scoped_q_by_id._cape_own_report_wrapped = True  # type: ignore[attr-defined]
+        _record_attr_patch(mod, "get_query_by_info_id", orig_q_by_id)
+        setattr(mod, "get_query_by_info_id", _ctx_scoped_q_by_id)
+
+    orig_m_find_one = getattr(mod, "mongo_find_one", None)
+    if callable(orig_m_find_one) and not getattr(orig_m_find_one, "_cape_own_report_wrapped", False):
+
+        def _ctx_scoped_m_find_one(coll: str, q: Any, *a: Any, _om=orig_m_find_one, **kw: Any):
+            if (
+                _own_report_lookup_ctx.get()
+                and coll == "analysis"
+                and isinstance(q, dict)
+                and set(q.keys()) == {"info.id"}
+            ):
+                q = task_report_query(int(q["info.id"]), "mongo") or q
+            return _om(coll, q, *a, **kw)
+
+        _ctx_scoped_m_find_one._cape_own_report_wrapped = True  # type: ignore[attr-defined]
+        if getattr(orig_m_find_one, "_cape_tenancy_wrapped", False):
+            _ctx_scoped_m_find_one._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+        _record_attr_patch(mod, "mongo_find_one", orig_m_find_one)
+        setattr(mod, "mongo_find_one", _ctx_scoped_m_find_one)
+
+
 def _wrap_compare_and_analysis_views() -> None:
     try:
         from lib.cuckoo.common import hooks as core_hooks
@@ -634,6 +720,10 @@ def _wrap_compare_and_analysis_views() -> None:
                 c_mod = None
 
     if c_mod is not None:
+        _ensure_own_report_wrappers(c_mod, core_hooks, include_es=True)
+        comp_lib = sys.modules.get("lib.cuckoo.common.compare")
+        if comp_lib is not None:
+            _ensure_own_report_wrappers(comp_lib, core_hooks, include_es=True)
         for view_name in ("left", "hash", "both", "diff", "diff_data"):
             orig_fn = getattr(c_mod, view_name, None)
             if orig_fn is None or getattr(orig_fn, "_cape_tenancy_wrapped", False):
@@ -641,66 +731,18 @@ def _wrap_compare_and_analysis_views() -> None:
 
             @functools.wraps(orig_fn)
             def _wrapped_compare_view(*args: Any, _orig=orig_fn, _cmod=c_mod, **kwargs: Any):
-                es_obj = getattr(_cmod, "es", None)
-                orig_search = getattr(es_obj, "search", None) if es_obj is not None else None
-                orig_q_by_id = getattr(_cmod, "get_query_by_info_id", None)
-                orig_m_find_one = getattr(_cmod, "mongo_find_one", None)
-                comp_lib = sys.modules.get("lib.cuckoo.common.compare")
-                orig_lib_q_by_id = getattr(comp_lib, "get_query_by_info_id", None) if comp_lib is not None else None
-                orig_lib_m_find_one = getattr(comp_lib, "mongo_find_one", None) if comp_lib is not None else None
-
-                if orig_search is not None:
-
-                    def _scoped_search(index: Any, body: Any = None, query: Any = None, _os=orig_search, **kw: Any):
-                        eff_body = body if body is not None else ({"query": query} if query is not None else {})
-                        if isinstance(eff_body, dict):
-                            eff_body = core_hooks.apply_es_filter(eff_body)
-                        return _os(index=index, body=eff_body, **kw)
-
-                    setattr(es_obj, "search", _scoped_search)
-                if callable(orig_q_by_id):
-                    setattr(
-                        _cmod,
-                        "get_query_by_info_id",
-                        lambda tid, _oq=orig_q_by_id: task_report_query(int(tid), "es") or _oq(tid),
-                    )
-                if comp_lib is not None and callable(orig_lib_q_by_id):
-                    setattr(
-                        comp_lib,
-                        "get_query_by_info_id",
-                        lambda tid, _oq=orig_lib_q_by_id: task_report_query(int(tid), "es") or _oq(tid),
-                    )
-                if callable(orig_m_find_one):
-
-                    def _scoped_m_find_one(coll: str, q: Any, *a: Any, _om=orig_m_find_one, **kw: Any):
-                        if coll == "analysis" and isinstance(q, dict) and set(q.keys()) == {"info.id"}:
-                            q = task_report_query(int(q["info.id"])) or q
-                        return _om(coll, q, *a, **kw)
-
-                    setattr(_cmod, "mongo_find_one", _scoped_m_find_one)
-                if comp_lib is not None and callable(orig_lib_m_find_one):
-
-                    def _scoped_lib_m_find_one(coll: str, q: Any, *a: Any, _om=orig_lib_m_find_one, **kw: Any):
-                        if coll == "analysis" and isinstance(q, dict) and set(q.keys()) == {"info.id"}:
-                            q = task_report_query(int(q["info.id"])) or q
-                        return _om(coll, q, *a, **kw)
-
-                    setattr(comp_lib, "mongo_find_one", _scoped_lib_m_find_one)
+                _ensure_own_report_wrappers(_cmod, core_hooks, include_es=True)
+                cur_comp_lib = sys.modules.get("lib.cuckoo.common.compare")
+                if cur_comp_lib is not None:
+                    _ensure_own_report_wrappers(cur_comp_lib, core_hooks, include_es=True)
+                tok = _own_report_lookup_ctx.set(True)
                 try:
                     return _orig(*args, **kwargs)
                 finally:
-                    if orig_search is not None and es_obj is not None:
-                        setattr(es_obj, "search", orig_search)
-                    if callable(orig_q_by_id):
-                        setattr(_cmod, "get_query_by_info_id", orig_q_by_id)
-                    if comp_lib is not None and callable(orig_lib_q_by_id):
-                        setattr(comp_lib, "get_query_by_info_id", orig_lib_q_by_id)
-                    if callable(orig_m_find_one):
-                        setattr(_cmod, "mongo_find_one", orig_m_find_one)
-                    if comp_lib is not None and callable(orig_lib_m_find_one):
-                        setattr(comp_lib, "mongo_find_one", orig_lib_m_find_one)
+                    _own_report_lookup_ctx.reset(tok)
 
             _wrapped_compare_view._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(c_mod, view_name, orig_fn)
             setattr(c_mod, view_name, _wrapped_compare_view)
 
     es_db_mod = sys.modules.get("dev_utils.elasticsearchdb")
@@ -761,6 +803,15 @@ def _wrap_compare_and_analysis_views() -> None:
             def _wrapped_comments(request: Any, task_id: Any, _amod=a_mod, _orig=orig_comments):
                 if getattr(request, "method", "") != "POST" or not getattr(_amod.settings, "COMMENTS", False):
                     return _orig(request, task_id)
+                user = getattr(request, "user", None)
+                if not getattr(user, "is_authenticated", False) and (
+                    getattr(_amod.settings, "WEB_AUTHENTICATION", False)
+                    or multitenancy_config().enabled
+                    or user is not None
+                ):
+                    from django.contrib.auth.decorators import login_required
+
+                    return login_required(_orig)(request, task_id)
                 comment = request.POST.get("commentbox", "")
                 if not comment:
                     return _amod.render(request, "error.html", {"error": "No comment provided."})
@@ -776,9 +827,20 @@ def _wrap_compare_and_analysis_views() -> None:
                     if isinstance(m_report, dict):
                         m_id = m_report.get("_id")
                 if getattr(_amod, "es_as_db", False):
+                    from lib.tenancy.acl import is_own_report_job_id
+
                     q_es = task_report_query(tid_int, "es") or _amod.get_query_by_info_id(task_id)
                     body = core_hooks.apply_es_filter({"query": q_es})
-                    hits = _amod.es.search(index=_amod.get_analysis_index(), body=body).get("hits", {}).get("hits", [])
+                    raw_hits = _amod.es.search(index=_amod.get_analysis_index(), body=body).get("hits", {}).get("hits", [])
+                    hits = [
+                        h
+                        for h in raw_hits
+                        if is_own_report_job_id(tid_int, ((h.get("_source") or {}).get("info") or {}).get("job_id"))
+                        and (
+                            ((h.get("_source") or {}).get("info") or {}).get("id") is None
+                            or is_task_own_report(tid_int, h.get("_source"))
+                        )
+                    ]
                     if hits:
                         es_report = hits[0].get("_source") or {}
                         esid = hits[0].get("_id")
@@ -801,31 +863,26 @@ def _wrap_compare_and_analysis_views() -> None:
                 return _amod.redirect("report", task_id=task_id)
 
             _wrapped_comments._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(a_mod, "comments", orig_comments)
             setattr(a_mod, "comments", _wrapped_comments)
 
         orig_on_demand = getattr(a_mod, "on_demand", None)
         if orig_on_demand is not None and not getattr(orig_on_demand, "_cape_tenancy_wrapped", False):
+            _ensure_own_report_wrappers(a_mod, core_hooks, include_es=False)
 
             @functools.wraps(orig_on_demand)
             def _wrapped_on_demand(
                 request: Any, service: Any, task_id: Any, category: Any, sha256: Any, _amod=a_mod, _orig=orig_on_demand
             ):
-                orig_m_find = getattr(_amod, "mongo_find_one", None)
-                if callable(orig_m_find):
-
-                    def _scoped_m_find(coll: str, q: Any, *a: Any, _om=orig_m_find, **kw: Any):
-                        if coll == "analysis" and isinstance(q, dict) and set(q.keys()) == {"info.id"}:
-                            q = task_report_query(int(q["info.id"]), "mongo") or q
-                        return _om(coll, q, *a, **kw)
-
-                    setattr(_amod, "mongo_find_one", _scoped_m_find)
+                _ensure_own_report_wrappers(_amod, core_hooks, include_es=False)
+                tok = _own_report_lookup_ctx.set(True)
                 try:
                     return _orig(request, service, task_id, category, sha256)
                 finally:
-                    if callable(orig_m_find):
-                        setattr(_amod, "mongo_find_one", orig_m_find)
+                    _own_report_lookup_ctx.reset(tok)
 
             _wrapped_on_demand._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(a_mod, "on_demand", orig_on_demand)
             setattr(a_mod, "on_demand", _wrapped_on_demand)
 
 

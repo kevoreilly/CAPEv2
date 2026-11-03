@@ -3289,3 +3289,210 @@ def test_file_backed_sqlite_add_path_commits_task_acl_without_deadlock(tmp_path,
     finally:
         core_hooks.clear_all_hooks()
         file_db.engine.dispose()
+
+
+def test_compare_view_scoping_does_not_race_across_concurrent_requests(mt_enabled):
+    import threading
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.context import set_current_viewer
+
+    b_entered = threading.Event()
+    a_finished = threading.Event()
+    b_queries = []
+
+    class FakeES:
+        def search(self, index, body=None, **kw):
+            b_queries.append(("es", body))
+            return {"hits": {"hits": []}}
+
+    fake_cmp = types.ModuleType("compare.views")
+    fake_cmp.es = FakeES()
+    fake_cmp.get_query_by_info_id = lambda tid: {"term": {"info.id": int(tid)}}
+    fake_cmp.mongo_find_one = lambda coll, q, *a, **kw: b_queries.append(("mongo", q)) or None
+
+    def orig_left(request, task_id, *a, **kw):
+        if task_id == 1:
+            b_entered.wait(timeout=5)
+            return "a-done"
+        b_entered.set()
+        a_finished.wait(timeout=5)
+        set_current_viewer(_viewer(8, 2))
+        q_es = fake_cmp.get_query_by_info_id(task_id)
+        fake_cmp.es.search(index="idx", body={"query": q_es})
+        fake_cmp.mongo_find_one("analysis", {"info.id": int(task_id)})
+        return "b-done"
+
+    fake_cmp.left = orig_left
+    core_hooks.clear_all_hooks()
+    try:
+        core_hooks.register_es_filter(thooks.default_es_query_filter)
+        import sys
+
+        old_cmp = sys.modules.get("compare.views")
+        sys.modules["compare.views"] = fake_cmp
+        try:
+            thooks._wrap_compare_and_analysis_views()
+            out = {}
+
+            def run_a():
+                out["a"] = fake_cmp.left(object(), 1)
+                a_finished.set()
+
+            def run_b():
+                out["b"] = fake_cmp.left(object(), 2)
+
+            ta = threading.Thread(target=run_a)
+            tb = threading.Thread(target=run_b)
+            ta.start()
+            tb.start()
+            ta.join(timeout=5)
+            tb.join(timeout=5)
+            assert out == {"a": "a-done", "b": "b-done"}
+            es_entry = dict(b_queries)["es"]
+            mongo_entry = dict(b_queries)["mongo"]
+            assert "filter" in es_entry["query"]["bool"]
+            assert "info.job_id" in mongo_entry
+        finally:
+            if old_cmp is None:
+                sys.modules.pop("compare.views", None)
+            else:
+                sys.modules["compare.views"] = old_cmp
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_comments_post_enforces_login_and_es_own_report_job_id(monkeypatch):
+    from django.conf import settings
+    from django.test import RequestFactory
+    import analysis.views as av
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.policy import MultitenancyConfig
+
+    cfg = MultitenancyConfig(
+        enabled=True,
+        mode="shared",
+        default_visibility="public",
+        local_admins_manage_all_tenants=True,
+        readers_can_comment=True,
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setattr(settings, "WEB_AUTHENTICATION", True)
+    monkeypatch.setattr(av.settings, "WEB_AUTHENTICATION", True)
+    monkeypatch.setattr(av.settings, "COMMENTS", True)
+
+    core_hooks.clear_all_hooks()
+    try:
+        thooks.register_core_hooks()
+        writes = []
+        es_updates = []
+        monkeypatch.setattr(av, "mongo_update_one", lambda *a, **kw: writes.append(a), raising=False)
+        monkeypatch.setattr(av, "get_query_by_info_id", lambda tid: {"term": {"info.id": int(tid)}}, raising=False)
+        monkeypatch.setattr(av, "redirect", lambda *a, **kw: "redirected-to-report")
+
+        anon_req = RequestFactory().post("/analysis/5/comments/", {"commentbox": "anon comment"})
+        anon_req.user = types.SimpleNamespace(id=None, is_authenticated=False)
+        resp = av.comments(anon_req, 5)
+        assert getattr(resp, "status_code", None) == 302
+        assert writes == []
+
+        class SharedIndexES:
+            def search(self, index, body=None, **kw):
+                return {
+                    "hits": {
+                        "hits": [
+                            {"_id": "es-broker", "_index": "idx", "_source": {"info": {"id": 5, "job_id": "ui-5-extra"}}},
+                            {"_id": "es-own", "_index": "idx", "_source": {"info": {"id": 5, "job_id": "ui-5"}}},
+                        ]
+                    }
+                }
+
+            def update(self, index, id, body):
+                es_updates.append((index, id, body))
+
+        monkeypatch.setattr(av, "enabledconf", {"mongodb": False})
+        monkeypatch.setattr(av, "es_as_db", True)
+        monkeypatch.setattr(av, "es", SharedIndexES(), raising=False)
+        monkeypatch.setattr(av, "get_analysis_index", lambda: "cape-analysis-*", raising=False)
+        auth_req = RequestFactory().post("/analysis/5/comments/", {"commentbox": "own comment"})
+        auth_req.user = types.SimpleNamespace(id=8, is_authenticated=True)
+        assert av.comments(auth_req, 5) == "redirected-to-report"
+        assert [(idx, doc_id) for idx, doc_id, _ in es_updates] == [("idx", "es-own")]
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_delete_preserves_other_tenants_calls_and_file_refs_via_no_hooks(mt_enabled):
+    import collections
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.context import set_current_viewer
+
+    set_current_viewer(_viewer(8, 2))
+    docs = [
+        {
+            "_id": "own1",
+            "info": {"id": 50, "job_id": "ui-50", "user_id": 8, "tenant_id": 2, "visibility": "private"},
+            "behavior": {"processes": [{"calls": ["c1"]}]},
+        },
+        {
+            "_id": "broker1",
+            "info": {"id": 50, "job_id": "ext-uuid-1", "user_id": 99, "tenant_id": 9, "visibility": "private"},
+            "behavior": {"processes": [{"calls": ["c2"]}]},
+        },
+    ]
+    deleted_calls_tids = []
+    unused_file_tids = []
+
+    def _visible_to_viewer_8(doc):
+        return doc["info"].get("user_id") == 8
+
+    def real_like_find(collection, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
+        if not no_hooks and isinstance(query, dict):
+            query = core_hooks.apply_mongo_filter(collection, query)
+        return [d for d in docs if d["_id"] == "own1"]
+
+    def real_like_find_one(collection, query, projection=False, sort=None, no_hooks=False):
+        if not no_hooks and isinstance(query, dict):
+            query = core_hooks.apply_mongo_filter(collection, query)
+            for d in docs:
+                if d["info"]["id"] == query.get("info.id") and _visible_to_viewer_8(d):
+                    return d
+            return None
+        for d in docs:
+            if d["info"]["id"] == query.get("info.id"):
+                return d
+        return None
+
+    def orig_del(ids):
+        return None
+
+    fake_mod = types.ModuleType("fake_mongo_del_no_hooks")
+    fake_mod.hooks = collections.defaultdict(lambda: collections.defaultdict(list))
+    fake_mod.hooks[orig_del]["analysis"].append(lambda tids: unused_file_tids.extend(tids))
+    fake_mod.mongo_find = real_like_find
+    fake_mod.mongo_find_one = real_like_find_one
+    fake_mod.mongo_aggregate = lambda *a, **k: []
+    fake_mod.mongo_delete_data = orig_del
+    fake_mod.mongo_delete_calls = lambda task_ids: deleted_calls_tids.extend(task_ids)
+
+    def _delete_many(coll, flt):
+        if coll == "analysis":
+            ids = set(flt.get("_id", {}).get("$in", []))
+            docs[:] = [d for d in docs if d["_id"] not in ids]
+
+    fake_mod.mongo_delete_many = _delete_many
+
+    core_hooks.clear_all_hooks()
+    try:
+        thooks.register_core_hooks()
+        thooks.wrap_mongodb_module(fake_mod)
+        fake_mod.mongo_delete_data(50)
+        assert [d["_id"] for d in docs] == ["broker1"]
+        assert deleted_calls_tids == []
+        assert unused_file_tids == []
+    finally:
+        core_hooks.clear_all_hooks()
+

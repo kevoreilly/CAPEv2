@@ -1,4 +1,4 @@
-name: Update requirements.txt file
+name: Update requirements.txt and uv.lock
 
 on:
   push:
@@ -30,8 +30,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: 'poetry'
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Export requirements.txt
         run: poetry export --format requirements.txt --output requirements.txt
+
+      - name: Update uv.lock
+        run: uv lock
 
       - name: Commit changes if any
         # Skip this step if being run by nektos/act
@@ -41,6 +47,7 @@ jobs:
           git config user.email "action@github.com"
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
             git pull -f
-            git commit -m "ci: Update requirements.txt" -a
+            git commit -m "ci: Update requirements.txt and uv.lock" -a
             git push
           fi
+

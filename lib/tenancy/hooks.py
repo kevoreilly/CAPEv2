@@ -844,7 +844,6 @@ def wrap_submission_and_web_utils(
     submission_views_mod: Any = None,
 ) -> None:
     """Wrap CAPEv2's machine list, task creation, tag loader, exit-node loader, and submission template render in-place."""
-    custom_tasking = tasking_cls is not None
     if tasking_cls is None:
         try:
             from lib.cuckoo.core.data.tasking import TasksMixIn as tasking_cls
@@ -943,8 +942,7 @@ def wrap_submission_and_web_utils(
                 return task_id
 
             _wrapped_task_add._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
-            if custom_tasking:
-                _record_attr_patch(tasking_cls, "add", orig_add)
+            _record_attr_patch(tasking_cls, "add", orig_add)
             setattr(tasking_cls, "add", _wrapped_task_add)
 
         orig_reschedule = getattr(tasking_cls, "reschedule", None)
@@ -974,8 +972,7 @@ def wrap_submission_and_web_utils(
                     _copy_denied.reset(denied)
 
             _wrapped_reschedule._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
-            if custom_tasking:
-                _record_attr_patch(tasking_cls, "reschedule", orig_reschedule)
+            _record_attr_patch(tasking_cls, "reschedule", orig_reschedule)
             setattr(tasking_cls, "reschedule", _wrapped_reschedule)
 
     try:
@@ -1000,6 +997,7 @@ def wrap_submission_and_web_utils(
                 return default_sql_task_query_filter(q, viewer).scalar() or 0
 
             _wrapped_count_samples._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(samples_cls, "count_samples", orig_count_samples)
             setattr(samples_cls, "count_samples", _wrapped_count_samples)
 
         orig_check_uniq = getattr(samples_cls, "check_file_uniq", None)

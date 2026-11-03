@@ -126,118 +126,125 @@ class Sample(Base):
 
 class SamplesMixIn:
     def register_sample(self, obj, source_url=False):
-        if isinstance(obj, (File, PCAP, Static)):
-            fileobj = File(obj.file_path)
-            file_type = fileobj.get_type()
-            file_md5 = fileobj.get_md5()
-            file_sha256 = fileobj.get_sha256()
-            sample = None
-            # check if hash is known already
-            try:
-                # get or create
-                sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
-                if sample is None:
-                    with self.session.begin_nested():
-                        sample = Sample(
-                            md5=file_md5,
-                            crc32=fileobj.get_crc32(),
-                            sha1=fileobj.get_sha1(),
-                            sha256=file_sha256,
-                            sha512=fileobj.get_sha512(),
-                            file_size=fileobj.get_size(),
-                            file_type=file_type,
-                            ssdeep=fileobj.get_ssdeep(),
-                            source_url=source_url,
-                        )
-                        self.session.add(sample)
-            except IntegrityError as e:
-                # Another concurrent process might have inserted it
-                sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
-                if sample is None:
-                    log.exception(e)
-        return sample
+        with self.session.begin():
+            if isinstance(obj, (File, PCAP, Static)):
+                fileobj = File(obj.file_path)
+                file_type = fileobj.get_type()
+                file_md5 = fileobj.get_md5()
+                file_sha256 = fileobj.get_sha256()
+                sample = None
+                # check if hash is known already
+                try:
+                    # get or create
+                    sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                    if sample is None:
+                        with self.session.begin_nested():
+                            sample = Sample(
+                                md5=file_md5,
+                                crc32=fileobj.get_crc32(),
+                                sha1=fileobj.get_sha1(),
+                                sha256=file_sha256,
+                                sha512=fileobj.get_sha512(),
+                                file_size=fileobj.get_size(),
+                                file_type=file_type,
+                                ssdeep=fileobj.get_ssdeep(),
+                                source_url=source_url,
+                            )
+                            self.session.add(sample)
+                            self.session.flush()
+                except IntegrityError as e:
+                    # Another concurrent process might have inserted it
+                    sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                    if sample is None:
+                        log.exception(e)
+            return sample
 
 
     def check_file_uniq(self, sha256: str, hours: int = 0):
         # TODO This function is poorly named. It returns True if a sample with the given
         # sha256 already exists in the database, rather than returning True if the given
         # sha256 is unique.
-        uniq = False
-        if hours and sha256:
-            date_since = _utcnow_naive() - timedelta(hours=hours)
+        with self.session.begin():
+            uniq = False
+            if hours and sha256:
+                date_since = _utcnow_naive() - timedelta(hours=hours)
 
-            stmt = (
-                select(Task)
-                .join(Sample, Task.sample_id == Sample.id)
-                .where(Sample.sha256 == sha256)
-                .where(Task.added_on >= date_since)
-            )
-            return self.session.scalar(select(stmt.exists()))
-        else:
-            if not self.find_sample(sha256=sha256):
-                uniq = False
+                stmt = (
+                    select(Task)
+                    .join(Sample, Task.sample_id == Sample.id)
+                    .where(Sample.sha256 == sha256)
+                    .where(Task.added_on >= date_since)
+                )
+                return self.session.scalar(select(stmt.exists()))
             else:
-                uniq = True
-        return uniq
+                if not self.find_sample(sha256=sha256):
+                    uniq = False
+                else:
+                    uniq = True
+            return uniq
 
     def get_file_types(self) -> List[str]:
         """Gets a sorted list of unique sample file types."""
         # .distinct() is cleaner than group_by() for a single column.
-        stmt = select(Sample.file_type).distinct().order_by(Sample.file_type)
-        return self.session.scalars(stmt).all()
+        with self.session.begin():
+            stmt = select(Sample.file_type).distinct().order_by(Sample.file_type)
+            return self.session.scalars(stmt).all()
 
     def view_sample(self, sample_id):
         """Retrieve information on a sample given a sample id.
         @param sample_id: ID of the sample to query.
         @return: details on the sample used in sample: sample_id.
         """
-        return self.session.get(Sample, sample_id)
+        with self.session.begin():
+            return self.session.get(Sample, sample_id)
 
     def get_children_by_parent_id(self, parent_id: int) -> List[Sample]:
         """
         Finds all child Samples using an explicit join.
         """
         # Create an alias to represent the Child Sample in the query
-        ChildSample = aliased(Sample, name="child")
+        with self.session.begin():
+            ChildSample = aliased(Sample, name="child")
 
-        # This query selects child samples by joining through the association table
-        stmt = (
-            select(ChildSample)
-            .join(SampleAssociation, ChildSample.id == SampleAssociation.child_id)
-            .where(SampleAssociation.parent_id == parent_id)
-        )
+            # This query selects child samples by joining through the association table
+            stmt = (
+                select(ChildSample)
+                .join(SampleAssociation, ChildSample.id == SampleAssociation.child_id)
+                .where(SampleAssociation.parent_id == parent_id)
+            )
 
-        return self.session.scalars(stmt).all()
+            return self.session.scalars(stmt).all()
 
     def find_sample(
         self, md5: str = None, sha1: str = None, sha256: str = None, parent: int = None, task_id: int = None, sample_id: int = None
     ) -> Union[Optional[Sample], List[Sample], List[Task]]:
         """Searches for samples or tasks based on different criteria."""
 
-        if md5:
-            return self.session.scalar(select(Sample).where(Sample.md5 == md5))
+        with self.session.begin():
+            if md5:
+                return self.session.scalar(select(Sample).where(Sample.md5 == md5))
 
-        if sha1:
-            return self.session.scalar(select(Sample).where(Sample.sha1 == sha1))
+            if sha1:
+                return self.session.scalar(select(Sample).where(Sample.sha1 == sha1))
 
-        if sha256:
-            return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
+            if sha256:
+                return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
 
-        if parent is not None:
-            return self.get_children_by_parent_id(parent)
+            if parent is not None:
+                return self.get_children_by_parent_id(parent)
 
-        if sample_id is not None:
-            # Using session.get() is much more efficient than a select query.
-            # We wrap the result in a list to match the original function's behavior.
-            sample = self.session.get(Sample, sample_id)
-            return [sample] if sample else []
+            if sample_id is not None:
+                # Using session.get() is much more efficient than a select query.
+                # We wrap the result in a list to match the original function's behavior.
+                sample = self.session.get(Sample, sample_id)
+                return [sample] if sample else []
 
-        if task_id is not None:
-            # Note: This branch returns a list of Task objects.
-            stmt = select(Task).join(Sample, Task.sample_id == Sample.id).options(joinedload(Task.sample)).where(Task.id == task_id)
-            return self.session.scalars(stmt).all()
+            if task_id is not None:
+                # Note: This branch returns a list of Task objects.
+                stmt = select(Task).join(Sample, Task.sample_id == Sample.id).options(joinedload(Task.sample)).where(Task.id == task_id)
+                return self.session.scalars(stmt).all()
 
-        return None
+            return None
 
     def sample_still_used(self, sample_hash: str, task_id: int):
         """Retrieve information if sample is used by another task(s).
@@ -245,17 +252,18 @@ class SamplesMixIn:
         @param task_id: task_id
         @return: bool
         """
-        stmt = (
-            select(Task)
-            .join(Sample, Task.sample_id == Sample.id)
-            .where(Sample.sha256 == sample_hash)
-            .where(Task.id != task_id)
-            .where(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
-        )
+        with self.session.begin():
+            stmt = (
+                select(Task)
+                .join(Sample, Task.sample_id == Sample.id)
+                .where(Sample.sha256 == sample_hash)
+                .where(Task.id != task_id)
+                .where(Task.status.in_((TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED)))
+            )
 
-        # select(stmt.exists()) creates a `SELECT EXISTS(...)` query.
-        # session.scalar() executes it and returns True or False directly.
-        return self.session.scalar(select(stmt.exists()))
+            # select(stmt.exists()) creates a `SELECT EXISTS(...)` query.
+            # session.scalar() executes it and returns True or False directly.
+            return self.session.scalar(select(stmt.exists()))
 
     def _hash_file_in_chunks(self, path: str, hash_algo) -> str:
         """Helper function to hash a file efficiently in chunks."""
@@ -300,7 +308,8 @@ class SamplesMixIn:
 
             # binary also not stored in binaries, perform hash lookup
             stmt = select(Sample).join(Task, Sample.id == Task.sample_id).where(Task.id == task_id)
-            db_sample = self.session.scalar(stmt)
+            with self.session.begin():
+                db_sample = self.session.scalar(stmt)
             if db_sample:
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                 if path_exists(path):
@@ -316,7 +325,8 @@ class SamplesMixIn:
         # check storage/binaries
         if query_filter:
             stmt = select(Sample).where(query_filter == sample_hash)
-            db_sample = self.session.scalar(stmt)
+            with self.session.begin():
+                db_sample = self.session.scalar(stmt)
             if db_sample is not None:
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", db_sample.sha256)
                 if path_exists(path):
@@ -383,33 +393,36 @@ class SamplesMixIn:
 
     def count_samples(self) -> int:
         """Counts the amount of samples in the database."""
-        stmt = select(func.count(Sample.id))
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(func.count(Sample.id))
+            return self.session.scalar(stmt)
 
     def get_source_url(self, sample_id: int = None) -> Optional[str]:
         """Retrieves the source URL for a given sample ID."""
-        if not sample_id:
-            return None
+        with self.session.begin():
+            if not sample_id:
+                return None
 
-        try:
-            stmt = select(Sample.source_url).where(Sample.id == int(sample_id))
-            return self.session.scalar(stmt)
-        except (TypeError, ValueError):
-            # Handle cases where sample_id is not a valid integer.
-            return None
+            try:
+                stmt = select(Sample.source_url).where(Sample.id == int(sample_id))
+                return self.session.scalar(stmt)
+            except (TypeError, ValueError):
+                # Handle cases where sample_id is not a valid integer.
+                return None
 
     def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
         """Finds the Parent Sample using the ID of the child's Task."""
-        try:
-            task_id = int(task_id)
-        except (TypeError, ValueError):
-            return None
+        with self.session.begin():
+            try:
+                task_id = int(task_id)
+            except (TypeError, ValueError):
+                return None
 
-        # This query joins the Sample table (as the parent) to the
-        # association object and filters by the task_id.
-        stmt = (
-            select(Sample)
-            .join(SampleAssociation, Sample.id == SampleAssociation.parent_id)
-            .where(SampleAssociation.task_id == task_id)
-        )
-        return self.session.scalar(stmt)
+            # This query joins the Sample table (as the parent) to the
+            # association object and filters by the task_id.
+            stmt = (
+                select(Sample)
+                .join(SampleAssociation, Sample.id == SampleAssociation.parent_id)
+                .where(SampleAssociation.task_id == task_id)
+            )
+            return self.session.scalar(stmt)

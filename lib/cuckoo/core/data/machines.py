@@ -133,22 +133,24 @@ class MachinesMixIn:
         # ToDo : If your ForeignKey has "ON DELETE CASCADE", deleting a Machine
         # would automatically delete its entries in machines_tags.
         # If not, deleting them manually first is correct.
-        self.session.execute(delete(machines_tags))
-        self.session.execute(delete(Machine))
+        with self.session.begin():
+            self.session.execute(delete(machines_tags))
+            self.session.execute(delete(Machine))
 
     def delete_machine(self, name) -> bool:
         """Delete a single machine entry from DB."""
 
-        stmt = select(Machine).where(Machine.name == name)
-        machine = self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).where(Machine.name == name)
+            machine = self.session.scalar(stmt)
 
-        if machine:
-            # Deleting a specific ORM instance remains the same
-            self.session.delete(machine)
-            return True
-        else:
-            log.warning("%s does not exist in the database.", name)
-            return False
+            if machine:
+                # Deleting a specific ORM instance remains the same
+                self.session.delete(machine)
+                return True
+            else:
+                log.warning("%s does not exist in the database.", name)
+                return False
 
     def add_machine(
         self, name, label, arch, ip, platform, tags, interface, snapshot, resultserver_ip, resultserver_port, reserved, locked=False
@@ -167,46 +169,49 @@ class MachinesMixIn:
         @param reserved: True if the machine can only be used when specifically requested
         """
 
-        machine = Machine(
-            name=name,
-            label=label,
-            arch=arch,
-            ip=ip,
-            platform=platform,
-            interface=interface,
-            snapshot=snapshot,
-            resultserver_ip=resultserver_ip,
-            resultserver_port=resultserver_port,
-            reserved=reserved,
-        )
+        with self.session.begin():
+            machine = Machine(
+                name=name,
+                label=label,
+                arch=arch,
+                ip=ip,
+                platform=platform,
+                interface=interface,
+                snapshot=snapshot,
+                resultserver_ip=resultserver_ip,
+                resultserver_port=resultserver_port,
+                reserved=reserved,
+            )
 
-        if tags:
-            with self.session.no_autoflush:
-                for tag in tags.replace(" ", "").split(","):
-                    machine.tags.append(self._get_or_create(Tag, name=tag))
-        if locked:
-            machine.locked = True
+            if tags:
+                with self.session.no_autoflush:
+                    for tag in tags.replace(" ", "").split(","):
+                        machine.tags.append(self._get_or_create(Tag, name=tag))
+            if locked:
+                machine.locked = True
 
-        self.session.add(machine)
-        return machine
+            self.session.add(machine)
+            return machine
 
     def set_machine_interface(self, label, interface):
-        stmt = select(Machine).filter_by(label=label)
-        machine = self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).filter_by(label=label)
+            machine = self.session.scalar(stmt)
 
-        if machine is None:
-            log.debug("Database error setting interface: %s not found", label)
-            return
+            if machine is None:
+                log.debug("Database error setting interface: %s not found", label)
+                return
 
-        # This part remains the same
-        machine.interface = interface
-        return machine
+            # This part remains the same
+            machine.interface = interface
+            return machine
 
     def create_guest(self, machine: Machine, manager: str, task: Task) -> Guest:
-        guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
-        guest.status = "init"
-        self.session.add(guest)
-        return guest
+        with self.session.begin():
+            guest = Guest(machine.name, machine.label, machine.platform, manager, task.id)
+            guest.status = "init"
+            self.session.add(guest)
+            return guest
 
     def _package_vm_requires_check(self, package: str) -> list:
         """
@@ -221,42 +226,43 @@ class MachinesMixIn:
         Raises: CuckooUnserviceableTaskError if there are no machines in the pool that would be able
             to service it.
         """
-        task_archs, task_tags = self._task_arch_tags_helper(task)
-        os_version = self._package_vm_requires_check(task.package)
+        with self.session.begin():
+            task_archs, task_tags = self._task_arch_tags_helper(task)
+            os_version = self._package_vm_requires_check(task.package)
 
-        base_stmt = select(Machine).options(selectinload(Machine.tags))
+            base_stmt = select(Machine).options(selectinload(Machine.tags))
 
-        # This helper now encapsulates the final ordering, locking, and execution.
-        # It takes a Select statement as input.
-        def get_locked_machine(stmt: Select) -> Optional[Machine]:
-            final_stmt = stmt.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine)
-            return self.session.scalars(final_stmt).first()
+            # This helper now encapsulates the final ordering, locking, and execution.
+            # It takes a Select statement as input.
+            def get_locked_machine(stmt: Select) -> Optional[Machine]:
+                final_stmt = stmt.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine)
+                return self.session.scalars(final_stmt).first()
 
-        filter_kwargs = {
-            "statement": base_stmt,
-            "label": task.machine,
-            "platform": task.platform,
-            "tags": task_tags,
-            "archs": task_archs,
-            "os_version": os_version,
-        }
+            filter_kwargs = {
+                "statement": base_stmt,
+                "label": task.machine,
+                "platform": task.platform,
+                "tags": task_tags,
+                "archs": task_archs,
+                "os_version": os_version,
+            }
 
-        filtered_stmt = self.filter_machines_to_task(include_reserved=False, **filter_kwargs)
-        machine = get_locked_machine(filtered_stmt)
-
-        if machine is None and not task.machine and task_tags:
-            # The task was given at least 1 tag, but there are no non-reserved machines
-            # that could satisfy the request. So let's check "reserved" machines.
-            filtered_stmt = self.filter_machines_to_task(include_reserved=True, **filter_kwargs)
+            filtered_stmt = self.filter_machines_to_task(include_reserved=False, **filter_kwargs)
             machine = get_locked_machine(filtered_stmt)
 
-        if machine is None:
-            raise CuckooUnserviceableTaskError
-        if machine.locked:
-            # There aren't any machines that can service the task NOW, but there is at
-            # least one in the pool that could service it once it's available.
-            return None
-        return machine
+            if machine is None and not task.machine and task_tags:
+                # The task was given at least 1 tag, but there are no non-reserved machines
+                # that could satisfy the request. So let's check "reserved" machines.
+                filtered_stmt = self.filter_machines_to_task(include_reserved=True, **filter_kwargs)
+                machine = get_locked_machine(filtered_stmt)
+
+            if machine is None:
+                raise CuckooUnserviceableTaskError
+            if machine.locked:
+                # There aren't any machines that can service the task NOW, but there is at
+                # least one in the pool that could service it once it's available.
+                return None
+            return machine
 
     @staticmethod
     def filter_machines_by_arch(statement: Select, arch: list) -> Select:
@@ -338,37 +344,40 @@ class MachinesMixIn:
             return apply_machine_filter(machines)
 
     def assign_machine_to_task(self, task: Task, machine: Optional[Machine]) -> Task:
-        if machine:
-            task.machine = machine.label
-            task.machine_id = machine.id
-        else:
-            task.machine = None
-            task.machine_id = None
-        self.session.add(task)
-        return task
+        with self.session.begin():
+            if machine:
+                task.machine = machine.label
+                task.machine_id = machine.id
+            else:
+                task.machine = None
+                task.machine_id = None
+            self.session.add(task)
+            return task
 
     def lock_machine(self, machine: Machine) -> Machine:
         """Places a lock on a free virtual machine.
         @param machine: the Machine to lock
         @return: locked machine
         """
-        machine.locked = True
-        machine.locked_changed_on = _utcnow_naive()
-        self.set_machine_status(machine, MACHINE_RUNNING)
-        self.session.add(machine)
+        with self.session.begin():
+            machine.locked = True
+            machine.locked_changed_on = _utcnow_naive()
+            self.set_machine_status(machine, MACHINE_RUNNING)
+            self.session.add(machine)
 
-        return machine
+            return machine
 
     def unlock_machine(self, machine: Machine) -> Machine:
         """Remove lock from a virtual machine.
         @param machine: The Machine to unlock.
         @return: unlocked machine
         """
-        machine.locked = False
-        machine.locked_changed_on = _utcnow_naive()
-        self.set_machine_status(machine, MACHINE_POWEROFF)
-        self.session.merge(machine)
-        return machine
+        with self.session.begin():
+            machine.locked = False
+            machine.locked_changed_on = _utcnow_naive()
+            self.set_machine_status(machine, MACHINE_POWEROFF)
+            self.session.merge(machine)
+            return machine
 
     def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
         """How many (relevant) virtual machines are ready for analysis.
@@ -379,43 +388,50 @@ class MachinesMixIn:
         @param include_reserved: include 'reserved' machines in the result, regardless of whether or not a 'label' was provided.
         @return: free virtual machines count
         """
-        stmt = select(func.count(Machine.id)).where(Machine.locked.is_(False))
-        stmt = self.filter_machines_to_task(
-            statement=stmt,
-            label=label,
-            platform=platform,
-            tags=tags,
-            archs=arch,
-            os_version=os_version,
-            include_reserved=include_reserved,
-        )
+        with self.session.begin():
+            stmt = select(func.count(Machine.id)).where(Machine.locked.is_(False))
+            stmt = self.filter_machines_to_task(
+                statement=stmt,
+                label=label,
+                platform=platform,
+                tags=tags,
+                archs=arch,
+                os_version=os_version,
+                include_reserved=include_reserved,
+            )
 
-        return self.session.scalar(stmt)
+            return self.session.scalar(stmt)
 
     def get_available_machines(self) -> List[Machine]:
         """Which machines are available"""
-        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.locked.is_(False))
-        return self.session.scalars(stmt).all()
+        with self.session.begin():
+            stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.locked.is_(False))
+            return self.session.scalars(stmt).all()
 
     def count_machines_running(self) -> int:
         """Counts how many machines are currently locked (running)."""
-        stmt = select(func.count(Machine.id)).where(Machine.locked.is_(True))
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(func.count(Machine.id)).where(Machine.locked.is_(True))
+            return self.session.scalar(stmt)
 
     def set_machine_status(self, machine_or_label: Union[str, Machine], status):
         """Set status for a virtual machine."""
+        in_outer_tx = self.session().info.get("cape_tx_depth", 0) > 0
         try:
-            if isinstance(machine_or_label, str):
-                stmt = select(Machine).where(Machine.label == machine_or_label)
-                with self.session.no_autoflush:
-                    machine = self.session.scalar(stmt)
-            else:
-                machine = machine_or_label
+            with self.session.begin():
+                if isinstance(machine_or_label, str):
+                    stmt = select(Machine).where(Machine.label == machine_or_label)
+                    with self.session.no_autoflush:
+                        machine = self.session.scalar(stmt)
+                else:
+                    machine = machine_or_label
 
-            if machine:
-                machine.status = status
-                machine.status_changed_on = _utcnow_naive()
+                if machine:
+                    machine.status = status
+                    machine.status_changed_on = _utcnow_naive()
         except (OperationalError, SQLAlchemyError):
+            if in_outer_tx:
+                raise
             with suppress(Exception):
                 self.session.rollback()
             return
@@ -423,10 +439,12 @@ class MachinesMixIn:
 
     def view_machine(self, name: str) -> Optional[Machine]:
         """Shows virtual machine details by name."""
-        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.name == name)
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.name == name)
+            return self.session.scalar(stmt)
 
     def view_machine_by_label(self, label: str) -> Optional[Machine]:
         """Shows virtual machine details by label."""
-        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.label == label)
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.label == label)
+            return self.session.scalar(stmt)

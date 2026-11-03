@@ -153,126 +153,128 @@ class TasksMixIn:
         """
         # Convert empty strings and None values to a valid int
 
-        if isinstance(obj, (File, PCAP, Static)):
-            fileobj = File(obj.file_path)
-            file_type = fileobj.get_type()
-            file_md5 = fileobj.get_md5()
-            file_sha256 = fileobj.get_sha256()
-            # check if hash is known already
-            # ToDo consider migrate to _get_or_create?
-            sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
-            if not sample:
-                try:
-                    with self.session.begin_nested():
-                        sample = Sample(
-                            md5=file_md5,
-                            crc32=fileobj.get_crc32(),
-                            sha1=fileobj.get_sha1(),
-                            sha256=file_sha256,
-                            sha512=fileobj.get_sha512(),
-                            file_size=fileobj.get_size(),
-                            file_type=file_type,
-                            ssdeep=fileobj.get_ssdeep(),
-                            source_url=source_url,
-                        )
-                        self.session.add(sample)
-                except Exception as e:
-                    # The sample might have been inserted by another concurrent process
-                    sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
-                    if not sample:
-                        log.exception(e)
+        with self.session.begin():
+            if isinstance(obj, (File, PCAP, Static)):
+                fileobj = File(obj.file_path)
+                file_type = fileobj.get_type()
+                file_md5 = fileobj.get_md5()
+                file_sha256 = fileobj.get_sha256()
+                # check if hash is known already
+                # ToDo consider migrate to _get_or_create?
+                sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                if not sample:
+                    try:
+                        with self.session.begin_nested():
+                            sample = Sample(
+                                md5=file_md5,
+                                crc32=fileobj.get_crc32(),
+                                sha1=fileobj.get_sha1(),
+                                sha256=file_sha256,
+                                sha512=fileobj.get_sha512(),
+                                file_size=fileobj.get_size(),
+                                file_type=file_type,
+                                ssdeep=fileobj.get_ssdeep(),
+                                source_url=source_url,
+                            )
+                            self.session.add(sample)
+                            self.session.flush()
+                    except Exception as e:
+                        # The sample might have been inserted by another concurrent process
+                        sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                        if not sample:
+                            log.exception(e)
 
-            if DYNAMIC_ARCH_DETERMINATION:
-                # Assign architecture to task to fetch correct VM type
+                if DYNAMIC_ARCH_DETERMINATION:
+                    # Assign architecture to task to fetch correct VM type
 
-                # This isn't 100% fool proof
+                    # This isn't 100% fool proof
+                    _tags = tags.split(",") if isinstance(tags, str) else []
+                    arch_tag = fileobj.predict_arch()
+                    if package.endswith("_x64"):
+                        _tags.append("x64")
+                    elif arch_tag:
+                        _tags.append(arch_tag)
+                    tags = ",".join(set(_tags))
+                task = Task(obj.file_path)
+                task.sample_id = sample.id
+
+                if isinstance(obj, (PCAP, Static)):
+                    # since no VM will operate on this PCAP
+                    task.started_on = _utcnow_naive()
+
+            elif isinstance(obj, URL):
+                task = Task(obj.url)
                 _tags = tags.split(",") if isinstance(tags, str) else []
-                arch_tag = fileobj.predict_arch()
-                if package.endswith("_x64"):
-                    _tags.append("x64")
-                elif arch_tag:
-                    _tags.append(arch_tag)
+                _tags.append("x64")
+                _tags.append("x86")
                 tags = ",".join(set(_tags))
-            task = Task(obj.file_path)
-            task.sample_id = sample.id
-
-            if isinstance(obj, (PCAP, Static)):
-                # since no VM will operate on this PCAP
-                task.started_on = _utcnow_naive()
-
-        elif isinstance(obj, URL):
-            task = Task(obj.url)
-            _tags = tags.split(",") if isinstance(tags, str) else []
-            _tags.append("x64")
-            _tags.append("x86")
-            tags = ",".join(set(_tags))
-
-        else:
-            return None
-
-        if tlp:
-            tlp = tlp.lower()
-
-        task.category = obj.__class__.__name__.lower()
-        task.timeout = timeout
-        task.package = package
-        task.options = options
-        task.priority = priority
-        task.custom = custom
-        task.machine = machine
-        task.platform = platform
-        task.memory = bool(memory)
-        task.enforce_timeout = enforce_timeout
-        task.tlp = tlp
-        task.route = route
-        task.cape = cape
-        task.tags_tasks = tags_tasks
-
-        if isinstance(attributes, str) and attributes:
-            try:
-                attributes = json.loads(attributes)
-            except Exception:
-                log.warning("Invalid JSON in task attributes: %s", attributes)
-                attributes = None
-        if isinstance(attributes, dict):
-            for k, v in attributes.items():
-                task.set_attribute(k, v)
-
-        # Obtain an ID without committing the caller's transaction.
-        self.session.add(task)
-        self.session.flush()
-
-        # Deal with tags format (i.e., foo,bar,baz)
-        if tags:
-            for tag in tags.split(","):
-                tag_name = tag.strip()
-                if tag_name and tag_name not in [tag.name for tag in task.tags]:
-                    task.tags.append(self._get_or_create(Tag, name=tag_name))
-
-        if clock:
-            if isinstance(clock, str):
-                try:
-                    task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
-                except ValueError:
-                    log.warning("The date you specified has an invalid format, using current timestamp")
-                    task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
 
             else:
-                task.clock = clock
-        else:
-            task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
+                return None
 
-        task.user_id = user_id
+            if tlp:
+                tlp = tlp.lower()
 
-        if parent_sample:
-            association = SampleAssociation(
-                parent=parent_sample,
-                child=sample,
-                task=task,
-            )
-            self.session.add(association)
+            task.category = obj.__class__.__name__.lower()
+            task.timeout = timeout
+            task.package = package
+            task.options = options
+            task.priority = priority
+            task.custom = custom
+            task.machine = machine
+            task.platform = platform
+            task.memory = bool(memory)
+            task.enforce_timeout = enforce_timeout
+            task.tlp = tlp
+            task.route = route
+            task.cape = cape
+            task.tags_tasks = tags_tasks
 
-        return task.id
+            if isinstance(attributes, str) and attributes:
+                try:
+                    attributes = json.loads(attributes)
+                except Exception:
+                    log.warning("Invalid JSON in task attributes: %s", attributes)
+                    attributes = None
+            if isinstance(attributes, dict):
+                for k, v in attributes.items():
+                    task.set_attribute(k, v)
+
+            # Obtain an ID without committing the caller's transaction.
+            self.session.add(task)
+            self.session.flush()
+
+            # Deal with tags format (i.e., foo,bar,baz)
+            if tags:
+                for tag in tags.split(","):
+                    tag_name = tag.strip()
+                    if tag_name and tag_name not in [tag.name for tag in task.tags]:
+                        task.tags.append(self._get_or_create(Tag, name=tag_name))
+
+            if clock:
+                if isinstance(clock, str):
+                    try:
+                        task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
+                    except ValueError:
+                        log.warning("The date you specified has an invalid format, using current timestamp")
+                        task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
+
+                else:
+                    task.clock = clock
+            else:
+                task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
+
+            task.user_id = user_id
+
+            if parent_sample:
+                association = SampleAssociation(
+                    parent=parent_sample,
+                    child=sample,
+                    task=task,
+                )
+                self.session.add(association)
+
+            return task.id
 
     def add_path(
         self,
@@ -793,22 +795,23 @@ class TasksMixIn:
         )
 
     def set_vnc_port(self, task_id: int, port: int):
-        try:
-            task_id = int(task_id)
-        except (TypeError, ValueError):
-            return
-        stmt = select(Task).where(Task.id == task_id)
-        task = self.session.scalar(stmt)
+        with self.session.begin():
+            try:
+                task_id = int(task_id)
+            except (TypeError, ValueError):
+                return
+            stmt = select(Task).where(Task.id == task_id)
+            task = self.session.scalar(stmt)
 
-        if task is None:
-            log.debug("Database error setting VPN port: For task %s", task_id)
-            return
+            if task is None:
+                log.debug("Database error setting VPN port: For task %s", task_id)
+                return
 
-        # This logic remains the same
-        if task.options:
-            task.options += f",vnc_port={port}"
-        else:
-            task.options = f"vnc_port={port}"
+            # This logic remains the same
+            if task.options:
+                task.options += f",vnc_port={port}"
+            else:
+                task.options = f"vnc_port={port}"
 
     def _task_arch_tags_helper(self, task: Task):
         # Are there available machines that match up with a task?
@@ -818,33 +821,35 @@ class TasksMixIn:
         return task_archs, task_tags
 
     def update_clock(self, task_id):
-        row = self.session.get(Task, task_id)
+        with self.session.begin():
+            row = self.session.get(Task, task_id)
 
-        if not row:
-            return
-        # datetime.fromtimestamp(0, tz=timezone.utc)
-        if row.clock == datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None):
-            if row.category == "file":
-                # datetime.now(timezone.utc)
-                row.clock = _utcnow_naive() + timedelta(days=self.cfg.cuckoo.daydelta)
-            else:
-                # datetime.now(timezone.utc)
-                row.clock = _utcnow_naive()
-        return row.clock
+            if not row:
+                return
+            # datetime.fromtimestamp(0, tz=timezone.utc)
+            if row.clock == datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None):
+                if row.category == "file":
+                    # datetime.now(timezone.utc)
+                    row.clock = _utcnow_naive() + timedelta(days=self.cfg.cuckoo.daydelta)
+                else:
+                    # datetime.now(timezone.utc)
+                    row.clock = _utcnow_naive()
+            return row.clock
 
     def set_task_status(self, task: Task, status) -> Task:
-        if status != TASK_DISTRIBUTED_COMPLETED:
-            task.status = status
+        with self.session.begin():
+            if status != TASK_DISTRIBUTED_COMPLETED:
+                task.status = status
 
-        if status in (TASK_RUNNING, TASK_DISTRIBUTED):
-            task.started_on = _utcnow_naive()
-        elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
-            task.completed_on = _utcnow_naive()
-        elif status == TASK_REPORTED:
-            task.reporting_finished_on = _utcnow_naive()
+            if status in (TASK_RUNNING, TASK_DISTRIBUTED):
+                task.started_on = _utcnow_naive()
+            elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
+                task.completed_on = _utcnow_naive()
+            elif status == TASK_REPORTED:
+                task.reporting_finished_on = _utcnow_naive()
 
-        self.session.add(task)
-        return task
+            self.session.add(task)
+            return task
 
     def set_status(self, task_id: int, status) -> Optional[Task]:
         """Set task status.
@@ -852,38 +857,40 @@ class TasksMixIn:
         @param status: status string
         @return: operation status
         """
-        log.debug("setstat task %s status %s", task_id, status)
-        task = self.session.get(Task, task_id)
+        with self.session.begin():
+            log.debug("setstat task %s status %s", task_id, status)
+            task = self.session.get(Task, task_id)
 
-        if not task:
-            return None
+            if not task:
+                return None
 
-        return self.set_task_status(task, status)
+            return self.set_task_status(task, status)
 
     def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.
         @return: None or task
         """
-        stmt = (
-            select(Task)
-            .where(Task.status == TASK_PENDING)
-            .where(not_(Task.options.contains("node=")))
-            .order_by(Task.priority.desc(), Task.added_on)
-        )
+        with self.session.begin():
+            stmt = (
+                select(Task)
+                .where(Task.status == TASK_PENDING)
+                .where(not_(Task.options.contains("node=")))
+                .order_by(Task.priority.desc(), Task.added_on)
+            )
 
-        if categories:
-            stmt = stmt.where(Task.category.in_(categories))
+            if categories:
+                stmt = stmt.where(Task.category.in_(categories))
 
-        # 2. Execute the statement and get the first result object
-        row = self.session.scalars(stmt).first()
+            # 2. Execute the statement and get the first result object
+            row = self.session.scalars(stmt).first()
 
-        if not row:
-            return None
+            if not row:
+                return None
 
-        # This business logic remains the same
-        self.set_status(task_id=row.id, status=TASK_RUNNING)
+            # This business logic remains the same
+            self.set_status(task_id=row.id, status=TASK_RUNNING)
 
-        return row
+            return row
 
     def add_error(self, message, task_id):
         """Add an error related to a task."""
@@ -900,89 +907,90 @@ class TasksMixIn:
         @param task_id: ID of the task to reschedule.
         @return: ID of the newly created task.
         """
-        task = self.view_task(task_id)
+        with self.session.begin():
+            task = self.view_task(task_id)
 
-        if not task:
-            return None
-
-        if task.category == "file":
-            add = self.add_path
-        elif task.category == "url":
-            add = self.add_url
-        elif task.category == "pcap":
-            add = self.add_pcap
-        elif task.category == "static":
-            add = self.add_static
-
-        # Change status to recovered.
-        self.session.get(Task, task_id).status = TASK_RECOVERED
-
-        # Normalize tags.
-        if task.tags:
-            tags = ",".join(tag.name for tag in task.tags)
-        else:
-            tags = task.tags
-
-        def _ensure_valid_target(task):
-            if task.category == "url":
-                # URL tasks always have valid targets, return it as-is.
-                return task.target
-
-            # All other task types have a "target" pointing to a temp location,
-            # so get a stable path "target" based on the sample hash.
-            paths = self.sample_path_by_hash(task.sample.sha256, task_id)
-            paths = [file_path for file_path in paths if path_exists(file_path)]
-            if not paths:
+            if not task:
                 return None
 
-            if task.category == "pcap":
-                # PCAP task paths are represented as bytes
-                return paths[0].encode()
-            return paths[0]
+            if task.category == "file":
+                add = self.add_path
+            elif task.category == "url":
+                add = self.add_url
+            elif task.category == "pcap":
+                add = self.add_pcap
+            elif task.category == "static":
+                add = self.add_static
 
-        task_target = _ensure_valid_target(task)
-        if not task_target:
-            log.warning("Unable to find valid target for task: %s", task_id)
-            return
+            # Change status to recovered.
+            self.session.get(Task, task_id).status = TASK_RECOVERED
 
-        new_task_id = None
-        if task.category in ("file", "url"):
-            new_task_id = add(
-                task_target,
-                task.timeout,
-                task.package,
-                task.options,
-                task.priority,
-                task.custom,
-                task.machine,
-                task.platform,
-                tags,
-                task.memory,
-                task.enforce_timeout,
-                task.clock,
-                tlp=task.tlp,
-                route=task.route,
-            )
-        elif task.category in ("pcap", "static"):
-            new_task_id = add(
-                task_target,
-                task.timeout,
-                task.package,
-                task.options,
-                task.priority,
-                task.custom,
-                task.machine,
-                task.platform,
-                tags,
-                task.memory,
-                task.enforce_timeout,
-                task.clock,
-                tlp=task.tlp,
-            )
+            # Normalize tags.
+            if task.tags:
+                tags = ",".join(tag.name for tag in task.tags)
+            else:
+                tags = task.tags
 
-        self.session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
+            def _ensure_valid_target(task):
+                if task.category == "url":
+                    # URL tasks always have valid targets, return it as-is.
+                    return task.target
 
-        return new_task_id
+                # All other task types have a "target" pointing to a temp location,
+                # so get a stable path "target" based on the sample hash.
+                paths = self.sample_path_by_hash(task.sample.sha256, task_id)
+                paths = [file_path for file_path in paths if path_exists(file_path)]
+                if not paths:
+                    return None
+
+                if task.category == "pcap":
+                    # PCAP task paths are represented as bytes
+                    return paths[0].encode()
+                return paths[0]
+
+            task_target = _ensure_valid_target(task)
+            if not task_target:
+                log.warning("Unable to find valid target for task: %s", task_id)
+                return
+
+            new_task_id = None
+            if task.category in ("file", "url"):
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                    route=task.route,
+                )
+            elif task.category in ("pcap", "static"):
+                new_task_id = add(
+                    task_target,
+                    task.timeout,
+                    task.package,
+                    task.options,
+                    task.priority,
+                    task.custom,
+                    task.machine,
+                    task.platform,
+                    tags,
+                    task.memory,
+                    task.enforce_timeout,
+                    task.clock,
+                    tlp=task.tlp,
+                )
+
+            self.session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
+
+            return new_task_id
 
     def count_matching_tasks(self, category=None, status=None, not_status=None):
         """Retrieve list of task.
@@ -991,19 +999,20 @@ class TasksMixIn:
         @param not_status: exclude this task status from filter
         @return: number of tasks.
         """
-        stmt = select(func.count(Task.id))
+        with self.session.begin():
+            stmt = select(func.count(Task.id))
 
-        if status:
-            stmt = stmt.where(Task.status == status)
-        if not_status:
-            stmt = stmt.where(Task.status != not_status)
-        if category:
-            stmt = stmt.where(Task.category == category)
+            if status:
+                stmt = stmt.where(Task.status == status)
+            if not_status:
+                stmt = stmt.where(Task.status != not_status)
+            if category:
+                stmt = stmt.where(Task.category == category)
 
-        stmt = apply_sql_task_filter(stmt)
+            stmt = apply_sql_task_filter(stmt)
 
-        # 2. Execute the statement and return the single integer result.
-        return self.session.scalar(stmt)
+            # 2. Execute the statement and return the single integer result.
+            return self.session.scalar(stmt)
 
     def list_tasks(
         self,
@@ -1051,58 +1060,59 @@ class TasksMixIn:
         @param for_update: If True, use "SELECT FOR UPDATE" in order to create a row-level lock on the selected tasks.
         @return: list of tasks.
         """
-        tasks: List[Task] = []
-        stmt = select(Task).options(joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags))
-        if include_hashes:
-            stmt = stmt.options(joinedload(Task.sample))
-        if status:
-            if "|" in status:
-                stmt = stmt.where(Task.status.in_(status.split("|")))
+        with self.session.begin():
+            tasks: List[Task] = []
+            stmt = select(Task).options(joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags))
+            if include_hashes:
+                stmt = stmt.options(joinedload(Task.sample))
+            if status:
+                if "|" in status:
+                    stmt = stmt.where(Task.status.in_(status.split("|")))
+                else:
+                    stmt = stmt.where(Task.status == status)
+            if not_status:
+                stmt = stmt.where(Task.status != not_status)
+            if category:
+                stmt = stmt.where(Task.category.in_([category] if isinstance(category, str) else category))
+            if sample_id is not None:
+                stmt = stmt.where(Task.sample_id == sample_id)
+            if id_before is not None:
+                stmt = stmt.where(Task.id < id_before)
+            if id_after is not None:
+                stmt = stmt.where(Task.id > id_after)
+            if completed_after:
+                stmt = stmt.where(Task.completed_on > completed_after)
+            if added_before:
+                stmt = stmt.where(Task.added_on < added_before)
+            if options_like:
+                stmt = stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
+            if options_not_like:
+                stmt = stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
+            if tags_tasks_like:
+                stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            if tags_tasks_not_like:
+                stmt = stmt.where(func.coalesce(Task.tags_tasks, "").notlike(f"%{tags_tasks_not_like}%"))
+            if task_ids:
+                stmt = stmt.where(Task.id.in_(task_ids))
+            if user_id is not None:
+                stmt = stmt.where(Task.user_id == user_id)
+
+            stmt = apply_sql_task_filter(stmt)
+
+            # 3. Chaining for ordering, pagination, and locking remains the same
+            if order_by is not None and isinstance(order_by, tuple):
+                stmt = stmt.order_by(*order_by)
+            elif order_by is not None:
+                stmt = stmt.order_by(order_by)
             else:
-                stmt = stmt.where(Task.status == status)
-        if not_status:
-            stmt = stmt.where(Task.status != not_status)
-        if category:
-            stmt = stmt.where(Task.category.in_([category] if isinstance(category, str) else category))
-        if sample_id is not None:
-            stmt = stmt.where(Task.sample_id == sample_id)
-        if id_before is not None:
-            stmt = stmt.where(Task.id < id_before)
-        if id_after is not None:
-            stmt = stmt.where(Task.id > id_after)
-        if completed_after:
-            stmt = stmt.where(Task.completed_on > completed_after)
-        if added_before:
-            stmt = stmt.where(Task.added_on < added_before)
-        if options_like:
-            stmt = stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
-        if options_not_like:
-            stmt = stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
-        if tags_tasks_like:
-            stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
-        if tags_tasks_not_like:
-            stmt = stmt.where(func.coalesce(Task.tags_tasks, "").notlike(f"%{tags_tasks_not_like}%"))
-        if task_ids:
-            stmt = stmt.where(Task.id.in_(task_ids))
-        if user_id is not None:
-            stmt = stmt.where(Task.user_id == user_id)
+                stmt = stmt.order_by(Task.added_on.desc())
 
-        stmt = apply_sql_task_filter(stmt)
+            stmt = stmt.limit(limit).offset(offset)
+            if for_update:
+                stmt = stmt.with_for_update(of=Task)
 
-        # 3. Chaining for ordering, pagination, and locking remains the same
-        if order_by is not None and isinstance(order_by, tuple):
-            stmt = stmt.order_by(*order_by)
-        elif order_by is not None:
-            stmt = stmt.order_by(order_by)
-        else:
-            stmt = stmt.order_by(Task.added_on.desc())
-
-        stmt = stmt.limit(limit).offset(offset)
-        if for_update:
-            stmt = stmt.with_for_update(of=Task)
-
-        tasks = self.session.scalars(stmt).all()
-        return tasks
+            tasks = self.session.scalars(stmt).all()
+            return tasks
 
     def delete_task(self, task_id):
         """Delete information on a task.
@@ -1110,15 +1120,14 @@ class TasksMixIn:
         @return: operation status.
         """
         try:
-            task = self.session.get(Task, task_id)
-            if task is None:
-                return False
-            self.session.delete(task)
-            self.session.commit()
+            with self.session.begin():
+                task = self.session.get(Task, task_id)
+                if task is None:
+                    return False
+                self.session.delete(task)
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting task %s: %s", task_id, str(e))
-            self.session.rollback()
             return False
 
     def delete_tasks(
@@ -1209,13 +1218,12 @@ class TasksMixIn:
             return True
 
         try:
-            result = self.session.execute(delete_stmt)
-            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
-            self.session.commit()
+            with self.session.begin():
+                result = self.session.execute(delete_stmt)
+                log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
-            self.session.rollback()
             return False
 
     # ToDo replace with delete_tasks
@@ -1241,60 +1249,65 @@ class TasksMixIn:
     def minmax_tasks(self) -> Tuple[int, int]:
         """Finds the minimum start time and maximum completion time for all tasks."""
         # A single query is more efficient than two separate ones.
-        stmt = apply_sql_task_filter(select(func.min(Task.started_on), func.max(Task.completed_on)))
-        min_val, max_val = self.session.execute(stmt).one()
+        with self.session.begin():
+            stmt = apply_sql_task_filter(select(func.min(Task.started_on), func.max(Task.completed_on)))
+            min_val, max_val = self.session.execute(stmt).one()
 
-        if min_val and max_val:
-            # .timestamp() is the modern way to get a unix timestamp.
-            return int(min_val.replace(tzinfo=timezone.utc).timestamp()), int(max_val.replace(tzinfo=timezone.utc).timestamp())
+            if min_val and max_val:
+                # .timestamp() is the modern way to get a unix timestamp.
+                return int(min_val.replace(tzinfo=timezone.utc).timestamp()), int(max_val.replace(tzinfo=timezone.utc).timestamp())
 
-        return 0, 0
+            return 0, 0
 
     def get_tlp_tasks(self) -> List[int]:
         """Retrieves a list of task IDs that have TLP enabled."""
         # Selecting just the ID is more efficient than fetching full objects.
-        stmt = select(Task.id).where(Task.tlp == "true")
-        # .scalars() directly yields the values from the single selected column.
-        return self.session.scalars(stmt).all()
+        with self.session.begin():
+            stmt = select(Task.id).where(Task.tlp == "true")
+            # .scalars() directly yields the values from the single selected column.
+            return self.session.scalars(stmt).all()
 
 
 
     def get_tasks_status_count(self) -> Dict[str, int]:
         """Counts tasks, grouped by status."""
-        stmt = apply_sql_task_filter(select(Task.status, func.count(Task.status)).group_by(Task.status))
-        # .execute() returns rows, which can be directly converted to a dict.
-        return dict(self.session.execute(stmt).all())
+        with self.session.begin():
+            stmt = apply_sql_task_filter(select(Task.status, func.count(Task.status)).group_by(Task.status))
+            # .execute() returns rows, which can be directly converted to a dict.
+            return dict(self.session.execute(stmt).all())
 
     def count_tasks(self, status: str = None, mid: int = None) -> int:
         """Counts tasks in the database, with optional filters."""
         # Build a `SELECT COUNT(...)` query from the start for efficiency.
-        stmt = select(func.count(Task.id))
-        if mid:
-            stmt = stmt.where(Task.machine_id == mid)
-        if status:
-            stmt = stmt.where(Task.status == status)
-        stmt = apply_sql_task_filter(stmt)
+        with self.session.begin():
+            stmt = select(func.count(Task.id))
+            if mid:
+                stmt = stmt.where(Task.machine_id == mid)
+            if status:
+                stmt = stmt.where(Task.status == status)
+            stmt = apply_sql_task_filter(stmt)
 
-        # .scalar() executes the query and returns the single integer result.
-        return self.session.scalar(stmt)
+            # .scalar() executes the query and returns the single integer result.
+            return self.session.scalar(stmt)
 
     def view_task(self, task_id, details=False) -> Optional[Task]:
         """Retrieve information on a task.
         @param task_id: ID of the task to query.
         @return: details on the task.
         """
-        try:
-            task_id = int(task_id)
-        except (TypeError, ValueError):
-            return None
-        query = select(Task).where(Task.id == task_id)
-        if details:
-            query = query.options(
-                joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags), joinedload(Task.sample)
-            )
-        else:
-            query = query.options(selectinload(Task.tags), joinedload(Task.sample))
-        return self.session.scalar(query)
+        with self.session.begin():
+            try:
+                task_id = int(task_id)
+            except (TypeError, ValueError):
+                return None
+            query = select(Task).where(Task.id == task_id)
+            if details:
+                query = query.options(
+                    joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags), joinedload(Task.sample)
+                )
+            else:
+                query = query.options(selectinload(Task.tags), joinedload(Task.sample))
+            return self.session.scalar(query)
 
     # This function is used by the runstatistics community module.
     def add_statistics_to_task(self, task_id, details):  # pragma: no cover
@@ -1304,19 +1317,20 @@ class TasksMixIn:
         @return true of false.
         """
         # ToDo do we really need this? does it need commit?
-        task = self.session.get(Task, task_id)
-        if task:
-            task.dropped_files = details["dropped_files"]
-            task.running_processes = details["running_processes"]
-            task.api_calls = details["api_calls"]
-            task.domains = details["domains"]
-            task.signatures_total = details["signatures_total"]
-            task.signatures_alert = details["signatures_alert"]
-            task.files_written = details["files_written"]
-            task.registry_keys_modified = details["registry_keys_modified"]
-            task.crash_issues = details["crash_issues"]
-            task.anti_issues = details["anti_issues"]
-        return True
+        with self.session.begin():
+            task = self.session.get(Task, task_id)
+            if task:
+                task.dropped_files = details["dropped_files"]
+                task.running_processes = details["running_processes"]
+                task.api_calls = details["api_calls"]
+                task.domains = details["domains"]
+                task.signatures_total = details["signatures_total"]
+                task.signatures_alert = details["signatures_alert"]
+                task.files_written = details["files_written"]
+                task.registry_keys_modified = details["registry_keys_modified"]
+                task.crash_issues = details["crash_issues"]
+                task.anti_issues = details["anti_issues"]
+            return True
 
 
     def ban_user_tasks(self, user_id: int):
@@ -1359,12 +1373,13 @@ class TasksMixIn:
 
     def view_errors(self, task_id: int) -> List[Error]:
         """Gets all errors related to a task."""
-        try:
-            task_id = int(task_id)
-        except (TypeError, ValueError):
-            return []
-        stmt = select(Error).where(Error.task_id == task_id)
-        return self.session.scalars(stmt).all()
+        with self.session.begin():
+            try:
+                task_id = int(task_id)
+            except (TypeError, ValueError):
+                return []
+            stmt = select(Error).where(Error.task_id == task_id)
+            return self.session.scalars(stmt).all()
 
     # Submission hooks to manipulate arguments of tasks execution
     def recon(

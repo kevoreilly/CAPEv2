@@ -122,8 +122,7 @@ class Scheduler:
 
                     try:
                         if analysis.machinery_manager and analysis.machine:
-                            with self.db.session.begin():
-                                analysis.machinery_manager.stop_machine(analysis.machine)
+                            analysis.machinery_manager.stop_machine(analysis.machine)
                     except Exception as e:
                         err_msg = str(e).lower()
                         if "already stopped" in err_msg or "domain is not running" in err_msg:
@@ -344,14 +343,8 @@ class Scheduler:
     def shutdown_machinery(self):
         """Shutdown machine manager (used to kill machines that still alive)."""
         if self.machinery_manager:
-            # Reset any leftover transaction state so begin() doesn't fail.
             try:
-                self.db.session.rollback()
-            except Exception:
-                pass
-            try:
-                with self.db.session.begin():
-                    self.machinery_manager.machinery.shutdown()
+                self.machinery_manager.machinery.shutdown()
             except Exception:
                 log.exception("Failed to shut down machinery cleanly")
 
@@ -375,8 +368,7 @@ class Scheduler:
     def start(self):
         """Start scheduler."""
         if self.machinery_manager:
-            with self.db.session.begin():
-                self.machinery_manager.initialize_machinery()
+            self.machinery_manager.initialize_machinery()
 
         # Message queue with threads to transmit exceptions (used as IPC).
         error_queue = queue.Queue()

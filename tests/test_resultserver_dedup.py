@@ -539,3 +539,34 @@ def test_resultserver_main_task_id_formatting_and_worker_tracking(caplog):
     assert any("Task #105 (9001): The associated machine IP is 192.168.122.10" in m for m in messages)
     assert any("Task #105 (9001): Uploading file files/test.bin" in m for m in messages)
     assert any("Task #105 (9001): Stopped tracking machine 192.168.122.10" in m for m in messages)
+
+
+def test_single_vm_worker_sync_active_task_cancels_and_cleans_up_previous_task():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from lib.cuckoo.core import resultserver as rs
+
+    shared_tid = SimpleNamespace(value=101)
+    worker = rs.SingleVMResultServerWorker.__new__(rs.SingleVMResultServerWorker)
+    worker.tasks = {}
+    worker.handlers = {}
+    worker._shared_task_id = shared_tid
+    worker._vm_ip = "192.168.122.10"
+    worker._active_task_id = 0
+
+    assert worker.sync_active_task() == 101
+    assert worker._active_task_id == 101
+
+    fake_ctx = MagicMock()
+    worker.handlers[101] = {fake_ctx}
+    rs._get_task_file_state(101)
+    assert 101 in rs._task_file_locks
+
+    # Clearing task (value -> 0) cancels active handlers and cleans up per-task file state
+    shared_tid.value = 0
+    assert worker.sync_active_task() == 0
+    fake_ctx.cancel.assert_called_once()
+    assert 101 not in worker.handlers
+    assert 101 not in rs._task_file_locks
+

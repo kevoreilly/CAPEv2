@@ -182,9 +182,6 @@ class Package:
             os.chmod(file_path, st_mode | stat.S_IXUSR)
             exec_string = f'{shlex.quote(file_path)} {self.options.get(OPT_ARGUMENTS, "")}'
             return self.execute(exec_string)
-        else:
-            log.warning("File %s is neither a known script nor a valid ELF image.", file_name)
-            return None
 
     def get_pids(self):
         return []

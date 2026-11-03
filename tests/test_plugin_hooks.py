@@ -62,3 +62,41 @@ def test_registered_hooks_transform_queries_and_reports():
     report = {"info": {"id": 5}}
     run_report_hooks(report)
     assert report["info"]["stamped"] is True
+
+
+def test_legacy_single_arg_report_hook_runs_once_for_process_stage():
+    calls = []
+    register_report_hook(lambda r: calls.append("legacy_1arg"))
+    for stg in ("process", "mongodb", "elasticsearchdb", "post_mongodb", "post_elasticsearchdb"):
+        run_report_hooks({"info": {"id": 1}}, stage=stg)
+    assert calls == ["legacy_1arg"]
+
+
+def test_default_sample_exists_checker_does_not_conflict_with_sample_access_checker(db, temp_pe32, monkeypatch):
+    from lib.tenancy.acl import ensure_acl_schema, set_task_acl
+    from lib.tenancy.middleware import default_sample_access_checker, default_sample_exists_checker
+    from lib.tenancy.policy import MultitenancyConfig, ViewerContext
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    ensure_acl_schema(db.engine)
+    tid = db.add_path(str(temp_pe32), user_id=7)
+    with db.session.begin():
+        set_task_acl(db.session, tid, user_id=7, tenant_id=1, visibility="private")
+    sha256 = db.view_task(tid).sample.sha256
+    viewer = ViewerContext(
+        user_id=7,
+        tenant_id=1,
+        is_superuser=False,
+        is_tenant_admin=False,
+        is_local_admin=False,
+        is_authenticated=True,
+        tenant_ids=(1,),
+        admin_tenant_ids=(),
+    )
+    assert default_sample_exists_checker({"sha256": sha256}) is True
+    assert default_sample_access_checker(viewer, {"sha256": sha256}) is True
+
+

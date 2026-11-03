@@ -1466,9 +1466,9 @@ def tasks_iocs(request, task_id, detail=None):
     # Grab target file info
     if "target" in list(buf.keys()):
         data["target"] = buf["target"]
-        if data["target"]["category"] == "file":
-            del data["target"]["file"]["path"]
-            del data["target"]["file"]["guest_paths"]
+        if data["target"].get("category") == "file" and isinstance(data["target"].get("file"), dict):
+            data["target"]["file"].pop("path", None)
+            data["target"]["file"].pop("guest_paths", None)
 
     data["network"] = {}
     if "network" in list(buf.keys()) and buf["network"]:

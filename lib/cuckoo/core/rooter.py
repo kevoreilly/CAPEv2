@@ -66,16 +66,21 @@ ROOTER_UNAVAILABLE = "rooter_unavailable"
 def rooter_required(routing=None) -> bool:
     """True when the routing configuration needs a running rooter.
 
-    The default configuration (route = none, no VPN/tor/inetsim/socks5/nexthop) runs without one.
+    The default configuration (route = none, internet = none, drop = no,
+    no VPN/tor/inetsim/socks5/nexthop) runs without one.
     """
     routing = routing or router_cfg
     nexthop_enabled = hasattr(routing, "nexthop") and routing.nexthop.enabled
+    internet = getattr(routing.routing, "internet", "none")
+    drop_enabled = bool(getattr(routing.routing, "drop", False))
     return bool(
         routing.vpn.enabled
         or routing.tor.enabled
         or routing.inetsim.enabled
         or routing.socks5.enabled
-        or routing.routing.route != "none"
+        or str(routing.routing.route).lower() not in ("none", "false")
+        or (internet and str(internet).lower() not in ("none", "false"))
+        or drop_enabled
         or nexthop_enabled
     )
 

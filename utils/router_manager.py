@@ -48,6 +48,7 @@ def route_enable(route, interface, rt_table, machine, reject_segments, reject_ho
             str(cfg.resultserver.port),
             str(routing.inetsim.ports),
         )
+        _rooter_response_check(rooter_response)
     elif route == "tor":
         rooter_response = rooter(
             "socks5_enable",
@@ -56,6 +57,7 @@ def route_enable(route, interface, rt_table, machine, reject_segments, reject_ho
             str(routing.tor.dnsport),
             str(routing.tor.proxyport),
         )
+        _rooter_response_check(rooter_response)
     elif route in socks5s:
         rooter_response = rooter(
             "socks5_enable",
@@ -64,6 +66,7 @@ def route_enable(route, interface, rt_table, machine, reject_segments, reject_ho
             str(socks5s[route]["dnsport"]),
             str(socks5s[route]["port"]),
         )
+        _rooter_response_check(rooter_response)
     elif route in ("none", "None", "drop"):
         rooter_response = rooter("drop_enable", machine.ip, str(cfg.resultserver.port))
         _rooter_response_check(rooter_response)
@@ -120,6 +123,7 @@ def route_disable(route, interface, rt_table, machine, reject_segments, reject_h
             str(cfg.resultserver.port),
             str(routing.inetsim.ports),
         )
+        _rooter_response_check(rooter_response)
     elif route == "tor":
         rooter_response = rooter(
             "socks5_disable",
@@ -128,6 +132,7 @@ def route_disable(route, interface, rt_table, machine, reject_segments, reject_h
             str(routing.tor.dnsport),
             str(routing.tor.proxyport),
         )
+        _rooter_response_check(rooter_response)
     elif route in socks5s:
         rooter_response = rooter(
             "socks5_disable",
@@ -136,6 +141,7 @@ def route_disable(route, interface, rt_table, machine, reject_segments, reject_h
             str(socks5s[route]["dnsport"]),
             str(socks5s[route]["port"]),
         )
+        _rooter_response_check(rooter_response)
     elif route in ("none", "None", "drop"):
         rooter_response = rooter("drop_disable", machine.ip, str(cfg.resultserver.port))
         _rooter_response_check(rooter_response)
@@ -184,9 +190,12 @@ if __name__ == "__main__":
         interface = None
         rt_table = None
 
-        # Check if the network interface is still available. If a VPN dies for
-        # some reason, its tunX interface will no longer be available.
-        if interface and not rooter("nic_available", interface):
+    # Check if the network interface is still available. If a VPN dies for
+    # some reason, its tunX interface will no longer be available.
+    if interface:
+        nic_response = rooter("nic_available", interface)
+        _rooter_response_check(nic_response)
+        if not (nic_response and nic_response.get("output")):
             log.error(
                 "The network interface '%s' configured for this analysis is "
                 "not available at the moment, switching to route=none mode",

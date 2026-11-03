@@ -5,9 +5,9 @@ import pytest
 from lib.cuckoo.core import rooter as core_rooter
 
 
-def _routing(route="none", vpn=False, tor=False, inetsim=False, socks5=False, nexthop=None):
+def _routing(route="none", internet="none", drop=False, vpn=False, tor=False, inetsim=False, socks5=False, nexthop=None):
     cfg = SimpleNamespace(
-        routing=SimpleNamespace(route=route),
+        routing=SimpleNamespace(route=route, internet=internet, drop=drop),
         vpn=SimpleNamespace(enabled=vpn),
         tor=SimpleNamespace(enabled=tor),
         inetsim=SimpleNamespace(enabled=inetsim),
@@ -22,8 +22,11 @@ def _routing(route="none", vpn=False, tor=False, inetsim=False, socks5=False, ne
     "kwargs, expected",
     [
         ({}, False),
+        ({"route": False}, False),
         ({"nexthop": False}, False),
         ({"route": "internet"}, True),
+        ({"internet": "eth0"}, True),
+        ({"drop": True}, True),
         ({"vpn": True}, True),
         ({"tor": True}, True),
         ({"inetsim": True}, True),

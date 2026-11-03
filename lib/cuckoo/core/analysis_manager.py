@@ -571,10 +571,13 @@ class AnalysisManager(threading.Thread):
                 if self.done_callback:
                     self.done_callback(self)
 
-    @staticmethod
-    def _rooter_optional_and_unavailable(response) -> bool:
-        """True when the rooter is not running and the routing configuration does not require it."""
-        return bool(response and response.get(ROOTER_UNAVAILABLE)) and not rooter_required()
+    def _rooter_optional_and_unavailable(self, response) -> bool:
+        """True when the rooter is not running and neither the task route nor routing.conf requires it."""
+        if not (response and response.get(ROOTER_UNAVAILABLE)):
+            return False
+        if str(self.route).lower() not in ("none", "false"):
+            return False
+        return not rooter_required()
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
@@ -713,17 +716,25 @@ class AnalysisManager(threading.Thread):
 
         # Check if the network interface is still available. If a VPN dies for
         # some reason, its tunX interface will no longer be available.
-        # rooter() returns a dict, so test the command output, not the response itself.
-        nic_response = rooter("nic_available", self.interface) if self.interface else None
-        if self.interface and not (nic_response and nic_response.get("output")):
-            self.log.error(
-                "The network interface '%s' configured for this analysis is "
-                "not available at the moment, switching to route=none mode",
-                self.interface,
-            )
-            self.route = "none"
-            self.interface = None
-            self.rt_table = None
+        # rooter() returns a dict, so check for a rooter error first and then test "output".
+        if self.interface:
+            self.rooter_response = rooter("nic_available", self.interface)
+            if self.rooter_response and self.rooter_response.get("exception") is not None:
+                self.route = None
+                self.interface = None
+                self.rt_table = None
+                self.no_local_routing = False
+                self._rooter_response_check()
+            if not (self.rooter_response and self.rooter_response.get("output")):
+                self.log.error(
+                    "The network interface '%s' configured for this analysis is "
+                    "not available at the moment, switching to route=none mode",
+                    self.interface,
+                )
+                self.route = "none"
+                self.interface = None
+                self.rt_table = None
+                self.no_local_routing = False
 
         if self.route == "inetsim":
             self.rooter_response = rooter(

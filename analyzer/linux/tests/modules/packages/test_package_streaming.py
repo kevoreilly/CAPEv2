@@ -79,3 +79,42 @@ def test_multiple_processes_drain_their_own_trace_streams(monkeypatch):
         for process in processes:
             process.stderr.close()
         package.finish()
+
+
+def test_execute_initializes_netlog_once_and_closes_stderr(monkeypatch):
+    closed_streams = []
+    nc_mock = Mock()
+    monkeypatch.setattr(abstracts, "NetlogFile", lambda: nc_mock)
+    monkeypatch.setattr(abstracts, "append_buffer_to_host", lambda data, connection: None)
+
+    class DummyStderr:
+        def __init__(self, lines):
+            self._lines = lines
+            self.closed = False
+
+        def __iter__(self):
+            return iter(self._lines)
+
+        def close(self):
+            self.closed = True
+            closed_streams.append(self)
+
+    pids = iter([1001, 1002])
+
+    def fake_popen(cmd, **kwargs):
+        proc = Mock()
+        proc.pid = next(pids)
+        proc.stderr = DummyStderr([b"line\n"])
+        return proc
+
+    monkeypatch.setattr(abstracts.subprocess, "Popen", fake_popen)
+    package = abstracts.Package(options={})
+    assert package.execute("cmd1") == 1001
+    package.thread.join(timeout=5)
+    assert package.execute("cmd2") == 1002
+    package.thread.join(timeout=5)
+    package.finish()
+
+    nc_mock.init.assert_called_once_with("logs/strace.log", False)
+    nc_mock.close.assert_called_once()
+    assert len(closed_streams) == 2

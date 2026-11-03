@@ -74,3 +74,22 @@ def test_interpreted_member_paths_are_shell_literals(package, tmp_path, suffix, 
     package.execute = execute
     assert package.execute_interesting_file(str(tmp_path), target.name, str(target)) == 4242
     assert outputs == [b"literal-ok\n"]
+
+
+def test_interpreted_script_rejects_external_symlink(package, tmp_path):
+    root = tmp_path / "extracted"
+    root.mkdir()
+    outside = tmp_path / "outside.sh"
+    outside.write_text("printf 'outside\n'")
+    target = root / "payload.sh"
+    target.symlink_to(outside)
+    package.execute = Mock()
+    with pytest.raises(CuckooPackageError, match="outside the extraction directory"):
+        package.execute_interesting_file(str(root), target.name, str(target))
+    package.execute.assert_not_called()
+
+
+def test_missing_target_file_returns_none(package, tmp_path):
+    package.execute = Mock()
+    assert package.execute_interesting_file(str(tmp_path), "missing.sh", str(tmp_path / "missing.sh")) is None
+    package.execute.assert_not_called()

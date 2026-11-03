@@ -172,3 +172,80 @@ def test_empty_extraction_is_reported_and_cleaned(prepare_archive, tmp_path):
     with pytest.raises(archive.CuckooPackageError, match="Empty archive"):
         package.start(str(tmp_path / "sample.zip"))
     assert not Path(extraction.call_args.args[2]).exists()
+
+
+def test_archive_file_option_unsupported_or_missing_returns_empty_list(prepare_archive, tmp_path):
+    package, _, _ = prepare_archive({"README": b"documentation"}, {"file": "README"})
+    try:
+        assert package.start(str(tmp_path / "sample.zip")) == []
+    finally:
+        package.finish()
+
+
+def test_archive_skips_external_symlinks_in_discovery_and_upload(prepare_archive, monkeypatch, tmp_path):
+    outside = tmp_path / "outside.sh"
+    outside.write_text("echo outside")
+    package, extraction, upload = prepare_archive({"run.sh": b"echo safe"})
+
+    orig_side_effect = extraction.side_effect
+
+    def extract_with_symlink(binary, source, root, password, multiple_passwords):
+        orig_side_effect(binary, source, root, password, multiple_passwords)
+        (Path(root) / "escape.sh").symlink_to(outside)
+
+    extraction.side_effect = extract_with_symlink
+    try:
+        assert package.start(str(tmp_path / "sample.zip")) == [4242]
+        assert upload.call_args.args[1] == ["run.sh"]
+    finally:
+        package.finish()
+
+
+def test_archive_recursion_cleans_failed_nested_dir_and_handles_non_utf8(prepare_archive, monkeypatch, tmp_path):
+    package, extraction, _ = prepare_archive(
+        {"image.png": b"fake-png", "run.sh": b"echo safe"},
+        {"recursion_depth": 1},
+    )
+    package.get_path_app_in_path.side_effect = lambda name: "/usr/bin/file" if name == "file" else "/usr/bin/7z"
+
+    orig_extract = extraction.side_effect
+
+    def extract_top_only(binary, source, root, password, multiple_passwords):
+        if Path(source).name == "image.png":
+            raise archive.CuckooPackageError("not an archive")
+        orig_extract(binary, source, root, password, multiple_passwords)
+
+    extraction.side_effect = extract_top_only
+
+    def fake_run(cmd, **kwargs):
+        assert kwargs.get("errors") == "replace"
+        res = Mock()
+        res.stdout = "PNG Image data\n" if cmd[-1].endswith("image.png") else "ASCII text\n"
+        return res
+
+    monkeypatch.setattr(archive.subprocess, "run", fake_run)
+    try:
+        assert package.start(str(tmp_path / "sample.zip")) == [4242]
+        root = Path(package._extraction_dir.name)
+        assert list(root.glob("nested-*")) == []
+    finally:
+        package.finish()
+
+
+def test_extract_archive_empty_password_defaults_to_infected_and_reads_stdout_error(monkeypatch, tmp_path):
+    from lib.common import zip_utils
+
+    seen_args = []
+
+    def fake_run(cmd, **kwargs):
+        seen_args.append(cmd)
+        res = Mock()
+        res.returncode = 2
+        res.stderr = b""
+        res.stdout = b"ERROR: Can not open the file as archive\n"
+        return res
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run)
+    with pytest.raises(archive.CuckooPackageError, match="Can not open the file as archive"):
+        zip_utils.extract_archive("/usr/bin/7z", str(tmp_path / "bad.7z"), str(tmp_path), password="")
+    assert "-pinfected" in seen_args[0]

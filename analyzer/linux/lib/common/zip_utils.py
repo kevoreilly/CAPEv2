@@ -16,21 +16,20 @@ log = logging.getLogger(__name__)
 
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
     """Extract an archive, including encrypted headers, using the supplied passwords."""
-    passwords = password.split(":") if try_multiple_passwords else [password]
+    password = password or "infected"
+    passwords = ([p for p in password.split(":") if p] or ["infected"]) if try_multiple_passwords else [password]
     for candidate in passwords:
         result = subprocess.run(
             [seven_zip_path, "x", f"-p{candidate}", "-y", f"-o{extract_path}", archive_path],
             stdin=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
+            capture_output=True,
             check=False,
         )
         if result.returncode == 0:
             return
         if b"Wrong password" not in result.stderr + result.stdout:
-            raise CuckooPackageError(
-                f"Unable to extract archive: {result.stderr.decode(errors='replace').strip()}"
-            )
+            details = (result.stderr or result.stdout).decode(errors="replace").strip()
+            raise CuckooPackageError(f"Unable to extract archive: {details}")
         # Discard partial members between candidates without relaxing privacy.
         shutil.rmtree(extract_path)
         os.makedirs(extract_path, mode=0o700)
@@ -155,9 +154,8 @@ def unrar_extractor(unrar_binary, extract_path, archive_path):
     p = subprocess.run(
         [unrar_binary, "x", archive_path, extract_path],
         stdin=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        check=False
+        capture_output=True,
+        check=False,
     )
     # stdoutput, stderr = p.stdout, p.stderr
     log.debug("%s - %s", p.stdout, p.stderr)
@@ -170,9 +168,17 @@ def upload_extracted_files(root, files_at_root):
     """
     Upload each file that was extracted, for further analysis
     """
+    resolved_root = os.path.realpath(root)
     for entry in files_at_root:
         try:
             file_path = os.path.join(root, entry)
+            resolved_path = os.path.realpath(file_path)
+            if os.path.commonpath((resolved_root, resolved_path)) != resolved_root:
+                log.warning("Skipping extracted file %s outside extraction root", entry)
+                continue
+            if not os.path.isfile(resolved_path):
+                log.warning("Skipping non-regular extracted path %s", entry)
+                continue
             log.info("Uploading %s to host", str(file_path))
             filename = f"files/{hash_file(hashlib.sha256, file_path)}"
             upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)

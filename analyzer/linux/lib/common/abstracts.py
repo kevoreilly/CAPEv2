@@ -7,7 +7,7 @@ import logging
 import shlex
 import stat
 import subprocess
-from threading import Thread
+from threading import Lock, Thread
 
 from lib.api.process import Process
 from lib.common.exceptions import CuckooPackageError
@@ -29,6 +29,9 @@ class Package:
         self.pids = []
         # Добавляем переменные для поддержки strace
         self.nc = NetlogFile()
+        self._nc_lock = Lock()
+        self._nc_initialized = False
+        self._nc_closed = False
         self.thread = None
         self.proc = None
 
@@ -51,18 +54,28 @@ class Package:
     def thread_send_strace_buffer(self, stderr):
         """Read the trace pipe belonging to one launched process."""
         if stderr:
-            for line in stderr:
-                try:
-                    append_buffer_to_host(line, self.nc)
-                except ConnectionResetError:
-                    log.info("Strace streaming connection has been closed")
-                    return
-                except Exception as e:
-                    log.exception("Exception occurred during strace streaming: %s", e)
+            try:
+                for line in stderr:
+                    try:
+                        with self._nc_lock:
+                            if self._nc_closed:
+                                return
+                            append_buffer_to_host(line, self.nc)
+                    except ConnectionResetError:
+                        log.info("Strace streaming connection has been closed")
+                        return
+                    except Exception as e:
+                        log.exception("Exception occurred during strace streaming: %s", e)
+            finally:
+                stderr.close()
 
     def execute(self, cmd):
         """Start an executable for analysis with strace tracking."""
-        self.nc.init("logs/strace.log", False)
+        with self._nc_lock:
+            if not self._nc_initialized:
+                self.nc.init("logs/strace.log", False)
+                self._nc_initialized = True
+                self._nc_closed = False
         strace_args = self.options.get("strace_args", "").replace(";", ",")
 
         if self.options.get("nohuman"):
@@ -96,7 +109,9 @@ class Package:
                 p.dump_memory()
 
         if hasattr(self, 'nc') and self.nc:
-            self.nc.close()
+            with self._nc_lock:
+                self._nc_closed = True
+                self.nc.close()
 
         return True
 
@@ -127,8 +142,19 @@ class Package:
 
     def execute_interesting_file(self, root: str, file_name: str, file_path: str):
         """Based on file extension or file contents, run relevant analysis package"""
+        resolved_root = os.path.realpath(root)
+        resolved_path = os.path.realpath(file_path)
+        if os.path.commonpath((resolved_root, resolved_path)) != resolved_root:
+            raise CuckooPackageError("Executable is outside the extraction directory")
+        try:
+            st_mode = os.stat(resolved_path).st_mode
+        except OSError:
+            return None
+        if not stat.S_ISREG(st_mode):
+            return None
+
         quoted_path = shlex.quote(file_path)
-        if file_name.lower().endswith((".sh")):
+        if file_name.lower().endswith(".sh"):
             exec_string = f"/usr/bin/bash {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".pl"):
@@ -146,18 +172,14 @@ class Package:
         elif file_name.lower().endswith(".jar"):
             exec_string = f"/usr/bin/java -jar {quoted_path}"
             return self.execute(exec_string)
-        elif file_name.lower().endswith((".js")):
+        elif file_name.lower().endswith(".js"):
             exec_string = f"/usr/bin/node {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".ps1"):
             exec_string = f"/usr/bin/pwsh -NoProfile -File {quoted_path}"
             return self.execute(exec_string)
         elif is_elf_image(file_path):
-            resolved_root = os.path.realpath(root)
-            resolved_path = os.path.realpath(file_path)
-            if os.path.commonpath((resolved_root, resolved_path)) != resolved_root:
-                raise CuckooPackageError("Executable is outside the extraction directory")
-            os.chmod(file_path, os.stat(file_path).st_mode | stat.S_IXUSR)
+            os.chmod(file_path, st_mode | stat.S_IXUSR)
             exec_string = f'{shlex.quote(file_path)} {self.options.get(OPT_ARGUMENTS, "")}'
             return self.execute(exec_string)
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import tempfile
 import subprocess
 
@@ -75,7 +76,7 @@ class Archive(Package):
             seven_zip_path = self.get_path_app_in_path("7z")
         except CuckooPackageError:
             seven_zip_path = self.get_path_app_in_path("7zz")
-        password = self.options.get(OPT_PASSWORD, "infected")
+        password = self.options.get(OPT_PASSWORD) or "infected"
         recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
         file_util_path = self.get_path_app_in_path("file") if recursion_depth > 0 else None
 
@@ -101,9 +102,13 @@ class Archive(Package):
                     try:
                         result = subprocess.run(
                             [file_util_path, "--brief", file_path],
-                            capture_output=True, text=True, check=True, encoding="utf-8",
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                            encoding="utf-8",
+                            errors="replace",
                         )
-                        file_info = result.stdout
+                        file_info = result.stdout.lower()
                         for word in target_words:
                             if word in file_info:
                                 packs.append(file_path)
@@ -120,17 +125,20 @@ class Archive(Package):
                         extract_archive(seven_zip_path, p, output_dir, password, try_multiple_passwords)
                         extracted_archives.add(p)
                     except Exception as e:
+                        shutil.rmtree(output_dir, ignore_errors=True)
                         log.warning("Extraction failed for %s: %s", p, e)
             else:
                 break
 
         # Discover actual extracted paths, including password-protected members.
         log.debug("Extracted archives:%s", extracted_archives)
+        resolved_root = os.path.realpath(root)
         files_at_root = [
             os.path.relpath(p, root)
             for r, _, files in os.walk(root)
             for f in files
             if (p := os.path.join(r, f)) not in extracted_archives
+            and os.path.commonpath((resolved_root, os.path.realpath(p))) == resolved_root
         ]
         log.debug(files_at_root)
         file_names = files_at_root
@@ -157,4 +165,5 @@ class Archive(Package):
             return ret_list
         else:
             file_path = os.path.join(root, file_name)
-            return self.execute_interesting_file(root, file_name, file_path)
+            pid = self.execute_interesting_file(root, file_name, file_path)
+            return [pid] if pid is not None else []

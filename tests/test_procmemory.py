@@ -99,3 +99,24 @@ class TestStraceModulePath:
         log = ParseProcessLog(process_id=1001, logs=logs, syscalls_info={}, options={})
         assert log.process_name == "ls -la"
         assert log.module_path == "/bin/ls"
+
+    def test_strace_normalize_logs_unfinished_resumed_and_non_utf8(self, tmp_path):
+        from modules.processing.strace import Processes
+
+        log_path = tmp_path / "strace.log"
+        raw_bytes = (
+            b'1001 10:00:01.000000 read(3, "prefix\\x80\xff", <unfinished ...>\n'
+            b'1002 10:00:01.500000 write(1, "unmatched", <unfinished ...>\n'
+            b'1001 10:00:02.000000 <... read resumed>16) = 8\n'
+        )
+        log_path.write_bytes(raw_bytes)
+
+        proc = Processes.__new__(Processes)
+        proc._logs_path = str(log_path)
+        normalized = proc.normalize_logs()
+        assert 1001 in normalized
+        assert 1002 not in normalized
+        assert len(normalized[1001]) == 1
+        assert normalized[1001][0]["syscall"] == "read"
+        assert normalized[1001][0]["time"] == "10:00:02.000000"
+        assert normalized[1001][0]["retval"] == "8"

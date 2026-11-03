@@ -19,7 +19,7 @@ def append_file_contents_to_file(file_with_contents: Path, append_to_file: Path)
         file_with_contents: Path to the source file to read from
         append_to_file: Path to the destination file to append to
     """
-    with file_with_contents.open("r") as src, append_to_file.open("a+") as dst:
+    with file_with_contents.open("rb") as src, append_to_file.open("ab") as dst:
         dst.write(src.read())
 
 

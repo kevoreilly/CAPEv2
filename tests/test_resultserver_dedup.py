@@ -367,3 +367,177 @@ def test_cape_processing_without_magika_config(monkeypatch):
         ]
 
 
+def test_resultserver_memory_dump_in_place_replacement():
+    task_id = 999993
+    with tempfile.TemporaryDirectory() as storagepath:
+        partial_dump = b"partial memory dump"
+        full_dump = b"full memory dump with more regions and complete content"
+        smaller_late_dump = b"short"
+
+        # 1. Initial partial memory dump upload
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/2224.dmp",
+            r"C:\tmp\memory\2224.dmp",
+            partial_dump,
+            pids="2224",
+            category="memory",
+        )
+        dmp_path = os.path.join(storagepath, "memory/2224.dmp")
+        assert os.path.exists(dmp_path)
+        with open(dmp_path, "rb") as f:
+            assert f.read() == partial_dump
+
+        # 2. Larger completed memory dump for same PID replaces in-place (never creates 2224_1.dmp)
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/2224.dmp",
+            r"C:\tmp\memory\2224.dmp",
+            full_dump,
+            pids="2224",
+            category="memory",
+        )
+        assert not os.path.exists(os.path.join(storagepath, "memory/2224_1.dmp"))
+        with open(dmp_path, "rb") as f:
+            assert f.read() == full_dump
+
+        # 3. Smaller late upload does not overwrite larger existing dump
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/2224.dmp",
+            r"C:\tmp\memory\2224.dmp",
+            smaller_late_dump,
+            pids="2224",
+            category="memory",
+        )
+        assert not os.path.exists(os.path.join(storagepath, "memory/2224_1.dmp"))
+        with open(dmp_path, "rb") as f:
+            assert f.read() == full_dump
+
+        # 4. Different PID with identical dump content still writes its own <pid>.dmp file
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/3336.dmp",
+            r"C:\tmp\memory\3336.dmp",
+            full_dump,
+            pids="3336",
+            category="memory",
+        )
+        dmp_3336_path = os.path.join(storagepath, "memory/3336.dmp")
+        assert os.path.exists(dmp_3336_path)
+        with open(dmp_3336_path, "rb") as f:
+            assert f.read() == full_dump
+
+
+def test_procmemory_skips_underscore_versioned_dmp(monkeypatch):
+    import modules.processing.procmemory as pm_mod
+
+    class _DummyProcDump:
+        def __init__(self, path, pretty=False):
+            self.path = path
+
+        def pretty_print(self):
+            return []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(pm_mod, "ProcDump", _DummyProcDump)
+    monkeypatch.setattr(pm_mod.File, "get_yara", lambda self, category=None: [])
+    monkeypatch.setattr(pm_mod.processing_conf.detections, "yara", False, raising=False)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mem_dir = os.path.join(tmpdir, "memory")
+        os.makedirs(mem_dir)
+        with open(os.path.join(mem_dir, "2224.dmp"), "wb") as f:
+            f.write(b"valid dump")
+        with open(os.path.join(mem_dir, "2224_1.dmp"), "wb") as f:
+            f.write(b"bogus versioned dump that int() would parse as 22241")
+
+        pm = pm_mod.ProcessMemory()
+        pm.pmemory_path = mem_dir
+        pm.results = {"behavior": {"processes": [{"process_id": 2224, "process_name": "sample.exe", "module_path": "C:\\sample.exe"}]}}
+        pm.options = {"strings": False}
+
+        out = pm.run()
+        assert len(out) == 1
+        assert out[0]["pid"] == 2224
+
+
+def test_bson_store_parse_message_truncated_header():
+    """Verify BsonStore.parse_message and handle() do not raise struct.error when buffer has <4 trailing bytes."""
+    import lib.cuckoo.core.resultserver as rs_mod
+    from lib.cuckoo.core.resultserver import BsonStore
+
+    with tempfile.TemporaryDirectory() as storagepath:
+        os.makedirs(os.path.join(storagepath, "logs"), exist_ok=True)
+        # 2-byte trailing fragment in initial pre-read buffer followed by remaining stream
+        ctx = DummyHandlerContext(100, storagepath, [], b"\x00\x00extra_stream_bytes")
+        ctx.buf = b"\x05\x00"
+        store = BsonStore(100, ctx, version=1234)
+        store.init()
+        try:
+            orig_have_bson = rs_mod.HAVE_BSON
+            rs_mod.HAVE_BSON = True
+            # Direct call with 1, 2, and 3 byte buffers must not raise struct.error
+            store.parse_message(b"\x01")
+            store.parse_message(b"\x01\x02")
+            store.parse_message(b"\x01\x02\x03")
+            # Invalid length < 4 must also return cleanly without infinite loop
+            store.parse_message(b"\x00\x00\x00\x00")
+            # Full handle() must proceed to copy_to_fd and write the BSON log file
+            store.handle()
+        finally:
+            rs_mod.HAVE_BSON = orig_have_bson
+            store.close()
+
+        bson_path = os.path.join(storagepath, "logs", "1234.bson")
+        assert os.path.exists(bson_path)
+        with open(bson_path, "rb") as f:
+            assert f.read() == b"\x00\x00extra_stream_bytes"
+
+
+def test_resultserver_main_task_id_formatting_and_worker_tracking(caplog):
+    import logging
+    from types import SimpleNamespace
+
+    import lib.cuckoo.core.resultserver as rs_mod
+
+    task_obj = SimpleNamespace(
+        id=105,
+        get_attribute=lambda name: 9001 if name == "main_task_id" else None,
+    )
+    assert rs_mod._get_task_main_id(task_obj) == 9001
+    assert rs_mod._format_task_label(105, 9001) == "105 (9001)"
+    assert rs_mod._format_task_label(105, None) == "105"
+
+    worker = rs_mod.GeventResultServerWorker.__new__(rs_mod.GeventResultServerWorker)
+    worker.tasks = {}
+    worker.main_task_ids = {}
+    worker.handlers = {}
+
+    with caplog.at_level(logging.DEBUG, logger="lib.cuckoo.core.resultserver"):
+        worker.add_task(105, "192.168.122.10", main_task_id=9001)
+        assert worker.tasks["192.168.122.10"] == 105
+        assert worker.main_task_ids[105] == 9001
+
+        with tempfile.TemporaryDirectory() as storagepath:
+            lines = ["files/test.bin", r"C:\test.bin", "100", "50", "", "files", "0"]
+            ctx = DummyHandlerContext(105, storagepath, lines, b"payload")
+            ctx.main_task_id = 9001
+            ctx.task_label = rs_mod._format_task_label(105, 9001)
+            handler = FileUpload(105, ctx, version=2)
+            handler.init()
+            handler.handle()
+
+        worker.del_task(105, "192.168.122.10")
+        assert 105 not in worker.main_task_ids
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("Task #105 (9001): The associated machine IP is 192.168.122.10" in m for m in messages)
+    assert any("Task #105 (9001): Uploading file files/test.bin" in m for m in messages)
+    assert any("Task #105 (9001): Stopped tracking machine 192.168.122.10" in m for m in messages)

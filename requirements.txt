@@ -546,9 +546,9 @@ exceptiongroup==1.2.2 ; python_version == "3.10" \
 filelock==3.20.3 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:18c57ee915c7ec61cff0ecf7f0f869936c7c30191bb0cf406f1341778d0834e1 \
     --hash=sha256:4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1
-flare-capa==9.3.1 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:5d3ad6445e500f9baf2eaea87498bfaf6746397b649b025dbec6dc4af8b5ead9 \
-    --hash=sha256:caf59bfeb5e2b5d4ab9111e79cce153b585d0839419f36b9e63141bad9f92424
+flare-capa==10.0.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:01a27efcd8556035274d27b1a30456057724e133598db057b5a4248aa7e4e8fb \
+    --hash=sha256:4d449c5c1d79475f1d4ff5312c9f30555f5c124a6ea6c5da5c7eefb577b37da3
 frozenlist==1.8.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:0325024fe97f94c41c08872db482cf8ac4800d80e79222c6b0b7b162d5b13686 \
     --hash=sha256:032efa2674356903cd0261c4317a561a6850f3ac864a63fc1583147fb05a79b0 \
@@ -1529,9 +1529,9 @@ paramiko==3.5.0 ; python_version >= "3.10" and python_version < "4.0" \
 pcodedmp==1.2.6 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:025f8c809a126f45a082ffa820893e6a8d990d9d7ddb68694b5a9f0a6dbcd955 \
     --hash=sha256:4441f7c0ab4cbda27bd4668db3b14f36261d86e5059ce06c0828602cbe1c4278
-pebble==5.1.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:530a398299ecd3a4ed1baf2e4b8045d8280b1e665560b0b409f8d8e58db60111 \
-    --hash=sha256:5c30376f1827b21ecec4126ff90e7f22ad5501cac1ff2b32c86ff2601681f932
+pebble==5.2.3 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:6fce8cc8cbf367588406f66e4b62ec36e22594a6c720bff1d08cc2e565a66af3 \
+    --hash=sha256:9f25c2b8bf4716b51f78b74fea4d58b26c4dfd03160e8223b99f1e3424b3914a
 peepdf-3==5.0.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:1c6dbb873be22633535bb7a0edfcc005781837869bb5d5b99c9a36591d1e9e95 \
     --hash=sha256:2c9220c39c1ffc7d1db4268874d5c68329e9f9f331643b0bb1e6e84798439bd8

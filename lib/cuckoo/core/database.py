@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover
 
 
 
-SCHEMA_VERSION = "3a1b_tenant_visibility"
+SCHEMA_VERSION = "4c2d_drop_inline_tenancy"
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -174,7 +174,11 @@ class _Database(TasksMixIn,
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
-                    print(red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head"))
+                    print(
+                        red(
+                            f"Please backup your data before migration!\ncd {os.path.join(CUCKOO_ROOT, 'utils', 'db_migration')} && poetry run alembic upgrade head"
+                        )
+                    )
                     sys.exit()
 
     def __del__(self):
@@ -208,22 +212,6 @@ class _Database(TasksMixIn,
                 engine_args["pool_pre_ping"] = True
             # A single, clean call to create the engine
             self.engine = create_engine(connection_string, **engine_args)
-
-            # Dedicated engine for per-task advisory locks (visibility toggles): a
-            # NullPool source kept OFF the shared app pool, so a lock held across a slow
-            # mongo round-trip can't exhaust it and stall unrelated DB work. Carries the
-            # SAME connect_args (e.g. postgres sslmode / client certs) so its
-            # connections match the app's DB connection policy. Postgres only — advisory
-            # locks are a no-op on sqlite (single-writer), so no lock engine is needed.
-            self.lock_engine = None
-            if url.drivername.startswith("postgresql"):
-                from sqlalchemy.pool import NullPool
-
-                self.lock_engine = create_engine(
-                    connection_string,
-                    poolclass=NullPool,
-                    connect_args=engine_args.get("connect_args", {}),
-                )
 
         except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]
@@ -314,6 +302,8 @@ _DATABASE: Optional[_Database] = None
 
 class Database:
     def __getattr__(self, attr: str) -> Any:
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError(attr)
         if _DATABASE is None:
             raise CuckooDatabaseInitializationError
         return getattr(_DATABASE, attr)

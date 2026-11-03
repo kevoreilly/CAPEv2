@@ -12,7 +12,7 @@ import shutil
 from tempfile import NamedTemporaryFile
 
 import pytest
-from sqlalchemy import select, func
+from sqlalchemy import event, select, func
 from sqlalchemy.exc import SQLAlchemyError
 
 from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
@@ -114,6 +114,87 @@ class TestDatabaseEngine:
             # Add task URL.
             db.add_url("http://foo.bar")
             assert db.session.scalar(count_stmt) == 2
+
+    @pytest.mark.parametrize("finish", ("commit", "rollback"))
+    def test_add_url_leaves_transaction_to_caller(self, db: _Database, finish):
+        db.session.remove()
+        session = db.session()
+        assert not session.in_transaction()
+        commits = []
+        rollbacks = []
+
+        def record_commit(connection):
+            commits.append(connection)
+
+        def record_rollback(connection):
+            rollbacks.append(connection)
+
+        event.listen(db.engine, "commit", record_commit)
+        event.listen(db.engine, "rollback", record_rollback)
+        try:
+            clock = datetime.datetime(2026, 1, 2, 3, 4, 5)
+            task_id = db.add_url("https://owned.example/", user_id=42, tags="owned", clock=clock)
+            transaction = session.get_transaction()
+            assert transaction is not None
+            assert transaction.is_active
+            assert commits == []
+            assert rollbacks == []
+
+            session.flush()
+            getattr(session, finish)()
+            assert not transaction.is_active
+            assert not session.in_transaction()
+            assert len(commits) == (finish == "commit")
+            assert len(rollbacks) == (finish == "rollback")
+        finally:
+            event.remove(db.engine, "commit", record_commit)
+            event.remove(db.engine, "rollback", record_rollback)
+
+        db.session.remove()
+        with db.session.begin():
+            task = db.session.get(Task, task_id)
+            if finish == "rollback":
+                assert task is None
+            else:
+                assert task.user_id == 42
+                assert task.clock == clock
+                assert {tag.name for tag in task.tags} == {"owned", "x64", "x86"}
+
+    def test_add_path_reuses_concurrent_sample_without_rolling_back_outer_transaction(
+        self, db: _Database, temp_filename: str, monkeypatch
+    ):
+        with db.session.begin():
+            existing_sample = db.register_sample(tasking.File(temp_filename))
+            sample_id = existing_sample.id
+
+        scalar = db.session.scalar
+        sample_lookups = []
+
+        def stale_first_sample_lookup(statement, *args, **kwargs):
+            sample_lookups.append(statement)
+            if len(sample_lookups) == 1:
+                # Another submitter won the insert after our initial lookup.
+                return None
+            return scalar(statement, *args, **kwargs)
+
+        with db.session.begin():
+            before_id = db.add_url("https://before.example/")
+            with monkeypatch.context() as patch:
+                patch.setattr(db.session, "scalar", stale_first_sample_lookup)
+                task_id = db.add_path(temp_filename)
+
+            assert db.session().is_active
+            assert db.session.get(Task, task_id).sample_id == sample_id
+            after_id = db.add_url("https://after.example/")
+
+        # Both surrounding writes must survive the failed duplicate INSERT,
+        # not just remain in the identity map of the submitting session.
+        db.session.remove()
+        with db.session.begin():
+            assert db.session.scalar(select(func.count(Sample.id))) == 1
+            assert db.session.get(Task, task_id).sample_id == sample_id
+            assert db.session.get(Task, before_id).target == "https://before.example/"
+            assert db.session.get(Task, after_id).target == "https://after.example/"
 
     @pytest.mark.parametrize(
         "detected_platform",
@@ -409,6 +490,7 @@ class TestDatabaseEngine:
                 "resultserver_port": "2043",
                 "arch": "x64",
                 "reserved": False,
+                "attributes": {},
             }
 
             assert m2.to_dict() == {
@@ -428,7 +510,86 @@ class TestDatabaseEngine:
                 "tags": ["tag1tag2"],
                 "arch": "x64",
                 "reserved": True,
+                "attributes": {},
             }
+
+    def test_machine_attributes(self, db: _Database):
+        with db.session.begin():
+            self.add_machine(db, name="attr1", label="attrlabel1")
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.attributes == {}
+            assert m.get_attribute("missing") is None
+            assert m.get_attribute("missing", "fallback") == "fallback"
+            m.set_attribute("provider", "proxmox")
+            m.set_attribute("nested", {"vmid": 100})
+            m.attributes["direct"] = True
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.get_attribute("provider") == "proxmox"
+            assert m.get_attribute("nested") == {"vmid": 100}
+            assert m.get_attribute("direct") is True
+            assert m.to_dict()["attributes"] == {
+                "provider": "proxmox",
+                "nested": {"vmid": 100},
+                "direct": True,
+            }
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            m.attributes = None
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.get_attribute("provider") is None
+            assert m.get_attribute("provider", "default") == "default"
+            m.set_attribute("reinitialized", 1)
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.attributes == {"reinitialized": 1}
+
+    def test_task_attributes_and_main_task_id(self, db: _Database, temp_filename: str):
+        with db.session.begin():
+            tid1 = db.add_path(
+                temp_filename,
+                attributes={"main_task_id": 4242, "worker_node": "worker-1"},
+            )
+            tid2 = db.add_url(
+                "http://example.com",
+                attributes='{"main_task_id": 9999, "origin": "dist"}',
+            )
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.get_attribute("main_task_id") == 4242
+            assert t1.get_attribute("worker_node") == "worker-1"
+            assert t1.to_dict()["attributes"] == {
+                "main_task_id": 4242,
+                "worker_node": "worker-1",
+            }
+            t1.attributes["in_place"] = True
+
+            t2 = db.view_task(tid2)
+            assert t2.get_attribute("main_task_id") == 9999
+            assert t2.get_attribute("origin") == "dist"
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.get_attribute("in_place") is True
+            t1.attributes = None
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.get_attribute("main_task_id") is None
+            assert t1.get_attribute("main_task_id", 0) == 0
+            t1.set_attribute("main_task_id", 5555)
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.attributes == {"main_task_id": 5555}
 
     def test_find_machine_to_service_task_tags_reserved(self, db: _Database):
         with db.session.begin():
@@ -816,6 +977,18 @@ class TestDatabaseEngine:
             machine = db.session.scalar(select(Machine).where(Machine.label == "l1"))
             assert machine.status != "running"
 
+    def test_set_machine_status_handles_operational_error(self, db: _Database, mocker):
+        from sqlalchemy.exc import OperationalError
+
+        mocker.patch.object(
+            db.session,
+            "scalar",
+            side_effect=OperationalError("SELECT 1", {}, Exception("server closed the connection unexpectedly")),
+        )
+        mock_rollback = mocker.patch.object(db.session, "rollback")
+        db.set_machine_status("l1", "poweroff")
+        assert mock_rollback.called
+
     @pytest.mark.parametrize(
         "kwargs,expected_count",
         (
@@ -1099,6 +1272,36 @@ class TestDatabaseEngine:
 
         remaining_after_single = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
         assert len(remaining_after_single) == 0
+
+    def test_delete_tasks_with_errors(self, db: _Database):
+        """Test delete_tasks when tasks have associated Error records."""
+        if db.engine.dialect.name == "sqlite":
+            from sqlalchemy import text
+
+            with db.session.begin():
+                db.session.execute(text("PRAGMA foreign_keys = ON"))
+
+        with db.session.begin():
+            t1 = db.add_url("https://1.com")
+            t2 = db.add_url("https://2.com")
+
+        # Add error messages associated with the tasks
+        db.add_error("Test error message 1", t1)
+        db.add_error("Test error message 2", t2)
+
+        # Assert that the tasks are deleted successfully
+        with db.session.begin():
+            assert db.delete_tasks(task_ids=[t1])
+
+        with db.session.begin():
+            # Check tasks and errors remaining
+            tasks = db.session.scalars(select(Task)).all()
+            assert len(tasks) == 1
+            assert tasks[0].id == t2
+
+            errors = db.session.scalars(select(Error)).all()
+            assert len(errors) == 1
+            assert errors[0].task_id == t2
 
     def test_view_sample(self, db: _Database):
         with db.session.begin():

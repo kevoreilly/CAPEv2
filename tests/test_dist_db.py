@@ -63,6 +63,7 @@ def test_session_wrapper_and_restart():
     mock_fastapi = MagicMock()
     if "fastapi" not in sys.modules:
         sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
 
     from sqlalchemy.exc import TimeoutError as SQLTimeoutError
     from utils.dist import SessionWrapper, restart_db_connection
@@ -209,3 +210,376 @@ def test_node_submit_task_error_logging(caplog):
                 in record.message
                 for record in caplog.records
             )
+
+
+def test_node_submit_task_includes_parent_sample_in_attributes(tmp_path):
+    import json
+    from unittest.mock import MagicMock, patch
+    from utils.dist import node_submit_task
+
+    sample_file = tmp_path / "child.bin"
+    sample_file.write_bytes(b"MZ" + b"\x00" * 30)
+
+    mock_node = MagicMock()
+    mock_node.id = 7
+    mock_node.name = "worker1"
+    mock_node.url = "http://worker1.local/"
+    mock_node.apikey = "test_key"
+
+    mock_task = MagicMock()
+    mock_task.id = 100
+    mock_task.main_task_id = 500
+    mock_task.category = "file"
+    mock_task.path = str(sample_file)
+    mock_task.package = ""
+    mock_task.timeout = 120
+    mock_task.priority = 1
+    mock_task.options = ""
+    mock_task.machine = ""
+    mock_task.platform = "windows"
+    mock_task.tags = ""
+    mock_task.custom = ""
+    mock_task.clock = None
+    mock_task.memory = False
+    mock_task.enforce_timeout = False
+    mock_task.route = None
+    mock_task.tlp = None
+
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    mock_parent = MagicMock()
+    mock_parent.to_dict.return_value = {"id": 99, "sha256": "a" * 64}
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"data": {"task_ids": [777]}}
+
+    with (
+        patch("utils.dist.main_db") as mock_main_db,
+        patch("utils.dist.requests.post", return_value=mock_response) as mock_post,
+    ):
+        mock_main_db.get_parent_sample_from_task.return_value = mock_parent
+        result = node_submit_task(task_id=100, node_id=7, main_task_id=500, db=mock_db)
+
+    assert result is True
+    posted_data = mock_post.call_args.kwargs["data"]
+    assert json.loads(posted_data["attributes"]) == {
+        "main_task_id": 500,
+        "parent_sample": {"id": 99, "sha256": "a" * 64},
+    }
+
+
+def test_create_session_registers_atexit_dispose(monkeypatch):
+    import atexit
+    from lib.cuckoo.common.dist_db import create_session
+
+    registered = []
+    monkeypatch.setattr(atexit, "register", lambda fn, *a, **k: registered.append(fn))
+
+    maker = create_session("sqlite:///:memory:", echo=False)
+    engine = maker.kw["bind"]
+    assert engine.dispose in registered
+    engine.dispose()
+
+
+def test_create_session_postgresql_configuration(monkeypatch):
+    import atexit
+    from unittest.mock import MagicMock, patch
+    from lib.cuckoo.common.dist_db import create_session
+
+    monkeypatch.setattr(atexit, "register", lambda fn, *a, **k: None)
+
+    mock_engine = MagicMock()
+    with (
+        patch("lib.cuckoo.common.dist_db.create_engine", return_value=mock_engine) as mock_create_engine,
+        patch("lib.cuckoo.common.dist_db.Base.metadata.create_all"),
+    ):
+        maker = create_session("postgresql://user:pass@localhost:5432/cuckoo_dist", echo=False)
+        mock_create_engine.assert_called_once_with(
+            "postgresql://user:pass@localhost:5432/cuckoo_dist",
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+            connect_args={
+                "keepalives": 1,
+                "keepalives_idle": 60,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
+        )
+        assert maker.kw["bind"] == mock_engine
+
+    # Also verify SQLite works without connect_args or pool_recycle
+    sqlite_maker = create_session("sqlite:///:memory:", echo=False)
+    sqlite_engine = sqlite_maker.kw["bind"]
+    assert sqlite_engine.url.drivername == "sqlite"
+    sqlite_engine.dispose()
+
+
+def test_session_wrapper_ssl_disconnect_triggers_restart():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from sqlalchemy.exc import OperationalError
+    from utils.dist import SessionWrapper
+
+    mock_session = MagicMock()
+    mock_session.execute.side_effect = OperationalError("SELECT 1", {}, Exception("SSL connection has been closed unexpectedly"))
+
+    wrapper = SessionWrapper(mock_session)
+
+    # Test method call triggers rollback and restart_db_connection
+    with patch("utils.dist.restart_db_connection") as mock_restart:
+        try:
+            wrapper.execute("SELECT 1")
+        except OperationalError:
+            pass
+        mock_session.rollback.assert_called_once()
+        mock_restart.assert_called_once()
+
+    # Test __exit__ with SSL disconnect OperationalError triggers rollback and restart
+    mock_session.reset_mock()
+    with patch("utils.dist.restart_db_connection") as mock_restart:
+        try:
+            with wrapper:
+                raise OperationalError("SELECT 1", {}, Exception("SSL connection has been closed unexpectedly"))
+        except OperationalError:
+            pass
+        mock_session.rollback.assert_called_once()
+        mock_restart.assert_called_once()
+
+
+def test_fetcher_recovers_from_sqlalchemy_error():
+    import sys
+    import threading
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from sqlalchemy.exc import OperationalError
+    from utils.dist import Retriever
+
+    retriever = Retriever()
+    retriever.stop_dist = threading.Event()
+    mock_db = MagicMock()
+    mock_db.scalars.side_effect = OperationalError("SELECT 1", {}, Exception("server closed the connection unexpectedly"))
+
+    class TestStop(Exception):
+        pass
+
+    sleep_calls = []
+
+    def mock_sleep(seconds):
+        sleep_calls.append(seconds)
+        raise TestStop()
+
+    with (
+        patch("utils.dist.session") as mock_session,
+        patch("time.sleep", side_effect=mock_sleep),
+    ):
+        mock_session.return_value.__enter__.return_value = mock_db
+        try:
+            retriever.fetcher()
+        except TestStop:
+            pass
+
+    mock_db.rollback.assert_called_once()
+    assert sleep_calls == [5]
+
+
+def test_node_fetch_tasks_timeout():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import node_fetch_tasks
+
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"data": [{"id": 1}]}
+
+    with patch("utils.dist.requests.get", return_value=mock_resp) as mock_get:
+        tasks = node_fetch_tasks("completed", "http://worker:8000", "testkey", action="fetch", since=100)
+        assert tasks == [{"id": 1}]
+        mock_get.assert_called_once()
+        assert mock_get.call_args.kwargs.get("timeout") == 30
+
+
+def test_node_submit_task_formats_datetime_clock_for_worker_api():
+    import sys
+    from datetime import datetime
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import node_submit_task
+
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_task = MagicMock(
+        id=10,
+        main_task_id=44,
+        category="url",
+        path="http://example.test/",
+        package="ie",
+        timeout=120,
+        priority=1,
+        options="free=yes",
+        machine="win10_1",
+        platform="windows",
+        tags="x64,",
+        custom="",
+        clock=datetime(2026, 10, 31, 14, 5, 9),
+        memory=False,
+        enforce_timeout=False,
+        route="tor",
+        tlp="AMBER",
+    )
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    mock_resp = MagicMock(status_code=200)
+    mock_resp.json.return_value = {"data": {"task_ids": [88]}}
+
+    with patch("utils.dist.requests.post", return_value=mock_resp) as mock_post:
+        assert node_submit_task(10, 2, 44, db=mock_db) is True
+
+    posted = mock_post.call_args.kwargs["data"]
+    assert posted["clock"] == "10-31-2026 14:05:09"
+    assert posted["url"] == "http://example.test/"
+    assert posted["machine"] == "win10_1"
+    assert posted["tags"] == "x64"
+    assert posted["route"] == "tor"
+    assert posted["tlp"] == "AMBER"
+
+
+def test_dist_defines_gcs_enabled_when_gcp_disabled():
+    import sys
+    from unittest.mock import MagicMock
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    import utils.dist as dist_mod
+
+    assert hasattr(dist_mod, "GCS_ENABLED")
+    assert isinstance(dist_mod.GCS_ENABLED, bool)
+
+
+def test_node_submit_task_acl_probe_skips_object_storage_upload_and_marks_url_failure():
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    import requests
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from lib.cuckoo.core.data.task import TASK_FAILED_REPORTING
+    from lib.tenancy.hooks import default_report_stamp_hook
+    from utils.dist import node_submit_task
+
+    upload_calls = []
+    with (
+        patch("lib.tenancy.storage.config.object_storage_config", return_value=SimpleNamespace(enabled=True)),
+        patch("lib.tenancy.storage.reporting.upload_analysis_artifacts", side_effect=lambda r: upload_calls.append(r)),
+    ):
+        default_report_stamp_hook({"info": {"id": 99}}, stage="acl_probe")
+    assert upload_calls == []
+
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_task = MagicMock(
+        id=10,
+        main_task_id=44,
+        category="url",
+        path="http://example.test/",
+        package="ie",
+        timeout=120,
+        priority=1,
+        options="",
+        machine="",
+        platform="windows",
+        tags="",
+        custom="",
+        clock="10-31-2026 14:05:09",
+        memory=False,
+        enforce_timeout=False,
+        route="none",
+        tlp="",
+        finished=False,
+        retrieved=False,
+    )
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    hook_stages = []
+    with (
+        patch("utils.dist.main_db") as mock_main_db,
+        patch("lib.cuckoo.common.hooks.run_report_hooks", side_effect=lambda r, **kw: hook_stages.append(kw.get("stage"))),
+        patch("utils.dist.requests.post", side_effect=requests.ConnectionError("worker down")),
+    ):
+        node_submit_task(10, 2, 44, db=mock_db)
+
+    assert hook_stages == ["acl_probe"]
+    assert mock_task.finished is True
+    assert mock_task.retrieved is True
+    mock_main_db.set_status.assert_called_once_with(44, TASK_FAILED_REPORTING)
+    mock_db.commit.assert_called_once()
+
+
+def test_wrapped_validate_task_resolves_fallback_owner_for_recovered_task():
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+    from lib.tenancy.policy import ViewerContext
+
+    fake_web_utils = SimpleNamespace(
+        validate_task=lambda tid: {"error": False, "rtid": 77, "tlp": None},
+    )
+    wrap_submission_and_web_utils(web_utils_mod=fake_web_utils)
+
+    fake_db = MagicMock()
+    fake_db.session.get.side_effect = lambda model, pk: SimpleNamespace(user_id=101) if pk == 77 else None
+
+    viewer = ViewerContext(user_id=101, tenant_id=None)
+    with (
+        patch("lib.tenancy.hooks.get_current_viewer", return_value=viewer),
+        patch("lib.cuckoo.core.database.Database", return_value=fake_db),
+        patch("lib.tenancy.hooks.ensure_acl_schema_once"),
+        patch(
+            "lib.tenancy.hooks.resolve_task_scope",
+            side_effect=lambda session, tid, fallback_user_id=None: SimpleNamespace(
+                owner_id=fallback_user_id, tenant_id=None, visibility="private"
+            ),
+        ),
+    ):
+        res = fake_web_utils.validate_task(12)
+
+    assert res == {"error": False, "rtid": 77, "tlp": None}
+
+
+

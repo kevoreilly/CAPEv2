@@ -177,7 +177,10 @@ class Package:
 
         p = Process(options=self.options, config=self.config)
         if not p.execute(path=path, args=args, kernel_analysis=kernel_analysis):
-            raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
+            err_msg = f"Unable to execute initial process '{path}'"
+            if p.last_error:
+                err_msg += f": {p.last_error}"
+            raise CuckooPackageError(err_msg)
 
         if not free and not kernel_analysis:
             p.inject(interest)

@@ -126,3 +126,54 @@ class TestScreenshotMachinery:
             # calling _initialize_check() succeeds, a screenshot() impl is provided
             tm._initialize_check()
         assert tm.screenshot()
+
+
+class TestLibvirtMachineryStop:
+    def test_stop_ignores_domain_not_running_race(self, monkeypatch):
+        class DummyLibvirtError(Exception):
+            pass
+
+        fake_libvirt = MagicMock()
+        fake_libvirt.libvirtError = DummyLibvirtError
+        monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+        monkeypatch.setattr(abstracts, "HAVE_LIBVIRT", True)
+
+        machinery = object.__new__(abstracts.LibVirtMachinery)
+        machinery._status = MagicMock(return_value=abstracts.LibVirtMachinery.RUNNING)
+        machinery._wait_status = MagicMock()
+
+        vm = MagicMock()
+        vm.isActive.return_value = True
+        vm.destroy.side_effect = DummyLibvirtError("Requested operation is not valid: domain is not running")
+
+        conn = MagicMock()
+        conn.lookupByName.return_value = vm
+        machinery._connect = MagicMock(return_value=conn)
+
+        # Should not raise CuckooMachineError when domain stopped concurrently
+        machinery.stop("win10_1")
+        machinery._wait_status.assert_called_once_with("win10_1", abstracts.LibVirtMachinery.POWEROFF)
+
+    def test_stop_reraises_other_libvirt_errors(self, monkeypatch):
+        class DummyLibvirtError(Exception):
+            pass
+
+        fake_libvirt = MagicMock()
+        fake_libvirt.libvirtError = DummyLibvirtError
+        monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+        monkeypatch.setattr(abstracts, "HAVE_LIBVIRT", True)
+
+        machinery = object.__new__(abstracts.LibVirtMachinery)
+        machinery._status = MagicMock(return_value=abstracts.LibVirtMachinery.RUNNING)
+        machinery._wait_status = MagicMock()
+
+        vm = MagicMock()
+        vm.isActive.return_value = True
+        vm.destroy.side_effect = DummyLibvirtError("hypervisor connection lost")
+
+        conn = MagicMock()
+        conn.lookupByName.return_value = vm
+        machinery._connect = MagicMock(return_value=conn)
+
+        with pytest.raises(abstracts.CuckooMachineError, match="Error stopping virtual machine win10_1"):
+            machinery.stop("win10_1")

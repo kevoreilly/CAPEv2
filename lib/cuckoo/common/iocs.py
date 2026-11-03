@@ -59,7 +59,7 @@ def dump_iocs(report, task_id: int = 0):
             return
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "iocs.json")
         iocs = report_to_iocs(report, True)
-        with open(path, "w") as fff:
+        with open(path, "w", encoding="utf-8", errors="replace") as fff:
             json.dump(iocs, fff, sort_keys=False, indent=4, ensure_ascii=False)
     except Exception as eee:
         log.error("Cannot dump iocs file: %s", eee)

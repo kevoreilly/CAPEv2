@@ -1020,3 +1020,67 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.assertEqual(1, ana.NUM_INJECTED)
+
+
+class TestAnalyzerEnforceTimeoutPackageFailure(unittest.TestCase):
+    def setUp(self):
+        for var in ("MONITOR_DLL", "MONITOR_DLL_64", "LOADER32", "LOADER64"):
+            p = patch(f"analyzer.{var}", None)
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _make_analyzer(self, enforce_timeout: bool, start_exc: Exception):
+        ana = analyzer.Analyzer()
+        ana.config = MagicMock()
+        ana.config.category = "file"
+        ana.config.enforce_timeout = enforce_timeout
+        ana.options = {}
+        ana.target = "C:\\Users\\Bruno\\Desktop\\sample.exe"
+
+        pkg = MagicMock()
+        pkg.options = {}
+        pkg.move_curdir.side_effect = lambda t: t
+        pkg.configure.side_effect = NotImplementedError()
+        pkg.configure_from_data.side_effect = ModuleNotFoundError()
+        pkg.start.side_effect = start_exc
+        ana.choose_package = MagicMock(return_value=("exe", pkg))
+        ana.analysis_loop = MagicMock()
+        return ana
+
+    @patch("analyzer.subprocess.STARTUPINFO", create=True)
+    @patch("analyzer.subprocess.call")
+    @patch("analyzer.pkgutil.iter_modules", return_value=[])
+    @patch("analyzer.os.path.exists", return_value=False)
+    @patch("analyzer.copy")
+    @patch("analyzer.SHELL32")
+    def test_package_error_with_enforce_timeout_continues_to_analysis_loop(
+        self, _mock_shell32, _mock_copy, _mock_exists, _mock_iter, _mock_call, _mock_si
+    ):
+        from lib.common.exceptions import CuckooPackageError
+
+        ana = self._make_analyzer(
+            enforce_timeout=True,
+            start_exc=CuckooPackageError("Unable to execute the initial process, analysis aborted"),
+        )
+        self.assertTrue(ana.run())
+        self.assertFalse(ana.pid_check)
+        ana.analysis_loop.assert_called_once()
+
+    @patch("analyzer.subprocess.STARTUPINFO", create=True)
+    @patch("analyzer.subprocess.call")
+    @patch("analyzer.pkgutil.iter_modules", return_value=[])
+    @patch("analyzer.os.path.exists", return_value=False)
+    @patch("analyzer.copy")
+    @patch("analyzer.SHELL32")
+    def test_package_error_without_enforce_timeout_raises_cuckoo_error(
+        self, _mock_shell32, _mock_copy, _mock_exists, _mock_iter, _mock_call, _mock_si
+    ):
+        from lib.common.exceptions import CuckooError, CuckooPackageError
+
+        ana = self._make_analyzer(
+            enforce_timeout=False,
+            start_exc=CuckooPackageError("Unable to execute the initial process, analysis aborted"),
+        )
+        with self.assertRaises(CuckooError):
+            ana.run()
+        ana.analysis_loop.assert_not_called()

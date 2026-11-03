@@ -121,6 +121,16 @@ class TestAnalysisManager:
             mgr.log.info("Test")
         assert any((record.message == f"Task #{task.id}: Test") for record in caplog.records)
 
+    def test_logger_with_main_task_id(self, task: Task, caplog: pytest.LogCaptureFixture):
+        task.set_attribute("main_task_id", 9001)
+        mgr = AnalysisManager(task=task)
+        with caplog.at_level(logging.INFO):
+            mgr.log.info("Distributed test")
+        matching = [r for r in caplog.records if r.message == f"Task #{task.id} (9001): Distributed test"]
+        assert len(matching) == 1
+        assert getattr(matching[0], "task_id", None) == task.id
+        assert getattr(matching[0], "main_task_id", None) == 9001
+
     def test_prepare_task_and_machine_to_start_no_machinery(self, db: _Database, task: Task):
         mgr = AnalysisManager(task=task)
         assert task.status != TASK_RUNNING
@@ -485,3 +495,31 @@ class TestAnalysisManager:
             assert db_task.status == TASK_FAILED_ANALYSIS
         assert mock_unlock.called
         assert mock_log_exception.called
+
+    def test_guest_http_session_retries(self):
+        from lib.cuckoo.core.guest import GuestManager
+
+        session = GuestManager._guest_http_session()
+        adapter = session.get_adapter("http://10.0.0.2:8000/status")
+        assert adapter.max_retries.total == 3
+        assert adapter.max_retries.connect == 3
+        assert adapter.max_retries.read == 2
+
+    def test_run_suppresses_dead_machine_traceback(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ):
+        from lib.cuckoo.common.exceptions import CuckooMachineError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(
+            analysis_man,
+            "launch_analysis",
+            side_effect=CuckooMachineError("Unable to restore snapshot on virtual machine label0"),
+        )
+        with caplog.at_level(logging.ERROR):
+            analysis_man.run()
+
+        records = [r for r in caplog.records if "failure in AnalysisManager.run" in r.message]
+        assert len(records) == 1
+        assert records[0].exc_info is None
+

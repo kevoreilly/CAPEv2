@@ -150,3 +150,50 @@ class TestDemux:
         assert filesize == 14
         if os.path.exists(path):
             os.remove(path)
+
+    @pytest.mark.parametrize(
+        "magic_str",
+        [
+            "Microsoft Roslyn C# debugging symbols version 1.0",
+            "MSVC program database ver 7.00",
+            "Microsoft C/C++ MSF 7.00",
+        ],
+    )
+    def test_demux_pdb_magic_junk_filter_and_ms_exclude(self, tmp_path, monkeypatch, magic_str):
+        sample_file = tmp_path / "sample_without_ext"
+        sample_file.write_bytes(b"BSJB\x01\x00\x01\x00" + b"\x00" * 32)
+
+        monkeypatch.setattr(demux.File, "get_type", lambda self: magic_str)
+        monkeypatch.setattr(demux, "demux_sflock", lambda *args, **kwargs: ([], "", []))
+
+        # Default: skipped by junk_filter before hitting Office check
+        demuxed, errors = demux.demux_sample(filename=str(sample_file).encode(), package=None, options="", use_sflock=True)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+        # With ignore_junk_filter=1: bypasses junk_filter and is excluded from Office check via MS_EXCLUDE
+        demuxed, errors = demux.demux_sample(
+            filename=str(sample_file).encode(), package=None, options="ignore_junk_filter=1", use_sflock=True
+        )
+        assert len(demuxed) == 1
+        assert demuxed[0][0] == str(sample_file).encode()
+        assert errors == []
+
+    def test_sf_children_pdb_magic_filter(self):
+        child = SimpleNamespace(
+            filename=b"symbols_blob",
+            contents=b"BSJB\x01\x00\x01\x00",
+            platform="windows",
+            magic="Microsoft Roslyn C# debugging symbols version 1.0",
+            filesize=8,
+            package=None,
+        )
+
+        path, _, _, _ = demux._sf_children(child, ignore_junk_filter=False)
+        assert path == b""
+
+        path, _, _, _ = demux._sf_children(child, ignore_junk_filter=True)
+        assert path != b""
+        if os.path.exists(path):
+            os.remove(path)
+

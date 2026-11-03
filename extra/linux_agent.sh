@@ -2,10 +2,16 @@
 
 # Install dependencies
 sudo apt update
-sudo apt install build-essential curl net-tools python3-pip python3-pyinotify python3-pyelftools systemtap-runtime ca-certificates curl gnupg lsb-release -y
+sudo apt install build-essential curl net-tools python3-pip python3-pyinotify python3-pyelftools systemtap-runtime ca-certificates curl gnupg 7zip unrar nodejs default-jre apt-transport-https software-properties-common lsb-release -y
 if [ "$(python3 -c 'import sys; print(1 if sys.version_info > (3, 11) else 0)')" -eq "1" ]; then
   sudo apt install -y python3-pyasyncore python3-setuptools
 fi
+source /etc/os-release
+wget -q https://packages.microsoft.com/config/ubuntu/$VERSION_ID/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+rm packages-microsoft-prod.deb
+sudo apt update
+sudo apt install -y powershell
 
 # agent.py installation
 sudo mkdir /root/.cape

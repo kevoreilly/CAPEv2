@@ -161,6 +161,26 @@ class ElasticSearchDB(Report):
         # the original dictionary and possibly compromise the following
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
+        if not report or "info" not in report:
+            log.error("Failed to get JSON document or 'info' key is missing for Task")
+            return
+
+        local_task_id = int(report["info"].get("id", 0) or 0)
+        attributes = (self.task or {}).get("attributes") or {}
+        if main_task_id := attributes.get("main_task_id"):
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
+                if local_task_id:
+                    report["info"].setdefault("local_task_id", local_task_id)
+
+        if not int(report["info"].get("id", 0) or 0):
+            log.error("Task ID is missing in report['info']")
+            return
+
+        from lib.cuckoo.common.hooks import run_report_hooks
+
+        run_report_hooks(report, task=self.task, stage="elasticsearchdb")
+
         self.fix_fields(report)
         report = json.loads(json.dumps(report, default=str), object_hook=self.date_hook)
         new_processes = insert_calls(report, elastic_db=elastic_handler)
@@ -180,3 +200,5 @@ class ElasticSearchDB(Report):
         except Exception as e:
             log.error(e)
             return
+
+        run_report_hooks(report, task=self.task, stage="post_elasticsearchdb")

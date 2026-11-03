@@ -12,6 +12,8 @@ def run_tool(*args, **kwargs) -> Union[bytes, str]:
     that process if it is received.
     """
     kwargs["stdout"] = subprocess.PIPE
+    if kwargs.get("universal_newlines") or kwargs.get("text") or kwargs.get("encoding"):
+        kwargs.setdefault("errors", "replace")
     old_handler = None
     try:
         proc = subprocess.Popen(*args, **kwargs)

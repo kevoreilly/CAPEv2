@@ -15,9 +15,10 @@ TEST_VNC_PORT = 5901
 
 
 class FakeTask:
-    def __init__(self, task_id, status="running"):
+    def __init__(self, task_id, status="running", guest=None):
         self.id = task_id
         self.status = status
+        self.guest = guest
 
 
 class FakeDatabase:
@@ -31,13 +32,15 @@ class FakeDatabase:
         }
         self._task = task or FakeTask(123, "running")
         self.deleted_sessions = []
+        self.view_task_details_args = []
 
     def get_guac_session(self, token):
         if str(token) == TEST_TOKEN:
             return dict(self._session_data)
         return None
 
-    def view_task(self, task_id):
+    def view_task(self, task_id, details=False):
+        self.view_task_details_args.append(details)
         if int(task_id) == self._task.id:
             return self._task
         return None
@@ -397,3 +400,103 @@ class TestGuacConsumers:
 
         connected, _ = await communicator.connect()
         assert connected is False
+
+    async def test_consumer_rejects_unauthenticated_when_web_auth_enabled(self, guac_consumer_app_factory, monkeypatch):
+        monkeypatch.setattr(consumers.settings, "WEB_AUTHENTICATION", True)
+        guac_consumer_app, _ = guac_consumer_app_factory()
+        communicator = _make_communicator(guac_consumer_app, "session_unauth", "123_session_unauth")
+
+        connected, _ = await communicator.connect()
+        assert connected is False
+
+    async def test_consumer_rejects_mismatched_guest_vm_label(self, guac_consumer_app_factory):
+        fake_db = FakeDatabase(
+            task=FakeTask(123, "running", guest=SimpleNamespace(label="win10_2")),
+        )
+        guac_consumer_app, fake_db = guac_consumer_app_factory(fake_db=fake_db)
+        communicator = _make_communicator(guac_consumer_app, "session_mismatch", "123_session_mismatch")
+
+        connected, _ = await communicator.connect()
+        assert connected is False
+        assert fake_db.view_task_details_args == [True]
+        assert fake_db.deleted_sessions == [TEST_TOKEN]
+        assert FakeGuacamoleClient.instances == []
+
+
+def test_vm_target_for_task_distinguishes_pending_running_and_completed(monkeypatch):
+    views = import_module("guac.views")
+
+    fake_db = SimpleNamespace(
+        view_task=lambda task_id, details=False: None,
+        view_machine_by_label=lambda label: None,
+    )
+    monkeypatch.setattr(views, "db", fake_db)
+
+    # 1. Missing task -> (None, None) -> error
+    assert views._vm_target_for_task(1) == (None, None)
+
+    # 2. Pending task -> ("", None) -> wait.html
+    pending_task = SimpleNamespace(status="pending", machine="win10-other", guest=None)
+    fake_db.view_task = lambda task_id, details=False: pending_task
+    assert views._vm_target_for_task(1) == ("", None)
+
+    # 3. Running task before guest.label populated -> ("", None) -> wait.html
+    starting_task = SimpleNamespace(status="running", machine="win10-other", guest=None)
+    fake_db.view_task = lambda task_id, details=False: starting_task
+    assert views._vm_target_for_task(1) == ("", None)
+
+    # 4. Running task with active guest -> (guest.label, machine.ip)
+    running_task = SimpleNamespace(
+        status="running",
+        machine="requested-vm",
+        guest=SimpleNamespace(label="assigned-vm"),
+    )
+    fake_db.view_task = lambda task_id, details=False: running_task
+    fake_db.view_machine_by_label = (
+        lambda label: SimpleNamespace(ip="192.168.56.25") if label == "assigned-vm" else None
+    )
+    assert views._vm_target_for_task(1) == ("assigned-vm", "192.168.56.25")
+
+    # 5. Completed / reported / failed task -> (None, None) -> error (not infinite wait.html reload)
+    for terminal_status in ("completed", "reported", "failed_analysis"):
+        done_task = SimpleNamespace(status=terminal_status, guest=SimpleNamespace(label="assigned-vm"))
+        fake_db.view_task = lambda task_id, details=False, t=done_task: t
+        assert views._vm_target_for_task(1) == (None, None)
+
+
+def test_guac_settings_boots_and_loads_middleware_without_allauth():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    web_dir = repo_root / "web"
+    env = os.environ.copy()
+    for k in ("https_proxy", "http_proxy", "no_proxy", "ftp_proxy", "all_proxy"):
+        env.pop(k, None)
+    env["DJANGO_SETTINGS_MODULE"] = "web.guac_settings"
+    env["PYTHONPATH"] = f"{web_dir}:{repo_root}"
+    code = (
+        "import sys; "
+        "sys.modules['allauth'] = None; "
+        "sys.modules['allauth.account'] = None; "
+        "sys.modules['allauth.account.middleware'] = None; "
+        "import django; django.setup(); "
+        "from django.conf import settings; "
+        "from django.core.handlers.base import BaseHandler; "
+        "assert 'web.middleware.DBTransactionMiddleware' in settings.MIDDLEWARE; "
+        "BaseHandler().load_middleware()"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(web_dir),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert proc.returncode == 0, f"stdout={proc.stdout}\nstderr={proc.stderr}"
+
+
+

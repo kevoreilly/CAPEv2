@@ -318,16 +318,19 @@ class Processes:
         matching '<unfinished ...>' and '<... {syscall} resumed>' strings accordingly,
         returns the `resumed` time as that is the completed syscall time.
         """
-        data = ""
-        for key in unfinished.keys():
-            for head in unfinished[key]:
-                for tail in resumed[key]:
+        lines = []
+        for key, heads in unfinished.items():
+            tails = resumed.get(key)
+            if not tails:
+                continue
+            for head in heads:
+                for tail in tails:
                     if head["syscall"] != tail["syscall"]:
                         continue
-                    data += " ".join([str(key), tail["time"], head["unfinished"] + tail["resumed"] + "\n"])
-                    resumed[key].remove(tail)
+                    lines.append(" ".join([str(key), tail["time"], head["unfinished"] + tail["resumed"] + "\n"]))
+                    tails.remove(tail)
                     break
-        return data
+        return "".join(lines)
 
     def extract_logs(self, raw_logs, pattern):
         extracted_logs = dict()
@@ -353,7 +356,7 @@ class Processes:
         resumed_pattern = re.compile(
             r"(?P<pid>\d+)\s+(?P<time>\d+:\d+:\d+\.\d+)\s+<\.\.\.\s(?P<syscall>\w+)\sresumed>(?P<resumed>.*)\n"
         )
-        with open(self._logs_path, "r") as log_file:
+        with open(self._logs_path, "r", encoding="utf-8", errors="replace") as log_file:
             raw_logs = log_file.read()
 
         normal_logs = self.extract_logs(raw_logs, log_pattern)

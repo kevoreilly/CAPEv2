@@ -1,15 +1,16 @@
 """Pebble-pool engine — preserved as the A/B control. Mirrors the historical
-autoprocess loop, parameterized behind the engine seam. max_tasks defaults to 0
-(no recycle): worker recycling deadlocks in multiprocessing _exit_function while
-joining the nested extractor pool — see the redesign spec."""
+autoprocess loop, parameterized behind the engine seam."""
 import logging
+import multiprocessing
 import os
-import time
 import threading
+import time
+from concurrent.futures import CancelledError, TimeoutError
+from concurrent.futures.process import BrokenProcessPool
 
 import pebble
-from concurrent.futures import TimeoutError
 
+from lib.cuckoo.common.pebble_utils import is_pool_healthy, teardown_pool
 from lib.cuckoo.core.processing_engine.base import ProcessingEngine
 
 log = logging.getLogger(__name__)
@@ -31,56 +32,102 @@ class PebbleEngine(ProcessingEngine):
     timeout : int
         Per-task timeout in seconds (passed to pebble).
     max_tasks : int
-        Max tasks per child process (pebble ``max_tasks``). Default 0 = no
-        recycling — prevents the multiprocessing ``_exit_function`` / pool-join
-        deadlock seen with worker recycling in production.
+        Max tasks per child process (pebble ``max_tasks``). Defaults to 0
+        (no recycling) at the constructor level; ``utils/process.py`` overrides
+        this with ``maxtasksperchild`` from ``processing.conf`` (default 7).
     max_count : int
         Exit after scheduling this many tasks. 0 (default) = run forever,
         matching ``cfg.cuckoo.max_analysis_count == 0`` production default.
+    stall_grace : int
+        Grace period in seconds after ``timeout`` before a running task is
+        reaped. Also the default for ``pickup_grace``.
+    pickup_grace : int or None
+        Seconds a scheduled task may wait for worker pickup before it is
+        reaped. Measured from the later of scheduling and the last pool
+        (re)creation, so a freshly created pool whose workers are still
+        running ``worker_init`` is not penalised. Defaults to ``stall_grace``.
+    join_timeout : int
+        Seconds to wait for graceful pool drain on normal teardown before
+        escalating to force-stop (defaults to 60).
+    stop_join_timeout : int
+        Seconds to wait after ``pool.stop()`` for the OS to reap workers
+        (defaults to 5). Hard wall-clock bound: see ``teardown_pool``.
     """
 
     def __init__(self, task_fn, worker_init, source, parallel, timeout,
-                 max_tasks=0, max_count=0, stall_grace=300):
+                 max_tasks=0, max_count=0, stall_grace=300,
+                 join_timeout=60, stop_join_timeout=5, pickup_grace=None):
         super().__init__(task_fn, worker_init, source, parallel, timeout)
         self.max_tasks = max_tasks
         self.max_count = max_count
         self.stall_grace = stall_grace
+        self.pickup_grace = pickup_grace
+        self.join_timeout = join_timeout
+        self.stop_join_timeout = stop_join_timeout
         self._lock = threading.Lock()
+        self._wake = threading.Event()
         self._pending = {}  # future -> task_id
         self._scheduled_at = {}  # future -> time.monotonic() when scheduled
+        self._finalizing = set()  # futures claimed by a callback or failure reaper
+        self._pool_created_at = 0.0  # set by _new_pool(); start of the pickup clock
+
+    def _safe_mark_failed(self, task_id):
+        """Record task failure without letting a transient DB error kill the caller."""
+        if task_id is None:
+            return
+        try:
+            self.source.mark_failed(task_id)
+        except Exception as db_error:
+            log.exception("[%s] Failed to mark task as FAILED_PROCESSING: %s", task_id, db_error)
+
+    def _release_pending(self, future):
+        """Release exclusion/capacity only after the terminal status is recorded."""
+        with self._lock:
+            self._pending.pop(future, None)
+            self._scheduled_at.pop(future, None)
+            self._finalizing.discard(future)
+            self._wake.set()
 
     def _done(self, future):
         """Pebble done-callback: fires in the pool's internal thread."""
         with self._lock:
-            task_id = self._pending.pop(future, None)
-            self._scheduled_at.pop(future, None)
+            task_id = self._pending.get(future)
+            if task_id is None or future in self._finalizing:
+                return
+            self._finalizing.add(future)
 
         try:
-            future.result()
-            log.info("Reports generation completed for Task #%s", task_id)
-        except TimeoutError as error:
-            log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, error.args[1] if len(error.args) > 1 else "")
-            if task_id is not None:
-                self.source.mark_failed(task_id)
-        except BaseException as error:
-            # BaseException, not Exception: anything escaping this callback
-            # propagates into pebble's message-manager thread and kills it.
-            log.exception("[%s] Exception when processing task: %s", task_id, error)
-            if task_id is not None:
-                self.source.mark_failed(task_id)
+            if future.cancelled():
+                return
+            try:
+                future.result()
+                log.info("Reports generation completed for Task #%s", task_id)
+            except CancelledError:
+                return
+            except TimeoutError as error:
+                fn_name = getattr(getattr(self.task_fn, "func", self.task_fn), "__name__", self.task_fn)
+                log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, fn_name)
+                self._safe_mark_failed(task_id)
+            except BaseException as error:
+                # Anything escaping kills pebble's message-manager thread.
+                log.exception("[%s] Exception when processing task: %s", task_id, error)
+                self._safe_mark_failed(task_id)
+        finally:
+            self._release_pending(future)
 
     def _reap_stalled(self):
-        """Fail tasks that were scheduled but never ran.
+        """Fail tasks that were scheduled but never ran or stalled past deadline.
 
-        pebble only applies a task's timeout once that task is RUNNING. If the
-        worker dies before picking it up, pebble cannot associate the dead
-        worker with any task, so the future never resolves: the task never
-        runs, never times out, is never marked failed, and stays in
-        ``_pending`` forever. Both the scheduling loop (via the saturation
-        check) and the drain loop then spin indefinitely.
-
-        Anything still pending past ``timeout + stall_grace`` is therefore
-        presumed dead and failed explicitly."""
+        Two-tier stall deadline:
+        - If the task is still waiting for worker pickup (``not future.running()``),
+          reap after ``pickup_grace`` seconds without waiting for ``timeout``.
+          The clock starts at the later of scheduling and the last pool
+          (re)creation, so workers still in ``worker_init`` are not penalised.
+        - If the task is running (``future.running()``), reap after
+          ``timeout + stall_grace`` seconds (from scheduling) as a safety net if
+          pebble's own timeout thread or worker-expiration tracking misses an
+          orphaned task.
+        """
         if not self.stall_grace:
             return
 
@@ -89,27 +136,90 @@ class PebbleEngine(ProcessingEngine):
                 return
             pending_keys = list(self._pending.keys())
 
-        deadline = self.timeout + self.stall_grace
+        pickup_grace = self.stall_grace if self.pickup_grace is None else self.pickup_grace
         now = time.monotonic()
         for future in pending_keys:
-            with self._lock:
-                if future not in self._pending:
-                    continue
-                if now - self._scheduled_at.get(future, now) < deadline:
-                    continue
-                task_id = self._pending.pop(future, None)
-                self._scheduled_at.pop(future, None)
-
-            log.error(
-                "[%s] Task never ran (worker died before pickup?); marking it failed after %ss",
-                task_id, deadline,
-            )
             try:
-                future.cancel()
+                is_running = future.running()
             except Exception:
-                pass
-            if task_id is not None:
-                self.source.mark_failed(task_id)
+                is_running = False
+
+            deadline = (self.timeout + self.stall_grace) if is_running else pickup_grace
+
+            with self._lock:
+                if future not in self._pending or future in self._finalizing:
+                    continue
+                started = self._scheduled_at.get(future, now)
+                if not is_running:
+                    started = max(started, self._pool_created_at)
+                if now - started < deadline:
+                    continue
+                task_id = self._pending[future]
+                self._finalizing.add(future)
+
+            if is_running:
+                log.error(
+                    "[%s] Task stalled past timeout+grace (%ss); marking it failed",
+                    task_id,
+                    deadline,
+                )
+            else:
+                log.error(
+                    "[%s] Task never ran (worker died before pickup?); marking it failed after %ss",
+                    task_id,
+                    deadline,
+                )
+            try:
+                try:
+                    future.cancel()
+                except Exception:
+                    pass
+                self._safe_mark_failed(task_id)
+            finally:
+                self._release_pending(future)
+
+    def _new_pool(self):
+        """Create a fresh fork-context pebble process pool."""
+        ctx = multiprocessing.get_context("fork")
+        self._pool_created_at = time.monotonic()
+        return pebble.ProcessPool(
+            max_workers=self.parallel,
+            max_tasks=self.max_tasks,
+            initializer=self.worker_init,
+            context=ctx,
+        )
+
+    @staticmethod
+    def _is_pool_healthy(pool):
+        """Check whether the pool's management threads and status are healthy."""
+        return is_pool_healthy(pool)
+
+    def _teardown_pool(self, pool, force=False):
+        """Close+join a pool within a hard bound, escalating to stop() on failure."""
+        return teardown_pool(
+            pool,
+            join_timeout=self.join_timeout,
+            stop_join_timeout=self.stop_join_timeout,
+            force=force,
+            name="PebbleEngine pool",
+        )
+
+    def _fail_all_pending(self, reason):
+        """Fail and cancel all currently pending tasks when a pool breaks."""
+        with self._lock:
+            items = [(future, task_id) for future, task_id in self._pending.items() if future not in self._finalizing]
+            self._finalizing.update(future for future, _ in items)
+
+        for future, task_id in items:
+            log.error("[%s] Pebble pool broken (%s); marking in-flight task failed", task_id, reason)
+            try:
+                try:
+                    future.cancel()
+                except Exception:
+                    pass
+                self._safe_mark_failed(task_id)
+            finally:
+                self._release_pending(future)
 
     def run(self):
         """Drive the pebble pool loop, mirroring the historical autoprocess body."""
@@ -118,50 +228,75 @@ class PebbleEngine(ProcessingEngine):
 
         cfg = Config()
         count = 0
+        pool = self._new_pool()
 
-        with pebble.ProcessPool(max_workers=self.parallel, max_tasks=self.max_tasks,
-                                initializer=self.worker_init) as pool:
+        try:
             while not self.max_count or count < self.max_count:
-                # Fail anything that was scheduled but never picked up, so a
-                # dead worker can't wedge the saturation check below forever.
+                # Fail anything that was scheduled but never picked up or stalled,
+                # so a dead worker can't wedge the saturation check below forever.
                 self._reap_stalled()
 
+                if not self._is_pool_healthy(pool):
+                    log.error("PebbleEngine: pool became unhealthy; recreating pool and failing in-flight tasks")
+                    self._fail_all_pending("pool unhealthy")
+                    self._teardown_pool(pool, force=True)
+                    pool = self._new_pool()
+
                 # If not enough free disk space is available, block until space
-                # is reclaimed.  Mirrors the original autoprocess freespace check
+                # is reclaimed. Mirrors the original autoprocess freespace check
                 # (only when cfg.cuckoo.freespace_processing is non-zero).
                 if cfg.cuckoo.freespace_processing:
                     from lib.cuckoo.common.cleaners_utils import free_space_monitor
                     dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
                     free_space_monitor(dir_path, processing=True)
 
-                # If the pool is saturated, wait before polling again.
-                with self._lock:
-                    pending_count = len(self._pending)
-                if pending_count >= self.parallel:
-                    time.sleep(1)
-                    continue
+                self._wake.clear()
 
                 with self._lock:
+                    pending_count = len(self._pending)
                     exclude = set(self._pending.values())
-                tasks = self.source.fetch(limit=self.parallel, exclude_ids=exclude)
+
+                free = self.parallel - pending_count
+                if free <= 0:
+                    self._wake.wait(timeout=1.0)
+                    continue
+
+                launchable = free if not self.max_count else min(free, self.max_count - count)
+                try:
+                    tasks = self.source.fetch(limit=launchable, exclude_ids=exclude)
+                except Exception as db_error:
+                    log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
+                    self._wake.wait(timeout=10.0)
+                    continue
+
                 added = False
-                # Schedule at most one task per iteration to avoid overshooting
-                # max_count (same rationale as the original "For loop to add
-                # only one, nice." comment).
-                for task in tasks:
+                pool_recreated = False
+                for task in tasks[:launchable]:
+                    try:
+                        future = pool.schedule(self.task_fn, args=(task,), timeout=self.timeout)
+                    except (RuntimeError, BrokenProcessPool) as pool_err:
+                        log.error("PebbleEngine: pool.schedule failed (%s); recreating pool", pool_err)
+                        self._fail_all_pending("schedule failed")
+                        self._teardown_pool(pool, force=True)
+                        pool = self._new_pool()
+                        pool_recreated = True
+                        break
+
                     log.info("Processing analysis data for Task #%d", task.id)
-                    future = pool.schedule(self.task_fn, args=(task,), timeout=self.timeout)
                     with self._lock:
                         self._pending[future] = task.id
                         self._scheduled_at[future] = time.monotonic()
                     future.add_done_callback(self._done)
                     count += 1
                     added = True
-                    break
+                    if self.max_count and count >= self.max_count:
+                        break
 
+                if pool_recreated:
+                    continue
                 if not added and not self.max_count:
                     # Nothing ready; avoid busy-wait in production.
-                    time.sleep(5)
+                    self._wake.wait(timeout=5.0)
                 if not added and self.max_count:
                     # We've exhausted available tasks and we have a fixed
                     # max_count limit — break out so the drain below runs.
@@ -169,9 +304,16 @@ class PebbleEngine(ProcessingEngine):
 
             # Drain: wait for all in-flight tasks to finish before returning.
             while True:
+                self._wake.clear()
                 with self._lock:
                     pending_exists = bool(self._pending)
                 if not pending_exists:
                     break
+                if not self._is_pool_healthy(pool):
+                    log.error("PebbleEngine: pool died during drain; failing pending tasks")
+                    self._fail_all_pending("pool died during drain")
+                    break
                 self._reap_stalled()
-                time.sleep(0.2)
+                self._wake.wait(timeout=0.2)
+        finally:
+            self._teardown_pool(pool)

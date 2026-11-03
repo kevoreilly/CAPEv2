@@ -22,14 +22,37 @@ class SuccessfulExtractionReturnType(TypedDict, total=False):
 ExtractorReturnType = Optional[SuccessfulExtractionReturnType]
 
 
+def _sanitize_surrogate_str(value: str) -> str:
+    return value.encode("utf-8", errors="replace").decode("utf-8")
+
+
 def collect_extracted_filenames(tempdir):
     """Gather a list of files relative to the given directory."""
     extracted_files = []
-    for root, _, files in os.walk(tempdir):
+    for root, dirs, files in os.walk(tempdir, topdown=True):
+        for idx, dirname in enumerate(dirs):
+            clean_dirname = _sanitize_surrogate_str(dirname)
+            if clean_dirname != dirname:
+                src_dir = os.path.join(root, dirname)
+                dst_dir = os.path.join(root, clean_dirname)
+                try:
+                    os.replace(src_dir, dst_dir)
+                    dirs[idx] = clean_dirname
+                except OSError:
+                    pass
         for file in files:
-            path = path_object(os.path.join(root, file))
+            clean_file = _sanitize_surrogate_str(file)
+            full_path = os.path.join(root, file)
+            if clean_file != file:
+                clean_full_path = os.path.join(root, clean_file)
+                try:
+                    os.replace(full_path, clean_full_path)
+                    full_path = clean_full_path
+                except OSError:
+                    pass
+            path = path_object(full_path)
             if path.is_file():
-                extracted_files.append(str(path.relative_to(tempdir)))
+                extracted_files.append(_sanitize_surrogate_str(str(path.relative_to(tempdir))))
     return extracted_files
 
 

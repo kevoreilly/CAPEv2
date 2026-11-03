@@ -73,6 +73,7 @@ def mock_archive_package(monkeypatch):
         "OPT_ARGUMENTS",
         "OPT_DLLLOADER",
         "OPT_FILE",
+        "OPT_FREE",
         "OPT_FUNCTION",
         "OPT_MULTI_PASSWORD",
         "OPT_PASSWORD",
@@ -105,6 +106,13 @@ def mock_archive_package(monkeypatch):
         def __init__(self, options=None, config=None):
             self.options = options or {}
             self.config = config
+
+        def execute(self, path, args, interest):
+            if "execute_error" in self.options:
+                raise self.options["execute_error"]
+            if self.options.get("OPT_FREE", False):
+                return None
+            return 1234
 
     mock_abstracts.Package = MockPackage
     monkeypatch.setitem(sys.modules, "lib.common.abstracts", mock_abstracts)
@@ -162,3 +170,27 @@ def test_archive_all_files_fail(mock_archive_package):
 
     with pytest.raises(CuckooPackageError, match="failed execution"):
         archive_pkg.execute_files("C:\\extracted", ["failing1.exe", "failing2.exe"])
+
+
+def test_archive_free_mode_success_is_not_an_execution_failure(mock_archive_package):
+    Archive, _ = mock_archive_package
+    from unittest.mock import MagicMock
+
+    archive_pkg = Archive(options={"OPT_FREE": "yes"}, config=MagicMock())
+    archive_pkg.execute_interesting_file = lambda root, name, path: archive_pkg.execute(path, "", path)
+
+    assert archive_pkg.execute_files("C:\\extracted", ["working.exe"]) == []
+
+
+def test_archive_free_mode_launch_failure_is_still_an_error(mock_archive_package):
+    Archive, CuckooPackageError = mock_archive_package
+    from unittest.mock import MagicMock
+
+    archive_pkg = Archive(
+        options={"OPT_FREE": "yes", "execute_error": CuckooPackageError("failed execution")},
+        config=MagicMock(),
+    )
+    archive_pkg.execute_interesting_file = lambda root, name, path: archive_pkg.execute(path, "", path)
+
+    with pytest.raises(CuckooPackageError, match="failed execution"):
+        archive_pkg.execute_files("C:\\extracted", ["failing.exe"])

@@ -14,6 +14,7 @@ from lib.common.constants import (
     OPT_ARGUMENTS,
     OPT_DLLLOADER,
     OPT_FILE,
+    OPT_FREE,
     OPT_FUNCTION,
     OPT_MULTI_PASSWORD,
     OPT_PASSWORD,
@@ -73,28 +74,40 @@ class Archive(Package):
     """
     option_names = sorted(set(DLL_OPTIONS + ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
 
+    def execute(self, path, args, interest):
+        pid = super().execute(path, args, interest)
+        if self.options.get(OPT_FREE, False):
+            self._free_mode_execution_succeeded = True
+        return pid
+
     def execute_files(self, root, interesting_files):
         ret_list = []
         last_error = None
-        for interesting_file in interesting_files:
-            file_path = os.path.join(root, interesting_file)
-            try:
-                pids = self.execute_interesting_file(root, interesting_file, file_path)
-                if pids:
-                    if isinstance(pids, list):
-                        ret_list.extend(pids)
-                    else:
-                        ret_list.append(pids)
-            except CuckooPackageError as e:
-                last_error = e
-                log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
+        self._free_mode_execution_succeeded = False
+        try:
+            for interesting_file in interesting_files:
+                file_path = os.path.join(root, interesting_file)
+                try:
+                    pids = self.execute_interesting_file(root, interesting_file, file_path)
+                    if pids:
+                        if isinstance(pids, list):
+                            ret_list.extend(pids)
+                        else:
+                            ret_list.append(pids)
+                except CuckooPackageError as e:
+                    last_error = e
+                    log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
 
-        if not ret_list:
-            if last_error:
-                raise last_error
-            raise CuckooPackageError("Unable to execute any file from archive, analysis aborted")
+            if not ret_list:
+                if self.options.get(OPT_FREE, False) and self._free_mode_execution_succeeded:
+                    return ret_list
+                if last_error:
+                    raise last_error
+                raise CuckooPackageError("Unable to execute any file from archive, analysis aborted")
 
-        return ret_list
+            return ret_list
+        finally:
+            self._free_mode_execution_succeeded = False
 
     def start(self, path):
         # 7za and 7r is limited so better install it inside of the vm

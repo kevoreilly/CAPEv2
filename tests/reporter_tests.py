@@ -106,3 +106,39 @@ def test_jsondump_and_dump_iocs_handle_surrogate_strings(tmp_path, monkeypatch):
     assert len(parsed_iocs["dropped"][0]["guest_paths"]) == 1
 
 
+def test_mongodb_ensure_schema_caches_and_raises_on_mismatch(monkeypatch):
+    import pytest
+    from lib.cuckoo.common.exceptions import CuckooReportError
+    import modules.reporting.mongodb as mongodb_mod
+
+    # Fresh state
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked", False)
+    finds = []
+    inserts = []
+    monkeypatch.setattr(mongodb_mod, "mongo_find_one", lambda coll, query, proj: finds.append((coll, query, proj)) or None)
+    monkeypatch.setattr(mongodb_mod, "mongo_insert_one", lambda coll, doc: inserts.append((coll, doc)) or True)
+
+    mongodb_mod.MongoDB._ensure_schema()
+    assert mongodb_mod.MongoDB._schema_checked is True
+    assert len(finds) == 1
+    assert len(inserts) == 1
+
+    # Second call uses cached _schema_checked and does not query or insert
+    mongodb_mod.MongoDB._ensure_schema()
+    assert len(finds) == 1
+    assert len(inserts) == 1
+
+    # Version mismatch raises CuckooReportError
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked", False)
+    monkeypatch.setattr(mongodb_mod, "mongo_find_one", lambda coll, query, proj: {"version": "999"})
+    with pytest.raises(CuckooReportError, match="Mongo schema version not expected"):
+        mongodb_mod.MongoDB._ensure_schema()
+
+    # Transient insert failure (None from graceful_auto_reconnect) must not cache _schema_checked
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked", False)
+    monkeypatch.setattr(mongodb_mod, "mongo_find_one", lambda coll, query, proj: None)
+    monkeypatch.setattr(mongodb_mod, "mongo_insert_one", lambda coll, doc: None)
+    mongodb_mod.MongoDB._ensure_schema()
+    assert mongodb_mod.MongoDB._schema_checked is False
+
+

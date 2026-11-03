@@ -1026,7 +1026,8 @@ def test_copilot_6_and_7_perform_search_avoids_info_path_collision_and_preserves
         custom_proj = {"target.file.sha256": 1, "info.id": 1}
         wu.perform_search("sha256", "a" * 64, projection=custom_proj, privs=False, user_id=U_ALICE_IR)
         custom_pipe = seen_pipelines[-1]
-        assert custom_pipe[-1] == {"$project": custom_proj}
+        assert custom_pipe[-1] == {"$project": {**custom_proj, f"target.file.{wu.FILE_REF_KEY}": 1}}
+        assert custom_proj == {"target.file.sha256": 1, "info.id": 1}
     finally:
         core_hooks.clear_all_hooks()
 

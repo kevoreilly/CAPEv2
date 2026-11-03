@@ -27,6 +27,8 @@ from paramiko.client import SSH_PORT, SSHClient
 _Host = Union[AnyStr, Tuple[AnyStr, int]]
 _Prompt = Tuple[AnyStr, bool]
 
+TIMEOUT = 30
+
 
 class SSHJumpClient(SSHClient):
     """
@@ -121,6 +123,9 @@ class SSHJumpClient(SSHClient):
         passphrase=None,
         disabled_algorithms=None,
     ):  # pylint: disable=R0913,R0914
+        if timeout is None:
+            timeout = TIMEOUT
+
         if self._jump_session is not None:
             if sock is not None:
                 raise ValueError("jump_session= and sock= are mutually exclusive")

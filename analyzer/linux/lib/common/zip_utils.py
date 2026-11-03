@@ -272,8 +272,7 @@ def get_interesting_files(file_names):
     interesting_files = []
 
     for f in file_names:
-        file = Path(f)
-        if file.suffix in FILE_EXT_OF_INTEREST:
+        if any(f.lower().endswith(file_ext) for file_ext in FILE_EXT_OF_INTEREST):
             interesting_files.append(f)
 
     return interesting_files

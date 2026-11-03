@@ -156,6 +156,9 @@ class Package:
         elif is_elf_image(file_path):
             exec_string = f'{"/usr/bin/sh"} -c "{file_path} {self.options.get(OPT_ARGUMENTS, "")}"'
             return self.execute(exec_string)
+        else:
+            log.warning("File %s is neither a known script nor a valid ELF image.", file_name)
+            return None
 
     def get_pids(self):
         return []

@@ -37,6 +37,23 @@ FILE_EXT_OF_INTEREST = [
 ]
 
 
+def _cleanup_new_entries(extract_path, existing_entries):
+    """Remove any file, symlink, or directory in extract_path not in existing_entries."""
+    if not os.path.exists(extract_path):
+        os.makedirs(extract_path, exist_ok=True)
+        return
+    for item in os.listdir(extract_path):
+        if item not in existing_entries:
+            target = os.path.join(extract_path, item)
+            try:
+                if os.path.islink(target) or os.path.isfile(target):
+                    os.unlink(target)
+                elif os.path.isdir(target):
+                    shutil.rmtree(target, ignore_errors=True)
+            except OSError as e:
+                log.warning("Failed to clean up new entry %s: %s", target, e)
+
+
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
     """Extracts a nested archive file.
     @param seven_zip_path: path to 7z binary
@@ -46,108 +63,93 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
     @param try_multiple_passwords: we will be splitting the password on the ':' symbol,
         and trying each one to extract the archive
     """
-    log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
-    p = subprocess.run(
-        [seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path],
-        stdin=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        check=False
-    )
-    stdoutput, stderr = p.stdout, p.stderr
-    log.debug("%s %s", p.stdout, p.stderr)
+    os.makedirs(extract_path, exist_ok=True)
+    existing_entries = set(os.listdir(extract_path))
+    password = password or "infected"
+    passwords = ([p for p in password.split(":") if p] or ["infected"]) if try_multiple_passwords else [password]
 
-    if try_multiple_passwords:
-        passwords = password.split(":")
-    else:
-        passwords = [password]
+    for candidate in passwords:
+        log.debug([seven_zip_path, "x", f"-p{candidate}", "-y", f"-o{extract_path}", archive_path])
+        result = subprocess.run(
+            [seven_zip_path, "x", f"-p{candidate}", "-y", f"-o{extract_path}", archive_path],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+        )
+        log.debug("%s - %s", result.stdout, result.stderr)
+        if result.returncode == 0:
+            return
+        if b"Wrong password" not in result.stderr + result.stdout:
+            details = (result.stderr or result.stdout).decode(errors="replace").strip()
+            raise CuckooPackageError(f"Unable to extract archive: {details}")
+        log.debug("The provided password '%s' was incorrect", str(candidate))
+        _cleanup_new_entries(extract_path, existing_entries)
 
-    if b"Wrong password" in stderr:
-        if not Path(extract_path).match("local\\temp"):
-            shutil.rmtree(extract_path, ignore_errors=True)
-
-        # Default stderr, to be set at each iteration
-        stderr = b""
-
-        # Let's try every password in our password list until we get it right
-        for pword in passwords:
-            log.debug([seven_zip_path, "x", f"-p{pword}", "-y", f"-o{extract_path}", archive_path])
-            p = subprocess.run(
-                [seven_zip_path, "x", f"-p{pword}", "-y", f"-o{extract_path}", archive_path],
-                stdin=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                check=False
-            )
-            stdoutput, stderr = p.stdout, p.stderr
-            log.debug("%s - %s", p.stdout, p.stderr)
-            if b"Wrong password" in stderr:
-                log.debug("The provided password '%s' was incorrect", str(pword))
-                continue
-            else:
-                # We did it!
-                break
-
-        # If we have run through the password list and are still receiving a "wrong password" message,
-        # we have failed to extract this archive
-        if b"Wrong password" in stderr:
-            raise Exception("Wrong password(s) provided")
-
-    elif b"Can not open the file as archive" in stdoutput:
-        raise TypeError("Unable to open the file as archive")
+    raise CuckooPackageError("Wrong password(s) provided")
 
 
-def get_file_names(seven_zip_path, archive_path):
+def get_file_names(seven_zip_path, archive_path, password="infected", try_multiple_passwords=False):
     """Get the file names from archive file.
     @param seven_zip_path: path to 7z binary
     @param archive_path: archive file path
+    @param password: archive password
+    @param try_multiple_passwords: split password on ':' and try each
     @return: A list of file names
     """
-    log.debug([seven_zip_path, "l", archive_path])
-    p = subprocess.run(
-        [seven_zip_path, "l", "-sccUTF-8", archive_path],
-        stdin=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        encoding="utf-8",
-        errors="replace",
-        check=False
-    )
-    stdoutput_lines = p.stdout.splitlines()
-    in_table = False
-    items_under_header = False
-    file_names = []
-    name_col_index = 53
-    for line in stdoutput_lines:
-        if in_table:
-            if "-----" in line:
+    password = password or "infected"
+    passwords = ([p for p in password.split(":") if p] or ["infected"]) if try_multiple_passwords else [password]
+
+    for candidate in passwords:
+        cmd = [seven_zip_path, "l", "-y", f"-p{candidate}", "-sccUTF-8", archive_path]
+        log.debug(cmd)
+        p = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if "Wrong password" in (p.stdout + p.stderr):
+            continue
+
+        stdoutput_lines = p.stdout.splitlines()
+        in_table = False
+        items_under_header = False
+        file_names = []
+        name_col_index = 53
+        for line in stdoutput_lines:
+            if in_table:
+                if "-----" in line:
+                    if items_under_header:
+                        items_under_header = False
+                    else:
+                        items_under_header = True
+                        last_space = line.rfind(" ")
+                        if last_space != -1:
+                            name_col_index = last_space + 1
+                    continue
                 if items_under_header:
-                    items_under_header = False
-                else:
-                    items_under_header = True
-                    last_space = line.rfind(" ")
-                    if last_space != -1:
-                        name_col_index = last_space + 1
-                continue
-            if items_under_header:
-                if len(line) > name_col_index:
-                    file_name = line[name_col_index:].strip()
-                    if file_name:
-                        file_names.append(file_name)
-        else:
-            if all(
-                item.lower() in line.lower()
-                for item in (
-                    "Date",
-                    "Time",
-                    "Attr",
-                    "Size",
-                    "Compressed",
-                    "Name",
-                )
-            ):
-                in_table = True
-    return file_names
+                    if len(line) > name_col_index:
+                        file_name = line[name_col_index:].strip()
+                        if file_name:
+                            file_names.append(file_name)
+            else:
+                if all(
+                    item.lower() in line.lower()
+                    for item in (
+                        "Date",
+                        "Time",
+                        "Attr",
+                        "Size",
+                        "Compressed",
+                        "Name",
+                    )
+                ):
+                    in_table = True
+        return file_names
+
+    return []
 
 
 def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1, try_multiple_passwords=False):
@@ -261,17 +263,27 @@ def get_infos(zip_path):
         raise CuckooPackageError("Invalid Zip file") from e
 
 
-def winrar_extractor(winrar_binary, extract_path, archive_path):
-    log.debug([winrar_binary, "x", archive_path, extract_path])
-    p = subprocess.run(
-        [winrar_binary, "x", archive_path, extract_path],
-        stdin=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        check=False
-    )
-    # stdoutput, stderr = p.stdout, p.stderr
-    log.debug("%s - %s", p.stdout, p.stderr)
+def winrar_extractor(winrar_binary, extract_path, archive_path, password="infected", try_multiple_passwords=False):
+    os.makedirs(extract_path, exist_ok=True)
+    existing_entries = set(os.listdir(extract_path))
+    password = password or "infected"
+    passwords = ([p for p in password.split(":") if p] or ["infected"]) if try_multiple_passwords else [password]
+
+    for candidate in passwords:
+        cmd = [winrar_binary, "x", "-ibck", "-y", f"-p{candidate}", archive_path, extract_path]
+        log.debug(cmd)
+        p = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+        )
+        log.debug("%s - %s", p.stdout, p.stderr)
+        current_entries = set(os.listdir(extract_path))
+        if current_entries != existing_entries:
+            return os.listdir(extract_path)
+        if try_multiple_passwords:
+            _cleanup_new_entries(extract_path, existing_entries)
 
     return os.listdir(extract_path)
 
@@ -293,9 +305,17 @@ def upload_extracted_files(root, files_at_root):
     """
     Upload each file that was extracted, for further analysis
     """
+    resolved_root = os.path.realpath(root)
     for entry in files_at_root:
         try:
             file_path = os.path.join(root, entry)
+            resolved_path = os.path.realpath(file_path)
+            if os.path.commonpath((resolved_root, resolved_path)) != resolved_root:
+                log.warning("Skipping extracted file %s outside extraction root", entry)
+                continue
+            if not os.path.isfile(resolved_path):
+                log.warning("Skipping non-regular extracted path %s", entry)
+                continue
             log.info("Uploading %s to host", str(file_path))
             filename = f"files/{hash_file(hashlib.sha256, file_path)}"
             upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)

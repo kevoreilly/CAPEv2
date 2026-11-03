@@ -62,7 +62,7 @@ class Zip(Package):
     option_names = sorted(set(ARCHIVE_OPTIONS + DLL_OPTIONS + (OPT_APPDATA, OPT_ARGUMENTS, OPT_MULTI_PASSWORD)))
 
     def start(self, path):
-        password = self.options.get(OPT_PASSWORD, "infected")
+        password = self.options.get(OPT_PASSWORD) or "infected"
         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
         appdata = self.options.get(OPT_APPDATA)
         root = os.environ["APPDATA"] if appdata else os.environ["TEMP"]
@@ -80,7 +80,7 @@ class Zip(Package):
 
             # use 7z on files that Python zip module couldn't handle
             seven_zip_path = self.get_path_app_in_path("7z.exe")
-            file_names = get_file_names(seven_zip_path, path)
+            file_names = get_file_names(seven_zip_path, path, password, try_multiple_passwords)
             if len(file_names):
                 extract_archive(seven_zip_path, path, root, password, try_multiple_passwords)
 
@@ -88,7 +88,7 @@ class Zip(Package):
         if len(file_names) == 1 and file_names[0].endswith(".7z"):
             seven_zip_path = self.get_path_app_in_path("7z.exe")
             nested_7z = os.path.join(root, file_names[0])
-            file_names = get_file_names(seven_zip_path, nested_7z)
+            file_names = get_file_names(seven_zip_path, nested_7z, password, try_multiple_passwords)
             if len(file_names):
                 extract_archive(seven_zip_path, nested_7z, root, password, try_multiple_passwords)
 
@@ -112,7 +112,9 @@ class Zip(Package):
             log.debug("Missing file option, auto executing: %s", interesting_files)
             for interesting_file in interesting_files:
                 file_path = os.path.join(root, interesting_file)
-                ret_list.append(self.execute_interesting_file(root, interesting_file, file_path))
+                pid = self.execute_interesting_file(root, interesting_file, file_path)
+                if pid is not None:
+                    ret_list.append(pid)
 
             return ret_list
         else:

@@ -8,6 +8,7 @@ import inspect
 import logging
 import os
 import shutil
+import stat
 
 from lib.api.process import Process
 from lib.common.common import check_file_extension, disable_wow64_redirection
@@ -236,6 +237,19 @@ class Package:
         """
         Based on file extension or file contents, run relevant analysis package
         """
+        resolved_path = os.path.realpath(file_path)
+        allowed_roots = [os.path.realpath(root)]
+        if self.options.get(OPT_CURDIR):
+            allowed_roots.append(os.path.realpath(os.path.expandvars(self.options[OPT_CURDIR])))
+        if not any(os.path.commonpath((r, resolved_path)) == r for r in allowed_roots):
+            raise CuckooPackageError("Executable is outside the extraction directory")
+        try:
+            st_mode = os.stat(resolved_path).st_mode
+        except OSError:
+            return None
+        if not stat.S_ISREG(st_mode):
+            return None
+
         # File extensions that require cmd.exe to run
         if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
             cmd_path = self.get_path("cmd.exe")
@@ -261,16 +275,17 @@ class Package:
                     if not any(PE_indicator in f.read() for PE_indicator in PE_INDICATORS):
                         return
             dll_export = choose_dll_export(file_path)
+            arguments = self.options.get(OPT_ARGUMENTS)
+            dllloader = self.options.get(OPT_DLLLOADER)
             if dll_export == "DllRegisterServer":
                 rundll32 = self.get_path("regsvr32.exe")
+                dll_args = f'{arguments} "{file_path}"' if arguments else f'"{file_path}"'
             else:
                 rundll32 = self.get_path_app_in_path("rundll32.exe")
                 function = self.options.get(OPT_FUNCTION, "#1")
-            arguments = self.options.get(OPT_ARGUMENTS)
-            dllloader = self.options.get(OPT_DLLLOADER)
-            dll_args = f'"{file_path}",{function}'
-            if arguments:
-                dll_args += f" {arguments}"
+                dll_args = f'"{file_path}",{function}'
+                if arguments:
+                    dll_args += f" {arguments}"
             if dllloader:
                 newname = os.path.join(os.path.dirname(rundll32), dllloader)
                 shutil.copy(rundll32, newname)

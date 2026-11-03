@@ -51,3 +51,10 @@ def test_rooter_passes_response_through(mocker):
     resp = core_rooter.rooter("nic_available", "eth0")
     assert resp == {"output": True, "exception": None}
     assert core_rooter.ROOTER_UNAVAILABLE not in resp
+
+
+@pytest.mark.parametrize("route_val", ["none", "drop", "false", False])
+def test_validate_default_route_accepts_non_vpn_routes(route_val):
+    from lib.cuckoo.core.startup import validate_default_route
+
+    validate_default_route(_routing(route=route_val))

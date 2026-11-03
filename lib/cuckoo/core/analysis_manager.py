@@ -608,7 +608,7 @@ class AnalysisManager(threading.Thread):
         # A reserved route (none/drop/false/internet/tor/inetsim) must NEVER resolve to a gateway
         # even if it is the configured default — those are owned by earlier route_network branches;
         # reaching here with one means drop, not gateway (gemini #15 security-critical).
-        if self.route in ("none", "drop", "false", "internet", "tor", "inetsim"):
+        if str(self.route).lower() in ("none", "drop", "false", "internet", "tor", "inetsim"):
             self.route = "drop"
             return False
         if self.route in gateways or self.route in ("roundrobin", "random"):
@@ -675,14 +675,14 @@ class AnalysisManager(threading.Thread):
         if self.task.route:
             self.route = self.task.route
 
-        if self.route in ("none", "None", "drop", "false"):
+        if str(self.route).lower() in ("none", "drop", "false"):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
             self.interface = routing.inetsim.interface
         elif self.route == "tor":
             self.interface = routing.tor.interface
-        elif self.route == "internet" and routing.routing.internet != "none":
+        elif self.route == "internet" and routing.routing.internet and str(routing.routing.internet).lower() not in ("none", "false"):
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
             self.no_local_routing = routing.routing.no_local_routing and not routing.routing.nat
@@ -695,7 +695,7 @@ class AnalysisManager(threading.Thread):
             self.rt_table = vpns[self.route].rt_table
         elif self.route in self.socks5s:
             self.interface = ""
-        elif self.route[:3] == "tun" and is_network_interface(self.route):
+        elif isinstance(self.route, str) and self.route[:3] == "tun" and is_network_interface(self.route):
             # tunnel interface starts with "tun" and interface exists on machine. Checked BEFORE
             # the nexthop branch: _resolve_nexthop rewrites self.route="drop" for any route it does
             # not own, which would otherwise clobber an explicit tunX route into a drop when
@@ -771,7 +771,7 @@ class AnalysisManager(threading.Thread):
             if self._rooter_optional_and_unavailable(self.rooter_response):
                 # Default configuration: no rooter is running and none is required, so there are no drop rules to apply.
                 self.rooter_response = None
-        elif self.route[:3] == "tun" and is_network_interface(self.route):
+        elif isinstance(self.route, str) and self.route[:3] == "tun" and is_network_interface(self.route):
             self.log.info("Network interface %s is tunnel", self.interface)
             self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
 
@@ -920,7 +920,7 @@ class AnalysisManager(threading.Thread):
 
         elif self.route is not None and str(self.route).lower() in ("none", "drop", "false"):
             disable("drop_disable", self.machine.ip, str(self.machine.resultserver_port))
-        elif self.route and self.route[:3] == "tun":
+        elif isinstance(self.route, str) and self.route[:3] == "tun":
             self.log.info("Disable tunnel interface: %s", self.interface)
             disable("interface_route_tun_disable", self.machine.ip, self.route, str(self.task.id))
 

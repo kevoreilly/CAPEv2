@@ -242,7 +242,7 @@ def validate_default_route(routing_cfg):
     (from gateways global) when nexthop is enabled, bypassing the vpn.enabled gate.
     Extracted from init_routing so it is independently unit-testable (review H3)."""
     route = routing_cfg.routing.route
-    if route in ("none", "internet", "tor", "inetsim"):
+    if str(route).lower() in ("none", "drop", "false", "internet", "tor", "inetsim"):
         return
     nexthop_on = hasattr(routing_cfg, "nexthop") and routing_cfg.nexthop.enabled
     if nexthop_on and (route in gateways or route in _POLICY_TOKENS or route == "nexthop"):
@@ -776,7 +776,7 @@ def init_routing(apply_nexthop_state=False):
     validate_default_route(routing)
 
     # Check whether the dirty line exists if it has been defined.
-    if routing.routing.internet != "none":
+    if routing.routing.internet and str(routing.routing.internet).lower() not in ("none", "false"):
         is_nic_available = rooter("nic_available", routing.routing.internet)["output"]
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")

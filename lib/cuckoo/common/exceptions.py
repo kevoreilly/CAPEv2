@@ -32,6 +32,12 @@ class CuckooDependencyError(CuckooCriticalError):
     pass
 
 
+class CuckooRooterError(CuckooCriticalError):
+    """A rooter command failed or timed out."""
+
+    pass
+
+
 class CuckooOperationalError(Exception):
     """Cuckoo operation error."""
 

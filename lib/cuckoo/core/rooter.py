@@ -9,7 +9,7 @@ import threading
 from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.socket_utils import send_socket_command
+from lib.cuckoo.common.socket_utils import DEFAULT_SOCKET_TIMEOUT, send_socket_command
 
 cfg = Config()
 router_cfg = Config("routing")
@@ -60,7 +60,9 @@ def _load_socks5_operational():
 
 
 def rooter(command, *args, **kwargs):
-    ret = send_socket_command(cfg.cuckoo.rooter, command, *args, **kwargs)
+    ret = send_socket_command(
+        cfg.cuckoo.rooter, command, *args, socket_timeout=cfg.cuckoo.get("rooter_timeout", DEFAULT_SOCKET_TIMEOUT), **kwargs
+    )
     if ret and ret.get("exception"):
         log.warning("Rooter returned error: %s", ret["exception"])
     return ret

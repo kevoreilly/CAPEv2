@@ -1271,6 +1271,12 @@ def sslproxy_disable(interface, client, proxy_port, resultserver_port, rt_table=
     run("rmdir", cgroup_dir)
 
 
+def send_response(server, output, error, addr):
+    try:
+        server.sendto(json.dumps({"output": output, "exception": error}).encode(), addr)
+    except OSError as e:
+        log.warning("Failed to send response to %s: %s", addr, e)
+
 
 handlers = {
     "nic_available": nic_available,
@@ -1458,4 +1464,4 @@ if __name__ == "__main__":
             except Exception as e:
                 log.exception("Error executing command: %s", command)
                 error = str(e)
-            server.sendto(json.dumps({"output": output, "exception": error}).encode(), addr)
+            send_response(server, output, error, addr)

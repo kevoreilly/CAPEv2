@@ -108,6 +108,9 @@ daydelta = 0
 
 # Path to the unix socket for running root commands.
 rooter = /tmp/cuckoo-rooter
+# Seconds to wait for the rooter to answer a command before giving up. The rooter processes
+# commands one at a time, so this bounds how long a single slow command can stall callers.
+rooter_timeout = 60
 
 # Enable if you want to see a DEBUG log periodically containing backlog of pending tasks, locked vs unlocked machines.
 # NOTE: Enabling this feature adds 4 database calls every 10 seconds.

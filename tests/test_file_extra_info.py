@@ -239,6 +239,35 @@ def test_collect_extracted_filenames_sanitizes_surrogate_names(tmp_path):
     assert (tmp_path / extracted[0]).is_file()
 
 
+@pytest.mark.parametrize("as_directories", [False, True])
+def test_collect_extracted_filenames_preserves_sanitized_name_collisions(tmp_path, as_directories):
+    """Verify colliding sanitized names remain distinct and all extracted content is retained."""
+    import os
+    from lib.cuckoo.common.integrations.file_extra_info_modules import collect_extracted_filenames
+
+    raw_dir = os.fsencode(str(tmp_path))
+    names = (b"\xff.exe", b"\xfe.exe", b"?.exe")
+    payloads = (b"first", b"second", b"existing")
+    for name, payload in zip(names, payloads):
+        if as_directories:
+            directory = os.path.join(raw_dir, name[:-4])
+            os.makedirs(directory)
+            with open(os.path.join(directory, b"payload.bin"), "wb") as f:
+                f.write(payload)
+        else:
+            with open(os.path.join(raw_dir, name), "wb") as f:
+                f.write(payload)
+
+    extracted = collect_extracted_filenames(str(tmp_path))
+
+    assert len(extracted) == 3
+    assert len(set(extracted)) == 3
+    assert all(path.encode("utf-8") for path in extracted)
+    assert all((tmp_path / path).is_file() for path in extracted)
+    contents = {(tmp_path / path).read_bytes() for path in extracted}
+    assert contents == set(payloads)
+
+
 def test_detect_it_easy_info_calledprocesserror_with_surrogate_path(monkeypatch):
     """Verify detect_it_easy_info logs CalledProcessError safely even when file_path contains lone surrogates."""
     import io

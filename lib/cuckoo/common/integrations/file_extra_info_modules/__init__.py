@@ -26,25 +26,45 @@ def _sanitize_surrogate_str(value: str) -> str:
     return value.encode("utf-8", errors="replace").decode("utf-8")
 
 
+def _collision_safe_destination(source: str, destination: str, is_directory: bool = False) -> str:
+    if source == destination or not os.path.lexists(destination):
+        return destination
+
+    parent, name = os.path.split(destination)
+    if is_directory:
+        stem, extension = name, ""
+    else:
+        stem, extension = os.path.splitext(name)
+
+    suffix = 1
+    while True:
+        candidate = os.path.join(parent, f"{stem} ({suffix}){extension}")
+        if not os.path.lexists(candidate):
+            return candidate
+        suffix += 1
+
+
 def collect_extracted_filenames(tempdir):
-    """Gather a list of files relative to the given directory."""
+    """Gather files using UTF-8-safe, collision-free relative paths."""
     extracted_files = []
     for root, dirs, files in os.walk(tempdir, topdown=True):
         for idx, dirname in enumerate(dirs):
             clean_dirname = _sanitize_surrogate_str(dirname)
             if clean_dirname != dirname:
                 src_dir = os.path.join(root, dirname)
-                dst_dir = os.path.join(root, clean_dirname)
+                dst_dir = _collision_safe_destination(
+                    src_dir, os.path.join(root, clean_dirname), is_directory=True
+                )
                 try:
                     os.replace(src_dir, dst_dir)
-                    dirs[idx] = clean_dirname
+                    dirs[idx] = os.path.basename(dst_dir)
                 except OSError:
                     pass
         for file in files:
             clean_file = _sanitize_surrogate_str(file)
             full_path = os.path.join(root, file)
             if clean_file != file:
-                clean_full_path = os.path.join(root, clean_file)
+                clean_full_path = _collision_safe_destination(full_path, os.path.join(root, clean_file))
                 try:
                     os.replace(full_path, clean_full_path)
                     full_path = clean_full_path

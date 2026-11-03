@@ -160,7 +160,7 @@ def run_report_hooks(results: dict[str, Any], **context: Any) -> None:
                 if filtered:
                     fn(results, **filtered)
                     continue
-        if not context or context.get("stage") in (None, "process", "mongodb", "elasticsearchdb"):
+        if not context or context.get("stage") in (None, "process"):
             fn(results)
 
 

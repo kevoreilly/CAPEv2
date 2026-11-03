@@ -44,6 +44,7 @@ from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
     default_converter,
+    get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
@@ -573,7 +574,7 @@ class Summary:
 
     key = "summary"
 
-    def __init__(self, options):
+    def __init__(self, options, task=None):
         self.keys = _UniqueList()
         self.read_keys = _UniqueList()
         self.write_keys = _UniqueList()
@@ -587,7 +588,9 @@ class Summary:
         self.created_services = _UniqueList()
         self.executed_commands = _UniqueList()
         self.resolved_apis = _UniqueList()
+        self.api_counts = defaultdict(int)
         self.options = options
+        self.task = task
 
         self.dispatch = {
             "NtCreateKey": self._handle_NtCreateKey,
@@ -789,6 +792,7 @@ class Summary:
         @return: None.
         """
         api = call["api"]
+        self.api_counts[api] += 1
         handler = self.dispatch.get(api)
         if handler:
             handler(call, process)
@@ -861,6 +865,27 @@ class Summary:
         """Get registry keys, mutexes and files.
         @return: Summary of keys, read keys, written keys, mutexes and files.
         """
+        detect_apispam = getattr(self.options, "detect_apispam", True)
+        apispam_limit = int(getattr(self.options, "apispam_limit", 256))
+
+        apispam = []
+        apispam_exclude_apis = ""
+
+        if detect_apispam:
+            apispam = [api for api, count in self.api_counts.items() if count >= apispam_limit]
+
+            if apispam and self.task:
+                task_options = self.task.get("options", "")
+                if isinstance(task_options, str):
+                    parsed_options = get_options(task_options)
+                else:
+                    parsed_options = task_options or {}
+
+                existing_exclude = parsed_options.get("exclude-apis", "")
+                existing = existing_exclude.split(":") if existing_exclude else []
+                merged = sorted(list(set(existing + apispam)))
+                apispam_exclude_apis = ":".join(merged)
+
         # Unwrap to plain lists: everything downstream (json, orjson, bson, the web UI)
         # expects a list, and nothing after this point needs the membership index.
         return {
@@ -877,6 +902,8 @@ class Summary:
             "mutexes": self.mutexes.as_list(),
             "created_services": self.created_services.as_list(),
             "started_services": self.started_services.as_list(),
+            "apispam": apispam,
+            "apispam_exclude_apis": apispam_exclude_apis,
         }
 
 
@@ -1632,7 +1659,7 @@ class BehaviorAnalysis(Processing):
             instances = [
                 Anomaly(),
                 ProcessTree(),
-                Summary(self.options),
+                Summary(self.options, task=self.task),
                 Enhanced(),
                 EncryptedBuffers(),
                 NetworkMap(),

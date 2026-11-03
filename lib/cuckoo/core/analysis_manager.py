@@ -30,7 +30,7 @@ from lib.cuckoo.core.log import log_task_context
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
-from lib.cuckoo.core.rooter import _load_socks5_operational, _select_gateway, gateways, rooter, vpns
+from lib.cuckoo.core.rooter import ROOTER_UNAVAILABLE, _load_socks5_operational, _select_gateway, gateways, rooter, rooter_required, vpns
 
 log = logging.getLogger(__name__)
 
@@ -571,6 +571,14 @@ class AnalysisManager(threading.Thread):
                 if self.done_callback:
                     self.done_callback(self)
 
+    def _rooter_optional_and_unavailable(self, response) -> bool:
+        """True when the rooter is not running and neither the task route nor routing.conf requires it."""
+        if not (response and response.get(ROOTER_UNAVAILABLE)):
+            return False
+        if str(self.route).lower() not in ("none", "false"):
+            return False
+        return not rooter_required()
+
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:
             raise CuckooRooterError(f"Error execution rooter command: {self.rooter_response['exception']}")
@@ -600,7 +608,7 @@ class AnalysisManager(threading.Thread):
         # A reserved route (none/drop/false/internet/tor/inetsim) must NEVER resolve to a gateway
         # even if it is the configured default — those are owned by earlier route_network branches;
         # reaching here with one means drop, not gateway (gemini #15 security-critical).
-        if self.route in ("none", "drop", "false", "internet", "tor", "inetsim"):
+        if str(self.route).lower() in ("none", "drop", "false", "internet", "tor", "inetsim"):
             self.route = "drop"
             return False
         if self.route in gateways or self.route in ("roundrobin", "random"):
@@ -667,14 +675,14 @@ class AnalysisManager(threading.Thread):
         if self.task.route:
             self.route = self.task.route
 
-        if self.route in ("none", "None", "drop", "false"):
+        if str(self.route).lower() in ("none", "drop", "false"):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
             self.interface = routing.inetsim.interface
         elif self.route == "tor":
             self.interface = routing.tor.interface
-        elif self.route == "internet" and routing.routing.internet != "none":
+        elif self.route == "internet" and routing.routing.internet and str(routing.routing.internet).lower() not in ("none", "false"):
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
             self.no_local_routing = routing.routing.no_local_routing and not routing.routing.nat
@@ -687,7 +695,7 @@ class AnalysisManager(threading.Thread):
             self.rt_table = vpns[self.route].rt_table
         elif self.route in self.socks5s:
             self.interface = ""
-        elif self.route[:3] == "tun" and is_network_interface(self.route):
+        elif isinstance(self.route, str) and self.route[:3] == "tun" and is_network_interface(self.route):
             # tunnel interface starts with "tun" and interface exists on machine. Checked BEFORE
             # the nexthop branch: _resolve_nexthop rewrites self.route="drop" for any route it does
             # not own, which would otherwise clobber an explicit tunX route into a drop when
@@ -708,15 +716,25 @@ class AnalysisManager(threading.Thread):
 
         # Check if the network interface is still available. If a VPN dies for
         # some reason, its tunX interface will no longer be available.
-        if self.interface and not rooter("nic_available", self.interface):
-            self.log.error(
-                "The network interface '%s' configured for this analysis is "
-                "not available at the moment, switching to route=none mode",
-                self.interface,
-            )
-            self.route = "none"
-            self.interface = None
-            self.rt_table = None
+        # rooter() returns a dict, so check for a rooter error first and then test "output".
+        if self.interface:
+            self.rooter_response = rooter("nic_available", self.interface)
+            if self.rooter_response and self.rooter_response.get("exception") is not None:
+                self.route = None
+                self.interface = None
+                self.rt_table = None
+                self.no_local_routing = False
+                self._rooter_response_check()
+            if not (self.rooter_response and self.rooter_response.get("output")):
+                self.log.error(
+                    "The network interface '%s' configured for this analysis is "
+                    "not available at the moment, switching to route=none mode",
+                    self.interface,
+                )
+                self.route = "none"
+                self.interface = None
+                self.rt_table = None
+                self.no_local_routing = False
 
         if self.route == "inetsim":
             self.rooter_response = rooter(
@@ -750,7 +768,10 @@ class AnalysisManager(threading.Thread):
 
         elif str(self.route).lower() in ("none", "drop", "false"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.machine.resultserver_port))
-        elif self.route[:3] == "tun" and is_network_interface(self.route):
+            if self._rooter_optional_and_unavailable(self.rooter_response):
+                # Default configuration: no rooter is running and none is required, so there are no drop rules to apply.
+                self.rooter_response = None
+        elif isinstance(self.route, str) and self.route[:3] == "tun" and is_network_interface(self.route):
             self.log.info("Network interface %s is tunnel", self.interface)
             self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
 
@@ -830,6 +851,9 @@ class AnalysisManager(threading.Thread):
 
         def disable(command, *args):
             self.rooter_response = rooter(command, *args)
+            if self._rooter_optional_and_unavailable(self.rooter_response):
+                # Nothing was applied without a rooter, so there is nothing to tear down.
+                return
             if self.rooter_response and self.rooter_response.get("exception") is not None:
                 errors.append(f"{command}: {self.rooter_response['exception']}")
 
@@ -896,7 +920,7 @@ class AnalysisManager(threading.Thread):
 
         elif self.route is not None and str(self.route).lower() in ("none", "drop", "false"):
             disable("drop_disable", self.machine.ip, str(self.machine.resultserver_port))
-        elif self.route and self.route[:3] == "tun":
+        elif isinstance(self.route, str) and self.route[:3] == "tun":
             self.log.info("Disable tunnel interface: %s", self.interface)
             disable("interface_route_tun_disable", self.machine.ip, self.route, str(self.task.id))
 

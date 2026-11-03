@@ -610,7 +610,8 @@ def test_fresh_install_without_acl_table_lists_and_authorizes(db, temp_pe32, mt_
 
     def acl_table_exists():
         # Through the session: an Inspector on the in-memory engine would roll the session back.
-        return db.session.execute(sa.text("SELECT 1 FROM sqlite_master WHERE name = 'task_acl'")).first() is not None
+        with db.session.begin():
+            return db.session.execute(sa.text("SELECT 1 FROM sqlite_master WHERE name = 'task_acl'")).first() is not None
 
     task_id = db.add_path(str(temp_pe32), user_id=7)
     _acl_schema_ready.clear()
@@ -2799,6 +2800,8 @@ def test_dist_fetch_runs_the_resync_hook(copy_ok, monkeypatch):
 
     class DistDB:
         scalar = staticmethod(lambda stmt: next(rows))
+        get = staticmethod(lambda model, pk: next(rows))
+        execute = staticmethod(lambda stmt: None)
         commit = staticmethod(lambda: None)
         __enter__ = lambda self: self  # noqa: E731
         __exit__ = lambda self, *a: False  # noqa: E731
@@ -2814,7 +2817,7 @@ def test_dist_fetch_runs_the_resync_hook(copy_ok, monkeypatch):
         except StopIteration:
             raise Stop
 
-    monkeypatch.setattr(dist, "session", DistDB)
+    monkeypatch.setattr(dist, "dist_transaction", DistDB)
     monkeypatch.setattr(dist, "main_db", types.SimpleNamespace(
         session=types.SimpleNamespace(begin=contextlib.nullcontext), set_status=lambda *a: None))
     monkeypatch.setattr(dist, "node_get_report_nfs", lambda *a: copy_ok)

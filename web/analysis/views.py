@@ -4365,18 +4365,18 @@ def tag_tasks(request):
     from lib.cuckoo.core.data.task import Task
     updated_count = 0
     try:
-        for tid in task_ids:
-            task = db.session.get(Task, int(tid))
-            if task:
-                existing_tags = task.tags_tasks or ""
-                current_tags = [t.strip() for t in existing_tags.split(",") if t.strip()]
-                if tag not in current_tags:
-                    current_tags.append(tag)
-                    task.tags_tasks = ",".join(current_tags)
-                    updated_count += 1
-        db.session.commit()
+        # Nested in the request transaction: any failure rolls back every tag update.
+        with db.transaction():
+            for tid in task_ids:
+                task = db.session.get(Task, int(tid))
+                if task:
+                    existing_tags = task.tags_tasks or ""
+                    current_tags = [t.strip() for t in existing_tags.split(",") if t.strip()]
+                    if tag not in current_tags:
+                        current_tags.append(tag)
+                        task.tags_tasks = ",".join(current_tags)
+                        updated_count += 1
     except Exception as e:
-        db.session.rollback()
         return JsonResponse({"status": "error", "message": f"Database update failed: {e}"}, status=500)
 
     return JsonResponse({"status": "success", "updated_count": updated_count, "tag": tag})

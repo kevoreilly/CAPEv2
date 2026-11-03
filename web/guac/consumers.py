@@ -107,6 +107,17 @@ def _is_task_active_for_vm(task, vm_label: str) -> bool:
     return True
 
 
+def _unlock_if_locked(vm_label: str) -> None:
+    db = Database()
+    try:
+        with db.transaction():
+            machine = db.view_machine_by_label(vm_label)
+            if machine and machine.locked:
+                db.unlock_machine(machine)
+    finally:
+        db.session.remove()
+
+
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     subprotocols = ["guacamole"]
 
@@ -397,11 +408,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
                 if not is_running:
                     logger.info("VM %s is no longer running, unlocking and disconnecting", self.vm_label)
-                    db = Database()
-                    machine = await sync_to_async(db.view_machine_by_label)(self.vm_label)
-                    if machine and machine.locked:
-                        await sync_to_async(db.unlock_machine)(machine)
-                        await sync_to_async(db.session.commit)()
+                    await sync_to_async(_unlock_if_locked)(self.vm_label)
                     await self._close_websocket()
                     break
         except asyncio.CancelledError:

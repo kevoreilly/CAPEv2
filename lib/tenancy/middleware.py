@@ -942,10 +942,21 @@ def default_recovery_target_resolver(task_id: int) -> Optional[int]:
 
     from lib.cuckoo.core.database import Database
 
-    task = Database().view_task(int(task_id))
-    if task is None or getattr(task, "status", None) != "recovered":
-        return None
-    m = re.match(r"^Recovery_(\d+)$", str(getattr(task, "custom", "") or ""))
+    db = Database()
+    sess = getattr(db, "session", None)
+    begin = getattr(sess, "begin", None)
+    if callable(begin):
+        with begin():
+            task = db.view_task(int(task_id))
+            if task is None or getattr(task, "status", None) != "recovered":
+                return None
+            custom = str(getattr(task, "custom", "") or "")
+    else:
+        task = db.view_task(int(task_id))
+        if task is None or getattr(task, "status", None) != "recovered":
+            return None
+        custom = str(getattr(task, "custom", "") or "")
+    m = re.match(r"^Recovery_(\d+)$", custom)
     return int(m.group(1)) if m else None
 
 
@@ -956,7 +967,15 @@ def default_sample_exists_checker(sample_filter: Dict[str, Any]) -> bool:
     from lib.cuckoo.core.database import Database
 
     conds = [getattr(Sample, k) == str(v).lower() for k, v in sample_filter.items() if k in ("md5", "sha1", "sha256", "sha512")]
-    return bool(conds) and Database().session.scalar(select(Sample.id).where(and_(*conds)).limit(1)) is not None
+    if not conds:
+        return False
+    db = Database()
+    stmt = select(Sample.id).where(and_(*conds)).limit(1)
+    begin = getattr(db.session, "begin", None)
+    if callable(begin):
+        with begin():
+            return db.session.scalar(stmt) is not None
+    return db.session.scalar(stmt) is not None
 
 
 def tenancy_exempt(view_func: Callable[..., Any]) -> Callable[..., Any]:

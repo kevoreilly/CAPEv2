@@ -351,3 +351,30 @@ class TestYaraUploaderSanitization(SimpleTestCase):
             saved = (tmp_path / "data" / "yara" / "CAPE" / "AuthFamily.yar").read_text(encoding="utf-8")
             assert "analyst" in saved
 
+
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
+class TestTasksIocs(SimpleTestCase):
+    def test_tasks_iocs_tolerates_missing_target_file_path_and_guest_paths(self):
+        report_buf = {
+            "malscore": 5.0,
+            "detections": [],
+            "info": {"id": 1, "custom": "", "machine": {"manager": "kvm", "label": "win10", "id": 1, "name": "win10"}},
+            "target": {"category": "file", "file": {"name": "sample.exe", "sha256": "a" * 64}},
+            "network": {},
+            "behavior": {"summary": {}, "processtree": []},
+            "dropped": [],
+        }
+        with (
+            patch.dict("apiv2.views.apiconf.taskiocs", {"enabled": True}),
+            patch.dict("apiv2.views.repconf.mongodb", {"enabled": True}),
+            patch("apiv2.views.validate_task", return_value={"error": False, "rtid": 1}),
+            patch("apiv2.views.mongo_find_one", return_value=report_buf, create=True),
+        ):
+            resp = self.client.get("/apiv2/tasks/get/iocs/1/")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["error"] is False
+        assert body["data"]["target"]["file"] == {"name": "sample.exe", "sha256": "a" * 64}
+
+

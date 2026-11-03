@@ -545,6 +545,28 @@ class Summary:
         self.options = options
         self.task = task
 
+        raw_detect = (
+            self.options.get("detect_apispam", True)
+            if hasattr(self.options, "get")
+            else getattr(self.options, "detect_apispam", True)
+        )
+        if raw_detect is None:
+            self.detect_apispam = True
+        elif isinstance(raw_detect, str):
+            self.detect_apispam = raw_detect.strip().lower() not in ("0", "false", "no", "off")
+        else:
+            self.detect_apispam = bool(raw_detect)
+
+        raw_limit = (
+            self.options.get("apispam_limit", 256)
+            if hasattr(self.options, "get")
+            else getattr(self.options, "apispam_limit", 256)
+        )
+        try:
+            self.apispam_limit = int(raw_limit if raw_limit is not None else 256)
+        except (ValueError, TypeError):
+            self.apispam_limit = 256
+
         self.dispatch = {
             "NtCreateKey": self._handle_NtCreateKey,
             "NtDeleteValueKey": self._handle_NtDeleteKey,
@@ -743,7 +765,8 @@ class Summary:
         @return: None.
         """
         api = call["api"]
-        self.api_counts[api] += 1
+        if self.detect_apispam:
+            self.api_counts[api] += 1
         handler = self.dispatch.get(api)
         if handler:
             handler(call, process)
@@ -816,14 +839,11 @@ class Summary:
         """Get registry keys, mutexes and files.
         @return: Summary of keys, read keys, written keys, mutexes and files.
         """
-        detect_apispam = getattr(self.options, "detect_apispam", True)
-        apispam_limit = int(getattr(self.options, "apispam_limit", 256))
-
         apispam = []
         apispam_exclude_apis = ""
 
-        if detect_apispam:
-            apispam = [api for api, count in self.api_counts.items() if count >= apispam_limit]
+        if self.detect_apispam:
+            apispam = sorted(api for api, count in self.api_counts.items() if count >= self.apispam_limit)
 
             if apispam and self.task:
                 task_options = self.task.get("options", "")
@@ -831,7 +851,7 @@ class Summary:
                     parsed_options = get_options(task_options)
                 else:
                     parsed_options = task_options or {}
-                
+
                 existing_exclude = parsed_options.get("exclude-apis", "")
                 existing = existing_exclude.split(":") if existing_exclude else []
                 merged = sorted(list(set(existing + apispam)))

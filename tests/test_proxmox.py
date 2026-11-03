@@ -114,6 +114,9 @@ def test_find_vm_retries_resource_get_until_success(
             hostname="proxmox.example",
             username="test-user",
             password="test-password",
+            token_name=None,
+            token_value=None,
+            ignore_ssl=True,
         )
     )
 
@@ -316,3 +319,120 @@ def test_start_retries_vm_status_get_until_success(
 
     assert vm.status.current.get.call_count == 2
     machinery.rollback.assert_called_once_with("analysis-vm", vm, node)
+
+
+def make_options(**overrides):
+    values = {
+        "hostname": "proxmox.example",
+        "username": "cape@pve",
+        "password": None,
+        "token_name": None,
+        "token_value": None,
+        "ignore_ssl": None,
+    }
+    values.update(overrides)
+    return SimpleNamespace(proxmox=SimpleNamespace(**values))
+
+
+def connect(proxmox_module, **overrides):
+    """Run find_vm with the given options and return the ProxmoxAPI call."""
+    machinery = make_machinery(proxmox_module, timeout=10)
+    machinery.options = make_options(**overrides)
+    proxmox_module.ProxmoxAPI.return_value.cluster.resources.get.return_value = []
+
+    with pytest.raises(proxmox_module.CuckooMachineError, match="Not found"):
+        machinery.find_vm("analysis-vm")
+
+    return proxmox_module.ProxmoxAPI.call_args
+
+
+def test_find_vm_connects_with_password(proxmox_module):
+    call = connect(proxmox_module, password="secret")
+
+    assert call.args == ("proxmox.example",)
+    assert call.kwargs == {"user": "cape@pve", "password": "secret", "verify_ssl": False}
+
+
+def test_find_vm_connects_with_api_token(proxmox_module):
+    call = connect(proxmox_module, token_name="cape", token_value="token-secret")
+
+    assert call.kwargs == {
+        "user": "cape@pve",
+        "token_name": "cape",
+        "token_value": "token-secret",
+        "verify_ssl": False,
+    }
+
+
+def test_find_vm_prefers_api_token_over_password(proxmox_module):
+    call = connect(proxmox_module, password="secret", token_name="cape", token_value="token-secret")
+
+    assert "password" not in call.kwargs
+    assert call.kwargs["token_name"] == "cape"
+
+
+def test_find_vm_ignores_incomplete_token(proxmox_module):
+    call = connect(proxmox_module, password="secret", token_name="cape", token_value="")
+
+    assert call.kwargs["password"] == "secret"
+    assert "token_name" not in call.kwargs
+
+
+@pytest.mark.parametrize(
+    ("ignore_ssl", "verify_ssl"),
+    [(None, False), (True, False), (False, True), (1, False), (0, True)],
+)
+def test_find_vm_ignore_ssl_option(proxmox_module, ignore_ssl, verify_ssl):
+    call = connect(proxmox_module, password="secret", ignore_ssl=ignore_ssl)
+
+    assert call.kwargs["verify_ssl"] is verify_ssl
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"password": "secret"},
+        {"token_name": "cape", "token_value": "token-secret"},
+    ],
+)
+def test_initialize_check_accepts_password_or_token(proxmox_module, mocker: MockerFixture, overrides):
+    parent_check = mocker.patch.object(proxmox_module.Machinery, "_initialize_check")
+    machinery = make_machinery(proxmox_module, timeout=10)
+    machinery.options = make_options(**overrides)
+
+    machinery._initialize_check()
+
+    parent_check.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {},
+        {"username": None, "password": "secret"},
+        {"username": None, "token_name": "cape", "token_value": "token-secret"},
+    ],
+)
+def test_initialize_check_rejects_missing_credentials(proxmox_module, overrides):
+    machinery = make_machinery(proxmox_module, timeout=10)
+    machinery.options = make_options(**overrides)
+
+    with pytest.raises(proxmox_module.CuckooCriticalError, match="credentials are missing"):
+        machinery._initialize_check()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"token_name": "cape"},
+        {"token_value": "token-secret"},
+        {"password": "secret", "token_name": "cape"},
+        {"password": "secret", "token_value": "token-secret"},
+    ],
+)
+def test_initialize_check_rejects_incomplete_token(proxmox_module, overrides):
+    machinery = make_machinery(proxmox_module, timeout=10)
+    machinery.options = make_options(**overrides)
+
+    with pytest.raises(proxmox_module.CuckooCriticalError, match="token is incomplete"):
+        machinery._initialize_check()

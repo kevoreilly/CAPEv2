@@ -886,6 +886,13 @@ def _wrap_compare_and_analysis_views() -> None:
             setattr(a_mod, "on_demand", _wrapped_on_demand)
 
 
+# Per-call state for `gcs_refetch_banned`: tracks the banned task being refetched across
+# `SamplesMixIn.view_sample` and `utils.submit.submit_file` without mutating module globals.
+_refetch_state_ctx: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+    "cape_tenancy_refetch_state", default=None
+)
+
+
 def wrap_submission_and_web_utils(
     *,
     machines_cls: Any = None,
@@ -894,7 +901,6 @@ def wrap_submission_and_web_utils(
     submission_views_mod: Any = None,
 ) -> None:
     """Wrap CAPEv2's machine list, task creation, tag loader, exit-node loader, and submission template render in-place."""
-    custom_tasking = tasking_cls is not None
     if tasking_cls is None:
         try:
             from lib.cuckoo.core.data.tasking import TasksMixIn as tasking_cls
@@ -908,6 +914,11 @@ def wrap_submission_and_web_utils(
             @functools.wraps(orig_add)
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
                 inherited = _rescheduled_from.get()
+                if inherited is None:
+                    refetch_state = _refetch_state_ctx.get()
+                    if refetch_state is not None and refetch_state.get("current_tid") is not None:
+                        with inherit_task_scope(refetch_state.get("db") or self, refetch_state["current_tid"]):
+                            inherited = _rescheduled_from.get()
                 # A copy (reschedule) is checked against the current submitter's entitlements too:
                 # the source ran under older ones, or another member's.
                 obj = args[0] if args else kwargs.get("obj")
@@ -988,8 +999,7 @@ def wrap_submission_and_web_utils(
                 return task_id
 
             _wrapped_task_add._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
-            if custom_tasking:
-                _record_attr_patch(tasking_cls, "add", orig_add)
+            _record_attr_patch(tasking_cls, "add", orig_add)
             setattr(tasking_cls, "add", _wrapped_task_add)
 
         orig_reschedule = getattr(tasking_cls, "reschedule", None)
@@ -1019,8 +1029,7 @@ def wrap_submission_and_web_utils(
                     _copy_denied.reset(denied)
 
             _wrapped_reschedule._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
-            if custom_tasking:
-                _record_attr_patch(tasking_cls, "reschedule", orig_reschedule)
+            _record_attr_patch(tasking_cls, "reschedule", orig_reschedule)
             setattr(tasking_cls, "reschedule", _wrapped_reschedule)
 
     try:
@@ -1045,6 +1054,7 @@ def wrap_submission_and_web_utils(
                 return default_sql_task_query_filter(q, viewer).scalar() or 0
 
             _wrapped_count_samples._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(samples_cls, "count_samples", orig_count_samples)
             setattr(samples_cls, "count_samples", _wrapped_count_samples)
 
         orig_check_uniq = getattr(samples_cls, "check_file_uniq", None)
@@ -1055,7 +1065,7 @@ def wrap_submission_and_web_utils(
                 viewer = get_current_viewer()
                 if viewer is None or viewer.see_all:
                     return _orig(self, sha256, hours=hours)
-                from datetime import datetime, timedelta
+                from datetime import datetime, timedelta, timezone
 
                 from lib.cuckoo.core.data.task import Task
 
@@ -1064,11 +1074,46 @@ def wrap_submission_and_web_utils(
                     return False
                 q = self.session.query(Task).filter(Task.sample_id == sample.id)
                 if hours and int(hours) > 0:
-                    q = q.filter(Task.added_on >= datetime.now() - timedelta(hours=int(hours)))
+                    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+                    q = q.filter(Task.added_on >= now_utc - timedelta(hours=int(hours)))
                 return default_sql_task_query_filter(q, viewer).first() is not None
 
             _wrapped_check_uniq._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(samples_cls, "check_file_uniq", orig_check_uniq)
             setattr(samples_cls, "check_file_uniq", _wrapped_check_uniq)
+
+        orig_view_sample = getattr(samples_cls, "view_sample", None)
+        if orig_view_sample is not None and not getattr(orig_view_sample, "_cape_tenancy_wrapped", False):
+
+            @functools.wraps(orig_view_sample)
+            def _wrapped_view_sample(self: Any, sample_id: Any, *a: Any, _orig=orig_view_sample, **kw: Any):
+                state = _refetch_state_ctx.get()
+                if state is not None:
+                    state["db"] = self
+                    by_sample = state.get("tasks_by_sample")
+                    if by_sample is None:
+                        by_sample = {}
+                        try:
+                            from sqlalchemy import select
+
+                            from lib.cuckoo.core.data.task import TASK_BANNED, Task
+
+                            rows = self.session.scalars(select(Task).where(Task.status == TASK_BANNED)).all()
+                            for t in rows:
+                                sid = getattr(t, "sample_id", None)
+                                tid = getattr(t, "id", None)
+                                if sid is not None and tid is not None:
+                                    by_sample.setdefault(sid, []).append(tid)
+                        except Exception:
+                            pass
+                        state["tasks_by_sample"] = by_sample
+                    q_list = by_sample.get(sample_id) or []
+                    state["current_tid"] = q_list.pop(0) if q_list else None
+                return _orig(self, sample_id, *a, **kw)
+
+            _wrapped_view_sample._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(samples_cls, "view_sample", orig_view_sample)
+            setattr(samples_cls, "view_sample", _wrapped_view_sample)
 
     custom_machines = machines_cls is not None
     if machines_cls is None:
@@ -1343,39 +1388,77 @@ def wrap_submission_and_web_utils(
     try:
         from lib.cuckoo.common import gcp as gcp_mod
 
+        def _ensure_submit_file_wrapper(target_mod: Any) -> None:
+            if target_mod is None:
+                return
+            orig_sf = getattr(target_mod, "submit_file", None)
+            if not callable(orig_sf) or getattr(orig_sf, "_cape_refetch_wrapped", False):
+                return
+
+            @functools.wraps(orig_sf)
+            def _ctx_scoped_submit(*sa: Any, _osf=orig_sf, **skw: Any):
+                state = _refetch_state_ctx.get()
+                if state is not None:
+                    tid = state.get("current_tid")
+                    db_obj = skw.get("db") or (sa[0] if sa else None) or state.get("db")
+                    if tid is not None and db_obj is not None:
+                        with inherit_task_scope(db_obj, tid):
+                            return _osf(*sa, **skw)
+                return _osf(*sa, **skw)
+
+            _ctx_scoped_submit._cape_refetch_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(target_mod, "submit_file", orig_sf)
+            setattr(target_mod, "submit_file", _ctx_scoped_submit)
+            _rebind_from_imports("submit_file", {id(orig_sf): _ctx_scoped_submit})
+
+        try:
+            import utils.submit as submit_mod  # type: ignore[import-not-found]
+        except Exception:
+            submit_mod = sys.modules.get("utils.submit")
+        _ensure_submit_file_wrapper(submit_mod)
+        _ensure_submit_file_wrapper(gcp_mod)
+
         orig_refetch = getattr(gcp_mod, "gcs_refetch_banned", None)
         if orig_refetch is not None and not getattr(orig_refetch, "_cape_tenancy_wrapped", False):
 
             @functools.wraps(orig_refetch)
             def _wrapped_refetch(*a: Any, _orig=orig_refetch, _gmod=gcp_mod, **kw: Any):
-                orig_list = getattr(_gmod.db, "list_tasks", None) if hasattr(_gmod, "db") else None
-                orig_sub = getattr(_gmod, "submit_file", None)
-                current_tid: List[Any] = [None]
-                if callable(orig_list) and callable(orig_sub):
+                try:
+                    import utils.submit as cur_submit_mod  # type: ignore[import-not-found]
+                except Exception:
+                    cur_submit_mod = sys.modules.get("utils.submit")
+                _ensure_submit_file_wrapper(cur_submit_mod)
+                _ensure_submit_file_wrapper(_gmod)
 
-                    def _tracking_list(*la: Any, **lkw: Any):
-                        for item in orig_list(*la, **lkw):
-                            current_tid[0] = item.get("id") if isinstance(item, dict) else getattr(item, "id", None)
+                g_db = getattr(_gmod, "db", None)
+                orig_list = getattr(g_db, "list_tasks", None) if g_db is not None else None
+                if callable(orig_list) and not getattr(orig_list, "_cape_refetch_wrapped", False):
+
+                    def _ctx_tracking_list(*la: Any, _ol=orig_list, **lkw: Any):
+                        for item in _ol(*la, **lkw):
+                            st = _refetch_state_ctx.get()
+                            if st is not None:
+                                st["current_tid"] = item.get("id") if isinstance(item, dict) else getattr(item, "id", None)
                             yield item
 
-                    def _scoped_submit(*sa: Any, **skw: Any):
-                        if current_tid[0] is not None:
-                            with inherit_task_scope(_gmod.db, current_tid[0]):
-                                return orig_sub(*sa, **skw)
-                        return orig_sub(*sa, **skw)
+                    _ctx_tracking_list._cape_refetch_wrapped = True  # type: ignore[attr-defined]
+                    _record_attr_patch(g_db, "list_tasks", orig_list)
+                    setattr(g_db, "list_tasks", _ctx_tracking_list)
 
-                    setattr(_gmod.db, "list_tasks", _tracking_list)
-                    setattr(_gmod, "submit_file", _scoped_submit)
+                tok = _refetch_state_ctx.set({"db": g_db, "tasks_by_sample": None, "current_tid": None})
                 try:
                     return _orig(*a, **kw)
                 finally:
-                    if callable(orig_list):
-                        setattr(_gmod.db, "list_tasks", orig_list)
-                    if callable(orig_sub):
-                        setattr(_gmod, "submit_file", orig_sub)
+                    _refetch_state_ctx.reset(tok)
 
             _wrapped_refetch._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            _record_attr_patch(gcp_mod, "gcs_refetch_banned", orig_refetch)
             setattr(gcp_mod, "gcs_refetch_banned", _wrapped_refetch)
+            _rebind_from_imports("gcs_refetch_banned", {id(orig_refetch): _wrapped_refetch})
+        elif orig_refetch is not None:
+            unwrapped_refetch = getattr(orig_refetch, "__wrapped__", None)
+            if unwrapped_refetch is not None:
+                _rebind_from_imports("gcs_refetch_banned", {id(unwrapped_refetch): orig_refetch})
     except Exception:
         pass
 
@@ -1447,7 +1530,7 @@ def _ensure_tenancy_indexes() -> None:
     if _tenancy_indexes_ready or not multitenancy_config().enabled:
         return
     try:
-        from dev_utils.mongodb import mongo_create_index, results_db
+        from dev_utils.mongodb import mongo_create_index
         from pymongo import ASCENDING
 
         for keys, name in (
@@ -1455,7 +1538,7 @@ def _ensure_tenancy_indexes() -> None:
             ([("info.tenant_id", ASCENDING), ("info.visibility", ASCENDING)], "info.tenant_id_1_info.visibility_1"),
             ([("info.user_id", ASCENDING)], "info.user_id_1"),
         ):
-            mongo_create_index(results_db.analysis, keys, background=True, name=name)
+            mongo_create_index("analysis", keys, background=True, name=name)
         _tenancy_indexes_ready = True
     except Exception as e:
         log.debug("Could not ensure tenancy MongoDB indexes: %s", e)
@@ -1549,18 +1632,19 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
                     db_obj = Database()
                 ensure_acl_schema_once(db_obj.engine)
                 with Session(db_obj.engine) as acl_session, acl_session.begin():
-                    existing_acl = acl_session.get(TaskAcl, int(loc_tid))
-                    eff_vis = cli_vis if cli_vis else (existing_acl.visibility if existing_acl else "private")
-                    eff_tid = cli_tid if cli_tid is not None else (existing_acl.tenant_id if existing_acl else None)
-                    eff_uid = existing_acl.user_id if existing_acl else info.get("user_id")
                     acl_row = set_task_acl(
-                        acl_session, int(loc_tid), user_id=eff_uid, tenant_id=eff_tid, visibility=eff_vis
+                        acl_session, int(loc_tid), tenant_id=cli_tid, visibility=cli_vis or None
                     )
+                    if acl_row.user_id is None and info.get("user_id") is not None:
+                        acl_row.user_id = info.get("user_id")
+                        acl_session.flush()
                     acl_override["visibility_seq"] = int(acl_row.visibility_seq or 1)
                     if isinstance(task, dict):
                         task["_acl_override"] = dict(acl_override)
             except Exception as e:
                 log.debug("Failed to apply CLI TaskAcl override for task %s: %s", loc_tid, e)
+
+    stamped_from_db = False
 
     def _apply_dist_and_override() -> None:
         task_acl = attrs.get("task_acl") if isinstance(attrs, dict) else None
@@ -1570,8 +1654,11 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
                 info[k] = default if val is None and default is not None else val
         eff_override = (task.get("_acl_override") if isinstance(task, dict) else None) or acl_override
         if isinstance(eff_override, dict) and eff_override:
+            db_newer = stamped_from_db and int(info.get("visibility_seq") or 0) > int(eff_override.get("visibility_seq") or 0)
             for k in ("tenant_id", "visibility", "visibility_seq"):
                 if k in eff_override and eff_override[k] is not None:
+                    if db_newer and k in ("visibility", "visibility_seq"):
+                        continue
                     info[k] = eff_override[k]
 
     if not multitenancy_config().enabled:
@@ -1584,7 +1671,6 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
     # Filed under the main/central server's task id (dist, object-storage bridge): this node's
     # task_acl row with that number is not that task's ACL; the stamp that server sent applies.
     renumbered = info.get("local_task_id") is not None
-    stamped_from_db = False
     if not renumbered:
         try:
             from lib.cuckoo.core.database import Database

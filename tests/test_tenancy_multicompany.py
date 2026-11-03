@@ -1136,3 +1136,151 @@ def test_mongo_delete_data_preserves_shared_file_refs_and_reconcile_cli_handles_
         adopted = session.get(TaskAcl, 8888)
         assert adopted is not None and adopted.visibility == PUBLIC and adopted.user_id == 11
 
+
+def test_gcs_refetch_banned_inherits_source_scope_and_rebinds_dist(db, temp_pe32, monkeypatch):
+    from pathlib import Path
+    import sys
+
+    from sqlalchemy.orm import Session
+
+    import lib.cuckoo.common.gcp as gcp_mod
+    from lib.cuckoo.core.data.task import TASK_BANNED, Task
+    from lib.tenancy import hooks as thooks
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    monkeypatch.setattr(gcp_mod, "HAVE_GCP", True)
+    pe_bytes = Path(temp_pe32).read_bytes()
+    monkeypatch.setattr(gcp_mod, "download_from_gcs", lambda uri, dst: Path(dst).write_bytes(pe_bytes) or True)
+
+    core_hooks.clear_all_hooks()
+    fake_dist = types.ModuleType("fake_dist_refetch")
+    fake_dist.gcs_refetch_banned = gcp_mod.gcs_refetch_banned
+    monkeypatch.setitem(sys.modules, "fake_dist_refetch", fake_dist)
+    ensure_acl_schema(db.engine)
+    try:
+        thooks.register_core_hooks()
+        assert fake_dist.gcs_refetch_banned is gcp_mod.gcs_refetch_banned
+        assert getattr(fake_dist.gcs_refetch_banned, "_cape_tenancy_wrapped", False)
+
+        set_current_viewer(ViewerContext(user_id=8, is_authenticated=True, tenant_id=2, tenant_ids=frozenset({2})))
+        set_current_submission_visibility("private")
+        src_tid = db.add_path(str(temp_pe32), user_id=8)
+        with db.session.begin():
+            t = db.session.get(Task, src_tid)
+            t.status = TASK_BANNED
+        set_current_viewer(None)
+        set_current_submission_visibility(None)
+
+        fake_dist.gcs_refetch_banned("1d", samples_bucket="test-bucket")
+        with Session(db.engine) as s:
+            all_tasks = s.query(Task).order_by(Task.id).all()
+            assert len(all_tasks) == 2
+            new_tid = all_tasks[-1].id
+            assert new_tid != src_tid
+            acl = s.get(TaskAcl, new_tid)
+            assert acl is not None
+            assert (acl.user_id, acl.tenant_id, acl.visibility) == (8, 2, "private")
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_reprocess_tenant_id_does_not_revert_concurrent_visibility_tightening(tmp_path, monkeypatch):
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    from lib.tenancy import hooks as thooks
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+
+    engine = sa.create_engine(f"sqlite:///{tmp_path}/reproc_race.db")
+    ensure_acl_schema(engine)
+    with Session(engine) as s:
+        set_task_acl(s, 15, user_id=8, tenant_id=2, visibility="public")
+        s.commit()
+
+    orig_set_acl = thooks.set_task_acl
+
+    def _set_acl_after_concurrent_toggle(session, task_id, **kw):
+        # Simulate a concurrent toggle tightening task 15 to private right before set_task_acl locks it
+        with Session(engine) as concurrent_session:
+            toggle_task_visibility_cas(concurrent_session, int(task_id), "private")
+        return orig_set_acl(session, task_id, **kw)
+
+    monkeypatch.setattr(thooks, "set_task_acl", _set_acl_after_concurrent_toggle)
+    monkeypatch.setattr(
+        "lib.cuckoo.core.database.Database",
+        lambda: types.SimpleNamespace(engine=engine, session=Session(engine)),
+    )
+
+    task_dict = {"id": 15, "attributes": {}}
+    results = {"info": {"id": 15, "user_id": 8}}
+    thooks.default_report_stamp_hook(
+        results, task=task_dict, db=types.SimpleNamespace(engine=engine), tenant_id=5, stage="process"
+    )
+    with Session(engine) as s:
+        row = s.get(TaskAcl, 15)
+        assert (row.user_id, row.tenant_id, row.visibility) == (8, 5, "private")
+    assert (results["info"]["tenant_id"], results["info"]["visibility"]) == (5, "private")
+
+
+def test_ensure_tenancy_indexes_and_check_file_uniq_utc(db, temp_pe32, monkeypatch):
+    import os
+    import time
+
+    import dev_utils.mongodb as dm
+    from lib.tenancy import hooks as thooks
+
+    # 1. _ensure_tenancy_indexes passes collection name "analysis" (not Collection object)
+    created_indexes = []
+
+    class _FakeAnalysisColl:
+        def create_index(self, index, background=True, name=False):
+            created_indexes.append((index, background, name))
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setattr(thooks, "_tenancy_indexes_ready", False)
+    monkeypatch.setattr(dm, "results_db", types.SimpleNamespace(analysis=_FakeAnalysisColl()))
+    thooks._ensure_tenancy_indexes()
+    assert len(created_indexes) == 3
+    assert thooks._tenancy_indexes_ready is True
+
+    # 2. _wrapped_check_uniq uses UTC even when local timezone is ahead of UTC (e.g. Etc/GMT-5 = UTC+5)
+    ensure_acl_schema(db.engine)
+    core_hooks.clear_all_hooks()
+    try:
+        thooks.register_core_hooks()
+        set_current_viewer(ViewerContext(user_id=8, is_authenticated=True, tenant_id=2, tenant_ids=frozenset({2})))
+        tid = db.add_path(str(temp_pe32), user_id=8)
+        sha256 = db.view_sample(db.view_task(tid).sample_id).sha256
+        old_tz = os.environ.get("TZ")
+        os.environ["TZ"] = "Etc/GMT-5"
+        if hasattr(time, "tzset"):
+            time.tzset()
+        try:
+            with db.session.begin():
+                assert db.check_file_uniq(sha256, hours=1) is True
+        finally:
+            if old_tz is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = old_tz
+            if hasattr(time, "tzset"):
+                time.tzset()
+    finally:
+        set_current_viewer(None)
+        core_hooks.clear_all_hooks()
+
+

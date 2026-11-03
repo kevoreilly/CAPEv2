@@ -208,12 +208,19 @@ Run ``sudo netplan apply`` to apply the new ``netplan`` configuration. You can v
 Protecting host ports
 =====================
 
-By default, most Linux network services listen on all network interface
+By default, most Linux network services listen on all network
 interfaces/addresses, leaving the services running on the host machine
 exposed to potential attacks from the analysis VMs.
 
-To mitigate this issue, use the ``ufw`` firewall included with Ubuntu.
-It will not break CAPE’s per-analysis network routing.
+CAPE supports per-analysis rejection of host ports and internal network
+segments directly in ``$CWD/conf/routing.conf`` via ``cape-rooter``::
+
+   [routing]
+   reject_segments = 192.168.12.0/24,172.16.22.0/24
+   reject_hostports = 22,80,443,8000,8080
+
+Alternatively, you can use the ``ufw`` firewall included with Ubuntu to
+restrict administrative services to the management interface.
 
 Allow access to administrative services using the interface that is
 being used for management of the sandbox. Network interface details can
@@ -235,12 +242,12 @@ for your server.
    sudo ufw allow in on enp8s0 to 10.23.6.66 port 22 proto tcp
 
    # SMB (smbd is enabled by default on desktop versions of Ubuntu)
-   sudo ufw allow in on enp8s0 to 10.23.6.66 port 22 proto tcp
-
-   # RDP (if xrdp is used on the server)
    sudo ufw allow in on enp8s0 to 10.23.6.66 port 445 proto tcp
 
-Allow analysis VMs to access the CAPE result server, which used TCP port
+   # RDP (if xrdp is used on the server)
+   sudo ufw allow in on enp8s0 to 10.23.6.66 port 3389 proto tcp
+
+Allow analysis VMs to access the CAPE result server, which uses TCP port
 ``2042`` by default.
 
 In this example the host interface name is ``virbr1`` with an IP address
@@ -251,7 +258,13 @@ your server.
 
    sudo ufw allow in on virbr1 to 192.168.42.1 port 2042 proto tcp
 
-Enable the firewall after all of the rules have ben configured.
+.. note::
+   If you use routing modes that redirect VM traffic to local services on
+   the host (such as Tor ``proxyport``/``dnsport``, SOCKS5
+   ``proxyport``/``dnsport``, a host-local InetSim instance, or
+   ``mitmdump``), you must also allow those ports on ``virbr1`` in ``ufw``.
+
+Enable the firewall after all of the rules have been configured.
 
 .. code:: bash
 

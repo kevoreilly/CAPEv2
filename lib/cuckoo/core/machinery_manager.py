@@ -209,12 +209,10 @@ class MachineryManager:
 
     def find_machine_to_service_task(self, task: Task) -> Optional[Machine]:
         machine = self.machinery.find_machine_to_service_task(task)
-        main_task_id = task.get_attribute("main_task_id") if hasattr(task, "get_attribute") else None
-        task_label = f"{task.id} ({main_task_id})" if main_task_id else str(task.id)
         if machine:
             log.info(
                 "Task #%s: found useable machine %s (arch=%s, platform=%s)",
-                task_label,
+                task.id,
                 machine.name,
                 machine.arch,
                 machine.platform,
@@ -222,7 +220,7 @@ class MachineryManager:
         else:
             log.debug(
                 "Task #%s: no machine available yet for task requiring machine '%s', platform '%s' or tags '%s'.",
-                task_label,
+                task.id,
                 task.machine,
                 task.platform,
                 task.tags,

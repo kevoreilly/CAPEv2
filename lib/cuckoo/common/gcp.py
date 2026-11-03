@@ -133,14 +133,38 @@ class GCSUploader:
                 for local_path, relative_path in self._iter_files_to_upload(source_directory):
                     archive.write(local_path, os.path.join(str(analysis_id), relative_path))
         try:
-            log.debug("[GCS   ] CAPE ID: %s ==> Uploading '%s' as '%s'", analysis_id, tmp_zip_file_name, blob_name)
+            file_size = os.path.getsize(tmp_zip_file_name)
+            file_size_human = f"{file_size / (1024 * 1024):.2f} MB" if file_size >= 1024 * 1024 else f"{file_size / 1024:.2f} KB"
+
+            log.debug(
+                "[GCS   ] CAPE ID: %s ==> Uploading '%s' (%s) as '%s' to GCS bucket '%s'",
+                analysis_id,
+                tmp_zip_file_name,
+                file_size_human,
+                blob_name,
+                self.bucket.name,
+            )
+
             blob = self.bucket.blob(blob_name)
             if metadata:
                 blob.metadata = metadata
+
+            start_time = time.time()
             blob.upload_from_filename(tmp_zip_file_name)
+            duration = time.time() - start_time
+
+            throughput = (file_size / (1024 * 1024)) / duration if duration > 0 else 0
+
+            log.info(
+                "[GCS   ] CAPE ID: %s ==> Successfully uploaded %s archive to GCS bucket '%s' in %.2f seconds (%.2f MB/s).",
+                analysis_id,
+                file_size_human,
+                self.bucket.name,
+                duration,
+                throughput,
+            )
         finally:
             os.unlink(tmp_zip_file_name)
-        log.info("[GCS   ] CAPE ID: %s ==> Successfully uploaded archive to GCS.", analysis_id)
 
     def upload_files_individually(
         self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
@@ -148,15 +172,33 @@ class GCSUploader:
         log.debug("[GCS   ] CAPE ID: %s ==> Uploading individual files to GCS", analysis_id)
         folder_name = f"{analysis_id}_tlp_{tlp}" if tlp else str(analysis_id)
 
+        start_time = time.time()
+        total_size = 0
+        file_count = 0
+
         for local_path, relative_path in self._iter_files_to_upload(source_directory):
             blob_name = f"{folder_name}/{relative_path}"
-            # log.debug("Uploading '%s' to '%s'", local_path, blob_name)
             blob = self.bucket.blob(blob_name)
             if metadata:
                 blob.metadata = metadata
+
+            total_size += os.path.getsize(local_path)
+            file_count += 1
             blob.upload_from_filename(local_path)
 
-        log.info("[GCS   ] CAPE ID: %s ==> Successfully uploaded files to GCS.", analysis_id)
+        duration = time.time() - start_time
+        total_size_human = f"{total_size / (1024 * 1024):.2f} MB" if total_size >= 1024 * 1024 else f"{total_size / 1024:.2f} KB"
+        throughput = (total_size / (1024 * 1024)) / duration if duration > 0 else 0
+
+        log.info(
+            "[GCS   ] CAPE ID: %s ==> Successfully uploaded %d files (%s) to GCS bucket '%s' in %.2f seconds (%.2f MB/s).",
+            analysis_id,
+            file_count,
+            total_size_human,
+            self.bucket.name,
+            duration,
+            throughput,
+        )
 
     def check_exists(self, analysis_id: int) -> bool:
         """Check if any blobs exist for the given analysis ID."""

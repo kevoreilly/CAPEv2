@@ -10,7 +10,7 @@ urlpatterns = [
     re_path(r"^$", views.index, name="analysis"),
     re_path(r"^page/(?P<page>\d+)/$", views.index, name="index"),
     re_path(r"^(?P<task_id>\d+)/$", views.report, name="report"),
-    re_path(r"^load_files/(?P<task_id>\d+)/(?P<category>\w+)/$", views.load_files, name="load_files"),
+    re_path(r"^load_files/(?P<task_id>\d+)/(?P<category>[\w\.]+)/$", views.load_files, name="load_files"),
     re_path(r"^load_evtx_channel/(?P<task_id>\d+)/$", views.load_evtx_channel, name="load_evtx_channel"),
     re_path(r"^load_evtx_channel_count/(?P<task_id>\d+)/$", views.load_evtx_channel_count, name="load_evtx_channel_count"),
     re_path(r"^surialert/(?P<task_id>\d+)/$", views.surialert, name="surialert"),
@@ -22,11 +22,11 @@ urlpatterns = [
     re_path(r"^signature-calls/(?P<task_id>\d+)/$", views.signature_calls, name="signature-calls"),
     re_path(r"^chunk/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<pagenum>\d+)/$", views.chunk, name="chunk"),
     re_path(
-        r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>\w+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$",
+        r"^filtered/(?P<task_id>\d+)/(?P<pid>\d+)/(?P<category>[\w\.]+)/(?P<apilist>[!]?[A-Za-z_0-9,%]*)/(?P<caller>\w+)/(?P<tid>\w+)/$",
         views.filtered_chunk,
         name="filtered_chunk",
     ),
-    re_path(r"^file_nl/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", views.file_nl, name="file_nl"),
+    re_path(r"^file_nl/(?P<category>[\w\.]+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", views.file_nl, name="file_nl"),
     re_path(r"^search/(?P<task_id>\d+)/$", views.search_behavior, name="search_behavior"),
     re_path(r"^search/(?P<searched>[\w\d\s:\-_\.]+)/$", views.search, name="search"),
     re_path(r"^search/$", views.search, name="search"),
@@ -46,6 +46,6 @@ urlpatterns = [
     re_path(r"^(?P<task_id>\d+)/pcapstream/(?P<conntuple>[.,\w]+)/$", views.pcapstream, name="pcapstream"),
     re_path(r"^(?P<task_id>\d+)/comments/$", views.comments, name="comments"),
     re_path(
-        r"^on_demand/(?P<service>[\w\-_]+)/(?P<task_id>\d+)/(?P<category>\w+)/(?P<sha256>\w{64})", views.on_demand, name="on_demand"
+        r"^on_demand/(?P<service>[\w\-_]+)/(?P<task_id>\d+)/(?P<category>[\w\.]+)/(?P<sha256>\w{64})", views.on_demand, name="on_demand"
     ),
 ]

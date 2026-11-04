@@ -40,7 +40,8 @@
     * `PipeServer.run()` retried `CreateNamedPipeW` with no delay and no limit. A pipe name that cannot be created turned the thread into a spin loop that burned a core and flooded the log for the rest of the analysis. It now backs off 100 ms and gives up after 100 consecutive failures.
     * `PipeDispatcher._read_message()` accumulated `buf.value`, which stops at the first NUL byte and ignores the byte count the API reports, so a message containing an embedded NUL was truncated and its tail was parsed as a new command. It now uses `buf.raw[:bytes_read.value]` and strips the trailing NUL terminator.
     * Finished handler threads are dropped from `PipeServer.handlers` instead of being retained for the whole analysis.
-
+* Windows analyzer human interaction (`analyzer/windows/modules/auxiliary/human.py`):
+    * The main loop incremented a counter once per iteration and used it as a second count, but an iteration is not one second: `realistic_human_cursor_movement()` runs for 5 seconds on its own and `move_mouse_realistically()` sleeps per step. Every schedule keyed on that counter - the document window pass at 45/30 seconds and the foreground window switch at 15 + randoff - stretched by however long the sample made the loop take. They now use `time.monotonic()` deadlines.
 
 ### [02.11.2026]
 * Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):

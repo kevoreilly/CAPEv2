@@ -146,7 +146,7 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN):
+def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN, bytes_to_str: bool = False):
     """Sanitize UTF-8 and cap oversized call values using copy-on-write so caller data is not mutated."""
     if isinstance(obj, str):
         if len(obj) > max_len:
@@ -157,13 +157,14 @@ def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN):
             obj = obj.encode("utf-8", "replace").decode("utf-8")
         return obj
     if type(obj) is bytes:
-        return obj[:max_len] if len(obj) > max_len else obj
+        trimmed = obj[:max_len] if len(obj) > max_len else obj
+        return str(trimmed) if bytes_to_str else trimmed
     if isinstance(obj, datetime.datetime):
         return obj.strftime("%Y-%m-%d %H:%M:%S")
     if isinstance(obj, dict):
         new_dict = None
         for k, v in obj.items():
-            new_v = _sanitize_call_data(v, max_len)
+            new_v = _sanitize_call_data(v, max_len, bytes_to_str=bytes_to_str)
             if new_v is not v:
                 if new_dict is None:
                     new_dict = dict(obj)
@@ -172,7 +173,7 @@ def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN):
     if isinstance(obj, list):
         new_list = None
         for idx, v in enumerate(obj):
-            new_v = _sanitize_call_data(v, max_len)
+            new_v = _sanitize_call_data(v, max_len, bytes_to_str=bytes_to_str)
             if new_v is not v:
                 if new_list is None:
                     new_list = list(obj)
@@ -222,7 +223,10 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                     yield {
                         "_index": get_daily_calls_index(),
                         "_op_type": "index",
-                        "_source": {"pid": process_id, "calls": call_chunk},
+                        "_source": {
+                            "pid": process_id,
+                            "calls": _sanitize_call_data(call_chunk, bytes_to_str=True),
+                        },
                     }
 
             for res in parallel_bulk(elastic_db, gendata(chunks(process["calls"], CHUNK_CALL_SIZE), process["process_id"])):

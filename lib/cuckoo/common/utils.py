@@ -253,6 +253,84 @@ def delete_folder(folder):
             raise CuckooOperationalError(f"Unable to delete folder: {folder}") from e
 
 
+_SHA256_HEX_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def get_files_storage_path(sha256: str) -> str:
+    """Return the path for a file in the sharded storage/files directory.
+    Checks flat legacy path first for backward compatibility.
+    """
+    sha256 = str(sha256).strip().lower()
+    if not _SHA256_HEX_RE.fullmatch(sha256):
+        raise ValueError(f"Invalid SHA256 digest: {sha256!r}")
+    flat_path = os.path.join(CUCKOO_ROOT, "storage", "files", sha256)
+    if os.path.exists(flat_path):
+        return flat_path
+    return os.path.join(CUCKOO_ROOT, "storage", "files", sha256[:2], sha256[2:4], sha256)
+
+
+def deduplicate_file_to_storage(src_path: str, sha256: str, dest_path: str = None) -> str:
+    """Atomically store a file in the sharded storage/files directory and replace dest_path with a symlink.
+
+    If dest_path is None, src_path is replaced in-place with a symlink to the sharded master file.
+    When the master file already exists, its timestamps are refreshed via os.utime so age-based
+    cleanup (files_clean_before) reflects the most recent analysis referencing the artifact.
+    """
+    if dest_path is None:
+        dest_path = src_path
+
+    master_path = get_files_storage_path(sha256)
+    if os.path.abspath(src_path) == os.path.abspath(master_path):
+        return master_path
+
+    files_storage_dir = os.path.dirname(master_path)
+
+    if not path_exists(master_path):
+        path_mkdir(files_storage_dir, exist_ok=True)
+        fd, tmp_master = tempfile.mkstemp(prefix=f".{sha256}.", dir=files_storage_dir)
+        os.close(fd)
+        try:
+            shutil.copy2(src_path, tmp_master)
+            with contextlib.suppress(OSError):
+                os.chmod(tmp_master, 0o644)
+            os.replace(tmp_master, master_path)
+        except Exception:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_master)
+            raise
+    else:
+        with contextlib.suppress(OSError):
+            os.utime(master_path, None)
+
+    if src_path != dest_path and os.path.lexists(src_path):
+        with contextlib.suppress(OSError):
+            os.unlink(src_path)
+
+    if os.path.islink(dest_path) and os.readlink(dest_path) == master_path and path_exists(dest_path):
+        return master_path
+
+    dest_dir = os.path.dirname(dest_path)
+    if dest_dir:
+        path_mkdir(dest_dir, exist_ok=True)
+
+    tmp_link = f"{dest_path}.tmp.{os.getpid()}.{random.randint(1000, 9999)}"
+    try:
+        os.symlink(master_path, tmp_link)
+        os.replace(tmp_link, dest_path)
+    except (OSError, AttributeError):
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_link)
+        if os.path.lexists(dest_path):
+            with contextlib.suppress(OSError):
+                os.unlink(dest_path)
+        try:
+            os.symlink(master_path, dest_path)
+        except (OSError, AttributeError):
+            shutil.copy2(master_path, dest_path)
+
+    return master_path
+
+
 # Don't allow all characters in "string.printable", as newlines, carriage
 # returns, tabs, \x0b, and \x0c may mess up reports.
 # The above is true, but apparently we only care about \x0b and \x0c given

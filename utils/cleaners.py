@@ -64,6 +64,11 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
+        "--delete-files-items-older-than",
+        help="Remove all unreferenced items in files folder older than time range",
+        required=False,
+    )
+    parser.add_argument(
         "-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true"
     )
     parser.add_argument(

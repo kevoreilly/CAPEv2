@@ -79,6 +79,7 @@ def _trusted_roots(base_real: str) -> list[str]:
     storage_root = os.path.dirname(os.path.dirname(base_real))
     return [
         os.path.realpath(os.path.join(storage_root, "binaries")),
+        os.path.realpath(os.path.join(storage_root, "files")),
         os.path.realpath(os.path.join(storage_root, "guacrecordings")),
     ]
 

@@ -885,6 +885,42 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertNotIn(4242, self.analyzer.process_list.pids)
         monitored_process.close.assert_called_once()
 
+    def test_monitored_reaper_dumps_procmemdump_via_files_dump_file(self):
+        monitored_process = MagicMock()
+        monitored_process.is_alive.return_value = False
+        self.analyzer.options = {"procmemdump": True}
+        self.analyzer.files = MagicMock()
+        self.analyzer.process_list.add_pid(4242)
+        with patch("analyzer.MONITORED_PROCESSES", {4242: monitored_process}):
+            self.analyzer.reap_monitored_processes()
+
+        self.analyzer.files.dump_file.assert_called_once_with(
+            analyzer.os.path.join(analyzer.PATHS["memory"], "4242.dmp"),
+            pids=["4242"],
+            category="memory",
+        )
+        monitored_process.upload_memdump.assert_not_called()
+        monitored_process.close.assert_called_once()
+
+    @patch("analyzer.process_instance_id", return_value=100)
+    @patch("analyzer.Process")
+    def test_open_process_instance_preserves_thread_id_without_opening_thread_handle(
+        self, mock_process, mock_process_instance_id
+    ):
+        process = mock_process.return_value
+        process.h_process = 1
+        returned_process, identity = self.pipe_handler._open_process_instance(4242, 101)
+
+        mock_process.assert_called_once_with(
+            options=self.analyzer.options,
+            config=self.analyzer.config,
+            pid=4242,
+            thread_id=0,
+        )
+        process.open.assert_called_once_with()
+        self.assertEqual(101, returned_process.thread_id)
+        self.assertEqual(100, identity)
+
     @patch("analyzer.Process")
     def test_handle_kprocess(self, mock_process):
         ana = self.analyzer

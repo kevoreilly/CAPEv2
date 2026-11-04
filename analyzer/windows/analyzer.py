@@ -413,7 +413,11 @@ class Analyzer:
                 continue
             if self.options.get("procmemdump", False):
                 try:
-                    process.upload_memdump()
+                    self.files.dump_file(
+                        os.path.join(PATHS["memory"], f"{pid}.dmp"),
+                        pids=[str(pid)],
+                        category="memory",
+                    )
                 except Exception as e:
                     log.exception(e)
             log.info("Process with pid %s appears to have terminated", pid)
@@ -860,11 +864,11 @@ class Analyzer:
                 # the monitored processes are still alive.
                 if not kernel_analysis:
                     self.reap_pending_injections()
-                    self.reap_monitored_processes()
                 if self.pid_check:
                     # We also track the PIDs provided by zer0m0n.
                     # self.process_list.add_pids(zer0m0n.getpids())
                     if not kernel_analysis:
+                        self.reap_monitored_processes()
                         # Iterate a copy: remove_pid() below mutates this list,
                         # and so do the pipe handler threads. Walking the live
                         # list makes the iterator skip the entry after every
@@ -873,11 +877,14 @@ class Analyzer:
                         # each - one second apiece.
                         for pid in self.process_list.pids[:]:
                             with self.process_lock:
-                                retained_process = MONITORED_PROCESSES.get(pid)
-                            if retained_process is not None:
-                                continue
-                            process = retained_process or Process(pid=pid)
-                            if not process.is_alive():
+                                if pid in MONITORED_PROCESSES:
+                                    continue
+                            process = Process(pid=pid)
+                            try:
+                                alive = process.is_alive()
+                            finally:
+                                process.close()
+                            if not alive:
                                 if self.options.get("procmemdump", False):
                                     try:
                                         self.files.dump_file(
@@ -891,10 +898,6 @@ class Analyzer:
                                 with self.process_lock:
                                     if pid in self.process_list.pids:
                                         self.process_list.remove_pid(pid)
-                                    if MONITORED_PROCESSES.get(pid) is retained_process:
-                                        MONITORED_PROCESSES.pop(pid, None)
-                                if retained_process is not None:
-                                    retained_process.close()
 
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.
@@ -1220,9 +1223,10 @@ class CommandPipeHandler:
             options=self.analyzer.options,
             config=self.analyzer.config,
             pid=pid,
-            thread_id=thread_id,
+            thread_id=0,
         )
         process.open()
+        process.thread_id = thread_id
         if not process.h_process:
             process.close()
             return None, None
@@ -1481,24 +1485,18 @@ class CommandPipeHandler:
         for provider_pid in pids_from_image_names(["WmiPrvSE.exe"]):
             provider = self._reserve_injection(provider_pid)
             if provider is None:
-                with self.analyzer.process_lock:
-                    known_process = provider_pid in INJECT_LIST or self.analyzer.process_list.has_pid(provider_pid)
-                if not known_process:
-                    self.analyzer.WMI_PROVIDER_RETRY_AT = timeit.default_timer() + 5
                 continue
 
             try:
                 filepath = provider.get_filepath()
                 if not provider.inject(interest=filepath, nosleepskip=True):
                     self._release_injection(provider_pid, provider)
-                    self.analyzer.WMI_PROVIDER_RETRY_AT = timeit.default_timer() + 5
                     continue
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(provider_pid))
                 self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                 KERNEL32.Sleep(2000)
             except Exception:
                 self._release_injection(provider_pid, provider)
-                self.analyzer.WMI_PROVIDER_RETRY_AT = timeit.default_timer() + 5
                 log.exception("Unable to inject existing WMI provider with pid %d", provider_pid)
 
         with self.analyzer.process_lock:

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 from sqlalchemy import String, cast, select
 from sqlalchemy.orm import Session
 
-from lib.tenancy.acl import TaskAcl, own_report_job_ids
+from lib.tenancy.acl import TaskAcl
 from lib.tenancy.policy import PRIVATE, PUBLIC, VISIBILITIES
 
 
@@ -119,14 +119,12 @@ def plan_reconcile_stamps(
 ) -> Iterable[List[Tuple[Any, Dict[str, Any]]]]:
     """Yield batches of `(doc key, stamp)` for report docs whose stamp differs from `task_acl`.
 
-    Each doc is `{"key", "id", "job_id", <stamp fields>}`. Unlike the backfills above, this
+    Each doc is `{"key", "id", <stamp fields>}`. Unlike the backfills above, this
     overwrites existing stamps: pre-stack installs stamped `info.tenant_id` from their own Tenant
     ids, which collide with the Group ids used now.
 
-    A doc is matched to the ACL row whose `external_job_id` is its job id. Otherwise it is matched
-    by `info.id` only when it is the task's own report (see `own_report_job_ids`): no job id,
-    `ui-<info.id>` or `local-<info.id>`. Any other doc (a broker job's) is left alone and its key
-    appended to `skipped`. A matched doc without an ACL row is
+    A doc is matched to the ACL row by `info.id`. Any doc without a valid `info.id` is left alone
+    and its key appended to `skipped`. A matched doc without an ACL row is
     stamped `fallback_visibility` with no tenant, owned (as `resolve_task_scope` resolves it) by
     its task's `tasks.user_id` (unless `preserve_public_without_acl` is True and the doc already
     carries `visibility='public'` with `tenant_id=None`).
@@ -138,41 +136,32 @@ def plan_reconcile_stamps(
 
     def _flush(batch: List[Dict[str, Any]]) -> List[Tuple[Any, Dict[str, Any]]]:
         task_ids = {int(d["id"]) for d in batch if isinstance(d.get("id"), int)}
-        job_ids = {str(d["job_id"]) for d in batch if d.get("job_id")}
         by_task: Dict[int, TaskAcl] = {}
-        by_job: Dict[str, TaskAcl] = {}
         if task_ids:
             by_task = {r.task_id: r for r in session.scalars(select(TaskAcl).where(TaskAcl.task_id.in_(task_ids)))}
-        if job_ids:
-            by_job = {r.external_job_id: r for r in session.scalars(select(TaskAcl).where(TaskAcl.external_job_id.in_(job_ids)))}
         unmatched = {i for i in task_ids if i not in by_task}
         owners = owners_of(unmatched) if unmatched else {}
         ops = []
         for doc in batch:
-            job_id = str(doc["job_id"]) if doc.get("job_id") else None
             tid = doc.get("id") if isinstance(doc.get("id"), int) else None
-            acl = by_job.get(job_id) if job_id else None
-            if acl is None:
-                own_jobs = {None} | (set(own_report_job_ids(tid)) if tid is not None else set())
-                row = by_task.get(tid) if tid is not None else None
-                if tid is None or job_id not in own_jobs or (row is not None and row.external_job_id not in ({None, ""} | own_jobs)):
-                    if skipped is not None:
-                        skipped.append(doc["key"])
-                    continue
-                acl = row
+            if tid is None:
+                if skipped is not None:
+                    skipped.append(doc["key"])
+                continue
+            acl = by_task.get(tid)
             if acl is not None:
                 stamp = _acl_stamp(acl)
             else:
                 stamp = dict(fallback)
                 stamp["user_id"] = owners.get(tid) or None  # tasks.user_id 0 is add()'s "no owner"
                 if doc.get("visibility") == PUBLIC and doc.get("tenant_id") is None:
-                    if unrecorded_public is not None and tid is not None and tid not in unrecorded_public:
+                    if unrecorded_public is not None and tid not in unrecorded_public:
                         unrecorded_public.append(tid)
                     if abort_on_unrecorded_public:
                         continue
                     if preserve_public_without_acl or adopt_public_without_acl:
                         stamp["visibility"] = PUBLIC
-                        if adopt_public_without_acl and tid is not None and tid not in by_task:
+                        if adopt_public_without_acl and tid not in by_task:
                             new_row = TaskAcl(
                                 task_id=int(tid),
                                 user_id=stamp["user_id"],
@@ -208,13 +197,13 @@ def _task_owners(session: Session, task_ids: Iterable[int]) -> Dict[int, Any]:
 
 def _doc_from_info(key: Any, info: Any) -> Dict[str, Any]:
     info = info if isinstance(info, dict) else {}
-    doc = {"key": key, "id": info.get("id"), "job_id": info.get("job_id")}
+    doc = {"key": key, "id": info.get("id")}
     for field in _STAMP_FIELDS:
         doc[field] = info.get(field)
     return doc
 
 
-_INFO_PROJECTION = ["info.id", "info.job_id"] + [f"info.{field}" for field in _STAMP_FIELDS]
+_INFO_PROJECTION = ["info.id"] + [f"info.{field}" for field in _STAMP_FIELDS]
 
 
 def _mongo_reconcile_filter(key: Any, stamp: Dict[str, Any]) -> Dict[str, Any]:
@@ -366,15 +355,10 @@ def _resync_one(session: Session, task_id: int) -> bool:
 
 
 def runs_dist_tasks(session: Session) -> Optional[int]:
-    """The id of a task this node runs for another server, or None: a dist `main_task_id`, or a
-    bridged `job_id=ui-<central id>` from an object-storage broker. Their reports carry that
-    server's ids."""
+    """The id of a task this node runs for another server, or None: a dist `main_task_id`.
+    Their reports carry that server's ids."""
     from lib.cuckoo.core.data.task import Task
-    from lib.tenancy.storage.artifact_storage import job_id_from_custom
 
-    for tid, custom in session.execute(select(Task.id, Task.custom).where(Task.custom.like("%job_id=ui-%"))):
-        if str(job_id_from_custom(custom) or "").startswith("ui-"):
-            return tid
     attr_stmt = select(Task.id, Task.attributes).where(
         Task.attributes.is_not(None),
         cast(Task.attributes, String).like('%"main_task_id"%'),

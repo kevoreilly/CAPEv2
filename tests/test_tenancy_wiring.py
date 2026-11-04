@@ -1126,10 +1126,11 @@ def test_visibility_toggle_restamps_the_elasticsearch_copy_too():
     assert len(calls) == 2
     query, script = calls[-1]
     assert {"term": {"info.id": 42}} in query["bool"]["filter"]
-    assert script["params"] == {
-        "job_id": None,
-        "own_job_ids": ["ui-42", "local-42"],
-        "stamp": {"user_id": 7, "tenant_id": 1, "visibility": PRIVATE, "visibility_seq": stamp.visibility_seq},
+    assert script["params"]["stamp"] == {
+        "user_id": 7,
+        "tenant_id": 1,
+        "visibility": PRIVATE,
+        "visibility_seq": stamp.visibility_seq,
     }
 
 
@@ -1301,18 +1302,16 @@ def test_central_filereport_serves_the_requested_format(monkeypatch):
     assert tviews.dispatch_object_storage_view(req, filereport, (), {"task_id": "5", "category": "pdf"}) == "report.pdf"
 
 
-@pytest.mark.parametrize("custom", ["job_id=ui-5", "job_id=ui-5,foo=bar", "  job_id=ui-5"])
-def test_submitters_cannot_claim_a_broker_job_id(monkeypatch, custom):
-    # custom "job_id=ui-N" renumbers the report to task N, stamps it with N's ACL, overwrites N's
-    # object-storage prefix and replaces N's Mongo report: only a broker/superuser may send it.
+@pytest.mark.parametrize("custom", ["Recovery_5", "Recovery_5,foo=bar", "  Recovery_5"])
+def test_submitters_cannot_claim_a_recovery_custom_or_dist_attributes(monkeypatch, custom):
     from lib.tenancy.context import reset_current_viewer, set_current_viewer
 
     session, tasking = _reschedule_rig(monkeypatch)
-    customs = []
+    captured = []
     orig = tasking.add
 
     def add(self, obj, custom="", **kw):
-        customs.append(custom)
+        captured.append((custom, kw.get("attributes")))
         return orig(self, obj, **kw)
 
     monkeypatch.setattr(tasking, "add", add)
@@ -1321,10 +1320,17 @@ def test_submitters_cannot_claim_a_broker_job_id(monkeypatch, custom):
     wrap_submission_and_web_utils(tasking_cls=tasking)
     token = set_current_viewer(_viewer(8, 2))
     try:
-        tasking(session).add("target", custom=custom, user_id=8)
+        tasking(session).add(
+            "target",
+            custom=custom,
+            attributes={"main_task_id": 5, "task_acl": {"user_id": 1}, "correlation_id": "corr-1"},
+            user_id=8,
+        )
     finally:
         reset_current_viewer(token)
-    assert "job_id" not in customs[-1]
+    saved_custom, saved_attrs = captured[-1]
+    assert "Recovery_5" not in saved_custom
+    assert saved_attrs == {"correlation_id": "corr-1"}
 
 
 def test_es_restamp_retries_version_conflicts_then_fails_the_toggle(monkeypatch):
@@ -1870,21 +1876,15 @@ def test_untrusted_submitters_cannot_set_a_recovery_custom(monkeypatch):
     assert _strip_untrusted_broker_job_id("note") == "note"
 
 
-def test_untrusted_bare_custom_is_not_taken_as_a_broker_job_id(monkeypatch):
-    # With object storage on, a bare custom token is the broker job id: "local-7" filed the
-    # submitter's report and artifacts under task 7's job, replacing them.
-    from lib.tenancy.context import set_current_viewer
-    from lib.tenancy.hooks import _strip_untrusted_broker_job_id
-    from lib.tenancy.storage import config as storage_cfg
-    from lib.tenancy.storage.artifact_storage import job_id_from_custom
+def test_object_storage_container_uses_task_id_directly(monkeypatch):
+    # Object storage keys artifacts strictly under `<prefix>/<task_id>`, ignoring `Task.custom`.
+    import lib.tenancy.storage.artifact_storage as art_mod
+    from lib.tenancy.storage.config import ObjectStorageConfig
 
-    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
-    set_current_viewer(_viewer(8, 2))
-    for custom in ("local-7", "note"):
-        assert job_id_from_custom(_strip_untrusted_broker_job_id(custom)) is None
-    assert _strip_untrusted_broker_job_id("a=b,c=d") == "a=b,c=d"
-    set_current_viewer(None)  # the broker
-    assert _strip_untrusted_broker_job_id("local-7") == "local-7"
+    cfg = ObjectStorageConfig(enabled=True, backend="s3", bucket="b", prefix="analyses")
+    monkeypatch.setattr(art_mod, "object_storage_config", lambda: cfg)
+    _store, container = art_mod._store_and_container(10, scope=None)
+    assert container == "analyses/10"
 
 
 @pytest.mark.parametrize("view_name", ["statistics_data", "yara_uploader"])
@@ -2175,12 +2175,12 @@ def test_random_vpn_still_runs_when_the_default_route_is_not_allowed():
     assert ok and norm["route"] == "none"
 
 
-def test_a_job_id_field_does_not_smuggle_a_recovery_custom():
+def test_comma_separated_custom_does_not_smuggle_a_recovery_custom():
     from lib.tenancy.context import set_current_viewer
     from lib.tenancy.hooks import _strip_untrusted_broker_job_id
 
     set_current_viewer(_viewer(8, 2))
-    assert _strip_untrusted_broker_job_id("Recovery_5,job_id=x") == ""
+    assert _strip_untrusted_broker_job_id("Recovery_5,foo=bar") == "foo=bar"
 
 
 def test_dlnexec_through_tor_still_needs_internet():
@@ -3123,8 +3123,8 @@ def test_object_storage_dispatch_login_formats_and_memdump_staging(tmp_path, mon
     from lib.tenancy.storage.config import ObjectStorageConfig
 
     store_root = tmp_path / "store"
-    reports_dir = store_root / "results" / "ui-10" / "reports"
-    mem_dir = store_root / "results" / "ui-10" / "memory"
+    reports_dir = store_root / "results" / "10" / "reports"
+    mem_dir = store_root / "results" / "10" / "memory"
     reports_dir.mkdir(parents=True)
     mem_dir.mkdir(parents=True)
     (reports_dir / "report.maec-4.1.xml").write_bytes(b"<maec/>")
@@ -3135,7 +3135,6 @@ def test_object_storage_dispatch_login_formats_and_memdump_staging(tmp_path, mon
     monkeypatch.setattr(storage_cfg, "object_storage_config", lambda: cfg)
     monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: cfg)
     monkeypatch.setattr(art_mod, "object_storage_config", lambda: cfg)
-    monkeypatch.setattr(art_mod, "_job_id_for_task", lambda tid, scope=None: f"ui-{tid}")
     monkeypatch.setattr(scope_mod, "viewer_scope", lambda u: None)
     monkeypatch.setattr(
         "django.shortcuts.render",
@@ -3355,7 +3354,7 @@ def test_compare_view_scoping_does_not_race_across_concurrent_requests(mt_enable
             es_entry = dict(b_queries)["es"]
             mongo_entry = dict(b_queries)["mongo"]
             assert "filter" in es_entry["query"]["bool"]
-            assert "info.job_id" in mongo_entry
+            assert mongo_entry == {"info.id": 2}
         finally:
             if old_cmp is None:
                 sys.modules.pop("compare.views", None)
@@ -3406,8 +3405,8 @@ def test_comments_post_enforces_login_and_es_own_report_job_id(monkeypatch):
                 return {
                     "hits": {
                         "hits": [
-                            {"_id": "es-broker", "_index": "idx", "_source": {"info": {"id": 5, "job_id": "ui-5-extra"}}},
-                            {"_id": "es-own", "_index": "idx", "_source": {"info": {"id": 5, "job_id": "ui-5"}}},
+                            {"_id": "es-other", "_index": "idx", "_source": {"info": {"id": 999}}},
+                            {"_id": "es-own", "_index": "idx", "_source": {"info": {"id": 5}}},
                         ]
                     }
                 }

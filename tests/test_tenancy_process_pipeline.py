@@ -48,7 +48,6 @@ def _proc_env(monkeypatch, tmp_path, object_storage=True, env=None):
         cfg = types.SimpleNamespace(enabled=False)
     monkeypatch.setattr("lib.tenancy.storage.config.object_storage_config", lambda: cfg)
     monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_config", lambda: cfg)
-    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
     monkeypatch.setattr("lib.tenancy.storage.reporting.CUCKOO_ROOT", str(tmp_path))
     for k in ("CAPE_TASK_VISIBILITY", "CAPE_TASK_TENANT_ID", "CAPE_TASK_USER_ID", "CAPE_TASK_VISIBILITY_SEQ", "CAPE_MAIN_TASK_ID"):
         monkeypatch.delenv(k, raising=False)
@@ -112,11 +111,11 @@ def _pick(d):
 
 
 def test_bridged_reprocess_tenant_override_reaches_mongo(monkeypatch, tmp_path):
-    """utils/process.py -r 9 --visibility tenant --tenant-id 5 on an object-storage bridged (non-dist) report."""
+    """utils/process.py -r 9 --visibility tenant --tenant-id 5 on an object-storage (non-dist) report."""
     proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path)
-    task = {"id": 9, "options": "", "custom": "job_id=ui-3", "attributes": {}}
+    task = {"id": 9, "options": "", "custom": "", "attributes": {"main_task_id": 3}}
     seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task,
-                       {"id": 9, "custom": "job_id=ui-3", "user_id": 5}, visibility="tenant", tenant_id=5)
+                       {"id": 9, "user_id": 5}, visibility="tenant", tenant_id=5)
     print("mongo info:", _pick(minfo))
     assert (seen["tenant_id"], seen["visibility"]) == (5, "tenant")
     assert (minfo["tenant_id"], minfo["visibility"]) == (5, "tenant"), _pick(minfo)
@@ -126,9 +125,9 @@ def test_bridged_reprocess_visibility_override_reaches_mongo(monkeypatch, tmp_pa
     # The central's CAPE_TASK_* stamp would replace the operator's --visibility in Mongo's hook pass.
     env = {"CAPE_TASK_VISIBILITY": "private", "CAPE_TASK_TENANT_ID": "2", "CAPE_TASK_USER_ID": "42"}
     proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path, env=env)
-    task = {"id": 9, "options": "", "custom": "job_id=ui-3", "attributes": {}}
+    task = {"id": 9, "options": "", "custom": "", "attributes": {"main_task_id": 3}}
     seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task,
-                       {"id": 9, "custom": "job_id=ui-3", "user_id": 5}, visibility="public")
+                       {"id": 9, "user_id": 5}, visibility="public")
     assert seen["visibility"] == minfo["visibility"] == "public"
     assert (minfo["user_id"], minfo["tenant_id"]) == (42, 2)
 
@@ -143,7 +142,7 @@ def test_plain_single_node_report_has_no_local_task_id(monkeypatch, tmp_path):
 
 
 def test_single_node_refused_upload_keeps_the_local_stamp(monkeypatch, tmp_path):
-    """single node, object storage on, MT on, no bridge: refused upload; must keep local stamp, no local_task_id."""
+    """single node, object storage on, MT on: keeps local stamp, no local_task_id."""
     proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path, object_storage=True)
     task = {"id": 9, "options": "", "custom": "", "attributes": {}}
     seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task, {"id": 9, "custom": "", "user_id": 5})
@@ -161,9 +160,9 @@ def test_dump_iocs_writes_this_tasks_directory(monkeypatch, tmp_path):
     other = tmp_path / "storage" / "analyses" / "3" / "reports"
     other.mkdir(parents=True)
     (other / "iocs.json").write_text('{"owner": "other tenant"}')
-    task = {"id": 9, "options": "", "custom": "job_id=ui-3", "attributes": {}}
+    task = {"id": 9, "options": "", "custom": "", "attributes": {"main_task_id": 3}}
     seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task,
-                       {"id": 9, "custom": "job_id=ui-3", "user_id": 5}, dump_iocs=True)
+                       {"id": 9, "user_id": 5}, dump_iocs=True)
     print("analyses/3 iocs:", (other / "iocs.json").read_text()[:60])
     assert json.loads((other / "iocs.json").read_text()) == {"owner": "other tenant"}
     assert (analysis / "reports" / "iocs.json").exists()
@@ -180,8 +179,8 @@ def test_dist_reprocess_tenant_override_reaches_mongo(monkeypatch, tmp_path):
 
 def test_partial_central_stamp_leaves_no_worker_owner(monkeypatch, tmp_path):
     proc, core_hooks, analysis = _proc_env(monkeypatch, tmp_path, env={"CAPE_TASK_VISIBILITY": "tenant", "CAPE_TASK_TENANT_ID": "2"})
-    task = {"id": 9, "options": "", "custom": "job_id=ui-3", "attributes": {}}
-    seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task, {"id": 9, "custom": "job_id=ui-3", "user_id": 5})
+    task = {"id": 9, "options": "", "custom": "", "attributes": {"main_task_id": 3}}
+    seen, minfo = _run(monkeypatch, tmp_path, proc, core_hooks, analysis, task, {"id": 9, "user_id": 5})
     print("mongo info:", _pick(minfo))
     assert minfo["user_id"] is None and seen["user_id"] is None
 

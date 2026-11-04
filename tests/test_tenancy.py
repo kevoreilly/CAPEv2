@@ -565,11 +565,11 @@ def test_cloud_agnostic_object_storage_config_and_backends(monkeypatch, tmp_path
     reporter.set_path(str(analysis_dir))
     reporter.run(results)
 
-    assert results["info"]["job_id"] == "ui-42"
+    assert results["info"].get("local_task_id") == 7
     assert results["info"]["id"] == 42
-    assert (remote_root / "results" / "ui-42" / "dump.pcap").read_bytes() == b"pcap-bytes"
-    done_meta = json.loads((remote_root / "results" / "ui-42" / ".centralstore.done").read_text())
-    assert done_meta["job_id"] == "ui-42"
+    assert (remote_root / "results" / "42" / "dump.pcap").read_bytes() == b"pcap-bytes"
+    done_meta = json.loads((remote_root / "results" / "42" / ".centralstore.done").read_text())
+    assert done_meta["task_id"] == 42
 
     default_report_stamp_hook(results)
     assert results["info"]["tenant_id"] == 10
@@ -629,27 +629,21 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
     with Session(engine) as session:
         set_task_acl(session, 1, user_id=10, tenant_id=None, visibility=PUBLIC)
         set_task_acl(session, 3, user_id=11, tenant_id=7, visibility=TENANT)
-        set_task_acl(session, 4, user_id=12, tenant_id=8, visibility=TENANT, external_job_id="job-4")
+        set_task_acl(session, 4, user_id=12, tenant_id=8, visibility=TENANT)
         session.commit()
 
         docs = [
             # legacy stamp: tenant 1 from the old Tenant table, no visibility_seq
-            {"key": "a", "id": 1, "job_id": None, "tenant_id": 1, "visibility": TENANT},
+            {"key": "a", "id": 1, "tenant_id": 1, "visibility": TENANT},
             # no task_acl row: fail closed, never keep the legacy tenant
-            {"key": "b", "id": 2, "job_id": None, "tenant_id": 1, "visibility": TENANT},
+            {"key": "b", "id": 2, "tenant_id": 1, "visibility": TENANT},
             # already correct: no write
-            {"key": "c", "id": 3, "job_id": None, "user_id": 11, "tenant_id": 7, "visibility": TENANT,
-             "visibility_seq": 1},
-            # central doc addressed by job id
-            {"key": "d", "id": 99, "job_id": "job-4", "tenant_id": 2, "visibility": PUBLIC},
-            # foreign doc colliding on info.id with a central task: not that task's ACL
-            {"key": "e", "id": 4, "job_id": "other", "tenant_id": 8, "visibility": TENANT},
-            # a broker job's report sharing task 1's info.id
-            {"key": "f", "id": 1, "job_id": "3f9c2b7e-broker", "user_id": 55, "tenant_id": 2, "visibility": PRIVATE},
-            # task 1's own object-storage report
-            {"key": "g", "id": 1, "job_id": "local-1", "user_id": 55, "tenant_id": 2, "visibility": PRIVATE},
-            # this node's bridged report of task 1 (object storage renumbers info.id to the central id)
-            {"key": "h", "id": 1, "job_id": "ui-1", "tenant_id": 1, "visibility": TENANT},
+            {"key": "c", "id": 3, "user_id": 11, "tenant_id": 7, "visibility": TENANT, "visibility_seq": 1},
+            # non-integer / missing id: skipped
+            {"key": "e", "id": None, "tenant_id": 8, "visibility": TENANT},
+            {"key": "f", "id": "invalid", "tenant_id": 2, "visibility": PRIVATE},
+            # doc for task 4: updated to match task 4 ACL
+            {"key": "d", "id": 4, "tenant_id": 2, "visibility": PUBLIC},
         ]
         skipped = []
         plans = [
@@ -661,9 +655,8 @@ def test_reconcile_stamps_overwrites_legacy_stamps_from_task_acl():
         ]
 
     by_key = dict(plans)
-    assert set(by_key) == {"a", "b", "d", "g", "h"}
+    assert set(by_key) == {"a", "b", "d"}
     assert sorted(skipped) == ["e", "f"]
-    assert by_key["h"] == by_key["a"] == by_key["g"]
     assert by_key["a"] == {"user_id": 10, "tenant_id": None, "visibility": PUBLIC, "visibility_seq": 1}
     assert by_key["b"] == {"user_id": None, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
     assert by_key["d"] == {"user_id": 12, "tenant_id": 8, "visibility": TENANT, "visibility_seq": 1}
@@ -677,17 +670,17 @@ def test_reconcile_keeps_the_task_owner_when_there_is_no_acl_row():
     engine = create_engine("sqlite:///:memory:")
     ensure_acl_schema(engine)
     docs = [
-        {"key": "own", "id": 2, "job_id": None},
-        {"key": "local", "id": 3, "job_id": "local-3"},
-        {"key": "foreign", "id": 2, "job_id": "ui-9"},  # another job's report sharing info.id 2
-        {"key": "noowner", "id": 4, "job_id": None},
+        {"key": "own", "id": 2},
+        {"key": "local", "id": 3},
+        {"key": "noowner", "id": 4},
+        {"key": "skipped", "id": None},
     ]
     owners = {2: 7, 3: 8, 4: 0}
     with Session(engine) as session:
         plans = dict(op for batch in plan_reconcile_stamps(session, docs, task_owners=lambda ids: owners) for op in batch)
     assert plans["own"] == {"user_id": 7, "tenant_id": None, "visibility": PRIVATE, "visibility_seq": 1}
     assert plans["local"]["user_id"] == 8
-    assert "foreign" not in plans
+    assert "skipped" not in plans
     assert plans["noowner"]["user_id"] is None
 
 
@@ -1827,8 +1820,8 @@ def test_toggle_only_restamps_the_tasks_own_report():
     # A broker job's report can share the task's info.id: update_one by bare info.id restamped (and
     # re-owned) the oldest such doc instead of the task's own report.
     docs = [
-        {"_id": 1, "info": {"id": 5, "job_id": "local-7-broker", "user_id": 77, "tenant_id": 9, "visibility": PRIVATE}},
-        {"_id": 2, "info": {"id": 5, "job_id": "3f9c-broker", "user_id": 78, "tenant_id": 9, "visibility": PRIVATE}},
+        {"_id": 1, "info": {"id": 6, "user_id": 77, "tenant_id": 9, "visibility": PRIVATE}},
+        {"_id": 2, "info": {"id": 7, "user_id": 78, "tenant_id": 9, "visibility": PRIVATE}},
         {"_id": 3, "info": {"id": 5, "user_id": 10, "tenant_id": 1, "visibility": PRIVATE}},
     ]
 
@@ -1856,22 +1849,9 @@ def test_toggle_only_restamps_the_tasks_own_report():
     )
     query, script = calls[0]
     assert {"term": {"info.id": 5}} in query["bool"]["filter"]
-    own_clause = {"bool": {"should": [
-        {"bool": {"must_not": {"exists": {"field": "info.job_id"}}}},
-        {"match_phrase": {"info.job_id": "ui-5"}},
-        {"match_phrase": {"info.job_id": "local-5"}},
-    ], "minimum_should_match": 1}}
-    assert own_clause in query["bool"]["filter"]
-    assert script["params"]["own_job_ids"] == ["ui-5", "local-5"]
-
-    # The painless condition, evaluated the way ES runs it: write only the task's own report.
-    src = script["source"]
-    assert "params.job_id != null ? j != params.job_id : (j != null && !params.own_job_ids.contains(j))" in src
-
-    def noop(j, params=script["params"]):
-        return (j != params["job_id"]) if params["job_id"] is not None else (j is not None and j not in params["own_job_ids"])
-
-    assert [noop(j) for j in (None, "ui-5", "local-5", "ui-5-x", "3f9c-broker")] == [False, False, False, True, True]
+    assert query["bool"]["minimum_should_match"] == 1
+    assert script["params"]["stamp"]["visibility"] == PUBLIC
+    assert script["params"]["stamp"]["visibility_seq"] == 2
 
 
 def test_toggle_commit_failure_restamps_the_stores_with_the_stricter_visibility():
@@ -1907,16 +1887,16 @@ def test_retired_allow_superuser_all_no_fails_closed_and_warns_once(monkeypatch,
     assert caplog.text.count("allow_superuser_all") == 1
 
 
-def test_reconcile_skips_a_job_less_doc_whose_acl_row_belongs_to_a_broker_job():
+def test_reconcile_skips_doc_with_missing_or_invalid_id():
     from lib.tenancy.backfill import plan_reconcile_stamps
 
     engine = create_engine("sqlite:///:memory:")
     ensure_acl_schema(engine)
     with Session(engine) as session:
-        set_task_acl(session, 6, user_id=12, tenant_id=8, visibility=PUBLIC, external_job_id="job-x")
+        set_task_acl(session, 6, user_id=12, tenant_id=8, visibility=PUBLIC)
         session.commit()
         skipped = []
-        plans = [op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": 6, "job_id": None}], skipped=skipped) for op in batch]
+        plans = [op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": None}], skipped=skipped) for op in batch]
     assert plans == [] and skipped == ["k"]
 
 
@@ -1952,98 +1932,19 @@ def test_reconcile_cli_refuses_to_run_on_a_dist_worker(monkeypatch, capsys):
     main = _patch_reconcile_cli(monkeypatch, engine, seen)
     assert main(["--dry-run"]) == 2
     assert seen == [] and "run utils/tenancy_reconcile.py there" in capsys.readouterr().err
-
-
-def test_reconcile_cli_refuses_to_run_on_an_object_storage_bridge_worker(monkeypatch):
-    # A bridge worker files reports as ui-<central id>, which are the central's tasks, not its own.
-    from lib.cuckoo.core.data.db_common import Base
-    from lib.cuckoo.core.data.task import Task
-
-    seen = []
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        task = Task("x")
-        task.category = "file"
-        task.custom = "job_id=ui-100"
-        session.add(task)
-        session.commit()
-    main = _patch_reconcile_cli(monkeypatch, engine, seen)
-    assert main(["--dry-run"]) == 2 and seen == []
-    # e.g. a central whose rescheduled bridged copy kept its source's job_id=ui-<source id>
     assert main(["--dry-run", "--force"]) == 0 and len(seen) == 1
 
 
-def test_reconcile_runs_when_custom_only_mentions_a_bridge_id(monkeypatch):
-    # Object storage reads job_id= only as custom's first field: anything else is not a bridge job.
-    from lib.cuckoo.core.data.db_common import Base
-    from lib.cuckoo.core.data.task import Task
-
-    seen = []
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        task = Task("x")
-        task.category = "file"
-        task.custom = "note=myjob_id=ui-100"
-        session.add(task)
-        session.commit()
-    main = _patch_reconcile_cli(monkeypatch, engine, seen)
-    assert main(["--dry-run"]) == 0 and len(seen) == 1
-
-
-def test_reconcile_restamps_a_job_less_report_whose_acl_row_is_bound_to_its_own_bridge_id():
+def test_reconcile_restamps_report_from_task_acl():
     from lib.tenancy.backfill import plan_reconcile_stamps
 
     engine = create_engine("sqlite:///:memory:")
     ensure_acl_schema(engine)
     with Session(engine) as session:
-        set_task_acl(session, 1, user_id=12, tenant_id=8, visibility=TENANT, external_job_id="ui-1")
+        set_task_acl(session, 1, user_id=12, tenant_id=8, visibility=TENANT)
         session.commit()
-        plans = dict(op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": 1, "job_id": None, "tenant_id": 3}]) for op in batch)
+        plans = dict(op for batch in plan_reconcile_stamps(session, [{"key": "k", "id": 1, "tenant_id": 3}]) for op in batch)
     assert plans["k"]["tenant_id"] == 8
-
-
-def test_refused_object_storage_upload_files_the_report_as_the_tasks_own(tmp_path, monkeypatch):
-    # A trusted submitter's ordinary custom ("ticket-1234") became the job id of a report whose upload
-    # was refused: the toggle, reconcile, comments and on_demand then no longer found it as its own.
-    from lib.cuckoo.common.exceptions import CuckooReportError
-    from lib.tenancy.storage.reporting import ObjectStorage
-
-    (tmp_path / "analyses" / "7").mkdir(parents=True)
-    monkeypatch.setattr(
-        "lib.tenancy.storage.reporting.object_storage_config",
-        lambda: ObjectStorageConfig(enabled=True, backend="local", local_root=str(tmp_path), prefix="results"),
-    )
-    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
-    monkeypatch.delenv("CAPE_MAIN_TASK_ID", raising=False)
-    for custom in ("ticket-1234", "job_id=abc123", None):
-        results = {"info": {"id": 7, "custom": custom}}
-        reporter = ObjectStorage()
-        reporter.set_path(str(tmp_path / "analyses" / "7"))
-        with pytest.raises(CuckooReportError):
-            reporter.run(results)
-        assert results["info"]["job_id"] == "local-7", custom
-
-
-def test_reconcile_on_a_task_bridged_under_its_own_id_needs_force(monkeypatch):
-    # A worker's local id can equal the central id it bridges: job_id=ui-<own id> is still a worker.
-    from lib.cuckoo.core.data.db_common import Base
-    from lib.cuckoo.core.data.task import Task
-
-    seen = []
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    with Session(engine) as session:
-        task = Task("x")
-        task.category = "file"
-        session.add(task)
-        session.flush()
-        task.custom = f"job_id=ui-{task.id}"
-        session.commit()
-    main = _patch_reconcile_cli(monkeypatch, engine, seen)
-    assert main(["--dry-run"]) == 2 and seen == []
-    assert main(["--dry-run", "--force"]) == 0 and len(seen) == 1
 
 
 def test_resync_report_stamp_reapplies_the_current_acl():
@@ -2237,6 +2138,93 @@ def test_cleanup_legacy_inline_schema_skips_public_carry_when_multitenancy_was_n
     assert stats_on["public_tasks_carried"] == 2
 
 
+def test_submit_file_passes_attributes_to_db(monkeypatch, tmp_path):
+    import contextlib
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    import utils.submit as submit_mod
+
+    dummy_file = tmp_path / "sample.exe"
+    dummy_file.write_bytes(b"MZ\x90\x00")
+    received_kwargs = {}
+
+    class FakeDatabase:
+        def __init__(self):
+            self.session = types.SimpleNamespace(begin=lambda: contextlib.nullcontext())
+
+        def demux_sample_and_add_to_db(self, file_path, **kwargs):
+            received_kwargs.update(kwargs)
+            return [42], {}
+
+    fake_db = FakeDatabase()
+    res, details = submit_mod.submit_file(
+        db=fake_db,
+        file_path=str(dummy_file),
+        attributes={"main_task_id": 99, "correlation_id": "corr-123", "task_acl": {"visibility": "private"}},
+    )
+    assert res == [42]
+    assert received_kwargs["attributes"] == {
+        "main_task_id": 99,
+        "correlation_id": "corr-123",
+        "task_acl": {"visibility": "private"},
+    }
+
+
+def test_gcp_pubsub_service_constructs_task_attributes(monkeypatch, tmp_path):
+    import threading
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    from utils.gcp_pubsub_service import GCPPubSubService
+
+    submitted = {}
+
+    def fake_submit_file(db, file_path, **kwargs):
+        submitted.update(kwargs)
+        return [101], {}
+
+    monkeypatch.setattr("utils.gcp_pubsub_service.submit_file", fake_submit_file)
+
+    svc = GCPPubSubService.__new__(GCPPubSubService)
+    svc.db = types.SimpleNamespace(session=types.SimpleNamespace(remove=lambda: None))
+    svc.ids_lock = threading.Lock()
+    svc.processing_ids = set()
+    svc.samples_bucket = "sandbox-samples-unique"
+    svc.tmp_path = str(tmp_path)
+    svc.storage_client = object()
+
+    monkeypatch.setattr(
+        "utils.gcp_pubsub_service.download_from_gcs",
+        lambda uri, path, **kw: Path(path).write_bytes(b"MZ\x90\x00") or True,
+    )
+    payload = {
+        "filename": "malware.bin",
+        "sample_hash": "a" * 64,
+        "data": "TVqQAAMAAAAEAAAA//8A",  # base64
+        "main_task_id": 55,
+        "correlation_id": "corr-456",
+        "parent_id": 12,
+        "transaction_id": "tx-789",
+        "source": "tcr",
+        "task_acl": {"tenant_id": 1, "visibility": "tenant"},
+        "attributes": {"custom_tag": "sample-tag"},
+    }
+
+    fake_msg = types.SimpleNamespace(
+        message_id="msg-123",
+        data=json.dumps(payload).encode("utf-8"),
+        ack=lambda: None,
+        nack=lambda: None,
+    )
+
+    svc.process_message(fake_msg)
+
+    assert submitted["attributes"] == {
+        "main_task_id": 55,
+        "correlation_id": "corr-456",
+        "parent_id": 12,
+        "transaction_id": "tx-789",
+        "source": "tcr",
+        "task_acl": {"tenant_id": 1, "visibility": "tenant"},
+        "custom_tag": "sample-tag",
+    }
 def test_upload_tree_allows_sharded_storage_files_symlinks_and_rejects_outside(tmp_path):
     import hashlib
     import os

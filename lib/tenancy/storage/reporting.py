@@ -1,9 +1,8 @@
 """Worker-side object-storage artifact uploader (`ObjectStorage` / `CentralStore`).
 
 When `[object_storage] enabled = no` (default): no-op.
-When `[object_storage] enabled = yes`: stamps `info.job_id` into `results["info"]` and
-uploads the analysis artifact tree + Guacamole recordings to `<prefix>/<job_id>/<relpath>`
-on the configured backend (`s3`, `gcs`, `azure`, or `local`).
+When `[object_storage] enabled = yes`: uploads the analysis artifact tree + Guacamole recordings
+to `<prefix>/<task_id>/<relpath>` on the configured backend (`s3`, `gcs`, `azure`, or `local`).
 
 Can be invoked automatically via `lib.tenancy.hooks.default_report_stamp_hook` (before
 `mongodb.py` runs) or as a CAPEv2 `Report` plugin (`ObjectStorage` / `CentralStore`,
@@ -15,16 +14,13 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import time
 from typing import Any, Optional
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
-from lib.tenancy.storage.artifact_storage import _SAFE_JOB_ID_RE, _is_safe_job_id, job_id_from_custom
 from lib.tenancy.storage.config import (
-    object_storage_bridge_required,
     object_storage_config,
     upload_target_realpath,
 )
@@ -33,20 +29,6 @@ from lib.tenancy.storage.storage_backend import ArtifactStore, get_artifact_stor
 log = logging.getLogger(__name__)
 
 _EXCLUDE_DIRS: set[str] = set()
-
-
-def resolve_job_id(custom: Any, analysis_id: Any) -> str:
-    """Resolve the object-storage `job_id` from `custom` (or `CAPE_MAIN_TASK_ID` / `local-<analysis_id>`)."""
-    parsed = job_id_from_custom(custom)
-    if parsed:
-        return parsed
-    main_tid = os.environ.get("CAPE_MAIN_TASK_ID")
-    if main_tid:
-        try:
-            return f"ui-{int(main_tid)}"
-        except (TypeError, ValueError):
-            pass
-    return f"local-{analysis_id}"
 
 
 def _validate_backend_prereqs(cfg: Any) -> None:
@@ -141,15 +123,15 @@ def _upload_guacrecordings(
     return count, failed
 
 
-def _format_location(cfg: Any, job_id: str) -> str:
+def _format_location(cfg: Any, task_id: Any) -> str:
     backend = str(getattr(cfg, "backend", None) or getattr(cfg, "storage_backend", "s3") or "s3").strip().lower()
     local_root = getattr(cfg, "local_root", None) or getattr(cfg, "central_local_root", "")
     bucket = getattr(cfg, "bucket", None) or getattr(cfg, "s3_bucket", "")
     prefix = getattr(cfg, "prefix", None) or getattr(cfg, "s3_prefix", "results")
     if backend == "local" and local_root:
-        return os.path.join(local_root, prefix, job_id) + os.sep
+        return os.path.join(local_root, prefix, str(task_id)) + os.sep
     scheme = {"gcs": "gs", "azure": "az"}.get(backend, "s3")
-    return f"{scheme}://{bucket}/{prefix}/{job_id}/"
+    return f"{scheme}://{bucket}/{prefix}/{task_id}/"
 
 
 def _emit_done_marker(
@@ -157,15 +139,15 @@ def _emit_done_marker(
     container: str,
     analysis_path: Optional[str],
     cfg: Any,
-    job_id: str,
+    task_id: int,
     uploaded: int,
 ) -> None:
     if not analysis_path or not os.path.isdir(analysis_path):
         return
     marker = os.path.join(analysis_path, ".centralstore.done")
-    location = _format_location(cfg, job_id)
+    location = _format_location(cfg, str(task_id))
     payload = {
-        "job_id": job_id,
+        "task_id": task_id,
         "location": location,
         "artifacts": uploaded,
         "ts": time.time(),
@@ -193,7 +175,7 @@ def _emit_done_marker(
 
 
 class ObjectStorage(Report):
-    """Ship analysis artifacts to object storage (`s3`, `gcs`, `azure`, `local`) and stamp `info.job_id`."""
+    """Ship analysis artifacts to object storage (`s3`, `gcs`, `azure`, `local`)."""
 
     order = 9998
 
@@ -209,32 +191,29 @@ class ObjectStorage(Report):
         store, _is_remote = get_artifact_store(cfg)
         _validate_backend_prereqs(cfg)
 
-        # A retry after a renumbering pass: this node's own task id, not the central one.
-        analysis_id = info.get("local_task_id") or info.get("id")
-        job_id = info.get("job_id") or resolve_job_id(info.get("custom"), analysis_id)
-        if not _is_safe_job_id(job_id):
-            raise CuckooReportError(
-                f"object_storage: refusing unsafe job_id {job_id!r} (must match {_SAFE_JOB_ID_RE.pattern} and contain no '..')"
-            )
-        _m = re.match(r"^ui-(\d+)$", job_id)
-        if not _m and object_storage_bridge_required():
-            # Nothing was uploaded under that job id: keep the report this task's own (local-<id>).
-            info["job_id"] = f"local-{analysis_id}"
-            raise CuckooReportError(
-                f"object_storage: refusing non-bridged analysis (job_id={job_id!r}) under multitenancy -- "
-                "tenant-isolated object-storage submission requires a bridged job_id (ui-<central_id>)"
-            )
-        info["job_id"] = job_id
-        if _m:
-            # The report is the central task's (even when the ids happen to match): the stamp hook
-            # must not use this node's task_acl row, nor a retry its storage/analyses/<central id>.
-            info["local_task_id"] = analysis_id
-            info["id"] = int(_m.group(1))
+        local_id = info.get("local_task_id") or info.get("id")
+        attrs = (getattr(self, "task", None) or {}).get("attributes") or {}
+        if not isinstance(attrs, dict):
+            attrs = {}
+        main_task_id = attrs.get("main_task_id") or os.environ.get("CAPE_MAIN_TASK_ID")
+        if main_task_id:
+            try:
+                info["local_task_id"] = local_id
+                info["id"] = int(main_task_id)
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            task_id = int(info.get("id"))
+            if task_id <= 0:
+                raise ValueError
+        except (TypeError, ValueError) as e:
+            raise CuckooReportError(f"object_storage: invalid task id {info.get('id')!r}") from e
 
         prefix = getattr(cfg, "prefix", None) or getattr(cfg, "s3_prefix", "results")
-        container = f"{prefix}/{job_id}"
+        container = f"{prefix}/{task_id}"
         uploaded, failed = self._upload_tree(store, container)
-        rec_up, rec_failed = self._upload_guacrecordings(store, container, analysis_id)
+        rec_up, rec_failed = self._upload_guacrecordings(store, container, local_id)
         uploaded += rec_up
         failed += rec_failed
         log.info(
@@ -246,13 +225,13 @@ class ObjectStorage(Report):
         )
 
         if failed == 0:
-            _emit_done_marker(store, container, getattr(self, "analysis_path", None), cfg, job_id, uploaded)
+            _emit_done_marker(store, container, getattr(self, "analysis_path", None), cfg, task_id, uploaded)
             info["_object_storage_uploaded"] = True
         else:
             log.warning(
-                "object_storage: %d upload(s) failed for job_id=%s; NOT marking done",
+                "object_storage: %d upload(s) failed for task_id=%s; NOT marking done",
                 failed,
-                job_id,
+                task_id,
             )
 
     def _trusted_roots(self, base_real: str) -> list[str]:

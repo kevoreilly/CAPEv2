@@ -116,20 +116,14 @@ def task_report_query(task_id: int, store: str = "mongo") -> Optional[Dict[str, 
 
 
 def is_task_own_report(task_id: int, doc: Any) -> bool:
-    """Return True if `doc` (an analysis report dict) is `task_id`'s own report rather than a colliding broker job."""
+    """Return True if `doc` (an analysis report dict) is `task_id`'s own report."""
     if not isinstance(doc, dict):
         return False
     info = doc.get("info") or {}
     try:
-        if int(info.get("id")) != int(task_id):
-            return False
+        return int(info.get("id")) == int(task_id)
     except (TypeError, ValueError):
         return False
-    if not multitenancy_config().enabled:
-        return True
-    from lib.tenancy.acl import is_own_report_job_id
-
-    return is_own_report_job_id(int(task_id), info.get("job_id"))
 
 
 
@@ -215,35 +209,18 @@ def _strip_untrusted_task_acl(attributes: Any) -> Any:
     return attributes
 
 
-def _strip_untrusted_broker_job_id(custom: Any) -> Any:
-    """Drop a `job_id=` field from `custom` unless the submitter is trusted.
+def _strip_untrusted_custom(custom: Any) -> Any:
+    """Drop forged `Recovery_<id>` tokens from untrusted `custom`.
 
-    Object-storage reporting takes the broker job id from it; "job_id=ui-N" renumbers the report
-    to task N, stamps it with N's ACL and overwrites N's stored artifacts and Mongo report.
+    A recovered task's custom `Recovery_<id>` sends apiv2's artifact views to task `<id>`.
     """
     if not custom or not isinstance(custom, str) or _trusted_submitter():
         return custom
-    custom = ",".join(f for f in custom.split(",") if not f.strip().startswith("job_id="))
-    if re.match(r"^\s*Recovery_\d+\s*$", custom):
-        # A recovered task's custom "Recovery_<id>" sends apiv2's artifact views to task <id>.
-        return ""
-    if custom and _object_storage_enabled():
-        from lib.tenancy.storage.artifact_storage import job_id_from_custom
-
-        if job_id_from_custom(custom) is not None:
-            # A bare token is the broker job id too ("local-7" is task 7's job).
-            log.warning("tenancy: dropping bare custom %r, which object storage would take as a job id", custom)
-            return ""
-    return custom
+    parts = [f for f in custom.split(",") if not re.match(r"^\s*Recovery_\d+\s*$", f)]
+    return ",".join(parts)
 
 
-def _object_storage_enabled() -> bool:
-    try:
-        from lib.tenancy.storage import config as storage_cfg
-
-        return bool(storage_cfg.central_mode_config().enabled)
-    except Exception:
-        return False
+_strip_untrusted_broker_job_id = _strip_untrusted_custom
 
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
@@ -827,19 +804,14 @@ def _wrap_compare_and_analysis_views() -> None:
                     if isinstance(m_report, dict):
                         m_id = m_report.get("_id")
                 if getattr(_amod, "es_as_db", False):
-                    from lib.tenancy.acl import is_own_report_job_id
-
                     q_es = task_report_query(tid_int, "es") or _amod.get_query_by_info_id(task_id)
                     body = core_hooks.apply_es_filter({"query": q_es})
                     raw_hits = _amod.es.search(index=_amod.get_analysis_index(), body=body).get("hits", {}).get("hits", [])
                     hits = [
                         h
                         for h in raw_hits
-                        if is_own_report_job_id(tid_int, ((h.get("_source") or {}).get("info") or {}).get("job_id"))
-                        and (
-                            ((h.get("_source") or {}).get("info") or {}).get("id") is None
-                            or is_task_own_report(tid_int, h.get("_source"))
-                        )
+                        if ((h.get("_source") or {}).get("info") or {}).get("id") is None
+                        or is_task_own_report(tid_int, h.get("_source"))
                     ]
                     if hits:
                         es_report = hits[0].get("_source") or {}
@@ -1558,22 +1530,18 @@ def _resync_local_acl_stamp(results: Dict[str, Any], main_task_id: Optional[int]
         log.debug("Post-insert tenancy stamp resync skipped for task %s: %s", tid, e)
 
 
-def _lookup_existing_report_stamp(remote_task_id: int, job_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def _lookup_existing_report_stamp(remote_task_id: int) -> Optional[Dict[str, Any]]:
     """Resolve the tenancy stamp of an existing report for `remote_task_id` from MongoDB/ES."""
     candidates: List[Dict[str, Any]] = []
 
     mongo_mod = sys.modules.get("dev_utils.mongodb") or sys.modules.get("modules.reporting.mongodb")
     mongo_find_one = getattr(mongo_mod, "mongo_find_one", None) if mongo_mod is not None else None
     if callable(mongo_find_one):
-        from lib.tenancy.acl import is_own_report_job_id, own_report_mongo_query
+        from lib.tenancy.acl import own_report_mongo_query
 
-        if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
-            m_query: Dict[str, Any] = {"info.job_id": str(job_id)}
-        else:
-            m_query = own_report_mongo_query(int(remote_task_id))
+        m_query = own_report_mongo_query(int(remote_task_id))
         m_proj = {
             "info.id": 1,
-            "info.job_id": 1,
             "info.user_id": 1,
             "info.tenant_id": 1,
             "info.visibility": 1,
@@ -1596,22 +1564,16 @@ def _lookup_existing_report_stamp(remote_task_id: int, job_id: Optional[str] = N
 
         if isinstance(m_doc, dict):
             m_info = m_doc.get("info")
-            if isinstance(m_info, dict):
-                match_ok = False
-                if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
-                    match_ok = m_info.get("job_id") == str(job_id)
-                else:
-                    match_ok = is_task_own_report(int(remote_task_id), m_doc)
-                if match_ok:
-                    vis = m_info.get("visibility")
-                    v_seq = int(m_info.get("visibility_seq") or 0)
-                    if vis in VISIBILITIES and v_seq > 0:
-                        candidates.append({
-                            "user_id": m_info.get("user_id"),
-                            "tenant_id": m_info.get("tenant_id"),
-                            "visibility": vis,
-                            "visibility_seq": v_seq,
-                        })
+            if isinstance(m_info, dict) and is_task_own_report(int(remote_task_id), m_doc):
+                vis = m_info.get("visibility")
+                v_seq = int(m_info.get("visibility_seq") or 0)
+                if vis in VISIBILITIES and v_seq > 0:
+                    candidates.append({
+                        "user_id": m_info.get("user_id"),
+                        "tenant_id": m_info.get("tenant_id"),
+                        "visibility": vis,
+                        "visibility_seq": v_seq,
+                    })
 
     es_client = None
     get_analysis_index = None
@@ -1626,12 +1588,9 @@ def _lookup_existing_report_stamp(remote_task_id: int, job_id: Optional[str] = N
             get_analysis_index = cand_idx
             break
     if es_client is not None and callable(get_analysis_index) and hasattr(es_client, "search"):
-        from lib.tenancy.acl import is_own_report_job_id, own_report_es_query
+        from lib.tenancy.acl import own_report_es_query
 
-        if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
-            es_q: Dict[str, Any] = {"match_phrase": {"info.job_id": str(job_id)}}
-        else:
-            es_q = own_report_es_query(int(remote_task_id))
+        es_q = own_report_es_query(int(remote_task_id))
         raw_hits = []
         try:
             try:
@@ -1651,12 +1610,8 @@ def _lookup_existing_report_stamp(remote_task_id: int, job_id: Optional[str] = N
             h_info = src.get("info")
             if not isinstance(h_info, dict):
                 continue
-            if job_id and not is_own_report_job_id(int(remote_task_id), str(job_id)):
-                if h_info.get("job_id") != str(job_id):
-                    continue
-            else:
-                if not is_task_own_report(int(remote_task_id), src):
-                    continue
+            if not is_task_own_report(int(remote_task_id), src):
+                continue
             vis = h_info.get("visibility")
             v_seq = int(h_info.get("visibility_seq") or 0)
             if vis in VISIBILITIES and v_seq > 0:
@@ -1678,6 +1633,8 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
     task = context.get("task")
     attrs = (task.get("attributes") or {}) if isinstance(task, dict) else {}
     main_task_id = attrs.get("main_task_id") if isinstance(attrs, dict) else None
+    if not main_task_id:
+        main_task_id = os.environ.get("CAPE_MAIN_TASK_ID")
 
     if stage == "post_mongodb":
         info_post = results.get("info") if isinstance(results, dict) else None
@@ -1709,6 +1666,10 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
     info = results.get("info")
     if isinstance(info, dict) and main_task_id:
         info.setdefault("local_task_id", info.get("id"))
+        try:
+            info["id"] = int(main_task_id)
+        except (TypeError, ValueError):
+            pass
 
     if stage != "acl_probe":
         try:
@@ -1777,7 +1738,7 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
             and (multitenancy_config().enabled or isinstance(task_acl, dict))
         ):
             cached_remote = task.get("_existing_remote_acl") if isinstance(task, dict) else None
-            fresh_stamp = _lookup_existing_report_stamp(int(remote_tid), info.get("job_id"))
+            fresh_stamp = _lookup_existing_report_stamp(int(remote_tid))
             candidates = [s for s in (cached_remote, fresh_stamp) if isinstance(s, dict)]
             best_remote = max(candidates, key=lambda s: int(s.get("visibility_seq") or 0)) if candidates else None
             if best_remote is not None and isinstance(task, dict):

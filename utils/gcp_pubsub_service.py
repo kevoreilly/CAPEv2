@@ -196,7 +196,12 @@ class GCPPubSubService:
         with log_task_context(correlation_id=correlation_id):
             try:
                 payload = json.loads(message.data.decode("utf-8"))
-                correlation_id = payload.get("uuid") or payload.get("transaction_id") or msg_id
+                correlation_id = (
+                    payload.get("correlation_id")
+                    or payload.get("uuid")
+                    or payload.get("transaction_id")
+                    or msg_id
+                )
                 set_log_task_context(correlation_id=correlation_id)
 
                 # Create a localized logger with correlation_id
@@ -281,6 +286,28 @@ class GCPPubSubService:
                         message.nack()
                         return
 
+                # Build task_attributes for universal attributes support
+                task_attributes: Dict[str, Any] = {}
+                if correlation_id:
+                    task_attributes["correlation_id"] = correlation_id
+                if parent_id:
+                    task_attributes["parent_id"] = parent_id
+                if transaction_id:
+                    task_attributes["transaction_id"] = transaction_id
+                if source:
+                    task_attributes["source"] = source
+                if payload.get("main_task_id") is not None:
+                    try:
+                        task_attributes["main_task_id"] = int(payload["main_task_id"])
+                    except (TypeError, ValueError):
+                        pass
+                if isinstance(payload.get("task_acl"), dict):
+                    task_attributes["task_acl"] = payload["task_acl"]
+                extra_attrs = payload.get("attributes")
+                if isinstance(extra_attrs, dict):
+                    for k, v in extra_attrs.items():
+                        task_attributes.setdefault(k, v)
+
                 # Submit to CAPE
                 try:
                     submit_start = time.time()
@@ -291,6 +318,7 @@ class GCPPubSubService:
                         custom=custom,
                         category=category,
                         filename=sample_name,
+                        attributes=task_attributes or None,
                     )
                     if task_ids:
                         mlog.info("Successfully submitted task(s) %s for sample %s in %.2f seconds", task_ids, sample_hash, time.time() - submit_start)

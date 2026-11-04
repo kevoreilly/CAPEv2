@@ -32,13 +32,12 @@ def _setup(monkeypatch, tmp_path):
     cfg = ObjectStorageConfig(enabled=True, backend="local", local_root=str(tmp_path / "store"), prefix="results")
     monkeypatch.setattr("lib.tenancy.storage.config.object_storage_config", lambda: cfg)
     monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_config", lambda: cfg)
-    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
     monkeypatch.setattr("lib.tenancy.storage.reporting.CUCKOO_ROOT", str(tmp_path))
     # the broker's stamp for central task 3's real owner
     monkeypatch.setenv("CAPE_TASK_VISIBILITY", "private")
     monkeypatch.setenv("CAPE_TASK_TENANT_ID", "2")
     monkeypatch.setenv("CAPE_TASK_USER_ID", "42")
-    monkeypatch.delenv("CAPE_MAIN_TASK_ID", raising=False)
+    monkeypatch.setenv("CAPE_MAIN_TASK_ID", "3")
     analysis = tmp_path / "storage" / "analyses" / "9"
     (analysis / "reports").mkdir(parents=True)
     (analysis / "a.txt").write_text("x")
@@ -63,20 +62,20 @@ def _mongo(monkeypatch, inserted):
 def test_bridged_report_in_mongo_keeps_the_broker_stamp(monkeypatch, tmp_path):
     core_hooks, analysis = _setup(monkeypatch, tmp_path)
     try:
-        results = {"info": {"id": 9, "custom": "job_id=ui-3"}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
+        results = {"info": {"id": 9}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
         # utils/process.py: run_report_hooks(results) before signatures/reporting
         core_hooks.run_report_hooks(results)
         pinfo = dict(results["info"])
-        _ = ("process-level results['info']:", {k: pinfo.get(k) for k in ("id", "job_id", "user_id", "tenant_id", "visibility", "_renumbered_from")})
+        _ = ("process-level results['info']:", {k: pinfo.get(k) for k in ("id", "user_id", "tenant_id", "visibility", "_renumbered_from")})
         # reporting phase: modules/reporting/mongodb.py
         inserted = []
         m = _mongo(monkeypatch, inserted)
         reporter = m.MongoDB()
-        reporter.task = {"id": 9, "attributes": {}}
+        reporter.task = {"id": 9, "attributes": {"main_task_id": 3}}
         reporter.set_path(str(analysis))
         reporter.run(results)
         minfo = inserted[-1]["info"]
-        _ = ("mongo-stored info:", {k: minfo.get(k) for k in ("id", "job_id", "user_id", "tenant_id", "visibility", "visibility_seq")})
+        _ = ("mongo-stored info:", {k: minfo.get(k) for k in ("id", "user_id", "tenant_id", "visibility", "visibility_seq")})
     finally:
         core_hooks.clear_all_hooks()
     assert (pinfo["user_id"], pinfo["tenant_id"], pinfo["visibility"]) == (42, 2, "private")
@@ -106,19 +105,19 @@ def test_retried_bridged_upload_ships_the_unrelated_local_task_dir(monkeypatch, 
 
     monkeypatch.setattr(rep, "get_artifact_store", lambda cfg: (Flaky(str(tmp_path / "store")), True))
     try:
-        results = {"info": {"id": 9, "custom": "job_id=ui-3"}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
+        results = {"info": {"id": 9}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
         core_hooks.run_report_hooks(results)  # utils/process.py pass: one upload fails
         inserted = []
         m = _mongo(monkeypatch, inserted)
         reporter = m.MongoDB()
-        reporter.task = {"id": 9, "attributes": {}}
+        reporter.task = {"id": 9, "attributes": {"main_task_id": 3}}
         reporter.set_path(str(analysis))
         reporter.run(results)  # mongodb.py hook pass retries the upload
     finally:
         core_hooks.clear_all_hooks()
     import os
-    shipped = sorted(os.listdir(tmp_path / "store" / "results" / "ui-3"))
-    _ = ("central job ui-3 container:", shipped)
+    shipped = sorted(os.listdir(tmp_path / "store" / "results" / "3"))
+    _ = ("central job 3 container:", shipped)
     assert "secret_of_other_tenant.txt" not in shipped
 
 
@@ -244,7 +243,7 @@ def test_bridged_report_under_the_same_id_keeps_the_broker_stamp(monkeypatch, tm
     analysis = tmp_path / "storage" / "analyses" / "3"
     (analysis / "reports").mkdir(parents=True)
     try:
-        results = {"info": {"id": 3, "custom": "job_id=ui-3"}}
+        results = {"info": {"id": 3}}
         core_hooks.run_report_hooks(results)
     finally:
         core_hooks.clear_all_hooks()
@@ -252,9 +251,8 @@ def test_bridged_report_under_the_same_id_keeps_the_broker_stamp(monkeypatch, tm
     assert (info["id"], info["user_id"], info["tenant_id"], info["visibility"]) == (3, 42, 2, "private"), info
 
 def test_dist_task_also_bridged_keeps_its_local_id_through_a_retry(monkeypatch, tmp_path):
-    """Worker task 9 runs a dist task (attributes.main_task_id=3) that also carries the bridge
-    custom job_id=ui-3 (dist + object storage under multitenancy needs a ui- job id). One transient
-    put_file failure in the process.py hook pass; mongodb.py's hook pass retries the upload."""
+    """Worker task 9 runs a dist task (attributes.main_task_id=3).
+    One transient put_file failure in the process.py hook pass; mongodb.py's hook pass retries the upload."""
     core_hooks, analysis = _setup(monkeypatch, tmp_path)
     other = tmp_path / "storage" / "analyses" / "3"  # worker-local task 3: another tenant's analysis
     (other / "reports").mkdir(parents=True)
@@ -276,7 +274,7 @@ def test_dist_task_also_bridged_keeps_its_local_id_through_a_retry(monkeypatch, 
     task_acl = {"user_id": 42, "tenant_id": 2, "visibility": "private", "visibility_seq": 4}
     inserted = []
     try:
-        results = {"info": {"id": 9, "custom": "job_id=ui-3"}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
+        results = {"info": {"id": 9}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
         core_hooks.run_report_hooks(results)  # utils/process.py pass: one upload fails
         m = _mongo(monkeypatch, inserted)
         reporter = m.MongoDB()
@@ -285,9 +283,9 @@ def test_dist_task_also_bridged_keeps_its_local_id_through_a_retry(monkeypatch, 
         reporter.run(results)  # mongodb.py hook pass retries the upload
     finally:
         core_hooks.clear_all_hooks()
-    shipped = sorted(os.listdir(tmp_path / "store" / "results" / "ui-3"))
+    shipped = sorted(os.listdir(tmp_path / "store" / "results" / "3"))
     minfo = inserted[-1]["info"]
-    print("central job ui-3 container:", shipped)
+    print("central job 3 container:", shipped)
     assert minfo["local_task_id"] == 9, minfo
     assert "secret_of_other_tenant.txt" not in shipped
 
@@ -313,16 +311,16 @@ def test_retried_upload_ships_only_this_tasks_recordings(monkeypatch, tmp_path):
     monkeypatch.setattr(rep, "get_artifact_store", lambda cfg: (Flaky(str(tmp_path / "store")), True))
     inserted = []
     try:
-        results = {"info": {"id": 9, "custom": "job_id=ui-3"}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
+        results = {"info": {"id": 9}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
         core_hooks.run_report_hooks(results)
         m = _mongo(monkeypatch, inserted)
         reporter = m.MongoDB()
-        reporter.task = {"id": 9, "attributes": {}}
+        reporter.task = {"id": 9, "attributes": {"main_task_id": 3}}
         reporter.set_path(str(analysis))
         reporter.run(results)
     finally:
         core_hooks.clear_all_hooks()
-    shipped = sorted(os.listdir(tmp_path / "store" / "results" / "ui-3" / "guacrecordings"))
+    shipped = sorted(os.listdir(tmp_path / "store" / "results" / "3" / "guacrecordings"))
     assert "3_session.guac" not in shipped
     assert inserted[-1]["info"]["local_task_id"] == 9
 
@@ -390,11 +388,11 @@ def test_bridged_report_without_a_central_stamp_has_no_worker_owner(monkeypatch,
     inserted = []
     try:
         # analysisinfo: info.user_id = the worker task's submitter (the broker's worker-local account 5)
-        results = {"info": {"id": 9, "custom": "job_id=ui-3", "user_id": 5}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
+        results = {"info": {"id": 9, "user_id": 5}, "behavior": {"processes": [], "processtree": [], "summary": {}}}
         core_hooks.run_report_hooks(results)
         m = _mongo(monkeypatch, inserted)
         reporter = m.MongoDB()
-        reporter.task = {"id": 9, "attributes": {}}
+        reporter.task = {"id": 9, "attributes": {"main_task_id": 3}}
         reporter.set_path(str(analysis))
         reporter.run(results)
     finally:
@@ -526,11 +524,11 @@ def test_mongodb_reporter_object_storage_renumbering_deletes_only_central_id(mon
     monkeypatch.setattr(m, "mongo_delete_data", lambda ids: deleted_ids.append(list(ids)))
     try:
         results = {
-            "info": {"id": 9, "custom": "job_id=ui-3"},
+            "info": {"id": 9},
             "behavior": {"processes": [], "processtree": [], "summary": {}},
         }
         reporter = m.MongoDB()
-        reporter.task = {"id": 9, "attributes": {}}
+        reporter.task = {"id": 9, "attributes": {"main_task_id": 3}}
         reporter.set_path(str(analysis))
         reporter.run(results)
     finally:

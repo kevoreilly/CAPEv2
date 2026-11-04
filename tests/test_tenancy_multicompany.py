@@ -27,7 +27,6 @@ from lib.cuckoo.common import hooks as core_hooks
 from lib.tenancy.acl import (
     TaskAcl,
     ensure_acl_schema,
-    is_own_report_job_id,
     own_report_es_query,
     resolve_task_scope,
     set_task_acl,
@@ -799,12 +798,6 @@ def test_live_visibility_toggle_updates_sql_mongo_and_es_atomically(multicompany
         for hit in multicompany_env.es_docs.values():
             src = hit["_source"]
             if _eval_es_clause(src, query):
-                job_id = src["info"].get("job_id")
-                if params["job_id"] is not None:
-                    if job_id != params["job_id"]:
-                        continue
-                elif job_id is not None and job_id not in params["own_job_ids"]:
-                    continue
                 src["info"].update(params["stamp"])
 
     frank_viewer = default_viewer_resolver(multicompany_env.users["frank_ir_only"])
@@ -913,9 +906,8 @@ def test_per_company_and_department_vm_route_tag_and_timeout_entitlements(multic
 # ===========================================================================
 # 5. Regression Tests for All 8 GitHub Copilot Review Findings
 # ===========================================================================
-def test_copilot_1_es_own_report_rejects_hyphenated_broker_job_id_prefix(monkeypatch):
-    """Copilot #1: `match_phrase: {"info.job_id": "ui-5"}` matches `"ui-5-extra"`, so
-    `is_own_report_job_id` and `is_task_own_report` must reject `"ui-5-extra"` before delete/comment."""
+def test_copilot_1_es_own_report_matches_exact_id(monkeypatch):
+    """own_report_es_query uses exact term filter on info.id, and is_task_own_report checks info.id."""
     from lib.tenancy.hooks import is_task_own_report, register_core_hooks
 
     monkeypatch.setattr(
@@ -930,19 +922,13 @@ def test_copilot_1_es_own_report_rejects_hyphenated_broker_job_id_prefix(monkeyp
     register_core_hooks()
     try:
         es_q = own_report_es_query(5)
-        own_doc = {"info": {"id": 5, "job_id": "ui-5"}}
-        foreign_broker_doc = {"info": {"id": 5, "job_id": "ui-5-extra"}}
+        own_doc = {"info": {"id": 5}}
+        foreign_doc = {"info": {"id": 50}}
 
-        # Phrase query alone matches both because standard analyzer splits on '-'
         assert _eval_es_clause(own_doc, es_q)
-        assert _eval_es_clause(foreign_broker_doc, es_q)
-
-        # Exact job_id verification rejects "ui-5-extra"
-        assert is_own_report_job_id(5, "ui-5")
-        assert is_own_report_job_id(5, None)
-        assert not is_own_report_job_id(5, "ui-5-extra")
+        assert not _eval_es_clause(foreign_doc, es_q)
         assert is_task_own_report(5, own_doc)
-        assert not is_task_own_report(5, foreign_broker_doc)
+        assert not is_task_own_report(5, foreign_doc)
     finally:
         core_hooks.clear_all_hooks()
 
@@ -1369,8 +1355,8 @@ def test_dist_worker_reprocess_preserves_newer_existing_report_stamp(monkeypatch
 
 
 def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch):
-    """Verify that a colliding foreign broker doc (info.id=100, info.job_id='broker-other',
-    visibility='public', visibility_seq=99) is ignored and does NOT overwrite task 100's stamp.
+    """Verify that a foreign report doc with a different info.id is ignored by
+    _lookup_existing_report_stamp and does NOT overwrite task 100's stamp.
     """
     from lib.tenancy import hooks as thooks
 
@@ -1382,22 +1368,10 @@ def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch)
 
     import dev_utils.mongodb as mongo_mod
 
-    broker_doc = {
-        "_id": "broker-99",
-        "info": {
-            "id": 100,
-            "job_id": "broker-other",
-            "user_id": 99,
-            "tenant_id": 99,
-            "visibility": "public",
-            "visibility_seq": 99,
-        },
-    }
     own_doc = {
         "_id": "own-2",
         "info": {
             "id": 100,
-            "job_id": None,
             "user_id": 7,
             "tenant_id": 3,
             "visibility": "private",
@@ -1406,23 +1380,11 @@ def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch)
     }
 
     def _mock_mongo_find_one(collection, query, proj=None, **kw):
-        if collection == "analysis":
-            q_id = query.get("info.id")
-            if q_id == 100:
-                doc = None
-                q_job = query.get("info.job_id")
-                if isinstance(q_job, dict) and "$in" in q_job:
-                    doc = own_doc
-                elif q_job == "broker-other":
-                    doc = broker_doc
-                if doc:
-                    if isinstance(proj, dict):
-                        projected_info = {}
-                        for k, v in doc["info"].items():
-                            if proj.get(f"info.{k}"):
-                                projected_info[k] = v
-                        return {"_id": doc["_id"], "info": projected_info}
-                    return dict(doc)
+        if collection == "analysis" and query.get("info.id") == 100:
+            if isinstance(proj, dict):
+                projected_info = {k: v for k, v in own_doc["info"].items() if proj.get(f"info.{k}")}
+                return {"_id": own_doc["_id"], "info": projected_info}
+            return dict(own_doc)
         return None
 
     monkeypatch.setattr(mongo_mod, "mongo_find_one", _mock_mongo_find_one)
@@ -1433,11 +1395,10 @@ def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch)
                 "hits": {
                     "hits": [
                         {
-                            "_id": "es-broker",
+                            "_id": "es-other",
                             "_source": {
                                 "info": {
-                                    "id": 100,
-                                    "job_id": "broker-other",
+                                    "id": 999,
                                     "user_id": 99,
                                     "tenant_id": 99,
                                     "visibility": "public",
@@ -1450,7 +1411,6 @@ def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch)
                             "_source": {
                                 "info": {
                                     "id": 100,
-                                    "job_id": "local-100",
                                     "user_id": 7,
                                     "tenant_id": 3,
                                     "visibility": "private",

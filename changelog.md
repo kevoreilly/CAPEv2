@@ -21,6 +21,13 @@
     * Misc enhancements & fixes (see capemon repo for details)
 
 ### [14.09.2026]
+* Machinery and auxiliary wait paths:
+    * `qemu.stop()` called `proc.wait()` with no timeout, so a wedged qemu held the machinery thread forever. The timeout loop written below it was unreachable, because `wait()` had already returned by the time it was evaluated. Replaced with a bounded wait that escalates `system_powerdown` -> `SIGTERM` -> `SIGKILL`.
+    * `virtualbox.stop()` polled `proc.poll()` on a one-second tick, rounding every machine stop up to the next whole second, and its timeout branch called `proc.terminate()` with no sleep, spinning at 100% CPU until the process died. Now a single `communicate(timeout=...)`, which also drains stdout/stderr instead of leaving VBoxManage able to block on a full pipe.
+    * `hyperv.run_cmd()` opened a new SSH connection per command; `start()` alone did four handshakes. Commands now share one `ControlMaster` connection, run without `shell=True`, and have a deadline.
+    * `hyperv.start()` waited with `while not self._is_running(id): continue`, issuing remote status queries as fast as the host could spawn SSH processes, with no upper bound. Now polls every 2s and fails after 300s.
+    * `QemuScreenshots` opened and closed a libvirt connection every second, per analysis. One connection per thread now, reconnecting on error. Its `finally` block also referenced `stream` before assignment when `lookupByName` failed, turning a libvirt error into a `NameError`.
+    * `Mitmdump.wait_for_pid_exit` polled on a flat one-second tick after `SIGTERM`, adding up to a second to every teardown. Now backs off from 10ms.
 * MongoDB write path:
     * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
 

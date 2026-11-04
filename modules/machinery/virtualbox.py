@@ -4,7 +4,6 @@
 
 import logging
 import subprocess
-import time
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
@@ -107,18 +106,24 @@ class VirtualBox(Machinery):
                 stderr=subprocess.PIPE,
                 close_fds=True,
             )
-            # Sometimes VBoxManage stucks when stopping vm so we needed
-            # to add a timeout and kill it after that.
-            stop_me = 0
-            while proc.poll() is None:
-                if stop_me < int(cfg.timeouts.vm_state):
-                    time.sleep(1)
-                    stop_me += 1
-                else:
-                    log.debug("Stopping vm %s timed out, killing", label)
-                    proc.terminate()
+            # Sometimes VBoxManage gets stuck stopping a vm, so it gets a deadline and is
+            # killed past it. communicate() also drains stdout/stderr; polling without
+            # draining can block VBoxManage on a full pipe.
+            timeout = int(cfg.timeouts.vm_state)
+            timed_out = False
+            try:
+                proc.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                log.debug("Stopping vm %s timed out, killing", label)
+                proc.terminate()
+                try:
+                    proc.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.communicate()
 
-            if proc.returncode != 0 and stop_me < int(cfg.timeouts.vm_state):
+            if proc.returncode != 0 and not timed_out:
                 log.debug("VBoxManage exited with error powering off the machine")
         except OSError as e:
             raise CuckooMachineError(f"VBoxManage failed powering off the machine: {e}")

@@ -21,6 +21,10 @@
     * Misc enhancements & fixes (see capemon repo for details)
 
 ### [14.09.2026]
+* Elasticsearch reporting and JSON dump:
+    * `ElasticSearchDB.run()` performed `json.loads(json.dumps(report), object_hook=date_hook)` **before** `insert_calls`, so the entire behaviour log was serialised and re-parsed only to be discarded on the next line. The round-trip now runs after the calls have been moved to the calls index. 200k calls: 7.36s -> 2ms.
+    * `date_hook` attempted `strptime` on every value in the report tree, building an exception for each int, list and non-date string. A leading digit plus a `-` plus a `:` are all necessary for `"%Y-%m-%d %H:%M:%S"` to parse, so guarding on them converts exactly the same values: a further 4.2x on the remaining work.
+    * `jsondump` with `store_compressed` built the whole archive in a `BytesIO` and then copied it out with `getvalue()`. It now writes the zip directly to disk. No speed change, lower peak memory. The archive entry name is unchanged.
 * Behaviour processing performance:
     * `Summary` guarded roughly thirty appends with `value not in self.<list>`, once per matching API call, against lists that reach thousands of entries. The accumulators are now insertion-ordered containers with a set-backed membership test and are unwrapped to plain lists in `run()`. 100k appends across 10k unique values: 7.0s -> 4.8ms. Output verified identical with `replace_patterns` both off and on.
     * `EncryptedBuffers` tested `buf not in self.bufs`, comparing a `str` against a list of `dict`s. That is always true, so no buffer was ever deduplicated and every check walked the whole list. 20k buffers: 3.0s -> 2.3ms. Reports now contain unique buffers per API.

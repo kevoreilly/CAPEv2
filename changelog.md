@@ -21,6 +21,13 @@
     * Misc enhancements & fixes (see capemon repo for details)
 
 ### [14.09.2026]
+* Machinery and auxiliary wait paths:
+    * `qemu.stop()` called `proc.wait()` with no timeout, so a wedged qemu held the machinery thread forever. The timeout loop written below it was unreachable, because `wait()` had already returned by the time it was evaluated. Replaced with a bounded wait that escalates `system_powerdown` -> `SIGTERM` -> `SIGKILL`.
+    * `virtualbox.stop()` polled `proc.poll()` on a one-second tick, rounding every machine stop up to the next whole second, and its timeout branch called `proc.terminate()` with no sleep, spinning at 100% CPU until the process died. Now a single `communicate(timeout=...)`, which also drains stdout/stderr instead of leaving VBoxManage able to block on a full pipe.
+    * `hyperv.run_cmd()` opened a new SSH connection per command; `start()` alone did four handshakes. Commands now share one `ControlMaster` connection, run without `shell=True`, and have a deadline.
+    * `hyperv.start()` waited with `while not self._is_running(id): continue`, issuing remote status queries as fast as the host could spawn SSH processes, with no upper bound. Now polls every 2s and fails after 300s.
+    * `QemuScreenshots` opened and closed a libvirt connection every second, per analysis. One connection per thread now, reconnecting on error. Its `finally` block also referenced `stream` before assignment when `lookupByName` failed, turning a libvirt error into a `NameError`.
+    * `Mitmdump.wait_for_pid_exit` polled on a flat one-second tick after `SIGTERM`, adding up to a second to every teardown. Now backs off from 10ms.
 * Elasticsearch reporting and JSON dump:
     * `ElasticSearchDB.run()` performed `json.loads(json.dumps(report), object_hook=date_hook)` **before** `insert_calls`, so the entire behaviour log was serialised and re-parsed only to be discarded on the next line. The round-trip now runs after the calls have been moved to the calls index. 200k calls: 7.36s -> 2ms.
     * `date_hook` attempted `strptime` on every value in the report tree, building an exception for each int, list and non-date string. A leading digit plus a `-` plus a `:` are all necessary for `"%Y-%m-%d %H:%M:%S"` to parse, so guarding on them converts exactly the same values: a further 4.2x on the remaining work.

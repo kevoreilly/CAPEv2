@@ -1693,13 +1693,13 @@ function install_passivedns() {
 }
 
 function update() {
+    echo "[+] Updating CAPEv2"
     sudo systemctl stop cape*
-    cd "$CAPE_ROOT"
-    poetry_path=$(which poetry)
+    cd "$CAPE_ROOT" || return
     sudo -u ${USER} git pull
-    sudo -u ${USER} "$poetry_path" install
-    if sudo -u ${USER} "$poetry_path" run python web/manage.py migrate --check | grep -Fxq "cd $CAPE_ROOT/utils/db_migration && poetry run alembic upgrade head"; then
-        cd "$CAPE_ROOT/utils/db_migration" && "$poetry_path" run alembic upgrade head;
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; export CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    if sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check | grep -Fq "alembic upgrade head"; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT/utils/db_migration && $PYTHON_MGR $PYTHON_MGR_CMD alembic upgrade head"
     fi
     sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
     systemctl list-unit-files "cape*" --no-legend | awk '{print $1}' | xargs sudo systemctl start

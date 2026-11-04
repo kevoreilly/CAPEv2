@@ -1,26 +1,9 @@
-### [02.11.2026]
-* Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):
-    * Extracted multi-tenancy and remote object storage into the opt-in `lib.tenancy` package behind lightweight hooks (`lib/cuckoo/common/hooks.py`), leaving single-tenant installs free of runtime and schema overhead.
-    * Added Django `Group`-native tenancy and per-group sandbox resource entitlements (`GroupSandboxPolicy` for VMs, network routes, and machine tags), side-table `TaskAcl` with monotonic `visibility_seq` compare-and-swap (CAS) synchronization, and vendor-neutral object storage backends (`s3`, `gcs`, `azure`, `local`).
-    * Added `utils/tenancy_reconcile.py` (`--dry-run`, `--adopt-public-from-reports`, `--demote-public`, `--task <id>`) to restamp MongoDB/Elasticsearch reports, preserve public task visibility in `task_acl`, and drop legacy inline-tenancy SQL columns when upgrading an install that ran the earlier inline tenancy code (see `docs/book/src/usage/multitenancy.rst`).
-
-### [14.10.2026]
-* `analyzer/windows`: expand environment variables in `executiondir`/`curdir` in `Process.execute()`, fall back to `CreateProcessW` without `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` when launching with `explorer.exe` as parent fails (e.g. `ERROR_ELEVATION_REQUIRED` on installers with `requireAdministrator` manifests), and keep the analysis running for the full timeout when `enforce_timeout` is enabled even if `package.start()` fails.
-
-### [08.10.2026]
-* `extra/browser_extension`: capture `requestBody` (`formData` and decoded `raw` bytes up to 4 KB) via `webRequest.onBeforeRequest`, record HTTP `statusCode` in `onCompleted`, correlate lifecycle events by `requestId` with O(1) deduplication, debounce event flushing, and fix the `browser.downloads.onChanged` listener registration.
-
-### [06.10.2026]
-* Browser extension (URL analysis with `firefox_ext`/`chromium_ext` and `extra/browser_extension`):
-    * `browsermonitor`: find the requests log written by agent >= 0.20 (random `%TEMP%` folder without the `tmp` prefix) and upload the last complete version once, when the analysis ends.
-    * `firefox_ext`/`chromium_ext`: stop returning the `webbrowser.open()` bool as a PID, which ended the analysis a few seconds after opening the URL.
-    * Agent 0.23: `/browser_extension` releases its lock on errors and writes the log atomically as UTF-8.
-
-### [16.09.2026]
-* Monitor updates:
-    * Misc enhancements & fixes (see capemon repo for details)
-
-### [14.09.2026]
+### [04.11.2026]
+* Signature engine performance & correctness:
+    * **Evented dispatch cache**: the per-API-call set algebra in `RunSignatures.run()` is memoised on `(api, category)`, wiring up the `self.api_sigs` cache that was declared but never used. 4.14s -> 2.40s for 200k calls against 200 no-op signatures.
+    * **TTP de-duplication**: replaced the O(n^2) `not in self.ttps` scan with a set of `(ttp, signature)` pairs.
+    * **Signature timings**: `statistics.signatures[].time` reported a leaked loop variable, so every evented signature got the same duration. It now reports each signature's own accumulated time.
+    * `RunReporting.__init__` used `break` where `continue` belongs, which could leave `ParseProcessLog` instances unconverted for later processes.
 * Machinery and auxiliary wait paths:
     * `qemu.stop()` called `proc.wait()` with no timeout, so a wedged qemu held the machinery thread forever. The timeout loop written below it was unreachable, because `wait()` had already returned by the time it was evaluated. Replaced with a bounded wait that escalates `system_powerdown` -> `SIGTERM` -> `SIGKILL`.
     * `virtualbox.stop()` polled `proc.poll()` on a one-second tick, rounding every machine stop up to the next whole second, and its timeout branch called `proc.terminate()` with no sleep, spinning at 100% CPU until the process died. Now a single `communicate(timeout=...)`, which also drains stdout/stderr instead of leaving VBoxManage able to block on a full pipe.
@@ -44,6 +27,28 @@
 * MongoDB write path:
     * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
 
+
+### [02.11.2026]
+* Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):
+    * Extracted multi-tenancy and remote object storage into the opt-in `lib.tenancy` package behind lightweight hooks (`lib/cuckoo/common/hooks.py`), leaving single-tenant installs free of runtime and schema overhead.
+    * Added Django `Group`-native tenancy and per-group sandbox resource entitlements (`GroupSandboxPolicy` for VMs, network routes, and machine tags), side-table `TaskAcl` with monotonic `visibility_seq` compare-and-swap (CAS) synchronization, and vendor-neutral object storage backends (`s3`, `gcs`, `azure`, `local`).
+    * Added `utils/tenancy_reconcile.py` (`--dry-run`, `--adopt-public-from-reports`, `--demote-public`, `--task <id>`) to restamp MongoDB/Elasticsearch reports, preserve public task visibility in `task_acl`, and drop legacy inline-tenancy SQL columns when upgrading an install that ran the earlier inline tenancy code (see `docs/book/src/usage/multitenancy.rst`).
+
+### [14.10.2026]
+* `analyzer/windows`: expand environment variables in `executiondir`/`curdir` in `Process.execute()`, fall back to `CreateProcessW` without `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` when launching with `explorer.exe` as parent fails (e.g. `ERROR_ELEVATION_REQUIRED` on installers with `requireAdministrator` manifests), and keep the analysis running for the full timeout when `enforce_timeout` is enabled even if `package.start()` fails.
+
+### [08.10.2026]
+* `extra/browser_extension`: capture `requestBody` (`formData` and decoded `raw` bytes up to 4 KB) via `webRequest.onBeforeRequest`, record HTTP `statusCode` in `onCompleted`, correlate lifecycle events by `requestId` with O(1) deduplication, debounce event flushing, and fix the `browser.downloads.onChanged` listener registration.
+
+### [06.10.2026]
+* Browser extension (URL analysis with `firefox_ext`/`chromium_ext` and `extra/browser_extension`):
+    * `browsermonitor`: find the requests log written by agent >= 0.20 (random `%TEMP%` folder without the `tmp` prefix) and upload the last complete version once, when the analysis ends.
+    * `firefox_ext`/`chromium_ext`: stop returning the `webbrowser.open()` bool as a PID, which ended the analysis a few seconds after opening the URL.
+    * Agent 0.23: `/browser_extension` releases its lock on errors and writes the log atomically as UTF-8.
+
+### [16.09.2026]
+* Monitor updates:
+    * Misc enhancements & fixes (see capemon repo for details)
 
 ### [22.08.2026]
 * Performance & Database Infrastructure:

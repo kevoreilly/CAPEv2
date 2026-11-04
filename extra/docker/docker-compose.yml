@@ -1,0 +1,128 @@
+# Internal isolated network with no gateway/internet route
+networks:
+  offline_net:
+    internal: true
+
+services:
+  # Optional central REST API Gateway (only started when '--profile api' is used)
+  api-gateway:
+    image: capesandbox/cape-api-gateway:latest
+    container_name: cape-api-gateway
+    profiles: ["api"]
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # Exposed to allow CAPE worker connections
+    networks:
+      - default      # Connected to host bridge to listen to incoming CAPE requests
+      - offline_net  # Connected to internal offline network to route to tool containers
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/cape-external:/tmp/cape-external
+    environment:
+      - MODE=api
+
+  # ----------------- Default Tool Containers (run_in_docker = yes) -----------------
+
+  cape-innoextract:
+    image: capesandbox/cape-innoextract:latest
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends innoextract procps && rm -rf /var/lib/apt/lists/*
+    container_name: cape-innoextract
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-7z:
+    image: capesandbox/cape-7z:latest
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends 7zip p7zip-full procps && ln -sf /usr/bin/7zz /usr/local/bin/7z && rm -rf /var/lib/apt/lists/*
+    container_name: cape-7z
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-upx:
+    image: capesandbox/cape-upx:latest
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends upx-ucl procps && rm -rf /var/lib/apt/lists/*
+    container_name: cape-upx
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  # ----------------- Optional Tool Containers (run_in_docker = no by default; start with '--profile extra') -----------------
+
+  cape-msiextract:
+    image: capesandbox/cape-msiextract:latest
+    profiles: ["extra"]
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends msitools procps && rm -rf /var/lib/apt/lists/*
+    container_name: cape-msiextract
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-unrar:
+    image: capesandbox/cape-unrar:latest
+    profiles: ["extra"]
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unrar-free procps && rm -rf /var/lib/apt/lists/*
+    container_name: cape-unrar
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-msix:
+    image: capesandbox/cape-msix:latest
+    profiles: ["extra"]
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends unzip procps && rm -rf /var/lib/apt/lists/*
+    container_name: cape-msix
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-gpg:
+    image: capesandbox/cape-gpg:latest
+    profiles: ["extra"]
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gnupg procps && rm -rf /var/lib/apt/lists/*
+    container_name: cape-gpg
+    restart: unless-stopped
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]

@@ -14,6 +14,24 @@ hwp = no
 # Number of workers for pool to run them in parallel
 max_workers = 6
 
+[docker_extra_info]
+# Enable modular multi-container Docker integration for file extra info tools.
+# When enabled, only tools with 'run_in_docker = yes' under their section are
+# dispatched into containers; tools with 'run_in_docker = no' continue to run on the host.
+# You can also override a tool's container name via 'container_name = <custom_name>'.
+enabled = no
+# Execution mode: 'mounted' (local docker exec with shared volume) or 'api' (remote API Gateway server)
+mode = mounted
+# Restrict Docker access using /etc/sudoers (running 'sudo -n docker exec' instead of direct docker-py SDK socket)
+sudo_restriction = no
+# Directory mapped to the tool containers as a shared volume (used in 'mounted' mode).
+# Must match the volume mounted into every tool container.
+shared_volume_path = /tmp/cape-external
+# Timeout, in seconds, for a single in-container tool execution
+timeout = 120
+# API Gateway URL (used in 'api' mode)
+api_url = http://127.0.0.1:8000
+
 # Create your apikey: https://threatfox.abuse.ch/api/#auth_key
 # MalwareBazaar uses this key too
 [abusech]
@@ -27,6 +45,7 @@ apikey =
 enabled = yes
 binary = /usr/bin/msiextract
 timeout = 60
+run_in_docker = no
 
 [kixtart_extract]
 enabled = yes
@@ -49,27 +68,32 @@ timeout = 60
 enabled = yes
 binary = data/UnAutoIt/UnAutoIt
 timeout = 60
+run_in_docker = no
 
 [RarSFX_extract]
 enabled = yes
 timeout = 60
+run_in_docker = no
 
 # apt install upx-ucl
 [UPX_unpack]
 enabled = yes
 timeout = 60
+run_in_docker = yes
 
 # Nsis, 7Zip SFX, etc
 [SevenZip_unpack]
 binary = data/7zz
 enabled = yes
 timeout = 60
+run_in_docker = yes
 
 # Use https://github.com/gdesmar/innoextract
 [Inno_extract]
 enabled = yes
 binary = data/innoextract
 timeout = 60
+run_in_docker = yes
 
 # https://github.com/mstrobel/procyon/releases
 [procyon]
@@ -83,6 +107,7 @@ enabled = yes
 binary = /usr/bin/de4dot
 extra_args =
 timeout = 60
+run_in_docker = no
 
 # https://github.com/otavepto/NETReactorSlayer/releases
 [eziriz_deobfuscate]
@@ -90,6 +115,7 @@ enabled = yes
 binary = data/NETReactorSlayer.CLI
 extra_args = --no-pause True
 timeout = 60
+run_in_docker = no
 
 [office_one]
 enabled = yes
@@ -98,6 +124,7 @@ timeout = 60
 [msix_extract]
 enabled = no
 timeout = 60
+run_in_docker = no
 
 # PE file overlay
 [overlay]
@@ -107,6 +134,7 @@ timeout = 60
 [UnGPG_extract]
 enabled = no
 timeout = 60
+run_in_docker = no
 
 [pyinstaller]
 enabled = no

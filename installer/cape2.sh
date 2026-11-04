@@ -18,6 +18,7 @@ cat << EndOfHelp
         Base - Installs dependencies, CAPE, systemd, see code for full list
         All - Installs everything - (don't use it if you don't know what will be installed ;))
         Sandbox - Install CAPE
+        Update - Update CAPE
         Dependencies - Install all dependencies with performance tricks
         Systemd - Install systemd config for cape, we suggest to use systemd
         Nginx <domain.com> - Install NGINX with realip plugin and other goodies, pass your domain as argument
@@ -1691,6 +1692,19 @@ function install_passivedns() {
     fi
 }
 
+function update() {
+    sudo systemctl stop cape*
+    cd "$CAPE_ROOT"
+    poetry_path=$(which poetry)
+    sudo -u ${USER} git pull
+    sudo -u ${USER} "$poetry_path" install
+    if sudo -u ${USER} "$poetry_path" run python web/manage.py migrate --check | grep -Fxq "cd $CAPE_ROOT/utils/db_migration && poetry run alembic upgrade head"; then
+        cd "$CAPE_ROOT/utils/db_migration" && "$poetry_path" run alembic upgrade head;
+    fi
+    sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
+    systemctl list-unit-files "cape*" --no-legend | awk '{print $1}' | xargs sudo systemctl start
+}
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1845,6 +1859,8 @@ case "$COMMAND" in
     install_passivedns;;
 'libvirt')
     install_libvirt;;
+'update')
+    update;;
 *)
     usage;;
 esac

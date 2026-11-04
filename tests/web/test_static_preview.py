@@ -29,13 +29,16 @@ class TestStaticPreview(SimpleTestCase):
         static_preview._STATIC_PREVIEW_CACHE.clear()
 
     def _create_sample_task(self, content: bytes = b"MZ\x90\x00test-sample-payload", filename: str = "sample.exe"):
-        from lib.cuckoo.common.constants import CUCKOO_ROOT
+        import shutil
+        import tempfile
         from lib.cuckoo.core.database import Database
 
         db = Database()
-        binaries_dir = os.path.join(CUCKOO_ROOT, "storage", "binaries")
+        tmp_root = tempfile.mkdtemp(prefix="cape_static_preview_")
+        self.addCleanup(shutil.rmtree, tmp_root, ignore_errors=True)
+        binaries_dir = os.path.join(tmp_root, "storage", "binaries")
         os.makedirs(binaries_dir, exist_ok=True)
-        tmp_file = os.path.join(CUCKOO_ROOT, filename)
+        tmp_file = os.path.join(tmp_root, filename)
         with open(tmp_file, "wb") as f:
             f.write(content)
         sha256 = hashlib.sha256(content).hexdigest()
@@ -383,24 +386,26 @@ class TestStaticPreview(SimpleTestCase):
         """on_demand must not fall back to storage/binaries/<sha256> when sha256 does not match the task sample."""
         import analysis.views as analysis_views
 
-        other_file = self._make_temp_file(b"MZ" + b"\x41" * 64)
-        other_sha256 = hashlib.sha256(b"MZ" + b"\x41" * 64).hexdigest()
-        task_file = self._make_temp_file(b"MZ" + b"\x42" * 64)
-        task = self._add_file_task(task_file)
+        _, task, _, tmp_file = self._create_sample_task(b"MZ" + b"\x42" * 64, filename="task_sample.exe")
+        other_bytes = b"MZ" + b"\x41" * 64
+        other_sha256 = hashlib.sha256(other_bytes).hexdigest()
+        other_file = os.path.join(os.path.dirname(tmp_file), "storage", "binaries", other_sha256)
+        with open(other_file, "wb") as f:
+            f.write(other_bytes)
 
         orig_strings = analysis_views.processing_cfg.strings.on_demand
         analysis_views.processing_cfg.strings.on_demand = True
         try:
             with (
-                patch.object(analysis_views, "CUCKOO_ROOT", os.path.dirname(other_file)),
-                patch.object(analysis_views, "ANALYSIS_BASE_PATH", os.path.dirname(other_file)),
+                patch.object(analysis_views, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
+                patch.object(analysis_views, "ANALYSIS_BASE_PATH", os.path.dirname(tmp_file)),
                 patch.object(analysis_views, "_path_safe", return_value=True),
                 patch.object(
                     analysis_views,
                     "path_exists",
                     side_effect=lambda p: p.endswith(os.path.join("storage", "binaries", other_sha256)),
                 ),
-                patch.object(analysis_views, "extract_strings", return_value=["secret_string"]) as mock_strings,
+                patch.object(analysis_views, "extract_strings", return_value=["secret_string"], create=True) as mock_strings,
             ):
                 resp = self.client.get(
                     f"/analysis/on_demand/strings/{task.id}/static/{other_sha256}/",

@@ -37,6 +37,7 @@ db = Database()
 _modules = defaultdict(dict)
 
 processing_cfg = Config("processing")
+integrations_cfg = Config("integrations")
 reporting_cfg = Config("reporting")
 
 config_mapper = {
@@ -94,6 +95,13 @@ def import_package(package):
             category in config_mapper
             and module_name in config_mapper[category].fullconfig
             and not config_mapper[category].get(module_name).get("enabled", False)
+        ):
+            continue
+        if (
+            category == "processing"
+            and module_name not in processing_cfg.fullconfig
+            and module_name in integrations_cfg.fullconfig
+            and not integrations_cfg.get(module_name).get("enabled", False)
         ):
             continue
 
@@ -266,6 +274,7 @@ class RunProcessing:
         self.task = task
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
         self.cfg = processing_cfg
+        self.integrations_cfg = integrations_cfg
         self.cuckoo_cfg = Config()
         self.results = results
         task_opts = task.get("_options_parsed")
@@ -293,8 +302,11 @@ class RunProcessing:
         try:
             options = self.cfg.get(module_name)
         except CuckooOperationalError:
-            log.debug("Processing module %s not found in configuration file", module_name)
-            return None
+            try:
+                options = self.integrations_cfg.get(module_name)
+            except CuckooOperationalError:
+                log.debug("Processing module %s not found in configuration file", module_name)
+                return None
 
         # If the processing module is disabled in the config, skip it.
         if not options.enabled:

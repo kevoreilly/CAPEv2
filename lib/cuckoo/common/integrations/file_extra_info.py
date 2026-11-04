@@ -81,6 +81,12 @@ HAVE_FLOSS = False
 if integration_conf.floss.enabled and not integration_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
+HAVE_MALCAT = False
+if getattr(integration_conf, "malcat", None) and integration_conf.malcat.get("enabled", False):
+    from lib.cuckoo.common.integrations.malcat.capa import malcat_details
+
+    HAVE_MALCAT = True
+
 from lib.cuckoo.common.integrations.magika import magika_info
 
 log = logging.getLogger(__name__)
@@ -239,6 +245,11 @@ def static_file_info(
     #    data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp" and integration_conf.general.hwp:
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
+
+    if HAVE_MALCAT and "malcat" not in data_dictionary:
+        malcat_info = malcat_details(file_path, category=category, file_type=data_dictionary.get("type", ""))
+        if malcat_info:
+            data_dictionary["malcat"] = malcat_info
 
     data = path_read_file(file_path)
 

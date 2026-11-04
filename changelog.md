@@ -72,6 +72,13 @@
 * Windows analyzer file bookkeeping (`analyzer/windows/analyzer.py`):
     * `Files.dumped` is a set instead of a list. It is only ever tested for membership, and the linear scan cost 6.46 s in total across a 30,000 file run (688 ms at 10,000) versus 3.74 ms for a set.
     * `Files.dump_files()` takes the next pending path directly instead of rebuilding the entire key list on every iteration, which was O(n^2): 3.82 s at 30,000 files, 308 ms at 10,000. It still re-checks the dict each time, because pipe handler threads can add files while it drains.
+* Windows analyzer process loop (`analyzer/windows/analyzer.py`):
+    * `analysis_loop()` iterated the live pid list while `remove_pid()` removed from it, so the iterator skipped the entry after every removal. Five processes exiting together took several one-second iterations to drain, delaying both `upload_memdump()` and the "process list is empty, terminating analysis" check.
+    * `_normalized_protected_path()` compared `path[-1]` (an `int`, because the value is `bytes`) against `b"\\"`, so the check was always true and a directory ending in a separator got a second one appended - after which `in_protected_path()` could not match anything below it.
+* Windows analyzer pipe server (`analyzer/windows/lib/core/pipe.py`):
+    * `PipeServer.run()` retried `CreateNamedPipeW` with no delay and no limit. A pipe name that cannot be created turned the thread into a spin loop that burned a core and flooded the log for the rest of the analysis. It now backs off 100 ms and gives up after 100 consecutive failures.
+    * `PipeDispatcher._read_message()` accumulated `buf.value`, which stops at the first NUL byte and ignores the byte count the API reports, so a message containing an embedded NUL was truncated and its tail was parsed as a new command. It now uses `buf.raw[:bytes_read.value]` and strips the trailing NUL terminator.
+    * Finished handler threads are dropped from `PipeServer.handlers` instead of being retained for the whole analysis.
 
 ### [31.07.2026]
 * Remus detection & dynamic config extraction

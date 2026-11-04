@@ -26,6 +26,10 @@
     * `EncryptedBuffers` tested `buf not in self.bufs`, comparing a `str` against a list of `dict`s. That is always true, so no buffer was ever deduplicated and every check walked the whole list. 20k buffers: 3.0s -> 2.3ms. Reports now contain unique buffers per API.
     * `EncryptedBuffers` also recorded every `CryptEncryptMessage` call twice, because `startswith("CryptEncrypt")` matches it as well.
     * `ProcessTree.event_apicall` scanned the collected process list on every API call. 1M calls across 200 processes: 2.6s -> 18ms.
+* PCAP processing performance:
+    * `Pcap._add_hosts` tested membership against `self.hosts`, a list, once per packet. Destinations already seen are now rejected by an O(1) set before `convert_to_printable`, `ipaddress.ip_address` and the passlist walk run again. 200k packets across 5k unique hosts: 7.9s -> 5ms.
+    * `Pcap._enrich_hosts` rescanned every DNS answer for every host. The answer-to-hostname map is now built once. 5k hosts against 20k DNS requests: 2.1s -> 12ms.
+    * Output is unchanged: verified against the previous implementation over 200 randomised packet streams covering IPv6, malformed addresses, ICMP without a dport, passlisted and private addresses.
 * MongoDB write path:
     * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
 

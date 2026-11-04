@@ -74,15 +74,20 @@ class PipeForwarder(threading.Thread):
             KERNEL32.CloseHandle(self.pipe_handle)
             return
 
-        if pid.value:
-            sock = self.sockets.get(pid.value)
-            if not sock:
-                sock = socket.create_connection(self.destination)
-                self.sockets[pid.value] = sock
+        try:
+            if pid.value:
+                sock = self.sockets.get(pid.value)
+                if not sock:
+                    sock = socket.create_connection(self.destination, timeout=60)
+                    self.sockets[pid.value] = sock
 
-            self.active[pid.value] = True
-        else:
-            sock = socket.create_connection(self.destination)
+                self.active[pid.value] = True
+            else:
+                sock = socket.create_connection(self.destination, timeout=60)
+        except OSError as e:
+            log.warning("Failed to connect log pipe socket: %s", e)
+            KERNEL32.CloseHandle(self.pipe_handle)
+            return
 
         open_handles.add(sock)
 

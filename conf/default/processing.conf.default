@@ -271,6 +271,8 @@ replace_patterns = no
 file_cache = no
 # Store pefile objects for later usage? useful if you doing something in signatures/reporting
 pefile_store = no
+# Attempt ExtremeDumper synthetic PE reconstruction for dumped .NET memory payloads
+dotnet_rebuild = no
 
 [network_etw]
 enabled = no

@@ -181,6 +181,38 @@ class CAPE(Processing):
         # ToDo filename argument for procdump
 
         # Optimize to not load all if duplicated, it stores sha256 in file object
+        if getattr(processing_conf.CAPE, "dotnet_rebuild", False) and category in ("procdump", "dropped", "CAPE"):
+            type_string = ""
+            metastrings = metadata.get("metadata", "").split(";?")
+            if len(metastrings) > 0 and metastrings[0].isdigit() and int(metastrings[0]) == TYPE_STRING:
+                if len(metastrings) > 4:
+                    type_string = metastrings[3]
+
+            if ".NET" in type_string or category == "procdump":
+                try:
+                    file_size_limit = getattr(processing_conf.CAPE, "max_file_size", 90) * 1024 * 1024
+                    if os.path.getsize(file_path) < file_size_limit:
+                        with open(file_path, "rb") as f_in:
+                            pe_data = f_in.read()
+
+                        if pe_data.startswith(b"MZ") and b"BSJB" in pe_data:
+                            from lib.cuckoo.common.dotnet_utils import rebuild_dotnet_pe
+
+                            rebuilt_data = rebuild_dotnet_pe(pe_data)
+                            if rebuilt_data and rebuilt_data != pe_data:
+                                base_name = os.path.basename(file_path)
+                                if len(base_name) == 64 and all(c in "0123456789abcdefABCDEF" for c in base_name):
+                                    rebuilt_path = f"{file_path}_rebuilt"
+                                    with open(rebuilt_path, "wb") as f_out:
+                                        f_out.write(rebuilt_data)
+                                    file_path = rebuilt_path
+                                else:
+                                    with open(file_path, "wb") as f_out:
+                                        f_out.write(rebuilt_data)
+                                log.debug("Successfully rebuilt .NET PE headers for %s", file_path)
+                except Exception as e:
+                    log.error("Failed to execute .NET PE rebuilder on %s: %s", file_path, e)
+
         f = File(file_path, metadata.get("metadata", ""))
         sha256 = f.get_sha256()
 

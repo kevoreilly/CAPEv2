@@ -80,6 +80,67 @@ class TestSubmissionViews(SimpleTestCase):
         for opt in options:
             self.assertTrue(opt.startswith("value="))
 
+    def test_batch_tasks_live_table_and_htmx_polling(self):
+        """GET /submit/?batch_tasks=... should return the live status table partial and stop polling when terminal."""
+        from unittest.mock import MagicMock, patch
+
+        fake_tasks = {
+            101: {
+                "id": 101,
+                "target": "/tmp/sample_a.exe",
+                "category": "file",
+                "status": "running",
+                "sample": {"sha256": "a" * 64},
+            },
+            102: {
+                "id": 102,
+                "target": "/tmp/sample_b.dll",
+                "category": "file",
+                "status": "reported",
+                "sample": {"sha256": "b" * 64},
+            },
+        }
+
+        def fake_view_task(tid, details=True):
+            data = fake_tasks.get(tid)
+            if not data:
+                return None
+            obj = MagicMock()
+            obj.to_dict.return_value = data
+            return obj
+
+        with patch("submission.views.db.view_task", side_effect=fake_view_task):
+            resp = self.client.get("/submit/?batch_tasks=101,102")
+            self.assertEqual(resp.status_code, 200)
+            html = resp.content.decode()
+            self.assertIn("sample_a.exe", html)
+            self.assertIn("sample_b.dll", html)
+            self.assertIn("RUNNING", html)
+            self.assertIn("View Report", html)
+            # Polling active while task 101 is still running
+            self.assertIn('hx-trigger="every 5s"', html)
+
+            # Once all tasks are terminal, polling stops
+            fake_tasks[101]["status"] = "reported"
+            resp_done = self.client.get("/submit/?batch_tasks=101,102")
+            html_done = resp_done.content.decode()
+            self.assertNotIn('hx-trigger="every 5s"', html_done)
+            self.assertIn("All Tasks Finished", html_done)
+
+            # Distributed status renders info badge instead of error badge
+            fake_tasks[101]["status"] = "distributed"
+            resp_dist = self.client.get("/submit/?batch_tasks=101,102")
+            self.assertIn("DISTRIBUTED", resp_dist.content.decode())
+
+        # Verify apply_sql_task_filter scoping is respected when a hook filters out tasks
+        with patch(
+            "lib.cuckoo.common.hooks.apply_sql_task_filter",
+            side_effect=lambda stmt: stmt.where(False),
+        ):
+            resp_filtered = self.client.get("/submit/?batch_tasks=101,102")
+            self.assertEqual(resp_filtered.status_code, 200)
+            self.assertNotIn("sample_a.exe", resp_filtered.content.decode())
+
     def test_package_exclusion(self):
         """Pick a couple of packages to exclude, to test exclusion"""
         web_conf.package_exclusion.packages = "chromium,chromium_ext,ichitaro,shellcode"

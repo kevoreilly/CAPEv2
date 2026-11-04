@@ -764,9 +764,15 @@ class Summary:
         """Generate processes list from streamed calls/processes.
         @return: None.
         """
-        api = call["api"]
-        if self.detect_apispam:
-            self.api_counts[api] += 1
+        api = call.get("api")
+        if self.detect_apispam and api:
+            try:
+                repeated = max(0, int(call.get("repeated", 0) or 0))
+            except (ValueError, TypeError):
+                repeated = 0
+            self.api_counts[api] += 1 + repeated
+        if not api:
+            return
         handler = self.dispatch.get(api)
         if handler:
             handler(call, process)
@@ -845,16 +851,20 @@ class Summary:
         if self.detect_apispam:
             apispam = sorted(api for api, count in self.api_counts.items() if count >= self.apispam_limit)
 
-            if apispam and self.task:
-                task_options = self.task.get("options", "")
-                if isinstance(task_options, str):
-                    parsed_options = get_options(task_options)
-                else:
-                    parsed_options = task_options or {}
-
-                existing_exclude = parsed_options.get("exclude-apis", "")
-                existing = existing_exclude.split(":") if existing_exclude else []
-                merged = sorted(list(set(existing + apispam)))
+            if apispam:
+                existing = []
+                if isinstance(self.task, dict):
+                    task_options = self.task.get("options", "")
+                    if isinstance(task_options, str):
+                        parsed_options = get_options(task_options)
+                    elif isinstance(task_options, dict):
+                        parsed_options = task_options
+                    else:
+                        parsed_options = {}
+                    existing_exclude = parsed_options.get("exclude-apis", "")
+                    if isinstance(existing_exclude, str) and existing_exclude:
+                        existing = [item for item in existing_exclude.split(":") if item]
+                merged = sorted(set(existing + apispam))
                 apispam_exclude_apis = ":".join(merged)
 
         return {

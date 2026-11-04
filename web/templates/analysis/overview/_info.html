@@ -4,7 +4,7 @@
     {% if analysis.behavior.summary.apispam %}
         <div class="alert alert-warning text-center" role="alert">
             <h5 class="alert-heading font-weight-bold"><i class="fas fa-exclamation-triangle"></i> API Spam Detected</h5>
-            <p class="mb-2">This analysis generated an excessive number of identical API calls for the following APIs: 
+            <p class="mb-2">This analysis generated an excessive number of API calls for the following APIs: 
                 <strong>{{ analysis.behavior.summary.apispam|join:", " }}</strong>.
             </p>
             <p class="mb-0">

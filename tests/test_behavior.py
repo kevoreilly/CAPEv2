@@ -131,4 +131,32 @@ class TestSummaryAndEnhanced:
         assert res["apispam"] == []
         assert res["apispam_exclude_apis"] == ""
 
+    def test_summary_api_spam_repeated_and_anomaly_handling(self):
+        empty_opts = Dictionary({})
+        process = {"process_id": 1000}
+
+        # 1. Anomaly records with empty/missing api are ignored
+        summary = Summary(options=empty_opts, task=None)
+        summary.event_apicall({"api": "", "category": "anomaly"}, process)
+        summary.event_apicall({"category": "anomaly"}, process)
+        assert len(summary.api_counts) == 0
+
+        # 2. Collapsed calls with repeated count (e.g. repeated=300) are accounted for accurately
+        call_repeated = {"api": "NtDelayExecution", "category": "system", "repeated": 300}
+        summary.event_apicall(call_repeated, process)
+        # 1 initial call + 300 repeated = 301 total calls
+        assert summary.api_counts["NtDelayExecution"] == 301
+
+        # 3. task=None still populates apispam and apispam_exclude_apis
+        res_none = summary.run()
+        assert res_none["apispam"] == ["NtDelayExecution"]
+        assert res_none["apispam_exclude_apis"] == "NtDelayExecution"
+
+        # 4. task={} still populates apispam and apispam_exclude_apis
+        summary_empty_task = Summary(options=empty_opts, task={})
+        summary_empty_task.event_apicall(call_repeated, process)
+        res_empty = summary_empty_task.run()
+        assert res_empty["apispam"] == ["NtDelayExecution"]
+        assert res_empty["apispam_exclude_apis"] == "NtDelayExecution"
+
 

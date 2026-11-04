@@ -20,6 +20,10 @@
 * Monitor updates:
     * Misc enhancements & fixes (see capemon repo for details)
 
+### [14.09.2026]
+* MongoDB write path:
+    * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
+
 
 ### [22.08.2026]
 * Performance & Database Infrastructure:

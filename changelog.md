@@ -69,6 +69,9 @@
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
 
+* Windows analyzer process loop (`analyzer/windows/analyzer.py`):
+    * `analysis_loop()` iterated the live pid list while `remove_pid()` removed from it, so the iterator skipped the entry after every removal. Five processes exiting together took several one-second iterations to drain, delaying both `upload_memdump()` and the "process list is empty, terminating analysis" check.
+    * `_normalized_protected_path()` compared `path[-1]` (an `int`, because the value is `bytes`) against `b"\\"`, so the check was always true and a directory ending in a separator got a second one appended - after which `in_protected_path()` could not match anything below it.
 * Windows analyzer pipe server (`analyzer/windows/lib/core/pipe.py`):
     * `PipeServer.run()` retried `CreateNamedPipeW` with no delay and no limit. A pipe name that cannot be created turned the thread into a spin loop that burned a core and flooded the log for the rest of the analysis. It now backs off 100 ms and gives up after 100 consecutive failures.
     * `PipeDispatcher._read_message()` accumulated `buf.value`, which stops at the first NUL byte and ignores the byte count the API reports, so a message containing an embedded NUL was truncated and its tail was parsed as a new command. It now uses `buf.raw[:bytes_read.value]` and strips the trailing NUL terminator.

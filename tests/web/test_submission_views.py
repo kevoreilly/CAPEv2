@@ -244,3 +244,73 @@ class TestSubmissionViews(SimpleTestCase):
         names = [item["name"] for item in actual]
         self.assertIn("firefox", names)
         self.assertIn("bash (linux only)", names)
+
+    def test_submission_page_has_dropzone_and_active_tab_and_submit_btn(self):
+        resp = self.client.get("/submit/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode()
+        self.assertIn('id="submission-form"', body)
+        self.assertIn('name="active_tab"', body)
+        self.assertIn('id="file-dropzone"', body)
+        self.assertIn('id="selected-files-list"', body)
+        self.assertIn('id="precheck-existent-tasks"', body)
+        self.assertIn('id="submit-btn"', body)
+
+    def test_resolve_submission_target_honors_active_tab(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import RequestFactory
+        from submission.views import _resolve_submission_target
+
+        rf = RequestFactory()
+        sample_file = SimpleUploadedFile("stale.exe", b"MZ\x90\x00")
+
+        # Without active_tab, legacy fallback prioritizes sample over url
+        req_legacy = rf.post("/submit/", data={"sample": sample_file, "url": "http://example.com/mal.exe"})
+        cat_legacy, samples_legacy = _resolve_submission_target(req_legacy)
+        self.assertEqual(cat_legacy, "sample")
+        self.assertEqual(len(samples_legacy), 1)
+
+        # With active_tab="url", the active tab wins even if a stale file input is present
+        sample_file_2 = SimpleUploadedFile("stale2.exe", b"MZ\x90\x00")
+        req_url = rf.post(
+            "/submit/",
+            data={"active_tab": "url", "sample": sample_file_2, "url": "http://example.com/mal.exe"},
+        )
+        cat_url, samples_url = _resolve_submission_target(req_url)
+        self.assertEqual(cat_url, "url")
+        self.assertEqual(samples_url, "http://example.com/mal.exe")
+
+        # With active_tab="downloading_service", hashes input is selected
+        req_dl = rf.post(
+            "/submit/",
+            data={"active_tab": "downloading_service", "url": "http://example.com/mal.exe", "hashes": "a" * 64},
+        )
+        cat_dl, samples_dl = _resolve_submission_target(req_dl)
+        self.assertEqual(cat_dl, "downloading_service")
+        self.assertEqual(samples_dl, "a" * 64)
+
+    def test_precheck_sha256_endpoint(self):
+        from unittest.mock import patch
+
+        sha256 = "a" * 64
+        orig_existent = web_conf.general.get("existent_tasks", False)
+        try:
+            web_conf.general.existent_tasks = True
+            fake_records = [
+                {
+                    "info": {"id": 42, "started": "2026-01-01 12:00:00"},
+                    "target": {"file": {"sha256": sha256}},
+                    "malfamily": "Emotet",
+                }
+            ]
+            with patch("submission.views.perform_search", return_value=fake_records) as mock_search:
+                resp = self.client.get(f"/submit/?precheck_sha256={sha256},not-a-hash")
+                self.assertEqual(resp.status_code, 200)
+                mock_search.assert_called_once()
+                body = resp.content.decode()
+                self.assertIn("Existing Analyses Found for Selected Sample(s)", body)
+                self.assertIn("Task #42", body)
+                self.assertIn("Emotet", body)
+        finally:
+            web_conf.general.existent_tasks = orig_existent
+

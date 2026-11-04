@@ -236,10 +236,11 @@
             {% endif %}
 
             {# similarity-inline-rows-v4 BEGIN #}
-            {% if file.code_similarity_matches %}
+            {% if file.code_similarity_matches or file.kesakode.msg %}
             <tr>
                 <th class="text-end text-info" style="width: 15%;">Code Similarity</th>
                 <td>
+                    {% if file.code_similarity_matches %}
                     <ul class="list-unstyled mb-0">
                     {% for m in file.code_similarity_matches %}
                         <li>
@@ -255,6 +256,10 @@
                         </li>
                     {% endfor %}
                     </ul>
+                    {% endif %}
+                    {% if file.kesakode.msg %}
+                        <span class="text-muted small">{{ file.kesakode.msg }}</span>
+                    {% endif %}
                 </td>
             </tr>
             {% endif %}
@@ -311,8 +316,13 @@
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}">View CAPA</a>
                 {% endif %}
             {% endif %}
-            {% if on_demand.kesakode %}
-                <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "kesakode" id tab_name file.sha256 %}">Kesakode lookup</a>
+            {% if on_demand.kesakode and not file.kesakode %}
+                <a class="btn btn-sm btn-secondary me-2 mb-2"
+                   href="{% url "on_demand" "kesakode" id tab_name file.sha256 %}"
+                   hx-get="{% url "on_demand" "kesakode" id tab_name file.sha256 %}"
+                   hx-target="#file-info-{{file.sha256}}"
+                   hx-swap="outerHTML"
+                   hx-indicator="#indicator-{{file.sha256}}">Kesakode lookup</a>
             {% endif %}
 
             {% if config.strings %}

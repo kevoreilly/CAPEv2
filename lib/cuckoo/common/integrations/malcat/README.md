@@ -12,7 +12,7 @@ from CAPE (Malcat can live on the same host, another server, or in a
 container) and keeps the Malcat license server-side. CAPE talks to it exactly
 like it talks to an MCRIT server.
 
-Files:
+Files (in `lib/cuckoo/common/integrations/malcat/`):
 
 * `malcat_bridge.py` — the bridge service (stdlib only; runs in Malcat's venv).
 * `malcat_client_cli.py` — a standalone CLI tester for the bridge (needs only
@@ -86,10 +86,11 @@ python malcat_client_cli.py --url https://HOST:8090 --api-key mbk_... --insecure
 
 ## 5. Point CAPE at it
 
-In CAPE's `conf/integrations.conf`, `[similarity]` section, set `kesakode = yes`
-and the `kesakode_host` / `kesakode_apikey` / `kesakode_ssl_verify` values to
-match this bridge. Anomalies and the Malcat CAPA override are configured in the
-`[malcat]` section (and enabled in `conf/processing.conf [malcat]`). For a
+In CAPE's `conf/integrations.conf`, `[similarity]` section, set `enabled = yes`,
+`kesakode = yes`, and the `kesakode_host` / `kesakode_apikey` /
+`kesakode_ssl_verify` values to match this bridge. Anomalies are configured in
+`conf/integrations.conf` under `[malcat]` (`enabled = yes`), and the Malcat
+CAPA backend is enabled via `[flare_capa] malcat_capa = yes`. For a
 self-signed bridge cert, set `kesakode_ssl_verify = no` (and `malcat_ssl_verify
 = no`). See the comments in `integrations.conf` for the full option list.
 

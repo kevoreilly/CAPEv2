@@ -83,36 +83,34 @@ def capa_to_flare_shape(capa_list):
     return result
 
 
-def kesakode_to_similarity_rows(kesakode, minimum_similarity=0.0, max_results=0):
+def kesakode_to_similarity_rows(kesakode, minimum_similarity=0.0, max_results=0, options=None):
     """Turn a bridge kesakode feature dict into the same match-row shape the
     similarity processing module stores in ``code_similarity_matches`` on an
     artifact, so an on-demand lookup renders in the existing Code Similarity row.
 
-    Rows: {family, similarity, sample_sha256(None), engine, low_confidence}.
-    Sorted by similarity desc; filtered by minimum_similarity; capped at
-    max_results (0 = no cap).
+    Delegates selection to ``KesakodeEngine._select_matches`` so ``exclude_families``,
+    ``best_match`` (``low_confidence``), ``match_families``, ``minimum_similarity``,
+    and ``max_results`` behave identically to batch processing.
     """
-    verdict = (kesakode or {}).get("verdict") or {}
+    from lib.cuckoo.common.integrations.similarity.kesakode_engine import KesakodeEngine
+
+    opts = dict(options or {})
+    if options is None or "minimum_similarity" not in opts:
+        opts["minimum_similarity"] = minimum_similarity
+    if options is None or "max_results" not in opts:
+        opts["max_results"] = max_results
+
+    engine = KesakodeEngine(opts)
+    engine.minimum_similarity = float(opts.get("minimum_similarity", minimum_similarity) or 0.0)
+    raw_max = opts.get("max_results", max_results)
+    engine.max_results = int(raw_max) if raw_max is not None and str(raw_max).strip() != "" else 0
+
+    selected = engine._select_matches(engine._parse_verdict(kesakode or {}))
     rows = []
-    for family, score in verdict.items():
-        if not family:
-            continue
-        try:
-            sim = float(score)
-        except (TypeError, ValueError):
-            continue
-        if minimum_similarity and sim < float(minimum_similarity):
-            continue
-        rows.append({
-            "family": str(family),
-            "similarity": sim,
-            "sample_sha256": None,
-            "engine": "malcat kesakode",
-            "low_confidence": False,
-        })
-    rows.sort(key=lambda r: r["similarity"], reverse=True)
-    if max_results and max_results > 0:
-        rows = rows[:max_results]
+    for match in selected:
+        entry = match.to_dict()
+        entry["engine"] = engine.name
+        rows.append(entry)
     return rows
 
 

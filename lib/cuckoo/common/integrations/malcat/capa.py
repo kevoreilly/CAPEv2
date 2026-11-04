@@ -15,11 +15,38 @@ bridge, configured under [malcat]). Any failure returns {} so CAPA never breaks
 processing - identical to FLARE's own failure behaviour.
 """
 
+import hashlib
 import logging
+from collections import OrderedDict
 
 log = logging.getLogger(__name__)
 
 _client = None
+_CAPA_PREFETCH_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_MAX_PREFETCH_ENTRIES = 32
+
+
+def _cache_put_capa(sha256: str, shaped: dict) -> None:
+    _CAPA_PREFETCH_CACHE[sha256] = shaped
+    _CAPA_PREFETCH_CACHE.move_to_end(sha256)
+    while len(_CAPA_PREFETCH_CACHE) > _MAX_PREFETCH_ENTRIES:
+        _CAPA_PREFETCH_CACHE.popitem(last=False)
+
+
+def _should_prefetch_capa(integ, cat_norm: str, _as_bool) -> bool:
+    """Return True if [flare_capa] will request malcat_capa for this category
+    later in CAPE.process_file, so malcat_details can piggyback 'capa' onto the
+    same bridge call and avoid a second upload + full re-analysis."""
+    try:
+        fcfg = dict(integ.get("flare_capa"))
+    except Exception:
+        return False
+    if not _as_bool(fcfg.get("enabled", False)) or not _as_bool(fcfg.get("malcat_capa", False)):
+        return False
+    if _as_bool(fcfg.get("on_demand", False)):
+        return False
+    capa_cat = "cape" if cat_norm in ("cape", "payload") else ("procdump" if cat_norm == "procdump" else "static")
+    return _as_bool(fcfg.get(capa_cat, False))
 
 
 def _get_client():
@@ -60,9 +87,6 @@ def malcat_capa_details(file_path, category=False, on_demand=False, results=None
     be swapped in at the same call sites. `category`/`on_demand`/`results` are
     accepted and ignored (the bridge analyses whatever file it is given).
     """
-    client = _get_client()
-    if client is None:
-        return {}
     try:
         with open(file_path, "rb") as fh:
             data = fh.read()
@@ -70,6 +94,15 @@ def malcat_capa_details(file_path, category=False, on_demand=False, results=None
         log.debug("Malcat CAPA: cannot read %s: %s", file_path, err)
         return {}
     if not data:
+        return {}
+
+    sha256 = hashlib.sha256(data).hexdigest()
+    prefetched = _CAPA_PREFETCH_CACHE.pop(sha256, None)
+    if prefetched is not None:
+        return prefetched if prefetched.get("CAPABILITY") else {}
+
+    client = _get_client()
+    if client is None:
         return {}
 
     try:
@@ -89,3 +122,95 @@ def malcat_capa_details(file_path, category=False, on_demand=False, results=None
     if shaped.get("CAPABILITY"):
         return shaped
     return {}
+
+
+_CATEGORY_TO_SOURCE_KEY = {
+    "cape": "malcat_payloads",
+    "payload": "malcat_payloads",
+    "procdump": "malcat_procdump",
+    "dropped": "malcat_dropped",
+    "package": "malcat_dropped",
+    "files": "malcat_dropped",
+    "static": "malcat_submittedfile",
+    "file": "malcat_submittedfile",
+    "submitted": "malcat_submittedfile",
+}
+
+_CATEGORY_DEFAULTS = {
+    "malcat_payloads": True,
+    "malcat_procdump": True,
+    "malcat_dropped": False,
+    "malcat_submittedfile": False,
+}
+
+
+def malcat_details(file_path, category="static", file_type=""):
+    """Return static Malcat intel (anomalies) for ``file_path`` when enabled in
+    ``integrations.conf [malcat]`` for ``category``, or ``{}``."""
+    try:
+        from lib.cuckoo.common.config import Config
+        from lib.cuckoo.common.integrations.malcat.convert import capa_to_flare_shape, normalize_anomalies
+        from lib.cuckoo.common.integrations.similarity.base import (
+            FMT_UNKNOWN,
+            _as_bool,
+            detect_format,
+        )
+
+        integ = Config("integrations")
+        mcfg = dict(integ.get("malcat"))
+    except Exception as err:
+        log.debug("Malcat: could not read [malcat] config (%s); skipping.", err)
+        return {}
+
+    if not _as_bool(mcfg.get("enabled", False)):
+        return {}
+
+    cat_norm = (str(category or "static")).strip().lower()
+    source_key = _CATEGORY_TO_SOURCE_KEY.get(cat_norm, "malcat_submittedfile")
+    default_enabled = _CATEGORY_DEFAULTS.get(source_key, False)
+    if not _as_bool(mcfg.get(source_key, mcfg.get(cat_norm, default_enabled))):
+        return {}
+
+    features = []
+    if _as_bool(mcfg.get("anomalies", True)):
+        features.append("anomalies")
+    if not features:
+        return {}
+
+    try:
+        with open(file_path, "rb") as fh:
+            data = fh.read()
+    except OSError as err:
+        log.debug("Malcat: cannot read %s: %s", file_path, err)
+        return {}
+    if not data:
+        return {}
+
+    if detect_format(file_type, data[:4]) == FMT_UNKNOWN:
+        return {}
+
+    client = _get_client()
+    if client is None:
+        return {}
+
+    prefetch_capa = _should_prefetch_capa(integ, cat_norm, _as_bool)
+    if prefetch_capa and "capa" not in features:
+        features.append("capa")
+
+    try:
+        payload = client.analyze(data=data, features=features)
+    except Exception as err:
+        log.warning("Malcat static analysis failed for %s: %s", file_path, err)
+        return {}
+
+    feats = payload.get("features") or {}
+    if prefetch_capa:
+        sha256 = hashlib.sha256(data).hexdigest()
+        _cache_put_capa(sha256, capa_to_flare_shape(feats.get("capa") or []))
+    block = {}
+    if "anomalies" in features:
+        anomalies = normalize_anomalies(feats.get("anomalies") or [])
+        if anomalies:
+            block["anomalies"] = anomalies
+    return block
+

@@ -74,6 +74,14 @@ def _get_analysis_ui_configs():
                         on_demand_conf[item] = True
                 else:
                     enabledconf[item] = False
+    with suppress(Exception):
+        _sim = Config("integrations").get("similarity")
+        if (
+            str(_sim.get("enabled", "yes")).lower() in ("yes", "true", "1", "on")
+            and str(_sim.get("kesakode", "no")).lower() in ("yes", "true", "1", "on")
+            and str(_sim.get("kesakode_on_demand", "no")).lower() in ("yes", "true", "1", "on")
+        ):
+            on_demand_conf["kesakode"] = True
     return enabledconf, on_demand_conf
 
 

@@ -101,9 +101,18 @@ class AnalysisCache:
                 self._drop(sha)
 
     def _drop(self, sha):
-        self._store.pop(sha, None)
+        entry = self._store.pop(sha, None)
         if sha in self._order:
             self._order.remove(sha)
+        if entry and entry.get("tmp"):
+            try:
+                os.unlink(entry["tmp"])
+            except OSError:
+                pass
+
+    def clear(self):
+        for sha in list(self._store.keys()):
+            self._drop(sha)
 
     def _touch(self, sha):
         if sha in self._order:
@@ -117,9 +126,10 @@ class AnalysisCache:
             self._touch(sha)
         return entry
 
-    def new_entry(self, sha, analysis):
+    def new_entry(self, sha, analysis, passes=None):
         entry = {"analysis": analysis, "ts": time.time(),
-                 "extracted": {}, "kesakode": {}}
+                 "extracted": {}, "kesakode": {},
+                 "passes": set(passes or ())}
         self._store[sha] = entry
         self._touch(sha)
         while len(self._order) > self.max_entries:
@@ -184,6 +194,19 @@ def resolve_license(cfg):
 # --------------------------------------------------------------------------
 # Malcat analysis backend
 # --------------------------------------------------------------------------
+def _enabled_passes(features):
+    """Return the set of features whose required Malcat passes are enabled when
+    analysed with ``_build_options(features, ...)``."""
+    if "capa" in features:
+        return set(ALL_FEATURES)
+    enabled = {"kesakode", "info", "constants"}
+    if "yara" in features:
+        enabled.add("yara")
+    if "anomalies" in features:
+        enabled.add("anomalies")
+    return enabled
+
+
 def _build_options(features, filetype_force):
     """Only compute what the caller asked for. Kesakode needs functions,
     strings, constants and entropy (entropy also yields md5/sha1/sha256), so
@@ -431,15 +454,35 @@ def run_analysis(data_bytes, features, filetype_force, kesakode_mode, license, q
         # -- one analysis per sha256 (cache) ------------------------------
         entry = _CACHE.get(sha256) if _CACHE is not None else None
         tmp = None
+        req_features = set(features)
         if entry is None:
             t0 = time.time()
-            analysis, tmp = _malcat_analyse(data_bytes, features, filetype_force)
+            analysis, tmp = _malcat_analyse(data_bytes, req_features, filetype_force)
             result["analyse_seconds"] = round(time.time() - t0, 3)
             result["cached"] = False
+            passes = _enabled_passes(req_features)
             if _CACHE is not None:
-                entry = _CACHE.new_entry(sha256, analysis)
+                entry = _CACHE.new_entry(sha256, analysis, passes=passes)
             else:
-                entry = {"analysis": analysis, "extracted": {}, "kesakode": {}}
+                entry = {"analysis": analysis, "extracted": {}, "kesakode": {}, "passes": passes}
+        elif not req_features.issubset(entry.get("passes", set())):
+            # Cached entry was analysed with stripped passes (e.g. kesakode-only)
+            # and a later call needs anomalies/capa/yara: re-analyse with the union
+            # of passes while keeping cached Kesakode verdicts (no extra token spent).
+            combined = req_features | entry.get("passes", set())
+            t0 = time.time()
+            analysis, tmp = _malcat_analyse(data_bytes, combined, filetype_force)
+            result["analyse_seconds"] = round(time.time() - t0, 3)
+            result["cached"] = False
+            old_tmp = entry.get("tmp")
+            if old_tmp:
+                try:
+                    os.unlink(old_tmp)
+                except OSError:
+                    pass
+                entry.pop("tmp", None)
+            entry["analysis"] = analysis
+            entry["passes"] = _enabled_passes(combined)
         else:
             analysis = entry["analysis"]
             result["analyse_seconds"] = 0.0
@@ -709,6 +752,9 @@ def cmd_serve(args):
     except KeyboardInterrupt:
         LOG.info("shutting down")
         httpd.shutdown()
+    finally:
+        if _CACHE is not None:
+            _CACHE.clear()
 
 
 def _fake_backend(data_bytes, features, filetype_force, kesakode_mode, license):

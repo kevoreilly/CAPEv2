@@ -110,7 +110,11 @@ except (NameError, ImportError):
 # [similarity] section (kesakode config lives there, not a [kesakode] section).
 HAVE_KESAKODE_ONDEMAND = False
 try:
-    if integrations_cfg.similarity.get("kesakode") and integrations_cfg.similarity.get("kesakode_on_demand"):
+    if (
+        integrations_cfg.similarity.get("enabled", True)
+        and integrations_cfg.similarity.get("kesakode")
+        and integrations_cfg.similarity.get("kesakode_on_demand")
+    ):
         HAVE_KESAKODE_ONDEMAND = True
 except Exception:
     HAVE_KESAKODE_ONDEMAND = False
@@ -182,8 +186,11 @@ for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "di
 # with its own on_demand key, so surface it to the template explicitly.
 try:
     _sim = Config("integrations").get("similarity")
-    if str(_sim.get("kesakode", "no")).lower() in ("yes", "true", "1", "on") and \
-       str(_sim.get("kesakode_on_demand", "no")).lower() in ("yes", "true", "1", "on"):
+    if (
+        str(_sim.get("enabled", "yes")).lower() in ("yes", "true", "1", "on")
+        and str(_sim.get("kesakode", "no")).lower() in ("yes", "true", "1", "on")
+        and str(_sim.get("kesakode_on_demand", "no")).lower() in ("yes", "true", "1", "on")
+    ):
         on_demand_conf["kesakode"] = True
 except Exception:
     pass
@@ -4080,6 +4087,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                         kk,
                         minimum_similarity=float(scfg.get("minimum_similarity", 0) or 0),
                         max_results=int(scfg.get("max_results", 0) or 0),
+                        options=scfg,
                     )
                     # 'details' carries the rows; the storage block merges them
                     # into the artifact's code_similarity_matches (see below).
@@ -4155,6 +4163,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 existing = [r for r in (node.get("code_similarity_matches") or [])
                             if isinstance(r, dict) and r.get("engine") != "malcat kesakode"]
                 node["code_similarity_matches"] = existing + list(new_rows)
+                node["kesakode"] = {"status": "done"}
                 return True
             for value in node.values():
                 if isinstance(value, (dict, list)) and _merge_kesakode_rows(value, target_sha256, new_rows):
@@ -4166,6 +4175,47 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     return True
         return False
 
+    def _update_similarity_summary(sim_block, target_sha256, new_rows, error_msg=None):
+        """Keep top-level report['similarity'] in sync after an on-demand Kesakode lookup."""
+        if not isinstance(sim_block, dict):
+            return None
+        results_map = sim_block.setdefault("results", {})
+        kk_rows = results_map.get("malcat kesakode")
+        if isinstance(kk_rows, list):
+            for entry in kk_rows:
+                if isinstance(entry, dict) and entry.get("sha256") == target_sha256:
+                    if error_msg:
+                        entry["status"] = "error"
+                        entry["error"] = str(error_msg)
+                        entry["matches"] = []
+                    elif new_rows:
+                        entry["status"] = "ok"
+                        entry.pop("error", None)
+                        entry["matches"] = [
+                            {k: v for k, v in r.items() if k != "engine"} for r in new_rows
+                        ]
+                    else:
+                        entry["status"] = "no_match"
+                        entry.pop("error", None)
+                        entry["matches"] = []
+        by_sha = sim_block.setdefault("by_sha256", {})
+        if new_rows:
+            existing = [
+                r for r in (by_sha.get(target_sha256) or [])
+                if isinstance(r, dict) and r.get("engine") != "malcat kesakode"
+            ]
+            by_sha[target_sha256] = existing + list(new_rows)
+        elif target_sha256 in by_sha:
+            remaining = [
+                r for r in (by_sha.get(target_sha256) or [])
+                if isinstance(r, dict) and r.get("engine") != "malcat kesakode"
+            ]
+            if remaining:
+                by_sha[target_sha256] = remaining
+            else:
+                by_sha.pop(target_sha256, None)
+        return sim_block
+
     # Kesakode on-demand stores into code_similarity_matches (merge), not a
     # 'kesakode' key, so it renders in the existing Code Similarity row.
     kesakode_rows = None
@@ -4174,8 +4224,11 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     if details is not False:
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
+        projection = {"_id": 1, category: 1}
+        if service == "kesakode":
+            projection["similarity"] = 1
         buf = (
-            mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
+            mongo_find_one("analysis", {"info.id": int(task_id)}, projection, no_hooks=True)
             if enabledconf["mongodb"]
             else None
         )
@@ -4185,7 +4238,11 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             if task and category == "target.file" and task_sha256 == sha256:
                 from submission.static_preview import get_static_preview, update_static_preview_service
 
-                update_static_preview_service(sha256, service, details)
+                if service == "kesakode" and kesakode_rows is not None:
+                    update_static_preview_service(sha256, "code_similarity_matches", kesakode_rows)
+                    update_static_preview_service(sha256, "kesakode", {"status": "done"})
+                else:
+                    update_static_preview_service(sha256, service, details)
                 if request.headers.get("HX-Request"):
                     preview = get_static_preview(task, run_full=False) or {}
                     return render(request, "analysis/generic/_file_info.html", preview)
@@ -4211,9 +4268,13 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 if service == "xlsdeobf":
                     servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 elif service == "kesakode" and kesakode_rows is not None:
-                    existing = [r for r in (servicedata.get("code_similarity_matches") or [])
-                                if isinstance(r, dict) and r.get("engine") != "malcat kesakode"]
-                    servicedata["code_similarity_matches"] = existing + list(kesakode_rows)
+                    if extractedfile:
+                        _merge_kesakode_rows(servicedata, sha256, kesakode_rows)
+                    else:
+                        existing = [r for r in (servicedata.get("code_similarity_matches") or [])
+                                    if isinstance(r, dict) and r.get("engine") != "malcat kesakode"]
+                        servicedata["code_similarity_matches"] = existing + list(kesakode_rows)
+                        servicedata["kesakode"] = {"status": "done"}
                 elif extractedfile:
                     _set_service_by_sha256(servicedata, sha256, service, details)
                 else:
@@ -4224,8 +4285,19 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         # Always try to save if details were found (even if empty) to mark the task as done
         if servicedata is not None:
+            update_doc = {category: servicedata}
+            if service == "kesakode" and isinstance(buf.get("similarity"), dict):
+                err_msg = details.get("msg") if isinstance(details, dict) and kesakode_rows is None and details.get("msg") != "No results" else None
+                updated_sim = _update_similarity_summary(
+                    buf["similarity"],
+                    sha256,
+                    kesakode_rows or [],
+                    error_msg=err_msg,
+                )
+                if updated_sim is not None:
+                    update_doc["similarity"] = updated_sim
             try:
-                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": update_doc})
             except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
                 return render(
                     request,

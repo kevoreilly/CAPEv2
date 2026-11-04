@@ -26,7 +26,22 @@
     * Output is unchanged: verified against the previous implementation over 200 randomised packet streams covering IPv6, malformed addresses, ICMP without a dport, passlisted and private addresses.
 * MongoDB write path:
     * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
-
+* Windows analyzer result uploads:
+    * Screenshots, the DigiSig report and the pre/during script output were written to the result server with bare `socket.send()` calls, iterating the payload as *lines*. Binary data splits on every `0x0A` byte, so a 155 KB screenshot went out as 762 socket writes (smallest 1 byte) instead of one.
+    * Those calls also discarded the `send()` return value (a short write silently truncated the upload) and bypassed `NetlogConnection.send()`, which reconnects and retries once.
+    * Added `NetlogConnection.send_fileobj()`, which reads fixed-size chunks and sends them through `sendall()` with the existing retry. Upload granularity is unchanged: one connection and one file per upload.
+* Windows analyzer file bookkeeping (`analyzer/windows/analyzer.py`):
+    * `Files.dumped` is a set instead of a list. It is only ever tested for membership, and the linear scan cost 6.46 s in total across a 30,000 file run (688 ms at 10,000) versus 3.74 ms for a set.
+    * `Files.dump_files()` takes the next pending path directly instead of rebuilding the entire key list on every iteration, which was O(n^2): 3.82 s at 30,000 files, 308 ms at 10,000. It still re-checks the dict each time, because pipe handler threads can add files while it drains.
+* Windows analyzer process loop (`analyzer/windows/analyzer.py`):
+    * `analysis_loop()` iterated the live pid list while `remove_pid()` removed from it, so the iterator skipped the entry after every removal. Five processes exiting together took several one-second iterations to drain, delaying both `upload_memdump()` and the "process list is empty, terminating analysis" check.
+    * `_normalized_protected_path()` compared `path[-1]` (an `int`, because the value is `bytes`) against `b"\\"`, so the check was always true and a directory ending in a separator got a second one appended - after which `in_protected_path()` could not match anything below it.
+* Windows analyzer pipe server (`analyzer/windows/lib/core/pipe.py`):
+    * `PipeServer.run()` retried `CreateNamedPipeW` with no delay and no limit. A pipe name that cannot be created turned the thread into a spin loop that burned a core and flooded the log for the rest of the analysis. It now backs off 100 ms and gives up after 100 consecutive failures.
+    * `PipeDispatcher._read_message()` accumulated `buf.value`, which stops at the first NUL byte and ignores the byte count the API reports, so a message containing an embedded NUL was truncated and its tail was parsed as a new command. It now uses `buf.raw[:bytes_read.value]` and strips the trailing NUL terminator.
+    * Finished handler threads are dropped from `PipeServer.handlers` instead of being retained for the whole analysis.
+* Windows analyzer human interaction (`analyzer/windows/modules/auxiliary/human.py`):
+    * The main loop incremented a counter once per iteration and used it as a second count, but an iteration is not one second: `realistic_human_cursor_movement()` runs for 5 seconds on its own and `move_mouse_realistically()` sleeps per step. Every schedule keyed on that counter - the document window pass at 45/30 seconds and the foreground window switch at 15 + randoff - stretched by however long the sample made the loop take. They now use `time.monotonic()` deadlines.
 
 ### [02.11.2026]
 * Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):
@@ -50,6 +65,11 @@
 * Monitor updates:
     * Misc enhancements & fixes (see capemon repo for details)
 
+### [14.09.2026]
+* `utils/community.py` install safety:
+    * **Blocklist now works**: entries were compared against the absolute destination path while the file documents them as `"signatures/my_amazing_signature.py"`, so nothing was ever blocklisted. The documented relative form, the bare path inside the category and an absolute path are all accepted now.
+    * **`--clean` is rooted at `CUCKOO_ROOT`**: it called `shutil.rmtree()` on the relative category path, deleting relative to the current working directory.
+    * **New `-sc/--shadow-core`**: community files install into the same directories as core modules, with no namespacing, so a community file with a core path replaces it. Those paths are now skipped and listed unless this flag is passed.
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
@@ -68,9 +88,6 @@
     * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
-
-* Windows analyzer human interaction (`analyzer/windows/modules/auxiliary/human.py`):
-    * The main loop incremented a counter once per iteration and used it as a second count, but an iteration is not one second: `realistic_human_cursor_movement()` runs for 5 seconds on its own and `move_mouse_realistically()` sleeps per step. Every schedule keyed on that counter - the document window pass at 45/30 seconds and the foreground window switch at 15 + randoff - stretched by however long the sample made the loop take. They now use `time.monotonic()` deadlines.
 
 ### [31.07.2026]
 * Remus detection & dynamic config extraction

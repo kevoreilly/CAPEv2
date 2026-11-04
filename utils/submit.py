@@ -49,6 +49,7 @@ def submit_file(
     quiet: bool = False,
     category: Optional[str] = None,
     filename: Optional[str] = None,
+    attributes: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[int], Dict[str, Any]]:
     if not File(file_path).get_size():
         if not quiet:
@@ -96,6 +97,7 @@ def submit_file(
                 tags=tags,
                 route=route,
                 category=category,
+                attributes=attributes,
             )
         return task_ids, extra_details
     except CuckooDemuxError as e:

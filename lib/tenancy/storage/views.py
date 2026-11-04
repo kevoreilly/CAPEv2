@@ -16,51 +16,9 @@ from django.shortcuts import render
 log = logging.getLogger(__name__)
 
 
-def central_job_id_for_task(task_id: Any) -> Optional[str]:
-    """Resolve the broker `job_id` for a task from its SQL `custom` field."""
-    try:
-        tid = int(task_id)
-    except (TypeError, ValueError):
-        return None
-    try:
-        from analysis.views import db
-        from lib.tenancy.storage.artifact_storage import job_id_from_custom
-
-        t = db.view_task(tid)
-        return job_id_from_custom(getattr(t, "custom", None) if t else None)
-    except Exception:
-        log.exception("central_job_id_for_task: DB lookup failed for task %s; falling back to scoped resolution", tid)
-        return None
-
-
 def central_analysis_query(task_id: Any, scope: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     """Mongo filter to fetch a task's analysis doc when object storage is enabled."""
-    from lib.tenancy.storage.config import object_storage_bridge_required
-
-    jid = central_job_id_for_task(task_id)
-    if jid:
-        q: dict[str, Any] = {"info.job_id": jid}
-        if scope:
-            try:
-                if object_storage_bridge_required():
-                    _own_unstamped = {
-                        "$and": [{"info.job_id": jid}, {"info.tenant_id": None}, {"info.id": int(task_id)}]
-                    }
-                else:
-                    _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
-                q = {"$and": [q, {"$or": [scope, _own_unstamped]}]}
-            except (TypeError, ValueError):
-                q = {"$and": [q, scope]}
-        return q
-
-    if scope is not None and object_storage_bridge_required():
-        try:
-            tid = int(task_id)
-            return {"$and": [{"info.id": tid}, {"info.job_id": f"ui-{tid}"}, scope]}
-        except (TypeError, ValueError):
-            return {"info.job_id": {"$in": []}}
-
-    q = {"info.id": int(task_id)}
+    q: dict[str, Any] = {"info.id": int(task_id)}
     if scope:
         q = {"$and": [q, scope]}
     return q

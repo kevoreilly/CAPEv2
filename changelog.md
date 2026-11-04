@@ -1,4 +1,7 @@
 ### [02.11.2026]
+* Tenancy & Object Storage (`lib/tenancy/`, `utils/submit.py`, `utils/gcp_pubsub_service.py`):
+    * Replaced legacy `custom="job_id=..."` / `info.job_id` / `"ui-<id>"` / `"local-<id>"` indirection with universal `Task.attributes` (`main_task_id`, `task_acl`, `correlation_id`) and direct `<prefix>/<task_id>/<relpath>` object storage paths.
+    * Added `attributes` parameter forwarding to `utils/submit.py:submit_file` and wired PubSub payload metadata (`correlation_id`, `parent_id`, `transaction_id`, `source`, `main_task_id`, `task_acl`) into `task_attributes` in `utils/gcp_pubsub_service.py`.
 * Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):
     * Extracted multi-tenancy and remote object storage into the opt-in `lib.tenancy` package behind lightweight hooks (`lib/cuckoo/common/hooks.py`), leaving single-tenant installs free of runtime and schema overhead.
     * Added Django `Group`-native tenancy and per-group sandbox resource entitlements (`GroupSandboxPolicy` for VMs, network routes, and machine tags), side-table `TaskAcl` with monotonic `visibility_seq` compare-and-swap (CAS) synchronization, and vendor-neutral object storage backends (`s3`, `gcs`, `azure`, `local`).

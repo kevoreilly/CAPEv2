@@ -30,13 +30,6 @@ def _libvirt_ssh_dsn(ip: str, ssh_user: str, keyfile: str) -> str:
     return f"qemu+ssh://{ssh_user}@{_bracket(ip)}/system?keyfile={quote(keyfile, safe='/')}&no_verify=1"
 
 
-def _job_id_for_task(task_id: Any) -> Optional[str]:
-    try:
-        return f"ui-{int(task_id)}"
-    except (TypeError, ValueError):
-        return None
-
-
 def _worker_ip(cfg: Any, task_id: Any) -> Optional[str]:
     from lib.tenancy.storage.job_directory import get_job_directory
 
@@ -44,10 +37,8 @@ def _worker_ip(cfg: Any, task_id: Any) -> Optional[str]:
     if directory is None:
         return None
     try:
-        job_id = _job_id_for_task(task_id)
-        if not job_id:
-            return None
-        loc = directory.lookup(job_id)
+        tid = int(task_id)
+        loc = directory.lookup(str(tid))
         return loc.worker_ip if loc else None
     except Exception as e:
         log.warning("guac: worker resolution failed for task %s: %s", task_id, e)
@@ -69,10 +60,8 @@ def _worker_machine_body(task_id: Any) -> Optional[dict[str, Any]]:
     if directory is None:
         return None
     try:
-        job_id = _job_id_for_task(task_id)
-        if not job_id:
-            return None
-        loc = directory.lookup(job_id)
+        tid = int(task_id)
+        loc = directory.lookup(str(tid))
         if not loc:
             return None
         worker_ip = loc.worker_ip

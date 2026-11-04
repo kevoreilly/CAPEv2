@@ -266,47 +266,11 @@ def object_storage_config() -> ObjectStorageConfig:
 central_mode_config = object_storage_config
 
 
-def object_storage_bridge_required() -> bool:
-    """True when tenant isolation requires unique bridged task identity (`object_storage` AND `multitenancy` enabled)."""
-    try:
-        if not object_storage_config().enabled:
-            return False
-    except Exception:
-        return True
-    try:
-        from lib.tenancy.policy import multitenancy_config
-
-        return bool(multitenancy_config().enabled)
-    except Exception:
-        return True
-
-
-central_bridge_required = object_storage_bridge_required
-
-
 def object_storage_own_analysis_filter(task_id: Any, tenant_id: Any) -> dict[str, Any]:
     """Build the MongoDB filter identifying the caller's own analysis doc for a task."""
     _tid = int(task_id)
     _tenant_guard = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]}
-    if object_storage_bridge_required():
-        return {
-            "$and": [
-                {"$or": [{"info.job_id": f"ui-{_tid}"}, {"info.id": _tid, "info.job_id": str(_tid)}]},
-                _tenant_guard,
-            ]
-        }
-    return {
-        "$and": [
-            {
-                "$or": [
-                    {"info.job_id": f"ui-{_tid}"},
-                    {"$and": [{"info.id": _tid}, {"info.job_id": {"$in": [None, f"ui-{_tid}", str(_tid)]}}]},
-                    {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": tenant_id}]},
-                ]
-            },
-            _tenant_guard,
-        ]
-    }
+    return {"$and": [{"info.id": _tid}, _tenant_guard]}
 
 
 central_own_analysis_filter = object_storage_own_analysis_filter

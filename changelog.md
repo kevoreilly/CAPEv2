@@ -69,6 +69,9 @@
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
 
+* Windows analyzer file bookkeeping (`analyzer/windows/analyzer.py`):
+    * `Files.dumped` is a set instead of a list. It is only ever tested for membership, and the linear scan cost 6.46 s in total across a 30,000 file run (688 ms at 10,000) versus 3.74 ms for a set.
+    * `Files.dump_files()` takes the next pending path directly instead of rebuilding the entire key list on every iteration, which was O(n^2): 3.82 s at 30,000 files, 308 ms at 10,000. It still re-checks the dict each time, because pipe handler threads can add files while it drains.
 * Windows analyzer process loop (`analyzer/windows/analyzer.py`):
     * `analysis_loop()` iterated the live pid list while `remove_pid()` removed from it, so the iterator skipped the entry after every removal. Five processes exiting together took several one-second iterations to drain, delaying both `upload_memdump()` and the "process list is empty, terminating analysis" check.
     * `_normalized_protected_path()` compared `path[-1]` (an `int`, because the value is `bytes`) against `b"\\"`, so the check was always true and a directory ending in a separator got a second one appended - after which `in_protected_path()` could not match anything below it.

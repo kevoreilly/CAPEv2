@@ -18,6 +18,7 @@ cat << EndOfHelp
         Base - Installs dependencies, CAPE, systemd, see code for full list
         All - Installs everything - (don't use it if you don't know what will be installed ;))
         Sandbox - Install CAPE
+        Update - Update CAPE
         Dependencies - Install all dependencies with performance tricks
         Systemd - Install systemd config for cape, we suggest to use systemd
         Nginx <domain.com> - Install NGINX with realip plugin and other goodies, pass your domain as argument
@@ -1691,6 +1692,19 @@ function install_passivedns() {
     fi
 }
 
+function update() {
+    echo "[+] Updating CAPEv2"
+    sudo systemctl stop cape*
+    cd "$CAPE_ROOT" || return
+    sudo -u ${USER} git pull
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; export CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    if sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check | grep -Fq "alembic upgrade head"; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT/utils/db_migration && $PYTHON_MGR $PYTHON_MGR_CMD alembic upgrade head"
+    fi
+    sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
+    systemctl list-unit-files "cape*" --no-legend | awk '{print $1}' | xargs sudo systemctl start
+}
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1845,6 +1859,8 @@ case "$COMMAND" in
     install_passivedns;;
 'libvirt')
     install_libvirt;;
+'update')
+    update;;
 *)
     usage;;
 esac

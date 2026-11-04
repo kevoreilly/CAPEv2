@@ -243,6 +243,76 @@ def get_form_data():
     return packages, machines
 
 
+_BATCH_TERMINAL_STATUSES = {
+    "reported",
+    "failed_analysis",
+    "failed_processing",
+    "failed_reporting",
+    "recovered",
+    "distributed_completed",
+}
+
+
+def _build_batch_tasks_info(request, task_ids):
+    """Build live status table rows and polling metadata for a batch of task IDs."""
+    rows = []
+    if not task_ids:
+        return rows, True
+
+    all_terminal = True
+    for raw_id in task_ids:
+        try:
+            tid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+
+        task = None
+        with suppress(Exception):
+            from sqlalchemy import select
+
+            from lib.cuckoo.common.hooks import apply_sql_task_filter
+            from lib.cuckoo.core.data.task import Task
+
+            base_stmt = select(Task).where(Task.id == tid)
+            filtered_stmt = apply_sql_task_filter(base_stmt)
+            if filtered_stmt is not base_stmt:
+                with db.session.begin():
+                    task_row = db.session.scalars(filtered_stmt).first()
+                if task_row:
+                    task = task_row.to_dict()
+            else:
+                task_obj = db.view_task(tid, details=True)
+                if task_obj:
+                    task = task_obj.to_dict() if hasattr(task_obj, "to_dict") else task_obj
+
+        if not task:
+            continue
+
+        status = str(task.get("status", "pending"))
+        target = task.get("target") or ""
+        sample = task.get("sample") or {}
+        sha256 = sample.get("sha256", "") if isinstance(sample, dict) else getattr(sample, "sha256", "")
+        is_reported = status in {"reported", "distributed_completed"}
+        is_terminal = status in _BATCH_TERMINAL_STATUSES
+        if not is_terminal:
+            all_terminal = False
+
+        rows.append(
+            {
+                "id": tid,
+                "target": os.path.basename(target) if target and task.get("category") == "file" else target,
+                "full_target": target,
+                "category": task.get("category", "file"),
+                "status": status,
+                "sha256": sha256,
+                "is_reported": is_reported,
+                "is_terminal": is_terminal,
+            }
+        )
+
+    return rows, all_terminal
+
+
 # Conditional decorator for web authentication
 class conditional_login_required:
     def __init__(self, dec, condition):
@@ -633,6 +703,10 @@ def index(request, task_id=None, resubmit_hash=None):
                 "existent_tasks": existent_tasks,
                 "remote_console": remote_console,
             }
+            task_rows, all_terminal = _build_batch_tasks_info(request, details["task_ids"])
+            data["task_rows"] = task_rows
+            data["batch_tasks_csv"] = ",".join(str(row["id"]) for row in task_rows)
+            data["all_terminal"] = all_terminal
             return render(request, "submission/complete.html", data)
         else:
             err_data = {
@@ -642,6 +716,20 @@ def index(request, task_id=None, resubmit_hash=None):
             }
             return render(request, "error.html", err_data)
     else:
+        if "batch_tasks" in request.GET:
+            raw_ids = [part.strip() for part in request.GET.get("batch_tasks", "").split(",") if part.strip().isdigit()][:50]
+            task_rows, all_terminal = _build_batch_tasks_info(request, raw_ids)
+            return render(
+                request,
+                "submission/_batch_tasks_table.html",
+                {
+                    "task_rows": task_rows,
+                    "batch_tasks_csv": ",".join(str(row["id"]) for row in task_rows),
+                    "all_terminal": all_terminal,
+                    "remote_console": request.GET.get("remote_console") == "1",
+                },
+            )
+
         enabledconf = {}
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")

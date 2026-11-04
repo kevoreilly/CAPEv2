@@ -93,3 +93,70 @@ class TestSummaryAndEnhanced:
         assert ev_create["event"] == "write"
         assert ev_create["data"]["regkey"] == r"HKEY_CURRENT_USER\Software\NewMalwareKey"
 
+    def test_summary_api_spam_detection_and_options_merging(self):
+        # 1. Missing keys on Dictionary should default safely to detect_apispam=True, apispam_limit=256
+        empty_opts = Dictionary({})
+        task = {"options": "exclude-apis=NtQueryValueKey:NtOpenFile"}
+        summary = Summary(options=empty_opts, task=task)
+        assert summary.detect_apispam is True
+        assert summary.apispam_limit == 256
+
+        # Simulate 300 calls to NtDelayExecution and 50 to NtClose
+        process = {"process_id": 1000}
+        call_delay = {"api": "NtDelayExecution", "category": "system"}
+        call_close = {"api": "NtClose", "category": "system"}
+        for _ in range(300):
+            summary.event_apicall(call_delay, process)
+        for _ in range(50):
+            summary.event_apicall(call_close, process)
+
+        res = summary.run()
+        assert res["apispam"] == ["NtDelayExecution"]
+        # Merged exclude-apis should be deduplicated and deterministically sorted
+        assert res["apispam_exclude_apis"] == "NtDelayExecution:NtOpenFile:NtQueryValueKey"
+
+    def test_summary_api_spam_disabled(self):
+        opts = Dictionary({"detect_apispam": "no", "apispam_limit": "100"})
+        summary = Summary(options=opts)
+        assert summary.detect_apispam is False
+        assert summary.apispam_limit == 100
+
+        process = {"process_id": 1000}
+        call = {"api": "NtDelayExecution", "category": "system"}
+        for _ in range(200):
+            summary.event_apicall(call, process)
+
+        assert len(summary.api_counts) == 0
+        res = summary.run()
+        assert res["apispam"] == []
+        assert res["apispam_exclude_apis"] == ""
+
+    def test_summary_api_spam_repeated_and_anomaly_handling(self):
+        empty_opts = Dictionary({})
+        process = {"process_id": 1000}
+
+        # 1. Anomaly records with empty/missing api are ignored
+        summary = Summary(options=empty_opts, task=None)
+        summary.event_apicall({"api": "", "category": "anomaly"}, process)
+        summary.event_apicall({"category": "anomaly"}, process)
+        assert len(summary.api_counts) == 0
+
+        # 2. Collapsed calls with repeated count (e.g. repeated=300) are accounted for accurately
+        call_repeated = {"api": "NtDelayExecution", "category": "system", "repeated": 300}
+        summary.event_apicall(call_repeated, process)
+        # 1 initial call + 300 repeated = 301 total calls
+        assert summary.api_counts["NtDelayExecution"] == 301
+
+        # 3. task=None still populates apispam and apispam_exclude_apis
+        res_none = summary.run()
+        assert res_none["apispam"] == ["NtDelayExecution"]
+        assert res_none["apispam_exclude_apis"] == "NtDelayExecution"
+
+        # 4. task={} still populates apispam and apispam_exclude_apis
+        summary_empty_task = Summary(options=empty_opts, task={})
+        summary_empty_task.event_apicall(call_repeated, process)
+        res_empty = summary_empty_task.run()
+        assert res_empty["apispam"] == ["NtDelayExecution"]
+        assert res_empty["apispam_exclude_apis"] == "NtDelayExecution"
+
+

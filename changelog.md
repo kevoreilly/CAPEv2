@@ -21,6 +21,11 @@
     * Misc enhancements & fixes (see capemon repo for details)
 
 ### [14.09.2026]
+* Signature engine performance & correctness:
+    * **Evented dispatch cache**: the per-API-call set algebra in `RunSignatures.run()` is memoised on `(api, category)`, wiring up the `self.api_sigs` cache that was declared but never used. 4.14s -> 2.40s for 200k calls against 200 no-op signatures.
+    * **TTP de-duplication**: replaced the O(n^2) `not in self.ttps` scan with a set of `(ttp, signature)` pairs.
+    * **Signature timings**: `statistics.signatures[].time` reported a leaked loop variable, so every evented signature got the same duration. It now reports each signature's own accumulated time.
+    * `RunReporting.__init__` used `break` where `continue` belongs, which could leave `ParseProcessLog` instances unconverted for later processes.
 * MongoDB write path:
     * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
 

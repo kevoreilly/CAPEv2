@@ -31,6 +31,7 @@ from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
+    deduplicate_file_to_storage,
     get_clamav_consensus,
     get_options,
     make_bytes,
@@ -348,6 +349,12 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime)
 
             self.results.setdefault(category, []).append(file_info)
+
+        if category in ("dropped", "procdump", "CAPE", "package") and not os.path.islink(file_path):
+            try:
+                deduplicate_file_to_storage(file_path, file_info["sha256"])
+            except Exception as e:
+                log.error("Deduplication failed for %s: %s", file_path, e)
 
         # Process CAPE Yara hits
         # Prefilter extracted data + beauty is better than oneliner:

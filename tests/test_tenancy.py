@@ -2225,5 +2225,67 @@ def test_gcp_pubsub_service_constructs_task_attributes(monkeypatch, tmp_path):
         "task_acl": {"tenant_id": 1, "visibility": "tenant"},
         "custom_tag": "sample-tag",
     }
+def test_upload_tree_allows_sharded_storage_files_symlinks_and_rejects_outside(tmp_path):
+    import hashlib
+    import os
+    from lib.tenancy.storage.reporting import _upload_tree
+
+    storage_root = tmp_path / "storage"
+    analysis_dir = storage_root / "analyses" / "77"
+    (analysis_dir / "files").mkdir(parents=True)
+    (analysis_dir / "selfextracted").mkdir(parents=True)
+
+    payload = b"deduplicated-dropped-artifact"
+    sha256 = hashlib.sha256(payload).hexdigest()
+    sharded_file = storage_root / "files" / sha256[:2] / sha256[2:4] / sha256
+    sharded_file.parent.mkdir(parents=True)
+    sharded_file.write_bytes(payload)
+
+    os.symlink(str(sharded_file), str(analysis_dir / "files" / sha256))
+    os.symlink(str(sharded_file), str(analysis_dir / "selfextracted" / sha256))
+
+    outside_secret = tmp_path / "outside_secret.txt"
+    outside_secret.write_bytes(b"secret")
+    os.symlink(str(outside_secret), str(analysis_dir / "files" / "escaped"))
+
+    store = LocalFSStore(str(tmp_path / "object_store"))
+    uploaded, failed = _upload_tree(store, "analyses/77", str(analysis_dir))
+    assert failed == 0
+    assert uploaded == 2
+    assert store.exists("analyses/77", f"files/{sha256}")
+    assert store.exists("analyses/77", f"selfextracted/{sha256}")
+    assert not store.exists("analyses/77", "files/escaped")
+
+
+def test_central_file_dropped_and_cape_fallback_to_selfextracted(monkeypatch):
+    import sys
+    import types
+    from django.http import Http404
+    from lib.tenancy.storage import views as storage_views
+
+    fake_analysis_views = types.ModuleType("analysis.views")
+    fake_analysis_views.zip_categories = {"CAPE_zip", "procdump_zip"}
+    monkeypatch.setitem(sys.modules, "analysis.views", fake_analysis_views)
+    monkeypatch.setattr(storage_views.viewer_scope_mod if hasattr(storage_views, "viewer_scope_mod") else "lib.tenancy.storage.scope.viewer_scope", lambda _u: None)
+
+    requested_paths = []
+
+    def fake_artifact_response(task_id, relpath, content_type, download_name, *, scope=None):
+        requested_paths.append(relpath)
+        if relpath.startswith("selfextracted/"):
+            return ("OK", relpath)
+        raise Http404("not in primary folder")
+
+    monkeypatch.setattr("lib.tenancy.storage.artifact_storage.artifact_response", fake_artifact_response)
+
+    req = types.SimpleNamespace(user=types.SimpleNamespace(is_authenticated=True))
+    res_dropped = storage_views.central_file(req, "dropped", 10, "deadbeef")
+    assert res_dropped == ("OK", "selfextracted/deadbeef")
+    assert requested_paths == ["files/deadbeef", "selfextracted/deadbeef"]
+
+    requested_paths.clear()
+    res_cape = storage_views.central_file(req, "CAPE_payload", 10, "cafebabe")
+    assert res_cape == ("OK", "selfextracted/cafebabe")
+    assert requested_paths == ["CAPE/cafebabe", "selfextracted/cafebabe"]
 
 

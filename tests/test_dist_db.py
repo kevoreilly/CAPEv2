@@ -913,3 +913,48 @@ def test_wrapped_validate_task_resolves_fallback_owner_for_recovered_task():
         res = fake_web_utils.validate_task(12)
 
     assert res == {"error": False, "rtid": 77, "tlp": None}
+
+
+def test_sync_sharded_files_nfs_copies_sharded_and_flat_targets_and_rewrites_symlinks(tmp_path, monkeypatch):
+    import hashlib
+    import os
+    from lib.cuckoo.common import utils as cuckoo_utils
+    import utils.dist as dist_mod
+
+    master_root = tmp_path / "master"
+    worker_root = tmp_path / "worker_mount"
+    monkeypatch.setattr(cuckoo_utils, "CUCKOO_ROOT", str(master_root))
+
+    payload_sharded = b"worker-sharded-artifact"
+    sha_sharded = hashlib.sha256(payload_sharded).hexdigest()
+    worker_sharded_file = worker_root / "storage" / "files" / sha_sharded[:2] / sha_sharded[2:4] / sha_sharded
+    worker_sharded_file.parent.mkdir(parents=True)
+    worker_sharded_file.write_bytes(payload_sharded)
+
+    payload_flat = b"worker-flat-legacy-artifact"
+    sha_flat = hashlib.sha256(payload_flat).hexdigest()
+    worker_flat_file = worker_root / "storage" / "files" / sha_flat
+    worker_flat_file.write_bytes(payload_flat)
+
+    analyses_dir = master_root / "storage" / "analyses" / "42"
+    (analyses_dir / "files").mkdir(parents=True)
+    (analyses_dir / "selfextracted").mkdir(parents=True)
+
+    # Simulate symlinks copied from worker with symlinks=True (pointing to worker-local /opt/CAPEv2/storage/files/...)
+    link_sharded = analyses_dir / "files" / sha_sharded
+    os.symlink(f"/opt/CAPEv2/storage/files/{sha_sharded[:2]}/{sha_sharded[2:4]}/{sha_sharded}", str(link_sharded))
+
+    link_flat = analyses_dir / "selfextracted" / sha_flat
+    os.symlink(f"/opt/CAPEv2/storage/files/{sha_flat}", str(link_flat))
+
+    dist_mod.sync_sharded_files_nfs(str(worker_root), str(analyses_dir))
+
+    expected_master_sharded = master_root / "storage" / "files" / sha_sharded[:2] / sha_sharded[2:4] / sha_sharded
+    expected_master_flat = master_root / "storage" / "files" / sha_flat[:2] / sha_flat[2:4] / sha_flat
+    assert expected_master_sharded.read_bytes() == payload_sharded
+    assert expected_master_flat.read_bytes() == payload_flat
+    assert os.readlink(link_sharded) == str(expected_master_sharded)
+    assert os.readlink(link_flat) == str(expected_master_flat)
+    assert link_sharded.read_bytes() == payload_sharded
+    assert link_flat.read_bytes() == payload_flat
+

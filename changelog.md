@@ -1,3 +1,33 @@
+### [04.11.2026]
+* Signature engine performance & correctness:
+    * **Evented dispatch cache**: the per-API-call set algebra in `RunSignatures.run()` is memoised on `(api, category)`, wiring up the `self.api_sigs` cache that was declared but never used. 4.14s -> 2.40s for 200k calls against 200 no-op signatures.
+    * **TTP de-duplication**: replaced the O(n^2) `not in self.ttps` scan with a set of `(ttp, signature)` pairs.
+    * **Signature timings**: `statistics.signatures[].time` reported a leaked loop variable, so every evented signature got the same duration. It now reports each signature's own accumulated time.
+    * `RunReporting.__init__` used `break` where `continue` belongs, which could leave `ParseProcessLog` instances unconverted for later processes.
+* Machinery and auxiliary wait paths:
+    * `qemu.stop()` called `proc.wait()` with no timeout, so a wedged qemu held the machinery thread forever. The timeout loop written below it was unreachable, because `wait()` had already returned by the time it was evaluated. Replaced with a bounded wait that escalates `system_powerdown` -> `SIGTERM` -> `SIGKILL`.
+    * `virtualbox.stop()` polled `proc.poll()` on a one-second tick, rounding every machine stop up to the next whole second, and its timeout branch called `proc.terminate()` with no sleep, spinning at 100% CPU until the process died. Now a single `communicate(timeout=...)`, which also drains stdout/stderr instead of leaving VBoxManage able to block on a full pipe.
+    * `hyperv.run_cmd()` opened a new SSH connection per command; `start()` alone did four handshakes. Commands now share one `ControlMaster` connection, run without `shell=True`, and have a deadline.
+    * `hyperv.start()` waited with `while not self._is_running(id): continue`, issuing remote status queries as fast as the host could spawn SSH processes, with no upper bound. Now polls every 2s and fails after 300s.
+    * `QemuScreenshots` opened and closed a libvirt connection every second, per analysis. One connection per thread now, reconnecting on error. Its `finally` block also referenced `stream` before assignment when `lookupByName` failed, turning a libvirt error into a `NameError`.
+    * `Mitmdump.wait_for_pid_exit` polled on a flat one-second tick after `SIGTERM`, adding up to a second to every teardown. Now backs off from 10ms.
+* Elasticsearch reporting and JSON dump:
+    * `ElasticSearchDB.run()` performed `json.loads(json.dumps(report), object_hook=date_hook)` **before** `insert_calls`, so the entire behaviour log was serialised and re-parsed only to be discarded on the next line. The round-trip now runs after the calls have been moved to the calls index. 200k calls: 7.36s -> 2ms.
+    * `date_hook` attempted `strptime` on every value in the report tree, building an exception for each int, list and non-date string. A leading digit plus a `-` plus a `:` are all necessary for `"%Y-%m-%d %H:%M:%S"` to parse, so guarding on them converts exactly the same values: a further 4.2x on the remaining work.
+    * `jsondump` with `store_compressed` built the whole archive in a `BytesIO` and then copied it out with `getvalue()`. It now writes the zip directly to disk. No speed change, lower peak memory. The archive entry name is unchanged.
+* Behaviour processing performance:
+    * `Summary` guarded roughly thirty appends with `value not in self.<list>`, once per matching API call, against lists that reach thousands of entries. The accumulators are now insertion-ordered containers with a set-backed membership test and are unwrapped to plain lists in `run()`. 100k appends across 10k unique values: 7.0s -> 4.8ms. Output verified identical with `replace_patterns` both off and on.
+    * `EncryptedBuffers` tested `buf not in self.bufs`, comparing a `str` against a list of `dict`s. That is always true, so no buffer was ever deduplicated and every check walked the whole list. 20k buffers: 3.0s -> 2.3ms. Reports now contain unique buffers per API.
+    * `EncryptedBuffers` also recorded every `CryptEncryptMessage` call twice, because `startswith("CryptEncrypt")` matches it as well.
+    * `ProcessTree.event_apicall` scanned the collected process list on every API call. 1M calls across 200 processes: 2.6s -> 18ms.
+* PCAP processing performance:
+    * `Pcap._add_hosts` tested membership against `self.hosts`, a list, once per packet. Destinations already seen are now rejected by an O(1) set before `convert_to_printable`, `ipaddress.ip_address` and the passlist walk run again. 200k packets across 5k unique hosts: 7.9s -> 5ms.
+    * `Pcap._enrich_hosts` rescanned every DNS answer for every host. The answer-to-hostname map is now built once. 5k hosts against 20k DNS requests: 2.1s -> 12ms.
+    * Output is unchanged: verified against the previous implementation over 200 randomised packet streams covering IPv6, malformed addresses, ICMP without a dport, passlisted and private addresses.
+* MongoDB write path:
+    * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
+
+
 ### [02.11.2026]
 * Tenancy & Object Storage (`lib/tenancy/`, `utils/submit.py`, `utils/gcp_pubsub_service.py`):
     * Replaced legacy `custom="job_id=..."` / `info.job_id` / `"ui-<id>"` / `"local-<id>"` indirection with universal `Task.attributes` (`main_task_id`, `task_acl`, `correlation_id`) and direct `<prefix>/<task_id>/<relpath>` object storage paths.
@@ -22,11 +52,6 @@
 ### [16.09.2026]
 * Monitor updates:
     * Misc enhancements & fixes (see capemon repo for details)
-
-### [14.09.2026]
-* MongoDB write path:
-    * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
-
 
 ### [22.08.2026]
 * Performance & Database Infrastructure:

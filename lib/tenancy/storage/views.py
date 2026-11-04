@@ -244,6 +244,11 @@ def central_file(request: Any, category: str, task_id: Any, dlfile: str) -> Any:
     try:
         return artifact_response(task_id, relpath, cd, f"{task_id}_{fn}", scope=scope)
     except Http404:
+        if category == "dropped" or (category.startswith("CAPE") and category not in zip_categories):
+            try:
+                return artifact_response(task_id, f"selfextracted/{dlfile}", cd, f"{task_id}_{fn}", scope=scope)
+            except Http404:
+                pass
         return render(request, "error.html", {"error": f"Could not find {category} {dlfile}"})
 
 

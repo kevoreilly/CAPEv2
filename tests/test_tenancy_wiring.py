@@ -2668,7 +2668,9 @@ def test_dist_resyncs_the_report_stamp_once_it_has_the_report(monkeypatch):
 def test_node_local_reporters_use_this_nodes_task_id(monkeypatch, tmp_path):
     # Object storage renumbers results["info"]["id"] to the central id in place; these act on this
     # node's own task (memdump, status row, behaviour logs), not the local task with that number.
-    from lib.tenancy.hooks import local_task_id
+    from lib.tenancy.hooks import local_task_id, wrap_submission_and_web_utils
+
+    wrap_submission_and_web_utils()
 
     info = {"id": 3, "local_task_id": 9}
     assert local_task_id(info) == 9 and local_task_id({"id": 3}) == 3
@@ -2688,7 +2690,7 @@ def test_node_local_reporters_use_this_nodes_task_id(monkeypatch, tmp_path):
     monkeypatch.setattr(cb, "Database", lambda: types.SimpleNamespace(session=types.SimpleNamespace(begin=lambda: __import__("contextlib").nullcontext()), set_status=lambda t, s: statuses.append(t)))
     monkeypatch.setattr(cb.requests, "post", lambda *a, **k: types.SimpleNamespace(ok=True))
     r = cb.CALLBACKHOME()
-    r.options = types.SimpleNamespace(url="http://x/")
+    r.options = types.SimpleNamespace(url="http://x/", key="")
     r.run({"info": dict(info)})
     assert statuses == [9]
 

@@ -1421,6 +1421,12 @@ function install_systemd() {
     cp $CAPE_ROOT/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
     cp $CAPE_ROOT/systemd/suricata.service /lib/systemd/system/suricata.service
 
+    mkdir -p /etc/systemd/network
+    cp $CAPE_ROOT/systemd/00-ignore-vnet.network /etc/systemd/network/00-ignore-vnet.network
+    if systemctl is-active --quiet systemd-networkd; then
+        networkctl reload || true
+    fi
+
     if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
         sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape.service
         sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-processor.service

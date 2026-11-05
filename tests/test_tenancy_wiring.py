@@ -3498,3 +3498,74 @@ def test_delete_preserves_other_tenants_calls_and_file_refs_via_no_hooks(mt_enab
     finally:
         core_hooks.clear_all_hooks()
 
+
+def test_tasks_machine_endpoint_authorizes_control_plane_token_and_local_admin(monkeypatch):
+    import json
+
+    from lib.tenancy.urls import match_machine_task_id
+    from lib.tenancy.views import tasks_machine
+
+    assert match_machine_task_id("/apiv2/tasks/machine/42/") == "42"
+    assert match_machine_task_id("/apiv2/tasks/view/42/") is None
+
+    fake_task = types.SimpleNamespace(
+        id=42,
+        status="running",
+        machine="requested-pool",
+        guest=types.SimpleNamespace(label="win11_seabios_107"),
+    )
+    loader = lambda tid: fake_task if tid == 42 else None  # noqa: E731
+    vnc_port = lambda label: 5907 if label == "win11_seabios_107" else None  # noqa: E731
+    cp_secret = lambda: "shared-cp-secret"  # noqa: E731
+
+    def _call(req, viewer):
+        req.viewer = viewer
+        res = tasks_machine(
+            req,
+            42,
+            viewer_resolver=lambda _u: viewer,
+            task_loader=loader,
+            vnc_port_resolver=vnc_port,
+            control_plane_token_getter=cp_secret,
+        )
+        status = getattr(res, "status_code", None) or res.get("status_code")
+        body = json.loads(res.content) if hasattr(res, "content") else res
+        return status, body
+
+    post_req = types.SimpleNamespace(method="POST", path="/apiv2/tasks/machine/42/", META={})
+    assert _call(post_req, ViewerContext(user_id=1, tenant_id=1, is_local_admin=True))[0] == 405
+
+    tenant_req = types.SimpleNamespace(method="GET", path="/apiv2/tasks/machine/42/", META={})
+    assert _call(tenant_req, _viewer(7, 1))[0] == 404
+
+    bad_tok_req = types.SimpleNamespace(
+        method="GET",
+        path="/apiv2/tasks/machine/42/",
+        META={"HTTP_AUTHORIZATION": "Token wrong-secret"},
+    )
+    assert _call(bad_tok_req, ViewerContext.anonymous())[0] == 404
+
+    good_tok_req = types.SimpleNamespace(
+        method="GET",
+        path="/apiv2/tasks/machine/42/",
+        META={"HTTP_AUTHORIZATION": "Token shared-cp-secret"},
+    )
+    status, body = _call(good_tok_req, ViewerContext.anonymous())
+    assert status == 200
+    assert body["error"] is False
+    assert body["machine"] == "win11_seabios_107"
+    assert body["vnc_port"] == 5907
+
+    admin_req = types.SimpleNamespace(method="GET", path="/apiv2/tasks/machine/42/", META={})
+    status, body = _call(admin_req, ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True))
+    assert status == 200
+    assert body["machine"] == "win11_seabios_107"
+
+
+def test_perform_search_files_pipeline_guards_replace_root_with_object_type_match():
+    import pathlib
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "lib" / "cuckoo" / "common" / "web_utils.py").read_text()
+    assert '{"$match": {"task_doc": {"$type": "object"}}}' in src
+
+

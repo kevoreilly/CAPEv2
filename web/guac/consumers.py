@@ -32,14 +32,14 @@ TASK_POLL_INTERVAL = 10
 ACTIVE_GUAC_TASK_STATUSES = ("pending", "running")
 
 
-def _get_vnc_port(vm_label):
+def _get_vnc_port(vm_label, dsn=machinery_dsn):
     """Look up VNC port for a VM from libvirt. Must be called from sync context."""
     if not LIBVIRT_AVAILABLE:
         return None
 
     conn = None
     try:
-        conn = libvirt.open(machinery_dsn)
+        conn = libvirt.open(dsn or machinery_dsn)
         if not conn:
             return None
         dom = conn.lookupByName(vm_label)
@@ -105,6 +105,27 @@ def _is_task_active_for_vm(task, vm_label: str) -> bool:
         if guest_vm and guest_vm != vm_label:
             return False
     return True
+
+
+def _can_manage_guac_task(viewer, task_id: int, task) -> bool:
+    if viewer.see_all:
+        return True
+    from lib.tenancy.middleware import default_task_scope_resolver
+    from lib.tenancy.policy import PRIVATE, ResourceScope, can_toggle
+
+    try:
+        scope = default_task_scope_resolver(int(task_id))
+    except Exception:
+        scope = None
+    if scope is None and task is not None:
+        scope = ResourceScope(
+            owner_id=getattr(task, "user_id", None),
+            tenant_id=getattr(task, "tenant_id", None),
+            visibility=getattr(task, "visibility", None) or PRIVATE,
+        )
+    if scope is None:
+        return False
+    return can_toggle(viewer, scope)
 
 
 def _unlock_if_locked(vm_label: str) -> None:
@@ -204,6 +225,11 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             vm_label = self.vm_label
 
             vnc_port = None
+            worker_ip = None
+            ws_user = self.scope.get("user")
+            from lib.tenancy.middleware import default_viewer_resolver
+
+            viewer = await sync_to_async(default_viewer_resolver)(ws_user)
             if self.guac_task_id > 0:
                 # 3. Verify task can still host an interactive session on this VM
                 task = await sync_to_async(_view_task_with_guest)(db, self.guac_task_id)
@@ -215,8 +241,22 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
+                if not await sync_to_async(_can_manage_guac_task)(viewer, self.guac_task_id, task):
+                    logger.warning(
+                        "WebSocket rejected: user not entitled to task %s", self.guac_task_id
+                    )
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
                 # 4. Look up VNC port server-side from libvirt
-                vnc_port = await sync_to_async(_get_vnc_port)(vm_label)
+                from lib.tenancy.storage.guac import libvirt_dsn_for_task, worker_vnc_port_for_task
+
+                vnc_dsn, worker_ip = await sync_to_async(libvirt_dsn_for_task)(self.guac_task_id, machinery_dsn)
+                if worker_ip:
+                    vnc_port = await sync_to_async(worker_vnc_port_for_task)(self.guac_task_id)
+                else:
+                    vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
                 if not vnc_port:
                     logger.warning(
                         "WebSocket rejected: no VNC port for VM %s", vm_label
@@ -225,6 +265,12 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     return
             else:
                 # Direct VNC connection
+                if not viewer.see_all:
+                    logger.warning("WebSocket rejected: direct VNC requires an administrator")
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
                 guest_ip = session_data.get("guest_ip")
                 if not guest_ip:
                     # Autodiscover port given just the VM name
@@ -246,7 +292,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                         return
 
             # 5. Parse config
-            guacd_hostname = web_cfg.guacamole.guacd_host or "localhost"
+            guacd_hostname = worker_ip or web_cfg.guacamole.guacd_host or "localhost"
             guacd_port = int(web_cfg.guacamole.guacd_port) or 4822
             guacd_recording_path = web_cfg.guacamole.guacd_recording_path or ""
             guest_protocol = web_cfg.guacamole.guest_protocol or "vnc"
@@ -277,7 +323,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                         "disable-theming": "true",
                     }
                 else:
-                    guest_host = web_cfg.guacamole.vnc_host or "localhost"
+                    guest_host = "localhost" if worker_ip else (web_cfg.guacamole.vnc_host or "localhost")
                     guest_port = vnc_port
                     ignore_cert = "false"
                     vnc_color_depth = str(

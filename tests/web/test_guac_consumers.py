@@ -422,6 +422,57 @@ class TestGuacConsumers:
         assert fake_db.deleted_sessions == [TEST_TOKEN]
         assert FakeGuacamoleClient.instances == []
 
+    async def test_consumer_routes_to_worker_guacd_and_worker_vnc_port_in_distributed_mode(
+        self, guac_consumer_app_factory, monkeypatch
+    ):
+        import lib.tenancy.storage.guac as storage_guac
+
+        monkeypatch.setattr(
+            storage_guac,
+            "libvirt_dsn_for_task",
+            lambda task_id, local_dsn: ("qemu+ssh://cape@10.20.30.40/system", "10.20.30.40"),
+        )
+        monkeypatch.setattr(storage_guac, "worker_vnc_port_for_task", lambda task_id: 5909)
+
+        guac_consumer_app, _ = guac_consumer_app_factory()
+        communicator = _make_communicator(guac_consumer_app, "session_dist", "123_session_dist")
+        try:
+            connected, subprotocol = await communicator.connect()
+            assert connected is True
+            assert subprotocol == "guacamole"
+            assert len(FakeGuacamoleClient.instances) == 1
+            client = FakeGuacamoleClient.instances[0]
+            assert client.host == "10.20.30.40"
+            assert client.handshake_kwargs["hostname"] == "localhost"
+            assert client.handshake_kwargs["port"] == 5909
+        finally:
+            await communicator.disconnect()
+
+    async def test_consumer_rejects_unauthorized_task_viewer_and_non_admin_direct_vnc(
+        self, guac_consumer_app_factory, monkeypatch
+    ):
+        import lib.tenancy.middleware as tenancy_mw
+        from lib.tenancy.policy import ViewerContext
+
+        non_admin_viewer = ViewerContext(user_id=99, tenant_id=2, is_authenticated=True)
+        monkeypatch.setattr(tenancy_mw, "default_viewer_resolver", lambda _user: non_admin_viewer)
+        monkeypatch.setattr(consumers, "_can_manage_guac_task", lambda viewer, tid, task: False)
+
+        guac_consumer_app, fake_db = guac_consumer_app_factory()
+        communicator = _make_communicator(guac_consumer_app, "session_denied", "123_session_denied")
+        connected, _ = await communicator.connect()
+        assert connected is False
+        assert fake_db.deleted_sessions == [TEST_TOKEN]
+
+        direct_db = FakeDatabase(
+            session_data={"task_id": 0, "vm_label": "5901", "guest_ip": "192.168.56.10"},
+        )
+        guac_consumer_app_direct, direct_db = guac_consumer_app_factory(fake_db=direct_db)
+        communicator_direct = _make_communicator(guac_consumer_app_direct, "session_direct_denied", "direct_denied")
+        connected_direct, _ = await communicator_direct.connect()
+        assert connected_direct is False
+        assert direct_db.deleted_sessions == [TEST_TOKEN]
+
 
 def test_vm_target_for_task_distinguishes_pending_running_and_completed(monkeypatch):
     views = import_module("guac.views")
@@ -444,6 +495,12 @@ def test_vm_target_for_task_distinguishes_pending_running_and_completed(monkeypa
     starting_task = SimpleNamespace(status="running", machine="win10-other", guest=None)
     fake_db.view_task = lambda task_id, details=False: starting_task
     assert views._vm_target_for_task(1) == ("", None)
+
+    # 3b. Running task on remote distributed worker -> worker_vm_for_task resolves label
+    import lib.tenancy.storage.guac as storage_guac
+
+    monkeypatch.setattr(storage_guac, "worker_vm_for_task", lambda tid: ("worker-vm-7", None))
+    assert views._vm_target_for_task(1) == ("worker-vm-7", "")
 
     # 4. Running task with active guest -> (guest.label, machine.ip)
     running_task = SimpleNamespace(

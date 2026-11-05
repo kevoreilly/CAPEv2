@@ -487,13 +487,19 @@ class TenancyMiddleware:
         e_token = set_current_entitlements(entitlements)
         s_token = set_current_submission_visibility(getattr(request, "submission_visibility", None))
         try:
-            from lib.tenancy.urls import match_visibility_task_id
+            from lib.tenancy.urls import match_machine_task_id, match_visibility_task_id
 
-            vis_task_id = match_visibility_task_id(_route_path(request))
+            route_path = _route_path(request)
+            vis_task_id = match_visibility_task_id(route_path)
             if vis_task_id is not None:
                 from lib.tenancy.views import tasks_set_visibility
 
                 return tasks_set_visibility(request, vis_task_id, viewer_resolver=self.viewer_resolver)
+            machine_task_id = match_machine_task_id(route_path)
+            if machine_task_id is not None:
+                from lib.tenancy.views import tasks_machine
+
+                return tasks_machine(request, machine_task_id, viewer_resolver=self.viewer_resolver)
             return self.get_response(request)
         finally:
             reset_current_submission_visibility(s_token)

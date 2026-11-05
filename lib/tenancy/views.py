@@ -260,6 +260,81 @@ def tasks_set_visibility(
                 session.close()
 
 
+def _default_task_loader(task_id: int) -> Any:
+    from lib.cuckoo.core.database import Database
+
+    db = Database()
+    try:
+        return db.view_task(task_id, details=True)
+    except TypeError:
+        return db.view_task(task_id)
+
+
+def _default_control_plane_token() -> str:
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return str(Config("api").api.get("control_plane_token") or "")
+    except Exception:
+        return ""
+
+
+def tasks_machine(
+    request: Any,
+    task_id: Any,
+    *,
+    viewer_resolver: Callable[[Any], ViewerContext] = default_viewer_resolver,
+    task_loader: Optional[Callable[[int], Any]] = None,
+    vnc_port_resolver: Optional[Callable[[str], Optional[int]]] = None,
+    control_plane_token_getter: Optional[Callable[[], str]] = None,
+) -> Any:
+    """Handle `GET /apiv2/tasks/machine/<task_id>/` for distributed Guacamole VM resolution."""
+    import hmac
+
+    method = getattr(request, "method", "GET")
+    if method and method.upper() != "GET":
+        return _json_response({"error": True, "error_value": "Method not allowed"}, status=405)
+
+    try:
+        tid = int(task_id)
+    except (TypeError, ValueError):
+        return _json_response({"error": True, "error_value": "Task not found"}, status=404)
+
+    authorized = False
+    cp_secret = str((control_plane_token_getter or _default_control_plane_token)() or "")
+    if cp_secret:
+        meta = getattr(request, "META", None) or {}
+        auth_hdr = str(meta.get("HTTP_AUTHORIZATION") or "")
+        presented = auth_hdr[6:].strip() if auth_hdr[:6].lower() == "token " else ""
+        if presented and hmac.compare_digest(presented.encode("utf-8"), cp_secret.encode("utf-8")):
+            authorized = True
+
+    if not authorized:
+        user = getattr(request, "user", None)
+        viewer = getattr(request, "viewer", None) or viewer_resolver(user)
+        if not viewer.is_local_admin and user is not None and not getattr(user, "is_authenticated", False):
+            auth_user, denied = _authenticate_api_caller(request, user)
+            if denied is None and auth_user is not None:
+                viewer = viewer_resolver(auth_user)
+        if not viewer.is_local_admin:
+            return _json_response({"error": True, "error_value": "Task not found"}, status=404)
+
+    loader = task_loader or _default_task_loader
+    task = loader(tid)
+    if task is None:
+        return _json_response({"error": True, "error_value": "Task not found"}, status=404)
+
+    guest = getattr(task, "guest", None)
+    guest_label = getattr(guest, "label", None) if guest is not None else None
+    vm_label = str(guest_label or getattr(task, "machine", None) or "")
+    if vnc_port_resolver is None:
+        from lib.tenancy.storage.guac import local_vnc_port
+
+        vnc_port_resolver = local_vnc_port
+    vnc_port = vnc_port_resolver(vm_label) if vm_label else None
+    return _json_response({"error": False, "machine": vm_label, "vnc_port": vnc_port}, status=200)
+
+
 _INTERCEPTED_STORAGE_VIEWS = frozenset(
     {
         "file_nl",

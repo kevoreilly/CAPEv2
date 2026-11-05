@@ -1538,6 +1538,8 @@ def perform_search(
                         }
                     },
                     {"$unwind": "$task_doc"},
+                    # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
+                    {"$match": {"task_doc": {"$type": "object"}}},
                     {"$replaceRoot": {"newRoot": "$task_doc"}},
                 ]
             )

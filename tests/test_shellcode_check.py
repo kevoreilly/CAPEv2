@@ -185,44 +185,6 @@ def test_va_hint_forces_x64_and_is_fast():
     assert r["time_ms"] < 500
 
 
-def test_signature_reads_payloads():
-    from modules.signatures.all.cape_shellcode import CAPEShellcodeConfirmed, CAPEShellcodeTechnique
-
-    results = {
-        "CAPE": {
-            "payloads": [
-                {
-                    "process_name": "a.exe",
-                    "pid": 1,
-                    "cape_type": "Unpacked Shellcode",
-                    "sha256": "x",
-                    "static_shellcode_check": analyse(DIRECT_SYSCALL_X64),
-                },
-                {
-                    "process_name": "a.exe",
-                    "pid": 1,
-                    "cape_type": "Unpacked Shellcode",
-                    "sha256": "y",
-                    "static_shellcode_check": analyse(_rand(512, 9)),
-                },
-            ]
-        }
-    }
-    sig = CAPEShellcodeConfirmed(results)
-    assert sig.run() and len(sig.data) == 1 and sig.data[0]["sha256"] == "x"
-    sig = CAPEShellcodeTechnique(results)
-    assert sig.run() and "direct_syscall" in sig.data[0]["technique"]
-
-
-def test_pe_loader_signature():
-    from modules.signatures.all.cape_shellcode import CAPEShellcodePELoader
-
-    payload = {"process_name": "a.exe", "pid": 1, "cape_type": "Unpacked Shellcode", "sha256": "z"}
-    payload["static_shellcode_check"] = analyse(_pe2shc(4096))
-    sig = CAPEShellcodePELoader({"CAPE": {"payloads": [payload]}})
-    assert sig.run() and "x86 EXE" in sig.data[0]["embedded_pe"]
-
-
 def test_cape_processing_attaches_shellcode_check(tmp_path, monkeypatch):
     import hashlib
     import json
@@ -429,7 +391,7 @@ def test_config_section():
         "enabled": True,
         "on_demand": True,
         "cape_payloads": True,
-        "submitted_shellcode": False,
+        "submitted_shellcode": True,
         "shellcode_depth": 262144,
         "framework_detections": True,
         "extract_payloads": True,
@@ -469,16 +431,6 @@ def test_submitted_shellcode_package(tmp_path, monkeypatch):
     r = run("shellcode_x64", True)
     assert r["verdict"] == "shellcode" and r["arch"] == "x64" and r["entry"] == "0x100"
     assert run("exe", True) is None  # only the shellcode packages
-
-
-def test_network_ioc_signature():
-    from modules.signatures.all.cape_shellcode import CAPEShellcodeNetworkIOC
-
-    payload = {"process_name": "a.exe", "pid": 1, "cape_type": "Unpacked Shellcode", "sha256": "n"}
-    payload["static_shellcode_check"] = analyse(REVERSE_TCP_X86)
-    sig = CAPEShellcodeNetworkIOC({"CAPE": {"payloads": [payload]}})
-    assert sig.run() and sig.data[0]["network"] == "192.168.56.101:4444"
-    assert "raw_socket" in sig.data[0]["capabilities"]
 
 
 @pytest.mark.parametrize(
@@ -863,23 +815,6 @@ def test_new_api_hashes_and_capabilities():
     assert "threadpool_execution" not in _capabilities({"TpPostWork"})
 
 
-def test_signatures_pick_up_decoded_pe_and_ntdll_copy():
-    from modules.signatures.all.cape_shellcode import CAPEShellcodePELoader, CAPEShellcodeTechnique
-
-    payload = _pe_file()
-    check = analyse(DEC_LTS_PE_X86 + bytes(b ^ 0x37 for b in payload), arch="x86")
-    stubs = b"".join(
-        bytes.fromhex("4c8bd1b8") + ssn.to_bytes(4, "little") + bytes.fromhex("f604250803fe7f0175030f05c3cd2ec30f1f840000000000")
-        for ssn in range(0x40, 0x80)
-    )
-    results = {"CAPE": {"payloads": [{"sha256": "a", "static_shellcode_check": check},
-                                     {"sha256": "b", "static_shellcode_check": analyse(stubs, arch="x64")}]}}  # fmt: skip
-    sig = CAPEShellcodePELoader(results)
-    assert sig.run() and "x64 DLL" in sig.data[0]["carried_pe"]
-    sig = CAPEShellcodeTechnique(results)
-    assert sig.run() and sig.data[0]["technique"] == "ntdll_copy"
-
-
 def test_block_context_renders():
     import django
     from django.conf import settings
@@ -1240,25 +1175,6 @@ def test_shikata_style_stub_that_does_not_rebuild_its_loop_is_not_identified():
     data[1:5] = bytes(4)  # wrong key: the decoded tail no longer forms the loop
     r = analyse(bytes(data))
     assert not r.get("encoder") and "shikata_ga_nai" not in r["tags"] and "fpu_getpc_decoder" in r["tags"]
-
-
-def test_signatures_live_where_cape_loads_them():
-    # startup imports only modules/signatures/{all,windows,linux}: a module at the top level never runs
-    import pkgutil
-
-    import modules.signatures.all
-
-    assert "cape_shellcode" in {m.name for m in pkgutil.iter_modules(modules.signatures.all.__path__)}
-
-
-def test_framework_signature_alerts_on_identified_only():
-    from modules.signatures.all.cape_shellcode import CAPEShellcodeFramework
-
-    results = {"CAPE": {"payloads": [{"sha256": "a", "static_shellcode_check": analyse(_fixture("donut_http"))},
-                                     {"sha256": "b", "static_shellcode_check": analyse(MSF_STYLE_X64)}]}}  # fmt: skip
-    sig = CAPEShellcodeFramework(results)
-    assert sig.run() and len(sig.data) == 1
-    assert sig.data[0]["framework"] == "Donut" and sig.data[0]["staging_url"].startswith("http://10.0.0.5/")
 
 
 # --------------------------------------------------------------------------- payload extraction

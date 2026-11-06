@@ -242,6 +242,7 @@ freespace = 2000
 enabled = no
 # set any value to 0 to disable it. In days
 binaries = 0
+files = 0
 tmp = 0
 # Remove analysis folder
 analysis = 0

@@ -172,7 +172,10 @@ def pids_from_image_names(suffixlist):
 def _normalized_protected_path(path: Union[str, bytes]) -> bytes:
     if isinstance(path, str):
         path = path.encode()
-    if os.path.isdir(path) and path[-1] != b"\\":
+    # Indexing bytes yields an int, so `path[-1] != b"\\"` was always true and
+    # a directory that already ended in a separator got a second one appended -
+    # after which in_protected_path() could never match anything below it.
+    if os.path.isdir(path) and path[-1:] != b"\\":
         path += b"\\"
     return path.lower()
 
@@ -775,7 +778,13 @@ class Analyzer:
                     # We also track the PIDs provided by zer0m0n.
                     # self.process_list.add_pids(zer0m0n.getpids())
                     if not kernel_analysis:
-                        for pid in self.process_list.pids:
+                        # Iterate a copy: remove_pid() below mutates this list,
+                        # and so do the pipe handler threads. Walking the live
+                        # list makes the iterator skip the entry after every
+                        # removal, which delays both the memory dump and the
+                        # "process list is empty" check by a loop iteration
+                        # each - one second apiece.
+                        for pid in self.process_list.pids[:]:
                             if not Process(pid=pid).is_alive():
                                 if self.options.get("procmemdump", False):
                                     try:
@@ -941,7 +950,10 @@ class Files:
     def __init__(self):
         self.files = {}
         self.files_orig = {}
-        self.dumped = []
+        # Hashes of files already sent to the host. Only ever tested for
+        # membership, and a dropper can produce tens of thousands of entries,
+        # so this is a set rather than a list.
+        self.dumped = set()
         self.lock = Lock()
 
     @classmethod
@@ -1011,7 +1023,7 @@ class Files:
             try:
                 # If available use the original filepath, the one that is not lowercased.
                 upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
-                self.dumped.append(sha256)
+                self.dumped.add(sha256)
             except (IOError, socket.error) as e:
                 log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
             except Exception as e:
@@ -1035,8 +1047,16 @@ class Files:
 
     def dump_files(self):
         """Dump all pending files."""
+        # self.files is re-checked on every iteration on purpose: the pipe
+        # handler threads can still add files while this runs. Taking the next
+        # key directly avoids rebuilding the whole key list each time, which
+        # was O(n^2) - 3.8 seconds of pure list building at 30k files.
         while self.files:
-            self.delete_file(list(self.files.keys())[0])
+            try:
+                filepath = next(iter(self.files))
+            except (StopIteration, RuntimeError):
+                continue
+            self.delete_file(filepath)
 
 
 class ProcessList:
@@ -1439,7 +1459,7 @@ class CommandPipeHandler:
         # We parse the process ID.
         pid_s, tid_s = data.split(b",", 1)
         process_id = int(pid_s)
-        thread_id  = int(tid_s)
+        thread_id = int(tid_s)
         if process_id and not ANALYSIS_TIMED_OUT:
             if process_id not in (self.analyzer.pid, self.analyzer.ppid):
                 # We inject the process only if it's not being

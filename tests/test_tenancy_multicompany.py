@@ -27,7 +27,6 @@ from lib.cuckoo.common import hooks as core_hooks
 from lib.tenancy.acl import (
     TaskAcl,
     ensure_acl_schema,
-    is_own_report_job_id,
     own_report_es_query,
     resolve_task_scope,
     set_task_acl,
@@ -799,12 +798,6 @@ def test_live_visibility_toggle_updates_sql_mongo_and_es_atomically(multicompany
         for hit in multicompany_env.es_docs.values():
             src = hit["_source"]
             if _eval_es_clause(src, query):
-                job_id = src["info"].get("job_id")
-                if params["job_id"] is not None:
-                    if job_id != params["job_id"]:
-                        continue
-                elif job_id is not None and job_id not in params["own_job_ids"]:
-                    continue
                 src["info"].update(params["stamp"])
 
     frank_viewer = default_viewer_resolver(multicompany_env.users["frank_ir_only"])
@@ -913,9 +906,8 @@ def test_per_company_and_department_vm_route_tag_and_timeout_entitlements(multic
 # ===========================================================================
 # 5. Regression Tests for All 8 GitHub Copilot Review Findings
 # ===========================================================================
-def test_copilot_1_es_own_report_rejects_hyphenated_broker_job_id_prefix(monkeypatch):
-    """Copilot #1: `match_phrase: {"info.job_id": "ui-5"}` matches `"ui-5-extra"`, so
-    `is_own_report_job_id` and `is_task_own_report` must reject `"ui-5-extra"` before delete/comment."""
+def test_copilot_1_es_own_report_matches_exact_id(monkeypatch):
+    """own_report_es_query uses exact term filter on info.id, and is_task_own_report checks info.id."""
     from lib.tenancy.hooks import is_task_own_report, register_core_hooks
 
     monkeypatch.setattr(
@@ -930,19 +922,13 @@ def test_copilot_1_es_own_report_rejects_hyphenated_broker_job_id_prefix(monkeyp
     register_core_hooks()
     try:
         es_q = own_report_es_query(5)
-        own_doc = {"info": {"id": 5, "job_id": "ui-5"}}
-        foreign_broker_doc = {"info": {"id": 5, "job_id": "ui-5-extra"}}
+        own_doc = {"info": {"id": 5}}
+        foreign_doc = {"info": {"id": 50}}
 
-        # Phrase query alone matches both because standard analyzer splits on '-'
         assert _eval_es_clause(own_doc, es_q)
-        assert _eval_es_clause(foreign_broker_doc, es_q)
-
-        # Exact job_id verification rejects "ui-5-extra"
-        assert is_own_report_job_id(5, "ui-5")
-        assert is_own_report_job_id(5, None)
-        assert not is_own_report_job_id(5, "ui-5-extra")
+        assert not _eval_es_clause(foreign_doc, es_q)
         assert is_task_own_report(5, own_doc)
-        assert not is_task_own_report(5, foreign_broker_doc)
+        assert not is_task_own_report(5, foreign_doc)
     finally:
         core_hooks.clear_all_hooks()
 
@@ -1285,3 +1271,261 @@ def test_ensure_tenancy_indexes_and_check_file_uniq_utc(db, temp_pe32, monkeypat
         core_hooks.clear_all_hooks()
 
 
+def test_dist_worker_reprocess_preserves_newer_existing_report_stamp(monkeypatch):
+    """When a dist/bridged worker reprocesses a task whose main_task_id has a newer stamp in Mongo/ES,
+    default_report_stamp_hook preserves the newer stamp across process, mongodb, and elasticsearchdb stages.
+    """
+    from lib.tenancy import hooks as thooks
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+
+    import dev_utils.mongodb as mongo_mod
+
+    mongo_docs = {
+        100: {
+            "_id": "doc100",
+            "info": {
+                "id": 100,
+                "job_id": None,
+                "user_id": 7,
+                "tenant_id": 3,
+                "visibility": "private",
+                "visibility_seq": 2,
+            },
+        }
+    }
+
+    def _mock_mongo_find_one(collection, query, proj=None, **kw):
+        if collection == "analysis":
+            q_id = query.get("info.id")
+            if q_id == 100:
+                doc = mongo_docs.get(100)
+                if doc:
+                    if isinstance(proj, dict):
+                        projected_info = {}
+                        for k, v in doc["info"].items():
+                            if proj.get(f"info.{k}"):
+                                projected_info[k] = v
+                        return {"_id": doc["_id"], "info": projected_info}
+                    return dict(doc)
+        return None
+
+    monkeypatch.setattr(mongo_mod, "mongo_find_one", _mock_mongo_find_one)
+
+    task = {
+        "id": 5,
+        "attributes": {
+            "main_task_id": 100,
+            "task_acl": {
+                "user_id": 7,
+                "tenant_id": 3,
+                "visibility": "public",
+                "visibility_seq": 1,
+            },
+        },
+    }
+
+    # 1. stage="process"
+    results_process = {"info": {"id": 100}}
+    thooks.default_report_stamp_hook(results_process, task=task, stage="process")
+    assert results_process["info"]["visibility"] == "private"
+    assert results_process["info"]["visibility_seq"] == 2
+    assert results_process["info"]["user_id"] == 7
+    assert results_process["info"]["tenant_id"] == 3
+    assert task.get("_existing_remote_acl", {}).get("visibility_seq") == 2
+
+    # Simulate mongodb deleting and replacing the document during reprocess
+    mongo_docs.clear()
+
+    # 2. stage="mongodb" (cached _existing_remote_acl retains the newer stamp)
+    results_mongo = {"info": {"id": 100}}
+    thooks.default_report_stamp_hook(results_mongo, task=task, stage="mongodb")
+    assert results_mongo["info"]["visibility"] == "private"
+    assert results_mongo["info"]["visibility_seq"] == 2
+
+    # 3. stage="elasticsearchdb"
+    results_es = {"info": {"id": 100}}
+    thooks.default_report_stamp_hook(results_es, task=task, stage="elasticsearchdb")
+    assert results_es["info"]["visibility"] == "private"
+    assert results_es["info"]["visibility_seq"] == 2
+
+
+def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch):
+    """Verify that a foreign report doc with a different info.id is ignored by
+    _lookup_existing_report_stamp and does NOT overwrite task 100's stamp.
+    """
+    from lib.tenancy import hooks as thooks
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+
+    import dev_utils.mongodb as mongo_mod
+
+    own_doc = {
+        "_id": "own-2",
+        "info": {
+            "id": 100,
+            "user_id": 7,
+            "tenant_id": 3,
+            "visibility": "private",
+            "visibility_seq": 2,
+        },
+    }
+
+    def _mock_mongo_find_one(collection, query, proj=None, **kw):
+        if collection == "analysis" and query.get("info.id") == 100:
+            if isinstance(proj, dict):
+                projected_info = {k: v for k, v in own_doc["info"].items() if proj.get(f"info.{k}")}
+                return {"_id": own_doc["_id"], "info": projected_info}
+            return dict(own_doc)
+        return None
+
+    monkeypatch.setattr(mongo_mod, "mongo_find_one", _mock_mongo_find_one)
+
+    class _MockES:
+        def search(self, index, body=None, **kw):
+            return {
+                "hits": {
+                    "hits": [
+                        {
+                            "_id": "es-other",
+                            "_source": {
+                                "info": {
+                                    "id": 999,
+                                    "user_id": 99,
+                                    "tenant_id": 99,
+                                    "visibility": "public",
+                                    "visibility_seq": 99,
+                                }
+                            },
+                        },
+                        {
+                            "_id": "es-own",
+                            "_source": {
+                                "info": {
+                                    "id": 100,
+                                    "user_id": 7,
+                                    "tenant_id": 3,
+                                    "visibility": "private",
+                                    "visibility_seq": 2,
+                                }
+                            },
+                        },
+                    ]
+                }
+            }
+
+    import modules.reporting.elasticsearchdb as es_mod
+
+    monkeypatch.setattr(es_mod, "elastic_handler", _MockES(), raising=False)
+    monkeypatch.setattr(es_mod, "get_analysis_index", lambda: "cape-analysis", raising=False)
+
+    stamp = thooks._lookup_existing_report_stamp(100)
+    assert stamp is not None
+    assert stamp["visibility"] == "private"
+    assert stamp["visibility_seq"] == 2
+    assert stamp["user_id"] == 7
+    assert stamp["tenant_id"] == 3
+
+    task = {
+        "id": 5,
+        "attributes": {
+            "main_task_id": 100,
+            "task_acl": {
+                "user_id": 7,
+                "tenant_id": 3,
+                "visibility": "public",
+                "visibility_seq": 1,
+            },
+        },
+    }
+    report = {"info": {"id": 100}}
+    thooks.default_report_stamp_hook(report, task=task, stage="mongodb")
+    assert report["info"]["visibility"] == "private"
+    assert report["info"]["visibility_seq"] == 2
+    assert report["info"]["user_id"] == 7
+    assert report["info"]["tenant_id"] == 3
+
+
+def test_dist_worker_reprocess_older_or_absent_existing_report_uses_snapshot(monkeypatch):
+    """When existing report in MongoDB has older or equal seq, or when no existing report exists yet,
+    the dispatch task_acl snapshot is used as before.
+    """
+    from lib.tenancy import hooks as thooks
+
+    cfg = MultitenancyConfig(
+        enabled=True, mode="shared", default_visibility="private", local_admins_manage_all_tenants=True
+    )
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+
+    import dev_utils.mongodb as mongo_mod
+
+    # 1. Existing report in Mongo has older or equal seq (seq=1) vs dispatch task_acl (seq=1)
+    existing_doc = {
+        "_id": "doc100",
+        "info": {
+            "id": 100,
+            "job_id": None,
+            "user_id": 7,
+            "tenant_id": 3,
+            "visibility": "public",
+            "visibility_seq": 1,
+        },
+    }
+
+    def _mock_find_one_older(coll, q, proj=None, **kw):
+        if isinstance(proj, dict):
+            p_info = {k: v for k, v in existing_doc["info"].items() if proj.get(f"info.{k}")}
+            return {"_id": existing_doc["_id"], "info": p_info}
+        return dict(existing_doc)
+
+    monkeypatch.setattr(mongo_mod, "mongo_find_one", _mock_find_one_older)
+
+    task = {
+        "id": 5,
+        "attributes": {
+            "main_task_id": 100,
+            "task_acl": {
+                "user_id": 7,
+                "tenant_id": 3,
+                "visibility": "public",
+                "visibility_seq": 1,
+            },
+        },
+    }
+    results = {"info": {"id": 100}}
+    thooks.default_report_stamp_hook(results, task=task, stage="process")
+    assert results["info"]["visibility"] == "public"
+    assert results["info"]["visibility_seq"] == 1
+    assert results["info"]["user_id"] == 7
+    assert results["info"]["tenant_id"] == 3
+
+    # 2. No existing report exists yet (normal first-time worker run)
+    monkeypatch.setattr(mongo_mod, "mongo_find_one", lambda coll, q, proj=None, **kw: None)
+
+    task_first = {
+        "id": 6,
+        "attributes": {
+            "main_task_id": 101,
+            "task_acl": {
+                "user_id": 10,
+                "tenant_id": 4,
+                "visibility": "tenant",
+                "visibility_seq": 1,
+            },
+        },
+    }
+    results_first = {"info": {"id": 101}}
+    thooks.default_report_stamp_hook(results_first, task=task_first, stage="process")
+    assert results_first["info"]["visibility"] == "tenant"
+    assert results_first["info"]["visibility_seq"] == 1
+    assert results_first["info"]["user_id"] == 10
+    assert results_first["info"]["tenant_id"] == 4

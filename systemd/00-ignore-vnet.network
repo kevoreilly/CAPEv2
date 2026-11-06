@@ -1,0 +1,5 @@
+[Match]
+Name=vnet* virbr* tap*
+
+[Link]
+Unmanaged=yes

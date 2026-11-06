@@ -433,5 +433,45 @@ def test_download_from_3rdparty_sanitizes_filenames_and_rejects_dot_hashes(tmp_p
     assert observed_paths == []
 
 
+def test_top_detections_and_top_asn_handle_execution_timeout(monkeypatch):
+    from datetime import datetime
+    from pymongo.errors import ExecutionTimeout
+    import lib.cuckoo.common.web_utils as wu
+
+    monkeypatch.setattr(wu.repconf.mongodb, "enabled", True, raising=False)
+    monkeypatch.setitem(wu.web_cfg.general, "top_detections", True)
+    monkeypatch.setitem(wu.web_cfg.general, "top_asn", True)
+    monkeypatch.delattr(wu.top_detections, "cache", raising=False)
+    monkeypatch.delattr(wu.top_asn, "cache", raising=False)
+
+    calls = []
+
+    def fail_aggregate(collection, pipeline, *args, **kwargs):
+        calls.append((collection, pipeline))
+        raise ExecutionTimeout(
+            "PlanExecutor error during aggregation :: caused by :: operation exceeded time limit",
+            50,
+            {"ok": 0.0, "code": 50, "codeName": "MaxTimeMSExpired"},
+        )
+
+    monkeypatch.setattr(wu, "mongo_aggregate", fail_aggregate, raising=False)
+
+    assert wu.top_detections() == []
+    assert len(calls) == 1
+    assert calls[0][1][0] == {"$match": {"detections.family": {"$gt": ""}}}
+    # Subsequent call within cache window returns cached [] without re-querying MongoDB.
+    assert wu.top_detections() == []
+    assert len(calls) == 1
+
+    assert wu.top_asn() == []
+    assert len(calls) == 2
+    assert calls[1][1][0] == {"$match": {"network.hosts.asn": {"$gt": ""}}}
+    assert wu.top_asn() == []
+    assert len(calls) == 2
+
+    assert wu.get_stats_per_category("statistics.processing", datetime(2026, 1, 1)) == []
+    assert len(calls) == 3
+
+
 if __name__ == "__main__":
     unittest.main()

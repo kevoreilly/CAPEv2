@@ -18,6 +18,7 @@ cat << EndOfHelp
         Base - Installs dependencies, CAPE, systemd, see code for full list
         All - Installs everything - (don't use it if you don't know what will be installed ;))
         Sandbox - Install CAPE
+        Update - Update CAPE
         Dependencies - Install all dependencies with performance tricks
         Systemd - Install systemd config for cape, we suggest to use systemd
         Nginx <domain.com> - Install NGINX with realip plugin and other goodies, pass your domain as argument
@@ -572,17 +573,17 @@ server {
     }
     # SSL configuration
     listen 443 ssl http2;
-    //listen [::]:443 ssl http2;
-    //listen 443 http3 reuseport;  # UDP listener for QUIC+HTTP/3
-    ssl        on;
-    //ssl_protocols       TLSv1.3; # QUIC requires TLS 1.3
+    #listen [::]:443 ssl http2;
+    listen 443 http3 reuseport;  # UDP listener for QUIC+HTTP/3
+    #ssl        on; # Obsolete in Nginx > 1.25.1
+    ssl_protocols       TLSv1.2 TLSv1.3; # QUIC requires TLS 1.3
     ssl_certificate         /etc/letsencrypt/live/$1/fullchain.pem;
     ssl_certificate_key     /etc/letsencrypt/live/$1/privkey.pem;
     ssl_client_certificate /etc/ssl/certs/cloudflare.crt;
     ssl_verify_client on;
 
-    //add_header Alt-Svc 'quic=":443"'; # Advertise that QUIC is available
-    //add_header QUIC-Status $quic;     # Sent when QUIC was used
+    add_header Alt-Svc 'h3=":443"; ma=86400'; # Advertise that QUIC is available
+    add_header QUIC-Status $quic;     # Sent when QUIC was used
 
     server_name $1 www.$1;
     location / {
@@ -1420,6 +1421,12 @@ function install_systemd() {
     cp $CAPE_ROOT/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
     cp $CAPE_ROOT/systemd/suricata.service /lib/systemd/system/suricata.service
 
+    mkdir -p /etc/systemd/network
+    cp $CAPE_ROOT/systemd/00-ignore-vnet.network /etc/systemd/network/00-ignore-vnet.network
+    if systemctl is-active --quiet systemd-networkd; then
+        networkctl reload || true
+    fi
+
     if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
         sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape.service
         sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-processor.service
@@ -1691,6 +1698,19 @@ function install_passivedns() {
     fi
 }
 
+function update() {
+    echo "[+] Updating CAPEv2"
+    sudo systemctl stop cape*
+    cd "$CAPE_ROOT" || return
+    sudo -u ${USER} git pull
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; export CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    if sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check | grep -Fq "alembic upgrade head"; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT/utils/db_migration && $PYTHON_MGR $PYTHON_MGR_CMD alembic upgrade head"
+    fi
+    sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
+    systemctl list-unit-files "cape*" --no-legend | awk '{print $1}' | xargs sudo systemctl start
+}
+
 # Doesn't work ${$1,,}
 COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 
@@ -1845,6 +1865,8 @@ case "$COMMAND" in
     install_passivedns;;
 'libvirt')
     install_libvirt;;
+'update')
+    update;;
 *)
     usage;;
 esac

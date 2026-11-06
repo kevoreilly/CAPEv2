@@ -287,9 +287,10 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
     """
 
     aggregation_command = [
-        {"$match": {"network.hosts.asn": {"$exists": True}}},
+        {"$match": {"network.hosts.asn": {"$gt": ""}}},
         {"$project": {"_id": 0, "network.hosts.asn": 1}},
         {"$unwind": "$network.hosts"},
+        {"$match": {"network.hosts.asn": {"$gt": ""}}},
         {"$group": {"_id": "$network.hosts.asn", "total": {"$sum": 1}}},
         {"$sort": {"total": -1}},
         {"$addFields": {"asn": "$_id"}},
@@ -300,13 +301,14 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
     if date_since:
         aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
 
-    if repconf.mongodb.enabled:
-        data = mongo_aggregate("analysis", aggregation_command)
-    else:
-        data = False
-
-    if data:
-        data = list(data)
+    try:
+        if repconf.mongodb.enabled:
+            data = list(mongo_aggregate("analysis", aggregation_command))
+        else:
+            data = False
+    except Exception as e:
+        log.warning("top_asn aggregation failed or timed out: %s", e)
+        data = []
 
     # save to cache
     top_asn.cache = (t, data)
@@ -343,9 +345,10 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     """
 
     aggregation_command = [
-        {"$match": {"detections.family": {"$exists": True}}},
+        {"$match": {"detections.family": {"$gt": ""}}},
         {"$project": {"_id": 0, "detections.family": 1}},
         {"$unwind": "$detections"},
+        {"$match": {"detections.family": {"$gt": ""}}},
         {"$group": {"_id": "$detections.family", "total": {"$sum": 1}}},
         {"$sort": {"total": -1}},
         {"$addFields": {"family": "$_id"}},
@@ -356,26 +359,27 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     if date_since:
         aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
 
-    if repconf.mongodb.enabled:
-        data = mongo_aggregate("analysis", aggregation_command)
-    elif repconf.elasticsearchdb.enabled:
-        # ToDo update to new format
-        q = {
-            "query": {"bool": {"must": [{"exists": {"field": "detections.family"}}]}},
-            "size": 0,
-            "aggs": {"family": {"terms": {"field": "detections.family.keyword", "size": results_limit}}},
-        }
+    try:
+        if repconf.mongodb.enabled:
+            data = list(mongo_aggregate("analysis", aggregation_command))
+        elif repconf.elasticsearchdb.enabled:
+            # ToDo update to new format
+            q = {
+                "query": {"bool": {"must": [{"exists": {"field": "detections.family"}}]}},
+                "size": 0,
+                "aggs": {"family": {"terms": {"field": "detections.family.keyword", "size": results_limit}}},
+            }
 
-        if date_since:
-            q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
+            if date_since:
+                q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
 
-        res = es.search(index=get_analysis_index(), body=apply_es_filter(q))
-        data = [{"total": r["doc_count"], "family": r["key"]} for r in res["aggregations"]["family"]["buckets"]]
-    else:
-        data = False
-
-    if data:
-        data = list(data)
+            res = es.search(index=get_analysis_index(), body=apply_es_filter(q))
+            data = [{"total": r["doc_count"], "family": r["key"]} for r in res["aggregations"]["family"]["buckets"]]
+        else:
+            data = False
+    except Exception as e:
+        log.warning("top_detections aggregation failed or timed out: %s", e)
+        data = []
 
     # save to cache
     top_detections.cache = (t, data)
@@ -435,7 +439,11 @@ def get_stats_per_category(category: str, date_since: datetime) -> List[Dict[str
         },
         {"$limit": 20},
     ]
-    return mongo_aggregate("analysis", aggregation_command)
+    try:
+        return list(mongo_aggregate("analysis", aggregation_command))
+    except Exception as e:
+        log.warning("get_stats_per_category(%s) aggregation failed or timed out: %s", category, e)
+        return []
 
 
 def statistics(s_days: int) -> dict:
@@ -1538,6 +1546,8 @@ def perform_search(
                         }
                     },
                     {"$unwind": "$task_doc"},
+                    # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
+                    {"$match": {"task_doc": {"$type": "object"}}},
                     {"$replaceRoot": {"newRoot": "$task_doc"}},
                 ]
             )
@@ -1619,11 +1629,9 @@ def perform_search(
 
 def force_int(value):
     try:
-        value = int(value)
+        return int(value)
     except Exception:
-        value = 0
-    finally:
-        return value
+        return 0
 
 
 def force_bool(value):

@@ -9,6 +9,7 @@ import os
 import pathlib
 import random
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -25,8 +26,20 @@ import requests
 
 import agent
 
+
+def _pick_test_port(host: str, preferred: int = 8000) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, preferred))
+            return preferred
+        except OSError:
+            sock.bind((host, 0))
+            return sock.getsockname()[1]
+
+
 HOST = "127.0.0.1"
-PORT = 8000
+PORT = _pick_test_port(HOST)
 BASE_URL = f"http://{HOST}:{PORT}"
 
 DIRPATH = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))

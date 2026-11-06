@@ -45,7 +45,7 @@ from lib.cuckoo.common.path_utils import (
     path_read_file,
     path_write_file,
 )
-from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.utils import deduplicate_file_to_storage, get_options, is_text_file
 
 try:
     from sflock import unpack
@@ -80,6 +80,12 @@ if integration_conf.flare_capa.enabled and not integration_conf.flare_capa.on_de
 HAVE_FLOSS = False
 if integration_conf.floss.enabled and not integration_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
+
+HAVE_MALCAT = False
+if getattr(integration_conf, "malcat", None) and integration_conf.malcat.get("enabled", False):
+    from lib.cuckoo.common.integrations.malcat.capa import malcat_details
+
+    HAVE_MALCAT = True
 
 from lib.cuckoo.common.integrations.magika import magika_info
 
@@ -239,6 +245,11 @@ def static_file_info(
     #    data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp" and integration_conf.general.hwp:
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
+
+    if HAVE_MALCAT and "malcat" not in data_dictionary:
+        malcat_info = malcat_details(file_path, category=category, file_type=data_dictionary.get("type", ""))
+        if malcat_info:
+            data_dictionary["malcat"] = malcat_info
 
     data = path_read_file(file_path)
 
@@ -400,17 +411,19 @@ def _extracted_files_metadata(
             file_info["path"] = dest_path
             file_info["guest_paths"] = [file_info["name"]]
             file_info["name"] = os.path.basename(dest_path)
-            if not path_exists(dest_path):
-                shutil.move(full_path, dest_path)
+            dest_existed = path_exists(dest_path)
+            deduplicate_file_to_storage(full_path, file_info["sha256"], dest_path)
+            if not dest_existed:
+                folder_name = os.path.basename(os.path.normpath(destination_folder)) or "selfextracted"
                 print(
                     json.dumps(
                         {
-                            "path": os.path.join("files", file_info["sha256"]),
+                            "path": os.path.join(folder_name, file_info["sha256"]),
                             "filepath": file_info["name"],
                             "pids": [],
                             "ppids": [],
                             "metadata": "",
-                            "category": "files",
+                            "category": folder_name,
                         },
                         ensure_ascii=False,
                     ),

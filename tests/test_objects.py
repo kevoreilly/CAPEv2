@@ -228,6 +228,7 @@ class TestFiles:
                 (
                     "PE32 executable Aarch64, for MS Windows",
                     "MS-DOS executable PE32 executable Aarch64, for MS Windows",
+                    "PE32 executable, ARM64",
                 ),
                 True,
             ),

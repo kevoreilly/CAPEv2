@@ -162,9 +162,11 @@
                             <button id="badge_all_{{process.process_id}}" type="button" class="btn btn-cat-all badge-filter">All</button>
                         </div>
 
-                        <div class="input-group mb-3 w-50 mx-auto">
-                            <input type="text" class="form-control bg-dark text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
-                            <button class="btn btn-outline-info" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
+                        <div class="col-12 col-md-8 col-lg-6 mx-auto mb-3">
+                            <div class="input-group">
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
+                                <button class="btn btn-outline-info" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
+                            </div>
                         </div>
 
                         <button class="btn btn-sm btn-link text-white-50" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
@@ -173,14 +175,14 @@
 
                         <div class="collapse mt-2" id="advFilter_{{process.process_id}}">
                             <div class="card card-body bg-dark">
-                                <div class="row g-3">
-                                    <div class="col">
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm">
                                         <input type="text" class="form-control text-white bg-dark border-1" id="callerfilter_{{process.process_id}}" placeholder="Caller">
                                     </div>
-                                    <div class="col">
+                                    <div class="col-12 col-sm">
                                         <input type="text" class="form-control text-white bg-dark border-1" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
                                     </div>
-                                    <div class="col-auto">
+                                    <div class="col-12 col-sm-auto d-grid">
                                         <button id="submit_filter_{{process.process_id}}" class="btn btn-dark">Filter</button>
                                     </div>
                                 </div>
@@ -243,7 +245,7 @@
                     <ul class="pagination justify-content-center"></ul>
                 </nav>
 
-                <div class="calltable"></div>
+                <div class="calltable table-responsive"></div>
 
                 <nav aria-label="Page navigation" class="mt-3">
                     <ul id="bottom_pagination" class="pagination justify-content-center pagination_{{process.process_id}}"></ul>

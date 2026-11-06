@@ -35,6 +35,7 @@ def test_completion_folder_in_tmp(mock_env):
     os.rmdir(path)
     assert check_completion_logic(config) is False
 
+
 def test_completion_folder_in_systemroot(mock_env):
     config = MockConfig()
     complete_folder = hashlib.md5(f"cape-{config.id}".encode()).hexdigest()
@@ -504,3 +505,54 @@ def test_windows_zip_utils_extract_archive_and_upload_containment(monkeypatch, t
     zip_utils.upload_extracted_files(str(extract_dir), ["good.exe", "escape.txt"])
     upload_mock.assert_called_once()
     assert upload_mock.call_args.kwargs["metadata"] == "good.exe"
+def test_pipe_forwarder_socket_connect_error(monkeypatch):
+    import ctypes
+    import os
+    import socket
+    import struct
+    from unittest.mock import MagicMock, patch
+
+    if not hasattr(ctypes, "windll"):
+        monkeypatch.setattr(ctypes, "windll", MagicMock(), raising=False)
+    if not hasattr(ctypes, "WINFUNCTYPE"):
+        monkeypatch.setattr(ctypes, "WINFUNCTYPE", ctypes.CFUNCTYPE, raising=False)
+
+    import lib
+
+    analyzer_lib = os.path.abspath(os.path.join(os.path.dirname(__file__), "../analyzer/windows/lib"))
+    if analyzer_lib not in lib.__path__:
+        lib.__path__.append(analyzer_lib)
+
+    from lib.common.defines import KERNEL32
+    from lib.core.pipe import PipeForwarder, open_handles
+
+    def mock_readfile(handle, buf, size, bytes_read, overlapped):
+        ctypes.memmove(buf, struct.pack("<I", 4321), 4)
+        bytes_read._obj.value = 4
+        return 1
+
+    monkeypatch.setattr(KERNEL32, "ReadFile", MagicMock(side_effect=mock_readfile))
+    close_mock = MagicMock()
+    monkeypatch.setattr(KERNEL32, "CloseHandle", close_mock)
+
+    forwarder = PipeForwarder(pipe_handle=9999, destination=("127.0.0.1", 12345))
+    PipeForwarder.active.clear()
+    PipeForwarder.sockets.clear()
+
+    # Test socket.timeout (subclass of OSError)
+    with patch("socket.create_connection", side_effect=socket.timeout("timed out")):
+        forwarder.run()
+
+    close_mock.assert_called_with(9999)
+    assert forwarder.active.get(4321) is None
+    assert 4321 not in forwarder.sockets
+    assert not any(hasattr(s, "fileno") for s in open_handles)
+
+    # Test generic OSError / ConnectionRefusedError
+    close_mock.reset_mock()
+    with patch("socket.create_connection", side_effect=OSError("connection refused")):
+        forwarder.run()
+
+    close_mock.assert_called_with(9999)
+    assert forwarder.active.get(4321) is None
+    assert 4321 not in forwarder.sockets

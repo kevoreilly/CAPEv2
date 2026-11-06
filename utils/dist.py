@@ -41,7 +41,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import get_files_storage_path, get_options
 from lib.cuckoo.core.data.task import (
     TASK_BANNED,
     TASK_DISTRIBUTED,
@@ -393,6 +393,72 @@ def validate_nfs_hostname(hostname: str) -> str:
     return f"[{ip}]" if ip.version == 6 else str(ip)
 
 
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def sync_sharded_files_nfs(worker_mount_root: str, analyses_path: str) -> None:
+    """Synchronize deduplicated storage/files artifacts referenced by symlinks in analyses_path from an NFS worker mount."""
+    worker_files_root = os.path.realpath(os.path.join(worker_mount_root, "storage", "files"))
+    for root, _, files in os.walk(analyses_path):
+        for fname in files:
+            link_path = os.path.join(root, fname)
+            if not os.path.islink(link_path):
+                continue
+            try:
+                target = os.readlink(link_path)
+            except OSError:
+                continue
+            norm_target = os.path.normpath(target)
+            marker = f"{os.sep}storage{os.sep}files{os.sep}"
+            if marker not in norm_target:
+                continue
+            sha256 = os.path.basename(norm_target).lower()
+            if not _SHA256_RE.fullmatch(sha256):
+                continue
+
+            master_dest = get_files_storage_path(sha256)
+            if not path_exists(master_dest):
+                sharded_src = os.path.realpath(os.path.join(worker_files_root, sha256[:2], sha256[2:4], sha256))
+                flat_src = os.path.realpath(os.path.join(worker_files_root, sha256))
+                worker_src = None
+                for candidate in (sharded_src, flat_src):
+                    try:
+                        if os.path.commonpath([worker_files_root, candidate]) == worker_files_root and os.path.isfile(candidate):
+                            worker_src = candidate
+                            break
+                    except ValueError:
+                        continue
+                if worker_src:
+                    dest_dir = os.path.dirname(master_dest)
+                    path_mkdir(dest_dir, mode=0o755, exist_ok=True)
+                    tmp_dest = f"{master_dest}.tmp.{os.getpid()}.{threading.get_ident()}"
+                    try:
+                        shutil.copy2(worker_src, tmp_dest)
+                        with contextlib.suppress(OSError):
+                            os.chmod(tmp_dest, 0o644)
+                        os.replace(tmp_dest, master_dest)
+                    except OSError as e:
+                        with contextlib.suppress(OSError):
+                            os.unlink(tmp_dest)
+                        log.error("Failed to sync sharded file %s from worker: %s", sha256, e)
+                        continue
+                else:
+                    log.warning("Referenced sharded file %s missing on worker mount %s", sha256, worker_mount_root)
+                    continue
+            else:
+                with contextlib.suppress(OSError):
+                    os.utime(master_dest, None)
+
+            if target != master_dest:
+                tmp_link = f"{link_path}.tmp.{os.getpid()}.{threading.get_ident()}"
+                try:
+                    os.symlink(master_dest, tmp_link)
+                    os.replace(tmp_link, link_path)
+                except OSError:
+                    with contextlib.suppress(OSError):
+                        os.unlink(tmp_link)
+
+
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
     """
     Retrieves a report from a worker node via NFS and copies it to the main task's analysis directory.
@@ -413,15 +479,15 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
     """
     worker_name = validate_node_name(str(worker_name))
     base_dir = os.path.realpath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder))
-    worker_path = os.path.realpath(os.path.join(base_dir, worker_name))
-    if os.path.commonpath([base_dir, worker_path]) != base_dir or worker_path == base_dir:
+    worker_mount_root = os.path.realpath(os.path.join(base_dir, worker_name))
+    if os.path.commonpath([base_dir, worker_mount_root]) != base_dir or worker_mount_root == base_dir:
         raise ValueError(f"Worker path escapes mount_folder: {worker_name!r}")
 
-    if not path_mount_point(worker_path):
-        log.error("[-] Worker: %s is not mounted to: %s!", worker_name, worker_path)
+    if not path_mount_point(worker_mount_root):
+        log.error("[-] Worker: %s is not mounted to: %s!", worker_name, worker_mount_root)
         return True
 
-    worker_path = os.path.join(worker_path, "storage", "analyses", str(task_id))
+    worker_path = os.path.join(worker_mount_root, "storage", "analyses", str(task_id))
 
     if not path_exists(worker_path):
         log.error("File on destiny doesn't exist: %s", worker_path)
@@ -433,6 +499,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
     try:
         shutil.copytree(worker_path, analyses_path, symlinks=True, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
+        sync_sharded_files_nfs(worker_mount_root, analyses_path)
     except shutil.Error:
         log.error("Files doens't exist on worker")
     except Exception as e:

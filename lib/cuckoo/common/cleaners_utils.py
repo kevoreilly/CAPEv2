@@ -157,6 +157,8 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
     }
     if config.cleaner.binaries:
         cleanup_dict["delete_binaries_items_older_than"] = config.cleaner.binaries
+    if config.cleaner.get("files"):
+        cleanup_dict["delete_files_items_older_than"] = config.cleaner.get("files")
     if config.cleaner.tmp:
         cleanup_dict["delete_tmp_items_older_than"] = config.cleaner.tmp
     if config.cleaner.analysis:
@@ -874,6 +876,68 @@ def binaries_clean_before(timerange: str):
                     path_delete(bin_path)
 
 
+def files_clean_before(timerange: str):
+    """Remove unreferenced files in storage/files older than timerange and prune empty shard directories."""
+    older_than = convert_into_time(timerange)
+    files_folder = os.path.join(CUCKOO_ROOT, "storage", "files")
+    if not path_exists(files_folder):
+        log.error("Files folder doesn't exist")
+        return
+
+    files_folder_real = os.path.realpath(files_folder)
+    referenced = set()
+    if repconf.mongodb.enabled and is_reporting_db_connected():
+        try:
+            docs = mongo_find("files", {}, {"_id": 1})
+            if docs:
+                for doc in docs:
+                    if doc.get("_id"):
+                        referenced.add(str(doc["_id"]).lower())
+        except Exception as e:
+            log.error("Failed to fetch referenced files from MongoDB: %s", e)
+
+    analyses_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+    if path_exists(analyses_folder):
+        for root, _, filenames in os.walk(analyses_folder):
+            for fname in filenames:
+                fpath = os.path.join(root, fname)
+                if not os.path.islink(fpath):
+                    continue
+                try:
+                    target_real = os.path.realpath(fpath)
+                    if os.path.commonpath([files_folder_real, target_real]) == files_folder_real:
+                        referenced.add(os.path.basename(target_real).lower())
+                except (OSError, ValueError):
+                    continue
+
+    deleted_count = 0
+    for root, _, filenames in os.walk(files_folder, topdown=False):
+        for sha256 in filenames:
+            if sha256.startswith("."):
+                continue
+            file_path = os.path.join(root, sha256)
+            if not os.path.exists(file_path):
+                continue
+            if sha256.lower() in referenced:
+                continue
+            try:
+                latest_ts = max(path_get_date(file_path, "st_ctime"), path_get_date(file_path, "st_mtime"))
+            except OSError:
+                continue
+            if datetime.fromtimestamp(latest_ts) < older_than:
+                try:
+                    path_delete(file_path)
+                    deleted_count += 1
+                except OSError as e:
+                    log.error("Failed to delete file %s: %s", file_path, e)
+
+        if root != files_folder:
+            with suppress(OSError):
+                os.rmdir(root)
+
+    log.info("Cleaned %d unreferenced files from storage/files older than %s", deleted_count, timerange)
+
+
 def cleanup_mongodb_calls_collection(args: dict):
     if not is_reporting_db_connected():
         return
@@ -966,6 +1030,11 @@ def execute_cleanup(args: dict, init_log=True):
 
     if args.get("delete_unused_file_data_in_mongo"):
         delete_unused_file_data_in_mongo()
+
+    if args.get("delete_files_items_older_than"):
+        if repconf.mongodb.enabled and not args.get("delete_unused_file_data_in_mongo"):
+            delete_unused_file_data_in_mongo()
+        files_clean_before(args["delete_files_items_older_than"])
 
     if args.get("cleanup_files_collection_by_id"):
         cleanup_files_collection_by_id(args["cleanup_files_collection_by_id"])

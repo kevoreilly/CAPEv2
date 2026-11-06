@@ -101,10 +101,8 @@ A report store holds one task-id space: the server's whose tasks they are. Run
 the command there (the main or central server); it refuses to run on a node that
 analyses tasks for another server, whose reports carry that server's task ids. If
 the main/central server itself looks like one (for example a rescheduled copy of a
-bridged task kept its ``job_id=ui-<id>``), pass ``--force`` there.
-Only a task's own report is restamped (no ``info.job_id``, or object storage's
-``ui-<id>`` / ``local-<id>``, or the job id its ``task_acl`` row is bound to); a
-broker job's report sharing the ``info.id`` is left alone and counted. A worker
+dist task), pass ``--force`` there.
+Only a task's own report is restamped (matched by ``info.id``). A worker
 that has already deleted its tasks can no longer tell that it is one: don't run
 the command on workers.
 

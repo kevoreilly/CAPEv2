@@ -144,6 +144,11 @@ def _vm_target_for_task(task_id):
     # be running someone else's task while this one is pending.
     guest = getattr(task, "guest", None)
     if not guest or not getattr(guest, "label", None):
+        from lib.tenancy.storage.guac import worker_vm_for_task
+
+        w_label, w_ip = worker_vm_for_task(int(task_id))
+        if w_label:
+            return w_label, (w_ip or "")
         return "", None
     machine = db.view_machine_by_label(guest.label)
     return guest.label, (getattr(machine, "ip", "") or "")
@@ -168,9 +173,13 @@ def index(request, task_id, session_data):
     if not label:
         return _error(request, task_id, "No VM is associated with this task")
 
+    from lib.tenancy.storage.guac import libvirt_dsn_for_task
+
+    dsn, _worker_ip = libvirt_dsn_for_task(int(task_id), machinery_dsn)
+
     conn = None
     try:
-        conn = libvirt.open(machinery_dsn)
+        conn = libvirt.open(dsn)
         if not conn:
             return _error(request, task_id, "Could not connect to hypervisor")
 

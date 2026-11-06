@@ -323,4 +323,148 @@ def test_detect_it_easy_info_calledprocesserror_logs_warning_and_stderr(monkeypa
     assert not any(r.levelno >= logging.ERROR for r in caplog.records)
 
 
+def test_get_files_storage_path_and_deduplicate(tmp_path, monkeypatch):
+    import hashlib
+    import os
+    import time
+    from lib.cuckoo.common import utils as cuckoo_utils
+
+    monkeypatch.setattr(cuckoo_utils, "CUCKOO_ROOT", str(tmp_path))
+    payload = b"sharded-dedup-test-payload"
+    sha256 = hashlib.sha256(payload).hexdigest()
+
+    with pytest.raises(ValueError):
+        cuckoo_utils.get_files_storage_path("../outside")
+
+    sharded = cuckoo_utils.get_files_storage_path(sha256)
+    assert sharded == str(tmp_path / "storage" / "files" / sha256[:2] / sha256[2:4] / sha256)
+
+    # Legacy flat path takes precedence when present
+    flat_dir = tmp_path / "storage" / "files"
+    flat_dir.mkdir(parents=True)
+    flat_file = flat_dir / sha256
+    flat_file.write_bytes(payload)
+    assert cuckoo_utils.get_files_storage_path(sha256) == str(flat_file)
+    flat_file.unlink()
+
+    # In-place deduplication replaces regular file with symlink to sharded master
+    analysis_drop = tmp_path / "storage" / "analyses" / "1" / "files" / sha256
+    analysis_drop.parent.mkdir(parents=True)
+    analysis_drop.write_bytes(payload)
+    master = cuckoo_utils.deduplicate_file_to_storage(str(analysis_drop), sha256)
+    assert master == sharded
+    assert os.path.isfile(master)
+    assert os.path.islink(analysis_drop)
+    assert os.readlink(analysis_drop) == master
+    assert analysis_drop.read_bytes() == payload
+
+    # Re-deduplicating when master exists refreshes mtime and replaces broken symlink at dest
+    old_time = time.time() - 7200
+    os.utime(master, (old_time, old_time))
+    src_tmp = tmp_path / "tmp_extracted.bin"
+    src_tmp.write_bytes(payload)
+    dest_link = tmp_path / "storage" / "analyses" / "2" / "selfextracted" / sha256
+    dest_link.parent.mkdir(parents=True)
+    os.symlink(str(tmp_path / "nonexistent_target"), str(dest_link))
+
+    cuckoo_utils.deduplicate_file_to_storage(str(src_tmp), sha256, str(dest_link))
+    assert not src_tmp.exists()
+    assert os.path.islink(dest_link)
+    assert os.readlink(dest_link) == master
+    assert os.stat(master).st_mtime > old_time + 3600
+
+
+def test_extracted_files_metadata_deduplicates_and_writes_relative_path(tmp_path, monkeypatch):
+    import hashlib
+    import json
+    import os
+    from lib.cuckoo.common import utils as cuckoo_utils
+
+    monkeypatch.setattr(cuckoo_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(file_extra_info.processing_conf.trid, "enabled", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.die, "enabled", False)
+
+    payload = b"self-extracted-content"
+    sha256 = hashlib.sha256(payload).hexdigest()
+
+    tempdir = tmp_path / "temp_extract"
+    tempdir.mkdir()
+    extracted_file = tempdir / "inner.bin"
+    extracted_file.write_bytes(payload)
+
+    analysis_dir = tmp_path / "storage" / "analyses" / "10"
+    dest_folder = analysis_dir / "selfextracted"
+    dest_folder.mkdir(parents=True)
+    files_json = analysis_dir / "files.json"
+
+    results = {}
+    meta = file_extra_info._extracted_files_metadata(
+        str(tempdir),
+        str(dest_folder),
+        files=["inner.bin"],
+        results=results,
+    )
+    assert len(meta) == 1
+    dest_file = dest_folder / sha256
+    assert os.path.islink(dest_file)
+    assert dest_file.read_bytes() == payload
+
+    lines = [json.loads(line) for line in files_json.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert lines[0]["path"] == f"selfextracted/{sha256}"
+    assert lines[0]["category"] == "selfextracted"
+    assert os.path.join(str(analysis_dir), lines[0]["path"]) == str(dest_file)
+
+    # Re-running with the same destination file already present must not append duplicate lines
+    extracted_file_2 = tempdir / "inner.bin"
+    extracted_file_2.write_bytes(payload)
+    file_extra_info._extracted_files_metadata(
+        str(tempdir),
+        str(dest_folder),
+        files=["inner.bin"],
+        results=results,
+    )
+    lines_after = [json.loads(line) for line in files_json.read_text().splitlines() if line.strip()]
+    assert len(lines_after) == 1
+
+
+def test_files_clean_before_respects_nested_symlinks_and_prunes_shards(tmp_path, monkeypatch):
+    import hashlib
+    import os
+    import time
+    from lib.cuckoo.common import cleaners_utils, utils as cuckoo_utils
+
+    monkeypatch.setattr(cuckoo_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(cleaners_utils.repconf.mongodb, "enabled", False)
+
+    sha_kept = hashlib.sha256(b"kept-by-nested-symlink").hexdigest()
+    sha_old = hashlib.sha256(b"unreferenced-expired").hexdigest()
+
+    src_kept = tmp_path / "kept.bin"
+    src_kept.write_bytes(b"kept-by-nested-symlink")
+    nested_link = tmp_path / "storage" / "analyses" / "5" / "package_files" / "sub" / sha_kept
+    master_kept = cuckoo_utils.deduplicate_file_to_storage(str(src_kept), sha_kept, str(nested_link))
+
+    src_old = tmp_path / "old.bin"
+    src_old.write_bytes(b"unreferenced-expired")
+    orphan_link = tmp_path / " orphan_link"
+    master_old = cuckoo_utils.deduplicate_file_to_storage(str(src_old), sha_old, str(orphan_link))
+    orphan_link.unlink()
+
+    # Backdate master_old so mtime is older than 1s, while st_ctime on Linux stays current unless mocked
+    past = time.time() - 86400
+    monkeypatch.setattr(
+        cleaners_utils,
+        "path_get_date",
+        lambda p, value="st_ctime": past if p == master_old else os.stat(p).st_mtime,
+    )
+
+    cleaners_utils.files_clean_before("1h")
+    assert os.path.exists(master_kept)
+    assert not os.path.exists(master_old)
+    assert not os.path.exists(os.path.dirname(master_old))
+
+
+
 

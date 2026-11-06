@@ -36,6 +36,7 @@ log = logging.getLogger(__name__)
 class Similarity(Processing):
     """Submit unidentified artifacts to code-similarity engines."""
 
+    key = "similarity"
     order = 20
 
     def run(self):
@@ -53,10 +54,10 @@ class Similarity(Processing):
 
         only_unidentified = _as_bool(options.get("only_unidentified", True))
         sources_enabled = {
-            "payload": _as_bool(options.get("similarity_payloads", True)),
-            "procdump": _as_bool(options.get("similarity_procdump", True)),
-            "dropped": _as_bool(options.get("similarity_dropped", True)),
-            "submitted": _as_bool(options.get("similarity_submittedfile", False)),
+            "payload": any(e.accepts_source("payload") for e in engines),
+            "procdump": any(e.accepts_source("procdump") for e in engines),
+            "dropped": any(e.accepts_source("dropped") for e in engines),
+            "submitted": any(e.accepts_source("submitted") for e in engines),
         }
         concurrent = _as_bool(options.get("concurrent_submissions", False))
         max_workers = int(options.get("max_workers", 4) or 4)
@@ -95,6 +96,8 @@ class Similarity(Processing):
         tasks = []
         for engine in engines:
             for idx, cand in enumerate(unique):
+                if not engine.accepts_source(cand["source"]):
+                    continue
                 if engine.accepts_format(cand["format"]):
                     tasks.append((engine, idx, cand))
                 else:

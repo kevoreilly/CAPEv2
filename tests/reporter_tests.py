@@ -234,3 +234,47 @@ def test_insert_calls_mongodb_sanitizes_oversized_and_surrogate_values(monkeypat
     assert len(calls[100]["arguments"][0]["value"]) == 50000
     assert len(calls[100]["arguments"][1]["value"]) == 50000
     assert calls[100]["arguments"][2]["value"] == surrogate_str
+
+
+def test_gcs_uploader_zip_archive_clamps_timestomped_mtimes(tmp_path, monkeypatch):
+    import os
+    import zipfile
+    from unittest.mock import MagicMock
+
+    import lib.cuckoo.common.gcp as gcp_mod
+
+    src_dir = tmp_path / "analysis"
+    src_dir.mkdir()
+    past_file = src_dir / "epoch_1970.bin"
+    past_file.write_bytes(b"past")
+    os.utime(past_file, (0, 0))
+
+    future_file = src_dir / "future_2150.bin"
+    future_file.write_bytes(b"future")
+    # 2150-01-01 UTC (> 2107 MS-DOS ZIP limit)
+    os.utime(future_file, (5680281600, 5680281600))
+
+    uploaded_archives = []
+
+    class FakeBlob:
+        def __init__(self, name):
+            self.name = name
+            self.metadata = None
+
+        def upload_from_filename(self, filename):
+            with zipfile.ZipFile(filename, "r") as zf:
+                uploaded_archives.append({zi.filename: zi.date_time for zi in zf.infolist()})
+
+    uploader = object.__new__(gcp_mod.GCSUploader)
+    uploader.exclude_dirs = set()
+    uploader.exclude_files = set()
+    uploader.mode = "zip"
+    uploader.bucket = MagicMock()
+    uploader.bucket.name = "test-bucket"
+    uploader.bucket.blob.side_effect = FakeBlob
+
+    uploader.upload_zip_archive(123, str(src_dir))
+    assert len(uploaded_archives) == 1
+    dates = uploaded_archives[0]
+    assert dates["123/epoch_1970.bin"][0] == 1980
+    assert dates["123/future_2150.bin"][0] == 2107

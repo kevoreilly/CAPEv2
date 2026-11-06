@@ -129,10 +129,11 @@ class GCSUploader:
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
             tmp_zip_file_name = tmp_zip_file.name
-            with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
+        try:
+            with zipfile.ZipFile(tmp_zip_file_name, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as archive:
                 for local_path, relative_path in self._iter_files_to_upload(source_directory):
                     archive.write(local_path, os.path.join(str(analysis_id), relative_path))
-        try:
+
             file_size = os.path.getsize(tmp_zip_file_name)
             file_size_human = f"{file_size / (1024 * 1024):.2f} MB" if file_size >= 1024 * 1024 else f"{file_size / 1024:.2f} KB"
 

@@ -145,6 +145,54 @@ def test_processtree_retries_a_process_missing_a_field():
     assert 99 not in t.seen_pids
 
 
+def _max_tree_depth(nodes):
+    max_d = 0
+    stack = [(n, 0) for n in nodes]
+    while stack:
+        node, d = stack.pop()
+        if d > max_d:
+            max_d = d
+        for child in node.get("children", []):
+            stack.append((child, d + 1))
+    return max_d
+
+
+def test_processtree_caps_deep_linear_chains_for_json_and_bson():
+    import bson
+    import orjson
+
+    for reverse in (False, True):
+        t = ProcessTree()
+        chain = [
+            dict(_process(), process_id=1000 + i, parent_id=999 + i if i > 0 else 4)
+            for i in range(300)
+        ]
+        if reverse:
+            chain.reverse()
+        for p in chain:
+            t.event_apicall({}, p)
+
+        roots = t.run()
+        assert len(roots) > 1
+        assert _max_tree_depth(roots) <= 64
+        doc = {"behavior": {"processtree": roots}}
+        assert orjson.dumps(doc)
+        assert bson.BSON.encode(doc)
+
+
+def test_processtree_breaks_cycles_without_exceeding_depth():
+    t = ProcessTree()
+    p1 = dict(_process(), process_id=100, parent_id=102)
+    p2 = dict(_process(), process_id=101, parent_id=100)
+    p3 = dict(_process(), process_id=102, parent_id=101)
+    for p in (p1, p2, p3):
+        t.event_apicall({}, p)
+
+    roots = t.run()
+    assert len(roots) == 1
+    assert _max_tree_depth(roots) == 2
+
+
 # --------------------------------------------------------------------------- EncryptedBuffers
 
 

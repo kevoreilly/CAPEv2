@@ -1246,6 +1246,12 @@ class ProcessTree:
         for p in self.processes:
             p["children"] = []
 
+        # Each process level adds two container levels (dict + children list) in JSON/BSON.
+        # Capping tree depth at 64 (~132 container levels) stays well below both MongoDB's
+        # BSON nesting limit (code 15 Overflow at 200) and orjson's 254-level recursion limit.
+        max_depth = 64
+        detached_roots = set()
+
         for p in self.processes:
             parent_pid = p.get("parent_id")
 
@@ -1253,16 +1259,17 @@ class ProcessTree:
             if parent_pid in node_lookup and parent_pid != p["pid"]:
                 parent = node_lookup[parent_pid]
 
-                # Cycle Detection: Traverse ancestry to ensure 'p' is not an ancestor of 'parent'
+                # Cycle Detection & Depth Bounding: Traverse ancestry to ensure 'p' is not
+                # an ancestor of 'parent' and that attaching 'p' does not exceed max_depth.
                 curr = parent
                 is_cycle = False
-                # Use a simple counter or set to avoid infinite checks if the map has internal loops
-                depth = 0
-                max_depth = 100
+                depth = 1
 
-                while depth < max_depth:
+                while depth <= max_depth:
                     if curr is p:
                         is_cycle = True
+                        break
+                    if curr["pid"] in detached_roots:
                         break
 
                     # Move up to the next parent
@@ -1274,13 +1281,24 @@ class ProcessTree:
                         # Reached a root or unknown parent
                         break
 
-                if not is_cycle:
+                sub_depth = 0
+                if not is_cycle and depth <= max_depth and p["children"]:
+                    stack = [(p, 0)]
+                    while stack:
+                        node, d = stack.pop()
+                        if d > sub_depth:
+                            sub_depth = d
+                        for child in node["children"]:
+                            stack.append((child, d + 1))
+
+                if not is_cycle and depth + sub_depth <= max_depth:
                     parent["children"].append(p)
                 else:
                     # Cycle detected or depth limit hit, treat as root to avoid breaking JSON
                     log.warning(
                         "Cycle or deep nesting detected for process %s (parent %s). treating as root.", p["pid"], parent_pid
                     )
+                    detached_roots.add(p["pid"])
                     roots.append(p)
             else:
                 roots.append(p)

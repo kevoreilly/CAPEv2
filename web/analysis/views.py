@@ -140,6 +140,14 @@ HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
+HAVE_SHELLCODE_CHECK = False
+if getattr(processing_cfg, "static_shellcode_check", {}).get("on_demand"):
+    try:
+        from lib.cuckoo.common.integrations.shellcode_check import HAVE_CAPSTONE as HAVE_SHELLCODE_CHECK
+        from lib.cuckoo.common.integrations.shellcode_check import analyse as shellcode_analyse
+    except ImportError:
+        print("Can't import shellcode_check")
+
 HAVE_VIRUSTOTAL = False
 if processing_cfg.virustotal.on_demand:
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
@@ -3970,6 +3978,28 @@ def statistics_data(request, days=7):
     return render(request, "error.html", {"title": "Statistics", "error": "Provide days as number"})
 
 
+SHELLCODE_PACKAGES = ("shellcode", "shellcode_x64")
+
+
+def _shellcode_on_demand_allowed(task_id, category: str, sha256: str) -> bool:
+    """On-demand shellcode analysis only for what CAPE typed as shellcode
+    (Injected Shellcode/Data, Unpacked Shellcode) or a shellcode-package submission."""
+    if category in ("static", "target.file"):
+        return get_task_package(int(task_id)) in SHELLCODE_PACKAGES
+    if category != "CAPE":
+        return False
+    files_json = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "files.json")
+    if not _path_safe(files_json) or not path_exists(files_json):
+        return False
+    with open(files_json, "rb") as f:
+        for line in f:
+            with suppress(ValueError):
+                entry = json.loads(line)
+                if entry.get("path", "").rsplit("/", 1)[-1] == sha256:
+                    return str(entry.get("metadata", "")).split(";?", 1)[0] in ("4", "9")
+    return False
+
+
 on_demand_config_mapper = {
     "bingraph": reporting_cfg,
     "flare_capa": integrations_cfg,
@@ -3978,6 +4008,7 @@ on_demand_config_mapper = {
     "strings": processing_cfg,
     "floss": integrations_cfg,
     "virustotal": integrations_cfg,
+    "static_shellcode_check": processing_cfg,
 }
 
 
@@ -4104,6 +4135,19 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             details = extract_strings(path, on_demand=True)
             if not details:
                 details = {"strings": "No strings extracted"}
+
+        elif service == "static_shellcode_check" and HAVE_SHELLCODE_CHECK:
+            if not _shellcode_on_demand_allowed(task_id, category, sha256):
+                return render(
+                    request,
+                    "error.html",
+                    {"error": "Shellcode analysis is only offered for CAPE shellcode payloads and shellcode package submissions"},
+                    status=400,
+                )
+            with open(path, "rb") as f:
+                details = shellcode_analyse(
+                    f.read(), max_scan=int(processing_cfg.static_shellcode_check.get("shellcode_depth", 262144) or 262144)
+                )
 
         elif service == "virustotal" and HAVE_VIRUSTOTAL:
             details = vt_lookup("file", sha256, on_demand=True)

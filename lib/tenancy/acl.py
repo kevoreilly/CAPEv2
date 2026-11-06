@@ -15,8 +15,8 @@ import weakref
 from dataclasses import dataclass, replace
 from typing import Any, Callable, Dict, Optional
 
-from sqlalchemy import Column, Index, Integer, String, inspect
-from sqlalchemy.orm import DeclarativeBase, Session
+from sqlalchemy import Index, Integer, String, inspect
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from lib.tenancy.policy import PRIVATE, PUBLIC, TENANT, VISIBILITIES, ResourceScope
 
@@ -32,12 +32,11 @@ class TaskAcl(AclBase):
 
     __tablename__ = "task_acl"
 
-    task_id = Column(Integer, primary_key=True, autoincrement=False)
-    user_id = Column(Integer, nullable=True, index=True)
-    tenant_id = Column(Integer, nullable=True)
-    visibility = Column(String(16), nullable=False, default=PRIVATE, server_default=PRIVATE)
-    visibility_seq = Column(Integer, nullable=False, default=1, server_default="1")
-    external_job_id = Column(String(128), nullable=True, index=True)
+    task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default=PRIVATE, server_default=PRIVATE)
+    visibility_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     __table_args__ = (Index("ix_task_acl_tenant_vis", "tenant_id", "visibility"),)
 
@@ -55,7 +54,6 @@ class TaskAcl(AclBase):
             "tenant_id": self.tenant_id,
             "visibility": self.visibility,
             "visibility_seq": self.visibility_seq,
-            "external_job_id": self.external_job_id,
         }
 
 
@@ -70,7 +68,6 @@ class VisibilityStamp:
     tenant_id: Optional[int]
     visibility: str
     visibility_seq: int
-    external_job_id: Optional[str] = None
 
 
 def ensure_acl_schema(engine) -> None:
@@ -132,7 +129,6 @@ def set_task_acl(
     user_id: Optional[int] = None,
     tenant_id: Optional[int] = None,
     visibility: Optional[str] = PRIVATE,
-    external_job_id: Optional[str] = None,
 ) -> TaskAcl:
     """Create or update the initial ACL record for a newly submitted task.
 
@@ -148,7 +144,6 @@ def set_task_acl(
             tenant_id=tenant_id,
             visibility=visibility or PRIVATE,
             visibility_seq=1,
-            external_job_id=external_job_id,
         )
         session.add(row)
     else:
@@ -159,8 +154,6 @@ def set_task_acl(
         if visibility is not None:
             row.visibility = visibility
         row.visibility_seq = int(row.visibility_seq or 0) + 1
-        if external_job_id is not None:
-            row.external_job_id = external_job_id
     session.flush()
     return row
 
@@ -222,7 +215,6 @@ def toggle_task_visibility_cas(
         tenant_id=row.tenant_id,
         visibility=row.visibility,
         visibility_seq=row.visibility_seq,
-        external_job_id=row.external_job_id,
     )
     restore = replace(stamp, visibility=prior_visibility)
 
@@ -283,38 +275,14 @@ def toggle_task_visibility_cas(
 _VISIBILITY_ORDER = (PRIVATE, TENANT, PUBLIC)
 
 
-def own_report_job_ids(task_id: int) -> list:
-    """Job ids the task's own report may carry besides none: object storage's `ui-<id>` (bridged,
-    renumbered to the central id) or `local-<id>`.
-
-    A report store holds one task-id space, the server's whose tasks they are (under multitenancy,
-    object storage refuses to upload a worker's non-bridged reports). A report filed under another
-    job id with the same info.id is a broker job's, and writes keyed on a bare info.id would hit it.
-    """
-    return [f"ui-{int(task_id)}", f"local-{int(task_id)}"]
-
-
-def is_own_report_job_id(task_id: int, job_id: Any) -> bool:
-    """Return True if `job_id` is None or matches `task_id`'s own job IDs (`ui-<id>`, `local-<id>`)."""
-    return job_id is None or job_id in own_report_job_ids(int(task_id))
-
-
 def own_report_mongo_query(task_id: int) -> Dict[str, Any]:
-    """The Mongo filter for the own report of `task_id` (see `own_report_job_ids`)."""
-    return {"info.id": int(task_id), "info.job_id": {"$in": [None, *own_report_job_ids(task_id)]}}
+    """The Mongo filter for the own report of `task_id`."""
+    return {"info.id": int(task_id)}
 
 
 def own_report_es_query(task_id: int) -> Dict[str, Any]:
-    """The ES query for the own report of `task_id`; job_id is text-mapped, so callers that
-    write must still compare it with `is_own_report_job_id` / `is_task_own_report`."""
-    return {
-        "bool": {
-            "filter": [{"term": {"info.id": int(task_id)}}],
-            "should": [{"bool": {"must_not": {"exists": {"field": "info.job_id"}}}}]
-            + [{"match_phrase": {"info.job_id": j}} for j in own_report_job_ids(task_id)],
-            "minimum_should_match": 1,
-        }
-    }
+    """The ES query for the own report of `task_id`."""
+    return {"bool": {"filter": [{"term": {"info.id": int(task_id)}}]}}
 
 
 _NO_FALLBACK = object()
@@ -345,7 +313,6 @@ def resync_report_stamp(
             tenant_id=row.tenant_id,
             visibility=row.visibility,
             visibility_seq=int(row.visibility_seq or 1),
-            external_job_id=row.external_job_id,
         )
     elif owner_if_no_row is not _NO_FALLBACK:
         stamp = VisibilityStamp(task_id=int(task_id), user_id=owner_if_no_row or None, tenant_id=None, visibility=PRIVATE, visibility_seq=1)
@@ -365,11 +332,7 @@ def sync_stamp_to_mongo(
     collection: str = "analysis",
 ) -> Any:
     """Apply a conditional monotonic update to MongoDB so higher `visibility_seq` always wins."""
-    id_clause: Dict[str, Any]
-    if stamp.external_job_id:
-        id_clause = {"info.job_id": stamp.external_job_id}
-    else:
-        id_clause = own_report_mongo_query(stamp.task_id)
+    id_clause = own_report_mongo_query(stamp.task_id)
 
     cas_filter = {
         "$and": [
@@ -395,13 +358,7 @@ def sync_stamp_to_mongo(
 
 def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[dict, dict], Any]) -> Any:
     """Restamp the Elasticsearch analysis document, which the ES search filter scopes on, monotonically."""
-    # job_id is dynamically mapped as text, so the query only narrows by phrase ("job-7" also hits
-    # "job-7-extra"); the script compares it exactly before writing.
-    if stamp.external_job_id:
-        id_clauses = [{"match_phrase": {"info.job_id": stamp.external_job_id}}]
-    else:
-        own = own_report_es_query(stamp.task_id)["bool"]
-        id_clauses = own["filter"] + [{"bool": {"should": own["should"], "minimum_should_match": 1}}]
+    id_clauses = own_report_es_query(stamp.task_id)["bool"]["filter"]
     query = {
         "bool": {
             "filter": id_clauses,
@@ -414,14 +371,8 @@ def sync_stamp_to_es(stamp: VisibilityStamp, *, es_update_by_query: Callable[[di
     }
     script = {
         "lang": "painless",
-        "source": (
-            "def j = ctx._source.info.job_id;"
-            " if (params.job_id != null ? j != params.job_id : (j != null && !params.own_job_ids.contains(j))) { ctx.op = 'noop'; }"
-            " else { for (e in params.stamp.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); } }"
-        ),
+        "source": "for (e in params.stamp.entrySet()) { ctx._source.info[e.getKey()] = e.getValue(); }",
         "params": {
-            "job_id": stamp.external_job_id or None,
-            "own_job_ids": [] if stamp.external_job_id else own_report_job_ids(stamp.task_id),
             "stamp": {
                 "user_id": stamp.user_id,
                 "tenant_id": stamp.tenant_id,

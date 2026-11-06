@@ -52,8 +52,8 @@ search_limit = 50
 anon_viewable = no
 # If webgui response time is too long, you can disable existent_tasks and top_detections
 existent_tasks = no
-top_detections = yes
-top_asn = yes
+top_detections = no
+top_asn = no
 # Enable checking for samples in MongoDB before fetching from external sources. Disable to reduce MongoDB load when the database is large.
 check_sample_in_mongodb = no
 # hostname of the cape instance

@@ -50,6 +50,7 @@ class LnkEntry(Structure):
 
 
 class PUBLICKEYSTRUC(Structure):
+    _layout_ = "ms"
     _pack_ = 1
     _fields_ = [
         ("type", ctypes.c_ubyte),
@@ -60,6 +61,7 @@ class PUBLICKEYSTRUC(Structure):
 
 
 class RSAPUBKEY(Structure):
+    _layout_ = "ms"
     _pack_ = 1
     _fields_ = [
         ("magic", ctypes.c_uint),

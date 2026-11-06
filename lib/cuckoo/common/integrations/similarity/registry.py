@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 # the dispatcher, result merging and UI need no changes.
 _ENGINE_MODULES: Dict[str, str] = {
     "mcrit": "lib.cuckoo.common.integrations.similarity.mcrit_engine.McritEngine",
+    "kesakode": "lib.cuckoo.common.integrations.similarity.kesakode_engine.KesakodeEngine",
     # "binlex": "lib.cuckoo.common.integrations.similarity.binlex_engine.BinlexEngine",
 }
 

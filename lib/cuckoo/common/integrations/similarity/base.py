@@ -134,6 +134,16 @@ class SimilarityEngine:
         self.timeout = int(self.options.get("timeout", 120) or 120)
         excluded = self.options.get("exclude_families", "") or ""
         self.exclude_families = [e.strip().lower() for e in excluded.split(",") if e.strip()]
+        prefix = self.__class__.name
+        self.sources_enabled = {
+            "payload": _as_bool(self.options.get(f"{prefix}_payloads", self.options.get("similarity_payloads", True))),
+            "procdump": _as_bool(self.options.get(f"{prefix}_procdump", self.options.get("similarity_procdump", True))),
+            "dropped": _as_bool(self.options.get(f"{prefix}_dropped", self.options.get("similarity_dropped", False))),
+            "submitted": _as_bool(self.options.get(f"{prefix}_submittedfile", self.options.get("similarity_submittedfile", False))),
+        }
+
+    def accepts_source(self, source: str) -> bool:
+        return bool(self.sources_enabled.get(source, False))
 
     def accepts_format(self, file_format: str) -> bool:
         return file_format in self.supported_formats

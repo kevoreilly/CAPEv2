@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.10", "3.14"]
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
       - name: Setup 7zz binary
         run: |
           mkdir -p data/
-          wget -q https://github.com/CAPESandbox/community/raw/master/data/7zz -O data/7zz
+          wget -q --tries=5 --waitretry=2 --retry-connrefused --retry-on-http-error=500,502,503,504 https://github.com/CAPESandbox/community/raw/master/data/7zz -O data/7zz
           chmod +x data/7zz
 
       - name: Install pyattck

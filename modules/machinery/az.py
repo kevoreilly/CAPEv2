@@ -442,22 +442,23 @@ class Azure(Machinery):
         The placeholder machine is removed when a task is submitted with the matching tag.
         """
         try:
-            self._remove_placeholder_machine(vmss_name)
-            self.db.session.flush()  # Fix: Commit delete before insert to prevent duplicate key
-            self.db.add_machine(
-                name=f"{vmss_name}_placeholder",
-                label=f"{vmss_name}_placeholder",
-                ip=f"{vmss_name}_placeholder_ip",
-                platform=vmss_vals["platform"].lower(),
-                tags=vmss_vals["tag"],
-                arch=self.options.az.scale_sets[vmss_name].arch,
-                interface=self.options.az.interface,
-                snapshot=f"{vmss_name}_placeholder_snapshot",
-                resultserver_ip=self.options.az.resultserver_ip,
-                resultserver_port=self.options.az.resultserver_port,
-                locked=True,
-                reserved=True,
-            )
+            with self.db.transaction():
+                self._remove_placeholder_machine(vmss_name)
+                self.db.session.flush()  # the DELETE must reach the DB before the INSERT (unique name)
+                self.db.add_machine(
+                    name=f"{vmss_name}_placeholder",
+                    label=f"{vmss_name}_placeholder",
+                    ip=f"{vmss_name}_placeholder_ip",
+                    platform=vmss_vals["platform"].lower(),
+                    tags=vmss_vals["tag"],
+                    arch=self.options.az.scale_sets[vmss_name].arch,
+                    interface=self.options.az.interface,
+                    snapshot=f"{vmss_name}_placeholder_snapshot",
+                    resultserver_ip=self.options.az.resultserver_ip,
+                    resultserver_port=self.options.az.resultserver_port,
+                    locked=True,
+                    reserved=True,
+                )
             machine_pools[vmss_name]["has_placeholder_machine"] = True
         except Exception as e:
             log.debug("Could not add placeholder machine for %s VMSS", vmss_name)
@@ -468,7 +469,8 @@ class Azure(Machinery):
         Remove placeholder machine from DB.
         """
         try:
-            self.db.delete_machine(f"{vmss_name}_placeholder")
+            with self.db.transaction():
+                self.db.delete_machine(f"{vmss_name}_placeholder")
             machine_pools[vmss_name]["has_placeholder_machine"] = False
         except Exception as e:
             log.debug("Could not remove placeholder machine for %s VMSS", vmss_name)
@@ -517,7 +519,7 @@ class Azure(Machinery):
             log.info("%d machines found locked on initialize, unlocking.", len(running))
             for machine in running:
                 if "_placeholder" not in machine.name:
-                    self.db.unlock_machine(machine)
+                    self.release(machine)
 
     def _create_batch_threads(self):
         """
@@ -614,15 +616,15 @@ class Azure(Machinery):
         task_archs, task_tags = self.db._task_arch_tags_helper(task)
         os_version = self.db._package_vm_requires_check(task.package)
 
-        def get_first_machine(query: sqlalchemy.orm.Query) -> Optional[Machine]:
+        def get_first_machine(stmt: sqlalchemy.Select) -> Optional[Machine]:
             # Select for update a machine, preferring one that is available and was the one that was used the
             # longest time ago. This will give us a machine that can get locked or, if there are none that are
             # currently available, we'll at least know that the task is serviceable.
-            return cast(
-                Optional[Machine], query.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
-            )
+            # Runs in the scheduler's transaction, which holds the row lock until it commits.
+            stmt = stmt.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).limit(1)
+            return cast(Optional[Machine], self.db.session.scalars(stmt).first())
 
-        machines = self.db.session.query(Machine).options(sqlalchemy.orm.joinedload(Machine.tags))
+        machines = sqlalchemy.select(Machine).options(sqlalchemy.orm.selectinload(Machine.tags))
         filter_kwargs = {
             "statement": machines,
             "label": task.machine,
@@ -785,19 +787,20 @@ class Azure(Machinery):
 
                         # Add machine to DB.
                         # TODO: What is the point of name vs label?
-                        self.db.add_machine(
-                            name=vmss_vm.name,
-                            label=vmss_vm.name,
-                            ip=private_ip,
-                            platform=platform,
-                            tags=self.options.az.scale_sets[vmss_name].pool_tag,
-                            arch=self.options.az.scale_sets[vmss_name].arch,
-                            interface=self.options.az.interface,
-                            snapshot=vmss_vm.storage_profile.image_reference.id,
-                            resultserver_ip=self.options.az.resultserver_ip,
-                            resultserver_port=self.options.az.resultserver_port,
-                            reserved=False,
-                        )
+                        with self.db.transaction():
+                            self.db.add_machine(
+                                name=vmss_vm.name,
+                                label=vmss_vm.name,
+                                ip=private_ip,
+                                platform=platform,
+                                tags=self.options.az.scale_sets[vmss_name].pool_tag,
+                                arch=self.options.az.scale_sets[vmss_name].arch,
+                                interface=self.options.az.interface,
+                                snapshot=vmss_vm.storage_profile.image_reference.id,
+                                resultserver_ip=self.options.az.resultserver_ip,
+                                resultserver_port=self.options.az.resultserver_port,
+                                reserved=False,
+                            )
                         # We always wait for Cuckoo agent to finish setting up if 'wait_for_agent_before_starting' is true or if we are initializing.
                         # Else, the machine should become immediately available in DB.
                         if self.initializing or self.options.az.wait_for_agent_before_starting:
@@ -1060,17 +1063,10 @@ class Azure(Machinery):
                 "wait": False,
             }
             self.required_vmsss[vmss_name]["exists"] = True
-            try:
-                with self.db.session.begin():
-                    if machine_pools[vmss_name]["size"] == 0:
-                        self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
-                    else:
-                        self._add_machines_to_db(vmss_name)
-            except sqlalchemy.exc.InvalidRequestError:
-                if machine_pools[vmss_name]["size"] == 0:
-                    self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
-                else:
-                    self._add_machines_to_db(vmss_name)
+            if machine_pools[vmss_name]["size"] == 0:
+                self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
+            else:
+                self._add_machines_to_db(vmss_name)
         except Exception as e:
             log.exception("Exception in _thr_create_vmss for %s: %s", vmss_name, e)
 
@@ -1102,11 +1098,7 @@ class Azure(Machinery):
             else:
                 log.exception(repr(e))
                 raise
-        try:
-            with self.db.session.begin():
-                self._add_machines_to_db(vmss_name)
-        except sqlalchemy.exc.InvalidRequestError:
-            self._add_machines_to_db(vmss_name)
+        self._add_machines_to_db(vmss_name)
 
     def _thr_scale_machine_pool(self, tag, per_platform=False):
         """
@@ -1115,8 +1107,11 @@ class Azure(Machinery):
         @param per_platform: A boolean flag indicating that we should scale machine pools "per platform" vs. "per tag"
         @return: Ends method call
         """
-        with self.db.session.begin():
+        # No transaction around scaling (Azure API calls and waits); DB touches open their own.
+        try:
             return self._scale_machine_pool(tag, per_platform=per_platform)
+        finally:
+            self.db.session.remove()
 
     def _scale_machine_pool(self, tag, per_platform=False):
         global current_vmss_operations
@@ -1387,22 +1382,13 @@ class Azure(Machinery):
         """
         # Fix: Count BOTH pending AND running tasks
         # Previous code only counted PENDING, causing VMs to be deleted while tasks running
-        current_tasks = self.db.list_tasks(status=f"{TASK_PENDING}|{TASK_RUNNING}")
-
         # The task queue that will be used to prepare machines will be relative to the virtual
         # machine tag that is targeted in the task (win7, win10, etc) or platform (windows, linux)
-        relevant_task_queue = 0
-
-        if not platform:
-            relevant_task_queue = sum(
-                1 for task in current_tasks if any(t.name == tag for t in task.tags)
-            )
-        else:
-            relevant_task_queue = sum(
-                1 for task in current_tasks if task.platform == platform
-            )
-        return relevant_task_queue
-        return relevant_task_queue
+        with self.db.transaction():
+            current_tasks = self.db.list_tasks(status=f"{TASK_PENDING}|{TASK_RUNNING}")
+            if not platform:
+                return sum(1 for task in current_tasks if any(t.name == tag for t in task.tags))
+            return sum(1 for task in current_tasks if task.platform == platform)
 
     def _get_relevant_machines(self, tag):
         """

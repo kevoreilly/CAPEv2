@@ -22,11 +22,12 @@ import sys
 import tempfile
 import time
 import traceback
-from email.parser import BytesParser
+from email.message import EmailMessage
+from email.parser import BytesHeaderParser
 from email.policy import default as email_policy
-from io import BytesIO, StringIO
+from io import BufferedIOBase, BytesIO, StringIO
 from threading import Lock
-from typing import Iterable
+from typing import BinaryIO, Dict, Iterable, Optional, Tuple, Union
 from urllib.parse import parse_qs
 from zipfile import ZipFile
 
@@ -45,7 +46,7 @@ if sys.version_info[:2] < (3, 6):
 #if sys.maxsize > 2**32 and sys.platform == "win32":
 #    sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.23"
+AGENT_VERSION = "0.24"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -110,34 +111,334 @@ state = {
 }
 
 
+_MULTIPART_CHUNK_SIZE = 1024 * 1024
+_MULTIPART_MEMORY_LIMIT = 1024 * 1024
+_MAX_PART_HEADER_BYTES = 64 * 1024
+
+
+class _FormParseError(ValueError):
+    """Raised when an HTTP request body has invalid form or multipart framing."""
+
+
+class _BoundedReader:
+    """Read at most *limit* bytes from an underlying binary stream."""
+
+    def __init__(self, rfile: Union[BufferedIOBase, BinaryIO], limit: int) -> None:
+        self._rfile = rfile
+        self.remaining = max(0, limit)
+
+    def read(self, size: int = _MULTIPART_CHUNK_SIZE) -> bytes:
+        if self.remaining <= 0:
+            return b""
+        to_read = self.remaining if size < 0 else min(size, self.remaining)
+        if to_read <= 0:
+            return b""
+        data = self._rfile.read(to_read)
+        if not data:
+            self.remaining = 0
+            return b""
+        self.remaining -= len(data)
+        return data
+
+    def drain(self, chunk_size: int = _MULTIPART_CHUNK_SIZE) -> None:
+        while self.remaining > 0:
+            if not self.read(chunk_size):
+                break
+
+
+class _PartFileSink:
+    """Buffer small uploaded files in BytesIO and spill larger ones to TemporaryFile."""
+
+    def __init__(self, max_mem_bytes: int = _MULTIPART_MEMORY_LIMIT) -> None:
+        self._max_mem_bytes = max_mem_bytes
+        self._buf: BinaryIO = BytesIO()
+        self._size = 0
+        self._spilled = False
+
+    def write(self, data: Union[bytes, bytearray]) -> None:
+        if not data:
+            return
+        next_size = self._size + len(data)
+        if not self._spilled and next_size > self._max_mem_bytes:
+            tmp: BinaryIO = tempfile.TemporaryFile("w+b")
+            self._buf.seek(0)
+            shutil.copyfileobj(self._buf, tmp)
+            self._buf.close()
+            self._buf = tmp
+            self._spilled = True
+        self._buf.write(data)
+        self._size = next_size
+
+    def finish(self) -> BinaryIO:
+        self._buf.seek(0)
+        return self._buf
+
+    def close(self) -> None:
+        self._buf.close()
+
+
+def _parse_multipart_stream(
+    reader: _BoundedReader,
+    boundary_bytes: bytes,
+    chunk_size: int = _MULTIPART_CHUNK_SIZE,
+    spool_max_bytes: int = _MULTIPART_MEMORY_LIMIT,
+) -> Tuple[Dict[str, str], Dict[str, BinaryIO]]:
+    """Stream-parse a multipart/form-data body without buffering whole files in RAM."""
+    form: Dict[str, str] = {}
+    files: Dict[str, BinaryIO] = {}
+    dash_boundary = b"--" + boundary_bytes
+    buf = bytearray()
+    skipped_preamble = False
+
+    try:
+        min_open = len(dash_boundary) + 4
+        while len(buf) < min_open:
+            chunk = reader.read(chunk_size)
+            if not chunk:
+                break
+            buf.extend(chunk)
+
+        nl = b"\r\n"
+        while True:
+            pos = -1
+            if not skipped_preamble and buf.startswith(dash_boundary):
+                pos = 0
+            else:
+                idx_crlf = buf.find(b"\r\n" + dash_boundary)
+                idx_lf = buf.find(b"\n" + dash_boundary)
+                candidates = [idx + 2 for idx in (idx_crlf,) if idx != -1] + [
+                    idx + 1 for idx in (idx_lf,) if idx != -1 and (idx == 0 or buf[idx - 1] != 0x0D)
+                ]
+                if candidates:
+                    pos = min(candidates)
+
+            if pos != -1:
+                after = pos + len(dash_boundary)
+                while len(buf) < after + 4:
+                    chunk = reader.read(chunk_size)
+                    if not chunk:
+                        break
+                    buf.extend(chunk)
+                ws_end = after
+                while ws_end < len(buf) and buf[ws_end] in (0x20, 0x09):
+                    ws_end += 1
+                    if ws_end == len(buf):
+                        chunk = reader.read(chunk_size)
+                        if chunk:
+                            buf.extend(chunk)
+                if buf[after : after + 2] == b"--":
+                    reader.drain(chunk_size)
+                    return form, files
+                if buf[ws_end : ws_end + 2] == b"\r\n":
+                    nl = b"\r\n"
+                    del buf[: ws_end + 2]
+                    break
+                if buf[ws_end : ws_end + 1] == b"\n":
+                    nl = b"\n"
+                    del buf[: ws_end + 1]
+                    break
+                del buf[: pos + 2]
+                skipped_preamble = True
+                continue
+
+            keep = len(dash_boundary) + 2
+            if len(buf) > keep:
+                del buf[:-keep]
+                skipped_preamble = True
+            chunk = reader.read(chunk_size)
+            if not chunk:
+                raise _FormParseError("Missing multipart boundary")
+            buf.extend(chunk)
+
+        delimiter = nl + dash_boundary
+        header_sep = nl + nl
+
+        while True:
+            while not buf.startswith(nl) and header_sep not in buf:
+                if len(buf) > _MAX_PART_HEADER_BYTES:
+                    raise _FormParseError("Multipart part headers exceed maximum size")
+                chunk = reader.read(chunk_size)
+                if not chunk:
+                    raise _FormParseError("Incomplete multipart part headers")
+                buf.extend(chunk)
+
+            if buf.startswith(nl):
+                header_bytes = b""
+                del buf[: len(nl)]
+            else:
+                sep_idx = buf.index(header_sep)
+                header_bytes = bytes(buf[:sep_idx])
+                del buf[: sep_idx + len(header_sep)]
+
+            part_msg = BytesHeaderParser(EmailMessage, policy=email_policy).parsebytes(header_bytes + b"\r\n\r\n")
+            raw_name = part_msg.get_param("name", header="content-disposition")
+            if isinstance(raw_name, tuple):
+                name: Optional[str] = raw_name[2]
+            elif isinstance(raw_name, str):
+                name = raw_name
+            else:
+                name = None
+            filename = part_msg.get_filename()
+            charset = part_msg.get_content_charset("utf-8") or "utf-8"
+
+            file_sink: Optional[_PartFileSink] = _PartFileSink(spool_max_bytes) if (name and filename) else None
+            form_buf: Optional[bytearray] = bytearray() if (name and not filename) else None
+
+            try:
+                is_closing = False
+                while True:
+                    idx = buf.find(delimiter)
+                    if idx != -1:
+                        after_delim = idx + len(delimiter)
+                        while len(buf) < after_delim + 4:
+                            chunk = reader.read(chunk_size)
+                            if not chunk:
+                                break
+                            buf.extend(chunk)
+                        ws_end = after_delim
+                        while ws_end < len(buf) and buf[ws_end] in (0x20, 0x09):
+                            ws_end += 1
+                            if ws_end == len(buf):
+                                chunk = reader.read(chunk_size)
+                                if chunk:
+                                    buf.extend(chunk)
+                        if buf[after_delim : after_delim + 2] == b"--":
+                            if idx > 0:
+                                if file_sink is not None:
+                                    file_sink.write(buf[:idx])
+                                elif form_buf is not None:
+                                    form_buf.extend(buf[:idx])
+                            del buf[: after_delim + 2]
+                            is_closing = True
+                            break
+                        if buf[ws_end : ws_end + 2] == b"\r\n":
+                            if idx > 0:
+                                if file_sink is not None:
+                                    file_sink.write(buf[:idx])
+                                elif form_buf is not None:
+                                    form_buf.extend(buf[:idx])
+                            del buf[: ws_end + 2]
+                            is_closing = False
+                            break
+                        if buf[ws_end : ws_end + 1] == b"\n":
+                            if idx > 0:
+                                if file_sink is not None:
+                                    file_sink.write(buf[:idx])
+                                elif form_buf is not None:
+                                    form_buf.extend(buf[:idx])
+                            del buf[: ws_end + 1]
+                            is_closing = False
+                            break
+                        # False boundary prefix inside binary payload; flush past the leading newline.
+                        if file_sink is not None:
+                            file_sink.write(buf[: idx + 1])
+                        elif form_buf is not None:
+                            form_buf.extend(buf[: idx + 1])
+                        del buf[: idx + 1]
+                        continue
+
+                    safe_len = len(buf) - (len(delimiter) - 1)
+                    if safe_len > 0:
+                        if file_sink is not None:
+                            file_sink.write(buf[:safe_len])
+                        elif form_buf is not None:
+                            form_buf.extend(buf[:safe_len])
+                        del buf[:safe_len]
+                    chunk = reader.read(chunk_size)
+                    if not chunk:
+                        raise _FormParseError("Incomplete multipart/form-data body")
+                    buf.extend(chunk)
+
+                if name:
+                    if file_sink is not None:
+                        if name in files:
+                            files[name].close()
+                        files[name] = file_sink.finish()
+                        file_sink = None
+                    elif form_buf is not None:
+                        try:
+                            form[name] = form_buf.decode(charset, errors="replace")
+                        except LookupError:
+                            form[name] = form_buf.decode("utf-8", errors="replace")
+            finally:
+                if file_sink is not None:
+                    file_sink.close()
+
+            if is_closing:
+                reader.drain(chunk_size)
+                break
+    except Exception:
+        for file_obj in files.values():
+            try:
+                file_obj.close()
+            except Exception:
+                pass
+        raise
+
+    return form, files
+
+
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
+    httpd: "MiniHTTPServer"
+    multipart_chunk_size: int = _MULTIPART_CHUNK_SIZE
+    multipart_memory_limit: int = _MULTIPART_MEMORY_LIMIT
 
-    def _parse_form_and_files(self):
-        content_length = int(self.headers.get("Content-Length", "0") or 0)
+    @staticmethod
+    def _close_files(files: Dict[str, BinaryIO]) -> None:
+        for file_obj in files.values():
+            try:
+                file_obj.close()
+            except Exception:
+                pass
+
+    def _send_json_response(self, ret: "jsonify") -> None:
+        try:
+            ret.init()
+            self.send_response(ret.status_code)
+            ret.headers(self)
+            self.end_headers()
+            self.wfile.write(ret.json().encode())
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def _parse_form_and_files(self) -> Tuple[Dict[str, str], Dict[str, BinaryIO]]:
+        try:
+            content_length = max(0, int(self.headers.get("Content-Length", "0") or 0))
+        except ValueError as exc:
+            raise _FormParseError("Invalid Content-Length header") from exc
+
         content_type = self.headers.get("Content-Type", "")
         media_type = content_type.split(";", 1)[0].strip().lower()
-        body = self.rfile.read(content_length) if content_length > 0 else b""
-
-        form = {}
-        files = {}
 
         if media_type == "multipart/form-data":
-            message = BytesParser(policy=email_policy).parsebytes(
-                b"Content-Type: " + content_type.encode("utf-8") + b"\r\n\r\n" + body
+            if content_length <= 0:
+                return {}, {}
+            ct_msg = BytesHeaderParser(EmailMessage, policy=email_policy).parsebytes(
+                b"Content-Type: " + content_type.encode("utf-8", errors="surrogateescape") + b"\r\n\r\n"
             )
-            for part in message.iter_parts():
-                name = part.get_param("name", header="content-disposition")
-                if not name:
-                    continue
-                filename = part.get_filename()
-                payload = part.get_payload(decode=True) or b""
-                if filename:
-                    files[name] = BytesIO(payload)
-                else:
-                    charset = part.get_content_charset("utf-8")
-                    form[name] = payload.decode(charset, errors="replace")
-        elif media_type == "application/x-www-form-urlencoded":
+            raw_boundary = ct_msg.get_param("boundary")
+            if isinstance(raw_boundary, tuple):
+                boundary_str: Optional[str] = raw_boundary[2]
+            elif isinstance(raw_boundary, str):
+                boundary_str = raw_boundary
+            else:
+                boundary_str = None
+            if not boundary_str:
+                raise _FormParseError("Missing boundary in multipart/form-data Content-Type")
+            boundary_bytes = boundary_str.encode("utf-8", errors="surrogateescape")
+            reader = _BoundedReader(self.rfile, content_length)
+            return _parse_multipart_stream(
+                reader,
+                boundary_bytes,
+                chunk_size=self.multipart_chunk_size,
+                spool_max_bytes=self.multipart_memory_limit,
+            )
+
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+        form: Dict[str, str] = {}
+        files: Dict[str, BinaryIO] = {}
+        if media_type == "application/x-www-form-urlencoded":
             # Match cgi.FieldStorage default behavior: ignore blank form values.
             parsed = parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=False)
             form = {k: v[-1] if v else "" for k, v in parsed.items()}
@@ -154,17 +455,41 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         request.client_ip, request.client_port = self.client_address
-        request.form, request.files = self._parse_form_and_files()
+        request.form = {}
+        request.files = {}
         request.method = "POST"
+        if not self.httpd.is_client_allowed(self.path, request.method):
+            return
+        try:
+            request.form, request.files = self._parse_form_and_files()
+        except _FormParseError as exc:
+            self._send_json_response(json_error(400, f"Invalid form data: {exc}"))
+            return
 
-        self.httpd.handle(self)
+        try:
+            self.httpd.handle(self)
+        finally:
+            self._close_files(request.files)
+            request.files = {}
 
     def do_DELETE(self):
         request.client_ip, request.client_port = self.client_address
-        request.form, request.files = self._parse_form_and_files()
+        request.form = {}
+        request.files = {}
         request.method = "DELETE"
+        if not self.httpd.is_client_allowed(self.path, request.method):
+            return
+        try:
+            request.form, request.files = self._parse_form_and_files()
+        except _FormParseError as exc:
+            self._send_json_response(json_error(400, f"Invalid form data: {exc}"))
+            return
 
-        self.httpd.handle(self)
+        try:
+            self.httpd.handle(self)
+        finally:
+            self._close_files(request.files)
+            request.files = {}
 
 
 class MiniHTTPServer:
@@ -186,6 +511,8 @@ class MiniHTTPServer:
         port: int = 8000,
         event = None,
     ):
+        self.handler.httpd = self
+        request.environ["werkzeug.server.shutdown"] = self.shutdown
         socketserver.ThreadingTCPServer.allow_reuse_address = True
         self.s = socketserver.ThreadingTCPServer((str(host), port), self.handler)
 
@@ -193,7 +520,10 @@ class MiniHTTPServer:
         if event:
             event.set()
 
-        self.s.serve_forever()
+        try:
+            self.s.serve_forever()
+        finally:
+            self.s.server_close()
 
     def route(self, path: str, methods: Iterable[str] = ["GET"]):
         def register(fn):
@@ -203,12 +533,18 @@ class MiniHTTPServer:
 
         return register
 
-    def handle(self, obj):
+    @staticmethod
+    def is_client_allowed(path: str, method: Optional[str]) -> bool:
         if "client_ip" in state and request.client_ip != state["client_ip"]:
             if request.client_ip != "127.0.0.1":
-                return
-            if obj.path not in ["/status", "/browser_extension"] or request.method != "POST":
-                return
+                return False
+            if path not in ["/status", "/browser_extension"] or method != "POST":
+                return False
+        return True
+
+    def handle(self, obj):
+        if not self.is_client_allowed(obj.path, request.method):
+            return
 
         for route, fn in self.routes[obj.command]:
             if route.match(obj.path):

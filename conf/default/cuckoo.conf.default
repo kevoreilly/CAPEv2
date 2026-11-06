@@ -217,6 +217,10 @@ critical = 60
 # shutting down a vm. Default is 300 seconds.
 vm_state = 300
 
+# Base timeout in seconds for uploading files (analyzer, scripts, sample) to
+# the guest agent, scaled up automatically for large payloads. Default is 300 seconds.
+guest_upload = 300
+
 # Will kill VM if: Task time = timeout + critical + stuck_seconds
 stuck_seconds = 100
 
@@ -242,6 +246,7 @@ freespace = 2000
 enabled = no
 # set any value to 0 to disable it. In days
 binaries = 0
+files = 0
 tmp = 0
 # Remove analysis folder
 analysis = 0

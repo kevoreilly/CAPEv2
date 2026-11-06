@@ -1,4 +1,52 @@
+### [04.11.2026]
+* Signature engine performance & correctness:
+    * **Evented dispatch cache**: the per-API-call set algebra in `RunSignatures.run()` is memoised on `(api, category)`, wiring up the `self.api_sigs` cache that was declared but never used. 4.14s -> 2.40s for 200k calls against 200 no-op signatures.
+    * **TTP de-duplication**: replaced the O(n^2) `not in self.ttps` scan with a set of `(ttp, signature)` pairs.
+    * **Signature timings**: `statistics.signatures[].time` reported a leaked loop variable, so every evented signature got the same duration. It now reports each signature's own accumulated time.
+    * `RunReporting.__init__` used `break` where `continue` belongs, which could leave `ParseProcessLog` instances unconverted for later processes.
+* Machinery and auxiliary wait paths:
+    * `qemu.stop()` called `proc.wait()` with no timeout, so a wedged qemu held the machinery thread forever. The timeout loop written below it was unreachable, because `wait()` had already returned by the time it was evaluated. Replaced with a bounded wait that escalates `system_powerdown` -> `SIGTERM` -> `SIGKILL`.
+    * `virtualbox.stop()` polled `proc.poll()` on a one-second tick, rounding every machine stop up to the next whole second, and its timeout branch called `proc.terminate()` with no sleep, spinning at 100% CPU until the process died. Now a single `communicate(timeout=...)`, which also drains stdout/stderr instead of leaving VBoxManage able to block on a full pipe.
+    * `hyperv.run_cmd()` opened a new SSH connection per command; `start()` alone did four handshakes. Commands now share one `ControlMaster` connection, run without `shell=True`, and have a deadline.
+    * `hyperv.start()` waited with `while not self._is_running(id): continue`, issuing remote status queries as fast as the host could spawn SSH processes, with no upper bound. Now polls every 2s and fails after 300s.
+    * `QemuScreenshots` opened and closed a libvirt connection every second, per analysis. One connection per thread now, reconnecting on error. Its `finally` block also referenced `stream` before assignment when `lookupByName` failed, turning a libvirt error into a `NameError`.
+    * `Mitmdump.wait_for_pid_exit` polled on a flat one-second tick after `SIGTERM`, adding up to a second to every teardown. Now backs off from 10ms.
+* Elasticsearch reporting and JSON dump:
+    * `ElasticSearchDB.run()` performed `json.loads(json.dumps(report), object_hook=date_hook)` **before** `insert_calls`, so the entire behaviour log was serialised and re-parsed only to be discarded on the next line. The round-trip now runs after the calls have been moved to the calls index. 200k calls: 7.36s -> 2ms.
+    * `date_hook` attempted `strptime` on every value in the report tree, building an exception for each int, list and non-date string. A leading digit plus a `-` plus a `:` are all necessary for `"%Y-%m-%d %H:%M:%S"` to parse, so guarding on them converts exactly the same values: a further 4.2x on the remaining work.
+    * `jsondump` with `store_compressed` built the whole archive in a `BytesIO` and then copied it out with `getvalue()`. It now writes the zip directly to disk. No speed change, lower peak memory. The archive entry name is unchanged.
+* Behaviour processing performance:
+    * `Summary` guarded roughly thirty appends with `value not in self.<list>`, once per matching API call, against lists that reach thousands of entries. The accumulators are now insertion-ordered containers with a set-backed membership test and are unwrapped to plain lists in `run()`. 100k appends across 10k unique values: 7.0s -> 4.8ms. Output verified identical with `replace_patterns` both off and on.
+    * `EncryptedBuffers` tested `buf not in self.bufs`, comparing a `str` against a list of `dict`s. That is always true, so no buffer was ever deduplicated and every check walked the whole list. 20k buffers: 3.0s -> 2.3ms. Reports now contain unique buffers per API.
+    * `EncryptedBuffers` also recorded every `CryptEncryptMessage` call twice, because `startswith("CryptEncrypt")` matches it as well.
+    * `ProcessTree.event_apicall` scanned the collected process list on every API call. 1M calls across 200 processes: 2.6s -> 18ms.
+* PCAP processing performance:
+    * `Pcap._add_hosts` tested membership against `self.hosts`, a list, once per packet. Destinations already seen are now rejected by an O(1) set before `convert_to_printable`, `ipaddress.ip_address` and the passlist walk run again. 200k packets across 5k unique hosts: 7.9s -> 5ms.
+    * `Pcap._enrich_hosts` rescanned every DNS answer for every host. The answer-to-hostname map is now built once. 5k hosts against 20k DNS requests: 2.1s -> 12ms.
+    * Output is unchanged: verified against the previous implementation over 200 randomised packet streams covering IPv6, malformed addresses, ICMP without a dport, passlisted and private addresses.
+* MongoDB write path:
+    * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For callers filtering on other fields such as `info.id` or `info.job_id` (`utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`), that forced a full scan of the `_id` index and prevented the query planner from using specialized indexes like `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
+* Windows analyzer result uploads:
+    * Screenshots, the DigiSig report and the pre/during script output were written to the result server with bare `socket.send()` calls, iterating the payload as *lines*. Binary data splits on every `0x0A` byte, so a 155 KB screenshot went out as 762 socket writes (smallest 1 byte) instead of one.
+    * Those calls also discarded the `send()` return value (a short write silently truncated the upload) and bypassed `NetlogConnection.send()`, which reconnects and retries once.
+    * Added `NetlogConnection.send_fileobj()`, which reads fixed-size chunks and sends them through `sendall()` with the existing retry. Upload granularity is unchanged: one connection and one file per upload.
+* Windows analyzer file bookkeeping (`analyzer/windows/analyzer.py`):
+    * `Files.dumped` is a set instead of a list. It is only ever tested for membership, and the linear scan cost 6.46 s in total across a 30,000 file run (688 ms at 10,000) versus 3.74 ms for a set.
+    * `Files.dump_files()` takes the next pending path directly instead of rebuilding the entire key list on every iteration, which was O(n^2): 3.82 s at 30,000 files, 308 ms at 10,000. It still re-checks the dict each time, because pipe handler threads can add files while it drains.
+* Windows analyzer process loop (`analyzer/windows/analyzer.py`):
+    * `analysis_loop()` iterated the live pid list while `remove_pid()` removed from it, so the iterator skipped the entry after every removal. Five processes exiting together took several one-second iterations to drain, delaying both `upload_memdump()` and the "process list is empty, terminating analysis" check.
+    * `_normalized_protected_path()` compared `path[-1]` (an `int`, because the value is `bytes`) against `b"\\"`, so the check was always true and a directory ending in a separator got a second one appended - after which `in_protected_path()` could not match anything below it.
+* Windows analyzer pipe server (`analyzer/windows/lib/core/pipe.py`):
+    * `PipeServer.run()` retried `CreateNamedPipeW` with no delay and no limit. A pipe name that cannot be created turned the thread into a spin loop that burned a core and flooded the log for the rest of the analysis. It now backs off 100 ms and gives up after 100 consecutive failures.
+    * `PipeDispatcher._read_message()` accumulated `buf.value`, which stops at the first NUL byte and ignores the byte count the API reports, so a message containing an embedded NUL was truncated and its tail was parsed as a new command. It now uses `buf.raw[:bytes_read.value]` and strips the trailing NUL terminator.
+    * Finished handler threads are dropped from `PipeServer.handlers` instead of being retained for the whole analysis.
+* Windows analyzer human interaction (`analyzer/windows/modules/auxiliary/human.py`):
+    * The main loop incremented a counter once per iteration and used it as a second count, but an iteration is not one second: `realistic_human_cursor_movement()` runs for 5 seconds on its own and `move_mouse_realistically()` sleeps per step. Every schedule keyed on that counter - the document window pass at 45/30 seconds and the foreground window switch at 15 + randoff - stretched by however long the sample made the loop take. They now use `time.monotonic()` deadlines.
+
 ### [02.11.2026]
+* Tenancy & Object Storage (`lib/tenancy/`, `utils/submit.py`, `utils/gcp_pubsub_service.py`):
+    * Replaced legacy `custom="job_id=..."` / `info.job_id` / `"ui-<id>"` / `"local-<id>"` indirection with universal `Task.attributes` (`main_task_id`, `task_acl`, `correlation_id`) and direct `<prefix>/<task_id>/<relpath>` object storage paths.
+    * Added `attributes` parameter forwarding to `utils/submit.py:submit_file` and wired PubSub payload metadata (`correlation_id`, `parent_id`, `transaction_id`, `source`, `main_task_id`, `task_acl`) into `task_attributes` in `utils/gcp_pubsub_service.py`.
 * Multitenancy & Cloud Object Storage (`lib/tenancy/`, `[multitenancy]`, `[object_storage]`):
     * Extracted multi-tenancy and remote object storage into the opt-in `lib.tenancy` package behind lightweight hooks (`lib/cuckoo/common/hooks.py`), leaving single-tenant installs free of runtime and schema overhead.
     * Added Django `Group`-native tenancy and per-group sandbox resource entitlements (`GroupSandboxPolicy` for VMs, network routes, and machine tags), side-table `TaskAcl` with monotonic `visibility_seq` compare-and-swap (CAS) synchronization, and vendor-neutral object storage backends (`s3`, `gcs`, `azure`, `local`).
@@ -20,7 +68,11 @@
 * Monitor updates:
     * Misc enhancements & fixes (see capemon repo for details)
 
-
+### [14.09.2026]
+* `utils/community.py` install safety:
+    * **Blocklist now works**: entries were compared against the absolute destination path while the file documents them as `"signatures/my_amazing_signature.py"`, so nothing was ever blocklisted. The documented relative form, the bare path inside the category and an absolute path are all accepted now.
+    * **`--clean` is rooted at `CUCKOO_ROOT`**: it called `shutil.rmtree()` on the relative category path, deleting relative to the current working directory.
+    * **New `-sc/--shadow-core`**: community files install into the same directories as core modules, with no namespacing, so a community file with a core path replaces it. Those paths are now skipped and listed unless this flag is passed.
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
@@ -39,6 +91,7 @@
     * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

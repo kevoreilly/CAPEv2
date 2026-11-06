@@ -122,10 +122,11 @@ from lib.tenancy.storage.config import (  # noqa: E402
     central_mode_config,
     object_storage_config,
 )
-from lib.tenancy.urls import get_urlpatterns, match_visibility_task_id  # noqa: E402
+from lib.tenancy.urls import get_urlpatterns, match_machine_task_id, match_visibility_task_id  # noqa: E402
 from lib.tenancy.views import (  # noqa: E402
     dispatch_central_view,
     dispatch_object_storage_view,
+    tasks_machine,
     tasks_set_visibility,
 )
 
@@ -259,9 +260,11 @@ __all__ = [
     "default_submission_context_filter",
     "wrap_mongodb_module",
     "wrap_submission_and_web_utils",
+    "tasks_machine",
     "tasks_set_visibility",
     "dispatch_object_storage_view",
     "dispatch_central_view",
     "get_urlpatterns",
+    "match_machine_task_id",
     "match_visibility_task_id",
 ]

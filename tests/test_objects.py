@@ -39,6 +39,16 @@ class TestDictionary:
         with pytest.raises(AttributeError):
             dict_cfg.b.a
 
+    def test_monkeypatch_setattr_restores_value(self, dict_cfg):
+        dict_cfg.enabled = False
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr(dict_cfg, "enabled", True)
+            assert dict_cfg.enabled is True
+            mp.setattr(dict_cfg, "enabled", False)
+            assert dict_cfg.enabled is False
+        assert dict_cfg.enabled is False
+        assert "enabled" in dict_cfg
+
 
 @pytest.fixture
 def empty_file():
@@ -228,6 +238,7 @@ class TestFiles:
                 (
                     "PE32 executable Aarch64, for MS Windows",
                     "MS-DOS executable PE32 executable Aarch64, for MS Windows",
+                    "PE32 executable, ARM64",
                 ),
                 True,
             ),

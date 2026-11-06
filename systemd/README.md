@@ -6,6 +6,7 @@ These files help run all the various parts of CAPE as systemd services, so that 
 - `cape-processor.service` - Runs `process.py`
 - `cape.service` - Runs `cuckoo.py`
 - `cape-web.service` - Runs the Cuckoo web interface as a WSGI application using UWSGI/Gunicorn bound to `127.0.0.1:8000`
+- `00-ignore-vnet.network` - Marks ephemeral guest VM/bridge interfaces (`vnet*`, `virbr*`, `tap*`) as unmanaged in `systemd-networkd` to prevent DHCP renewal timeouts on the primary host interface
 
 ## Setup
 0. You need to edit the default values in systemd to not get `too many open files`
@@ -59,7 +60,10 @@ These files help run all the various parts of CAPE as systemd services, so that 
     ```bash
     sudo cp /opt/CAPE/systemd/*.service /etc/systemd/system
     sudo cp /opt/CAPE/systemd/*.timer /etc/systemd/system
-    sudo sudo systemctl daemon-reload
+    sudo mkdir -p /etc/systemd/network
+    sudo cp /opt/CAPE/systemd/00-ignore-vnet.network /etc/systemd/network/
+    sudo networkctl reload
+    sudo systemctl daemon-reload
     sudo systemctl enable suricata-update.service
     sudo systemctl enable suricata-update.timer
     sudo systemctl enable cape-rooter.service

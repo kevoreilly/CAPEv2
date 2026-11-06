@@ -243,6 +243,76 @@ def get_form_data():
     return packages, machines
 
 
+_BATCH_TERMINAL_STATUSES = {
+    "reported",
+    "failed_analysis",
+    "failed_processing",
+    "failed_reporting",
+    "recovered",
+    "distributed_completed",
+}
+
+
+def _build_batch_tasks_info(request, task_ids):
+    """Build live status table rows and polling metadata for a batch of task IDs."""
+    rows = []
+    if not task_ids:
+        return rows, True
+
+    all_terminal = True
+    for raw_id in task_ids:
+        try:
+            tid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+
+        task = None
+        with suppress(Exception):
+            from sqlalchemy import select
+
+            from lib.cuckoo.common.hooks import apply_sql_task_filter
+            from lib.cuckoo.core.data.task import Task
+
+            base_stmt = select(Task).where(Task.id == tid)
+            filtered_stmt = apply_sql_task_filter(base_stmt)
+            if filtered_stmt is not base_stmt:
+                with db.session.begin():
+                    task_row = db.session.scalars(filtered_stmt).first()
+                if task_row:
+                    task = task_row.to_dict()
+            else:
+                task_obj = db.view_task(tid, details=True)
+                if task_obj:
+                    task = task_obj.to_dict() if hasattr(task_obj, "to_dict") else task_obj
+
+        if not task:
+            continue
+
+        status = str(task.get("status", "pending"))
+        target = task.get("target") or ""
+        sample = task.get("sample") or {}
+        sha256 = sample.get("sha256", "") if isinstance(sample, dict) else getattr(sample, "sha256", "")
+        is_reported = status in {"reported", "distributed_completed"}
+        is_terminal = status in _BATCH_TERMINAL_STATUSES
+        if not is_terminal:
+            all_terminal = False
+
+        rows.append(
+            {
+                "id": tid,
+                "target": os.path.basename(target) if target and task.get("category") == "file" else target,
+                "full_target": target,
+                "category": task.get("category", "file"),
+                "status": status,
+                "sha256": sha256,
+                "is_reported": is_reported,
+                "is_terminal": is_terminal,
+            }
+        )
+
+    return rows, all_terminal
+
+
 # Conditional decorator for web authentication
 class conditional_login_required:
     def __init__(self, dec, condition):
@@ -255,17 +325,91 @@ class conditional_login_required:
         return self.decorator(func)
 
 
-def force_int(value):
-    try:
-        value = int(value)
-    except Exception:
-        value = 0
-    finally:
-        return value
+def _resolve_submission_target(request):
+    """Resolve (task_category, samples) from POST/FILES, honoring active_tab when provided
+    so stale inputs in inactive tabs do not override the user's selected tab."""
+    active_tab = (request.POST.get("active_tab") or "").strip().lstrip("#").lower()
+
+    def _get_resubmit():
+        val = (request.POST.get("hash") or "").strip()
+        return ("resubmit", val.split(",")) if val else (False, [])
+
+    def _get_sample():
+        return ("sample", request.FILES.getlist("sample")) if "sample" in request.FILES else (False, [])
+
+    def _get_static():
+        return ("static", request.FILES.getlist("static")) if "static" in request.FILES else (False, [])
+
+    def _get_pcap():
+        return ("pcap", request.FILES.getlist("pcap")) if "pcap" in request.FILES else (False, [])
+
+    def _get_url():
+        val = (request.POST.get("url") or "").strip()
+        return ("url", val) if val else (False, [])
+
+    def _get_dlnexec():
+        val = (request.POST.get("dlnexec") or "").strip()
+        return ("dlnexec", val) if val else (False, [])
+
+    def _get_downloading_service():
+        val = (request.POST.get("hashes") or "").strip()
+        return ("downloading_service", val) if val else (False, [])
+
+    tab_resolvers = {
+        "resubmit": _get_resubmit,
+        "file": _get_sample,
+        "sample": _get_sample,
+        "static": _get_static,
+        "pcap": _get_pcap,
+        "url": _get_url,
+        "dlurl": _get_dlnexec,
+        "dlnexec": _get_dlnexec,
+        "downloading_service": _get_downloading_service,
+        "hashes": _get_downloading_service,
+    }
+
+    if active_tab in tab_resolvers:
+        return tab_resolvers[active_tab]()
+
+    for resolver in (
+        _get_resubmit,
+        _get_sample,
+        _get_static,
+        _get_pcap,
+        _get_url,
+        _get_dlnexec,
+        _get_downloading_service,
+    ):
+        task_category, samples = resolver()
+        if task_category:
+            return task_category, samples
+    return False, []
+
+
+def _lookup_precheck_existent_tasks(request, raw_hashes: str) -> dict:
+    existent_tasks = {}
+    if not raw_hashes or not web_conf.general.get("existent_tasks", False):
+        return existent_tasks
+    candidates = [h.strip().lower() for h in raw_hashes.split(",") if h.strip()]
+    seen = set()
+    for sha256 in candidates[:10]:
+        if sha256 in seen or len(sha256) != 64 or not all(c in "0123456789abcdef" for c in sha256):
+            continue
+        seen.add(sha256)
+        with suppress(Exception):
+            records = perform_search("target_sha256", sha256, search_limit=5)
+            for record in records or []:
+                rec_sha = record.get("target", {}).get("file", {}).get("sha256") or sha256
+                existent_tasks.setdefault(rec_sha, []).append(record)
+    return existent_tasks
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id=None, resubmit_hash=None):
+    if request.method != "POST" and "precheck_sha256" in request.GET:
+        existent_tasks = _lookup_precheck_existent_tasks(request, request.GET.get("precheck_sha256", ""))
+        return render(request, "submission/_existent_tasks.html", {"existent_tasks": existent_tasks})
+
     remote_console = False
     if request.method == "POST":
         (
@@ -404,29 +548,7 @@ def index(request, task_id=None, resubmit_hash=None):
             details["during_script_content"] = during_script.read()
             during_script.close()
 
-        task_category = False
-        samples = []
-        if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
-            task_category = "resubmit"
-            samples = request.POST.get("hash").strip().split(",")
-        elif "sample" in request.FILES:
-            task_category = "sample"
-            samples = request.FILES.getlist("sample")
-        elif "static" in request.FILES:
-            task_category = "static"
-            samples = request.FILES.getlist("static")
-        elif "pcap" in request.FILES:
-            task_category = "pcap"
-            samples = request.FILES.getlist("pcap")
-        elif "url" in request.POST and request.POST.get("url").strip():
-            task_category = "url"
-            samples = request.POST.get("url").strip()
-        elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
-            task_category = "dlnexec"
-            samples = request.POST.get("dlnexec").strip()
-        elif "hashes" in request.POST and request.POST.get("hashes", False) and request.POST.get("hashes")[0] != "":
-            task_category = "downloading_service"
-            samples = request.POST.get("hashes").strip()
+        task_category, samples = _resolve_submission_target(request)
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):
             if not samples:
@@ -632,6 +754,8 @@ def index(request, task_id=None, resubmit_hash=None):
         else:
             tasks_count = 0
         if tasks_count > 0:
+            if tasks_count == 1 and not details.get("errors"):
+                return redirect("submission_status", task_id=details["task_ids"][0])
             data = {
                 "title": "Submission",
                 "tasks": details["task_ids"],
@@ -640,6 +764,10 @@ def index(request, task_id=None, resubmit_hash=None):
                 "existent_tasks": existent_tasks,
                 "remote_console": remote_console,
             }
+            task_rows, all_terminal = _build_batch_tasks_info(request, details["task_ids"])
+            data["task_rows"] = task_rows
+            data["batch_tasks_csv"] = ",".join(str(row["id"]) for row in task_rows)
+            data["all_terminal"] = all_terminal
             return render(request, "submission/complete.html", data)
         else:
             err_data = {
@@ -649,6 +777,20 @@ def index(request, task_id=None, resubmit_hash=None):
             }
             return render(request, "error.html", err_data)
     else:
+        if "batch_tasks" in request.GET:
+            raw_ids = [part.strip() for part in request.GET.get("batch_tasks", "").split(",") if part.strip().isdigit()][:50]
+            task_rows, all_terminal = _build_batch_tasks_info(request, raw_ids)
+            return render(
+                request,
+                "submission/_batch_tasks_table.html",
+                {
+                    "task_rows": task_rows,
+                    "batch_tasks_csv": ",".join(str(row["id"]) for row in task_rows),
+                    "all_terminal": all_terminal,
+                    "remote_console": request.GET.get("remote_console") == "1",
+                },
+            )
+
         enabledconf = {}
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
@@ -790,11 +932,83 @@ def index(request, task_id=None, resubmit_hash=None):
         )
 
 
+def _lookup_existent_tasks(request, sha256: str, current_task_id: int) -> dict:
+    existent_tasks = {}
+    if not sha256 or not web_conf.general.get("existent_tasks", False):
+        return existent_tasks
+    with suppress(Exception):
+        records = perform_search("target_sha256", sha256, search_limit=5)
+        for record in records or []:
+            rid = (record.get("info") or {}).get("id")
+            if rid is not None and int(rid) == int(current_task_id):
+                continue
+            rec_sha = record.get("target", {}).get("file", {}).get("sha256") or sha256
+            existent_tasks.setdefault(rec_sha, []).append(record)
+    return existent_tasks
+
+
+def _format_elapsed_duration(task) -> str:
+    from lib.cuckoo.core.data.db_common import _utcnow_naive
+
+    raw_status = getattr(task, "status", "")
+    if raw_status == "running":
+        ref_dt = getattr(task, "started_on", None) or getattr(task, "added_on", None)
+    elif raw_status == "completed":
+        ref_dt = getattr(task, "completed_on", None) or getattr(task, "started_on", None) or getattr(task, "added_on", None)
+    else:
+        ref_dt = getattr(task, "added_on", None)
+
+    if not ref_dt:
+        return ""
+    try:
+        total_seconds = max(0, int((_utcnow_naive() - ref_dt).total_seconds()))
+        hours, rem = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        if minutes > 0:
+            return f"{minutes}m {seconds:02d}s"
+        return f"{seconds}s"
+    except Exception:
+        return ""
+
+
+def _get_queue_position(request, task) -> int | None:
+    if getattr(task, "status", "") != "pending":
+        return None
+    with suppress(Exception):
+        from sqlalchemy import and_, func, or_, select
+        from lib.cuckoo.core.data.task import TASK_PENDING, Task
+        from lib.cuckoo.common.hooks import apply_sql_task_filter
+
+        prio = getattr(task, "priority", 1) or 1
+        tid = int(task.id)
+        stmt = (
+            select(func.count(Task.id))
+            .where(Task.status == TASK_PENDING)
+            .where(or_(Task.priority > prio, and_(Task.priority == prio, Task.id < tid)))
+        )
+        stmt = apply_sql_task_filter(stmt)
+        with db.session.begin():
+            ahead = db.session.scalar(stmt) or 0
+        return int(ahead) + 1
+    return None
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
+    from submission.static_preview import get_static_preview
+
     task = db.view_task(task_id)
     if not task:
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
+
+    if request.GET.get("static") == "1":
+        preview = get_static_preview(task, run_full=True) or {}
+        sha256 = preview.get("file", {}).get("sha256", "")
+        preview["task_id"] = task_id
+        preview["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
+        return render(request, "submission/_static_preview.html", preview)
 
     completed = False
     if task.status == "reported":
@@ -807,21 +1021,34 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
+    interactive = bool(web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1")
+
     response = {
         "title": "Task Status",
         "completed": completed,
         "status": status,
         "task_id": task_id,
+        "interactive": interactive,
         "session_data": "",
+        "queue_position": _get_queue_position(request, task) if not completed else None,
+        "elapsed_time": _format_elapsed_duration(task) if not completed else "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
-    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
-        machine = db.view_machine_by_label(task.machine)
+    if interactive and task.status == "running":
+        machine = db.view_machine_by_label(task.machine) if task.machine else None
         if machine:
             guest_ip = machine.ip
             session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
             session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
+
+    # Populate instant Tier-1 static file info on initial page load (skipped during 5s HTMX #status-card polls).
+    if not request.headers.get("HX-Request"):
+        preview = get_static_preview(task, run_full=False)
+        if preview:
+            response.update(preview)
+            sha256 = preview.get("file", {}).get("sha256", "")
+            response["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
 
     return render(request, "submission/status.html", response)
 

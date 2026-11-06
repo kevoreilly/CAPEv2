@@ -4,9 +4,11 @@
 
 from lib.cuckoo.common.integrations.mitre import mitre_generate_attck, mitre_load
 from utils.community import install
+import pytest
 
 
 def test_mitre_attck():
+    pytest.importorskip("pyattck")
     mitre, _, pyattck_version = mitre_load(True)
     assert mitre
 

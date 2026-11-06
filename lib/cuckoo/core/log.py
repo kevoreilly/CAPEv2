@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+from collections import OrderedDict
 import contextlib
 import contextvars
 import copy
@@ -29,6 +30,9 @@ _tasks = {}
 _loggers = {}
 
 _tasks_lock = threading.Lock()
+_task_main_ids_lock = threading.Lock()
+_task_main_ids: OrderedDict[int, int] = OrderedDict()
+_MAX_TASK_MAIN_IDS = 4096
 
 # Context variables for propagating task and worker metadata across log calls
 _ctx_task_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("cape_task_id", default=None)
@@ -38,8 +42,12 @@ _ctx_node: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_nod
 _ctx_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_correlation_id", default=None)
 
 _RE_MSG_TASK = re.compile(
-    r"(?:\bTask(?:\s+id|_id)?[\s:=]+#?(\d+)(?:\s+\((\d+)\))?|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
+    r"(?:(?:(?:\x1b\[[0-9;]*m)+|\b)Task(?:\s+id|_id|\s+with\s+ID)?[\s:=]+#?(\d+)(?:\s+\((\d+)\))?|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
     r"|\[(\d+)\]\s+(?:Processing timeout|Exception when processing task|Task never ran))",
+    re.IGNORECASE,
+)
+_RE_INJECT_MAIN_TASK = re.compile(
+    r"((?:(?:\x1b\[[0-9;]*m)+|\b)Task(?:\s+with\s+ID)?[\s:=]+#?)(\d+)\b(?!\s*\(\d+\))",
     re.IGNORECASE,
 )
 _TRUTHY_VALUES = ("1", "true", "yes", "on", "always")
@@ -70,6 +78,63 @@ def _parse_positive_int(val: Any) -> int | None:
         return None
 
 
+def format_task_label(task_id: Any, main_task_id: Any = None) -> str:
+    """Format a task identifier as '<task_id> (<main_task_id>)' when main_task_id is set."""
+    tid = _parse_positive_int(task_id)
+    mtid = _parse_positive_int(main_task_id)
+    if mtid is None and tid is not None:
+        mtid = get_task_main_id(tid)
+    base = str(tid if tid is not None else task_id)
+    return f"{base} ({mtid})" if mtid is not None else base
+
+
+def register_task_main_id(task_id: Any, main_task_id: Any) -> int | None:
+    """Associate or clear a distributed main_task_id for a local task_id."""
+    tid = _parse_positive_int(task_id)
+    if tid is None:
+        return None
+    mtid = _parse_positive_int(main_task_id)
+    with _task_main_ids_lock:
+        if mtid is not None:
+            _task_main_ids[tid] = mtid
+            _task_main_ids.move_to_end(tid)
+            if len(_task_main_ids) > _MAX_TASK_MAIN_IDS:
+                _task_main_ids.popitem(last=False)
+        else:
+            _task_main_ids.pop(tid, None)
+    return mtid
+
+
+def get_task_main_id(task_id: Any) -> int | None:
+    """Return the registered main_task_id for a local task_id, if any."""
+    tid = _parse_positive_int(task_id)
+    if tid is None:
+        return None
+    with _task_main_ids_lock:
+        return _task_main_ids.get(tid)
+
+
+def extract_main_task_id(task: Any) -> int | None:
+    """Extract and register main_task_id from a Task model, dict, or task-like object."""
+    if task is None:
+        return None
+    raw_mtid = None
+    if isinstance(task, dict):
+        raw_tid = task.get("id")
+        raw_mtid = task.get("main_task_id") or (task.get("attributes") or {}).get("main_task_id")
+    else:
+        raw_tid = getattr(task, "id", None)
+        if hasattr(task, "get_attribute"):
+            raw_mtid = task.get_attribute("main_task_id")
+        if raw_mtid is None:
+            raw_mtid = getattr(task, "main_task_id", None)
+    tid = _parse_positive_int(raw_tid)
+    mtid = _parse_positive_int(raw_mtid)
+    if tid is not None:
+        register_task_main_id(tid, mtid)
+    return mtid
+
+
 def _resolve_logconf(logconf: Any = None) -> Any:
     if logconf is not None:
         return logconf
@@ -88,8 +153,15 @@ def set_log_task_context(
     correlation_id: str | None = None,
 ) -> None:
     """Bind task and machine context to the active thread/greenlet."""
-    _ctx_task_id.set(_parse_positive_int(task_id))
-    _ctx_main_task_id.set(_parse_positive_int(main_task_id))
+    parsed_tid = _parse_positive_int(task_id)
+    parsed_mtid = _parse_positive_int(main_task_id)
+    if parsed_tid is not None:
+        if main_task_id is not None:
+            register_task_main_id(parsed_tid, parsed_mtid)
+        elif parsed_mtid is None:
+            parsed_mtid = get_task_main_id(parsed_tid)
+    _ctx_task_id.set(parsed_tid)
+    _ctx_main_task_id.set(parsed_mtid)
     _ctx_machine.set(str(machine) if machine else None)
     _ctx_node.set(str(node) if node else None)
     _ctx_correlation_id.set(str(correlation_id) if correlation_id else None)
@@ -111,9 +183,12 @@ def get_log_task_context() -> dict[str, Any]:
         task_entry = _tasks.get(task_key())
         if task_entry:
             task_id = task_entry[0]
+    main_task_id = _ctx_main_task_id.get()
+    if main_task_id is None and task_id is not None:
+        main_task_id = get_task_main_id(task_id)
     return {
         "task_id": task_id,
-        "main_task_id": _ctx_main_task_id.get(),
+        "main_task_id": main_task_id,
         "machine": _ctx_machine.get(),
         "node": _ctx_node.get(),
         "correlation_id": _ctx_correlation_id.get(),
@@ -179,6 +254,9 @@ def resolve_record_context(record: logging.LogRecord, message: str | None = None
                 if raw_mtid:
                     main_task_id = _parse_positive_int(raw_mtid)
 
+    if task_id is not None and main_task_id is None:
+        main_task_id = get_task_main_id(task_id)
+
     return {
         "task_id": task_id,
         "main_task_id": main_task_id,
@@ -186,6 +264,73 @@ def resolve_record_context(record: logging.LogRecord, message: str | None = None
         "node": node,
         "correlation_id": correlation_id,
     }
+
+
+class CapeLogRecord(logging.LogRecord):
+    """LogRecord that enriches task/main_task_id attributes and formats Task #<id> (<main_task_id>)."""
+
+    _CONTEXT_ATTRS = ("task_id", "main_task_id", "machine", "node", "correlation_id")
+
+    def _enrich_from_message(self, msg: str) -> str:
+        rec_dict = self.__dict__
+        if self.name is not None:
+            ctx = get_log_task_context()
+            for key, val in ctx.items():
+                if val is not None and rec_dict.get(key) is None:
+                    rec_dict[key] = val
+
+        task_id = _parse_positive_int(rec_dict.get("task_id"))
+        main_task_id = _parse_positive_int(rec_dict.get("main_task_id"))
+
+        if task_id is None or main_task_id is None:
+            match = _RE_MSG_TASK.search(msg)
+            if match:
+                if task_id is None:
+                    raw_tid = match.group(1) or match.group(3) or match.group(5)
+                    if raw_tid:
+                        task_id = _parse_positive_int(raw_tid)
+                if main_task_id is None:
+                    raw_mtid = match.group(2) or match.group(4)
+                    if raw_mtid:
+                        main_task_id = _parse_positive_int(raw_mtid)
+
+        if task_id is not None and main_task_id is None:
+            ctx_tid = _ctx_task_id.get()
+            ctx_mtid = _ctx_main_task_id.get()
+            if ctx_tid == task_id and ctx_mtid is not None:
+                main_task_id = ctx_mtid
+            else:
+                main_task_id = get_task_main_id(task_id)
+
+        if task_id is not None:
+            rec_dict["task_id"] = task_id
+        if main_task_id is not None:
+            rec_dict["main_task_id"] = main_task_id
+
+        if (main_task_id is not None or _task_main_ids) and ("Task" in msg or "task" in msg):
+            def _sub_task(m: re.Match) -> str:
+                tid = _parse_positive_int(m.group(2))
+                mtid = main_task_id if tid == task_id else get_task_main_id(tid)
+                if mtid is not None:
+                    return f"{m.group(1)}{m.group(2)} ({mtid})"
+                return m.group(0)
+
+            msg = _RE_INJECT_MAIN_TASK.sub(_sub_task, msg)
+        return msg
+
+    def __getattr__(self, item: str) -> Any:
+        if item in self._CONTEXT_ATTRS and self.name is not None:
+            with contextlib.suppress(Exception):
+                self._enrich_from_message(super().getMessage())
+            if item in self.__dict__:
+                return self.__dict__[item]
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {item!r}")
+
+    def getMessage(self) -> str:
+        return self._enrich_from_message(super().getMessage())
+
+
+logging.setLogRecordFactory(CapeLogRecord)
 
 
 class TaskContextFilter(logging.Filter):
@@ -572,8 +717,13 @@ def init_json_file_handler(
 
 def task_log_start(task_id, main_task_id=None):
     """Associate a thread with a task."""
-    _ctx_task_id.set(_parse_positive_int(task_id))
-    _ctx_main_task_id.set(_parse_positive_int(main_task_id))
+    parsed_tid = _parse_positive_int(task_id)
+    _ctx_task_id.set(parsed_tid)
+    if main_task_id is not None:
+        parsed_mtid = register_task_main_id(parsed_tid, main_task_id)
+        _ctx_main_task_id.set(parsed_mtid)
+    elif parsed_tid is not None:
+        _ctx_main_task_id.set(_ctx_main_task_id.get() or get_task_main_id(parsed_tid))
     _tasks_lock.acquire()
     try:
         if task_id not in _task_threads:

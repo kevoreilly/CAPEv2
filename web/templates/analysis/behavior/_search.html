@@ -18,9 +18,9 @@ $(function () {
             <div class="card-body">
                 <form id='search' class="form-inline justify-content-center" role="form" action="{% url "search_behavior" id %}">
                     {% csrf_token %}
-                    <div class="input-group w-50">
-                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Enter search term..." aria-label="Search term" />
-                        <div class="input-group-append">
+                    <div class="col-12 col-md-8 col-lg-6 mx-auto">
+                        <div class="input-group">
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Enter search term..." aria-label="Search term" />
                             <button type="submit" class="btn btn-outline-info"><i class="fas fa-search"></i> Search</button>
                         </div>
                     </div>

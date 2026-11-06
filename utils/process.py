@@ -140,8 +140,9 @@ def process(
         if memory_debugging:
             gc.collect()
             log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-        with db.session.begin():
-            RunProcessing(task=task_dict, results=results).run()
+        # No transaction around processing (it can take minutes): modules that read the
+        # SQL DB open their own short db.transaction().
+        RunProcessing(task=task_dict, results=results).run()
         if isinstance(results.get("info"), dict):
             if main_task_id:
                 results["info"].setdefault("local_task_id", task_id)
@@ -719,7 +720,8 @@ def main():
 
     init_database()
     handlers = init_logging(debug=args.debug)
-    check_webgui_mongo(exit_on_connection_failure=False)
+    if args.id == "auto":
+        check_webgui_mongo(exit_on_connection_failure=False)
     init_modules()
     if args.id == "auto":
         autoprocess(

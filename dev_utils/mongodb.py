@@ -1,6 +1,8 @@
 import collections
+from contextlib import suppress
 import functools
 import logging
+import os
 import time
 from typing import Callable, Sequence
 
@@ -37,6 +39,52 @@ def _truthy(val, default=False):
     if val is None:
         return default
     return str(val).strip().lower() in ("1", "true", "yes", "on")
+
+
+_client = None
+_results_db = None
+
+
+def _reset_mongodb_after_fork():
+    """Discard an inherited parent MongoClient in a forked child without
+    closing the parent's sockets or emitting ResourceWarning on GC."""
+    global _client, _results_db
+    if _client is not None:
+        with suppress(Exception):
+            _client._opened = False
+        _client = None
+    _results_db = None
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_mongodb_after_fork)
+
+
+def close_mongodb():
+    """Close the module-level MongoClient and stop PyMongo background executors
+    so no monitor threads or sockets leak across fork()."""
+    global _client, _results_db
+    client, _client, _results_db = _client, None, None
+    if client is not None:
+        with suppress(Exception):
+            client.close()
+    with suppress(Exception):
+        from pymongo.periodic_executor import _shutdown_executors
+
+        _shutdown_executors()
+
+
+def _get_mongodb():
+    global _client, _results_db
+    if _client is None:
+        _client = connect_to_mongo()
+        if _client is not None:
+            _results_db = _client[mdb]
+
+    if _results_db is None:
+        raise ConnectionFailure("MongoDB connection is not established. Check your configuration and ensure MongoDB is running.")
+
+    return _results_db
 
 
 if repconf.mongodb.enabled:
@@ -81,20 +129,7 @@ if repconf.mongodb.enabled:
     # q = results_db.analysis.find({"info.id": 26}, {"memory": 1})
     # https://pymongo.readthedocs.io/en/stable/changelog.html
 
-    _client = None
-    _results_db = None
-
-    def get_mongodb():
-        global _client, _results_db
-        if _client is None:
-            _client = connect_to_mongo()
-            if _client is not None:
-                _results_db = _client[mdb]
-
-        if _results_db is None:
-            raise ConnectionFailure("MongoDB connection is not established. Check your configuration and ensure MongoDB is running.")
-
-        return _results_db
+    get_mongodb = _get_mongodb
 
     # For legacy code that expects results_db to be an object
     class LegacyDB:
@@ -127,6 +162,9 @@ else:
         return None
 
     def get_mongodb():
+        if repconf.mongodb.enabled:
+            return _get_mongodb()
+
         class DummyMongo:
             @property
             def client(self):
@@ -142,6 +180,8 @@ else:
 
     class LegacyDB:
         def __getattr__(self, name):
+            if repconf.mongodb.enabled:
+                return getattr(get_mongodb(), name)
             raise AttributeError("MongoDB is disabled")
 
     results_db = LegacyDB()
@@ -214,6 +254,11 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
+def mongo_insert_many(collection: str, docs):
+    return getattr(results_db, collection).insert_many(docs)
+
+
+@graceful_auto_reconnect
 def mongo_find(collection: str, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
     if not no_hooks and isinstance(query, dict):
         query = apply_mongo_filter(collection, query)
@@ -262,9 +307,33 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, max_time
     return result
 
 
+def _id_hint(query):
+    """``[("_id", 1)]`` when the filter is keyed on ``_id``, otherwise no hint.
+
+    The hint used to be unconditional. For a filter on ``info.id`` or ``info.job_id``
+    that forces a full scan of the ``_id`` index and stops the planner using
+    ``info_id_desc``, which ``check_webgui_mongo`` creates precisely for those queries.
+    """
+    if not isinstance(query, dict):
+        return None
+    keys = set(query)
+    if keys == {"_id"}:
+        return [("_id", 1)]
+    # An $and wrapping an _id equality is still an _id lookup.
+    if keys == {"$and"} and isinstance(query["$and"], list):
+        clause_keys = set()
+        for clause in query["$and"]:
+            if not isinstance(clause, dict):
+                return None
+            clause_keys |= set(clause)
+        if "_id" in clause_keys:
+            return [("_id", 1)]
+    return None
+
+
 @graceful_auto_reconnect
 def mongo_delete_one(collection: str, query):
-    return getattr(results_db, collection).delete_one(query, hint=[("_id", 1)])
+    return getattr(results_db, collection).delete_one(query, hint=_id_hint(query))
 
 
 @graceful_auto_reconnect
@@ -278,11 +347,14 @@ def mongo_update_many(collection: str, query, update):
 
 
 @graceful_auto_reconnect
-def mongo_update_one(collection: str, query, update, bypass_document_validation: bool = False):
+def mongo_update_one(collection: str, query, update, bypass_document_validation: bool = False, upsert: bool = False):
     if isinstance(update, dict) and update.get("$set"):
         for hook in hooks[mongo_update_one][collection]:
             update["$set"] = hook(update["$set"])
-    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)])
+    hint = _id_hint(query) if not upsert else None
+    return getattr(results_db, collection).update_one(
+        query, update, bypass_document_validation=bypass_document_validation, upsert=upsert, hint=hint
+    )
 
 
 @graceful_auto_reconnect
@@ -350,7 +422,7 @@ def mongo_delete_calls(task_ids: Sequence[int] | None) -> None:
     """
     if not task_ids:
         return
-    log.info("attempting to delete calls for %d tasks", len(task_ids))
+    log.debug("attempting to delete calls for %d tasks", len(task_ids))
     mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
 
 

@@ -3,10 +3,25 @@
 # separated by colon if different from the default 8006.
 hostname = REPLACE_ME
 
-# Name and password of the user to use for logging into the Proxmox REST API.
-# The username might need to include a realm name appended with an @.
+# Name of the user to use for logging into the Proxmox REST API.
+# The username might need to include a realm name appended with an @,
+# e.g. root@pam. It is required for both password and API token logins.
 username = REPLACE_ME
+
+# Authenticate with either a password or an API token. If token_name and
+# token_value are both set, the API token is used and password is ignored.
+# For a token with the ID root@pam!cape, set username = root@pam and
+# token_name = cape. token_value is the secret shown when creating the token.
 password = REPLACE_ME
+token_name =
+token_value =
+
+# Skip TLS certificate verification when talking to the Proxmox REST API.
+# Set to no to verify the certificate. The default Proxmox certificate is
+# signed by the cluster CA in /etc/pve/pve-root-ca.pem, which Python does not
+# trust out of the box: add it to the system CA store and run CAPE with
+# REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt.
+ignore_ssl = yes
 
 # Default network interface.
 interface = REPLACE_ME

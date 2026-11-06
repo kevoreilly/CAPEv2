@@ -521,25 +521,72 @@ class Processes:
         return False
 
 
+class _UniqueList:
+    """Insertion-ordered collection whose membership test is O(1).
+
+    ``Summary`` guards almost every append with ``value not in self.<list>``, once per
+    matching API call. Against a plain list that is a linear scan of a structure that
+    reaches thousands of entries on a normal sample. Only the operations ``Summary`` and
+    ``check_deny_pattern`` actually use are implemented, so an accidental slice or index
+    fails loudly instead of silently reintroducing a scan.
+    """
+
+    __slots__ = ("_items", "_seen")
+
+    def __init__(self):
+        self._items = []
+        self._seen = set()
+
+    def append(self, value):
+        if value not in self._seen:
+            self._seen.add(value)
+            self._items.append(value)
+
+    def mark_seen(self, value):
+        """Record a raw value as seen without appending it to the backing list."""
+        self._seen.add(value)
+
+    def __contains__(self, value):
+        return value in self._seen
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __eq__(self, other):
+        if isinstance(other, _UniqueList):
+            return self._items == other._items
+        return self._items == other
+
+    def __repr__(self):
+        return repr(self._items)
+
+    def as_list(self):
+        """The backing list, for serialisation at the reporting boundary."""
+        return self._items
+
+
 class Summary:
     """Generates summary information."""
 
     key = "summary"
 
     def __init__(self, options):
-        self.keys = []
-        self.read_keys = []
-        self.write_keys = []
-        self.delete_keys = []
-        self.mutexes = []
-        self.files = []
-        self.read_files = []
-        self.write_files = []
-        self.delete_files = []
-        self.started_services = []
-        self.created_services = []
-        self.executed_commands = []
-        self.resolved_apis = []
+        self.keys = _UniqueList()
+        self.read_keys = _UniqueList()
+        self.write_keys = _UniqueList()
+        self.delete_keys = _UniqueList()
+        self.mutexes = _UniqueList()
+        self.files = _UniqueList()
+        self.read_files = _UniqueList()
+        self.write_files = _UniqueList()
+        self.delete_files = _UniqueList()
+        self.started_services = _UniqueList()
+        self.created_services = _UniqueList()
+        self.executed_commands = _UniqueList()
+        self.resolved_apis = _UniqueList()
         self.options = options
 
         self.dispatch = {
@@ -579,6 +626,8 @@ class Summary:
             return
         if self.options.replace_patterns:
             check_deny_pattern(source_list, pattern)
+            if isinstance(source_list, _UniqueList):
+                source_list.mark_seen(pattern)
         else:
             source_list.append(pattern)
 
@@ -812,20 +861,22 @@ class Summary:
         """Get registry keys, mutexes and files.
         @return: Summary of keys, read keys, written keys, mutexes and files.
         """
+        # Unwrap to plain lists: everything downstream (json, orjson, bson, the web UI)
+        # expects a list, and nothing after this point needs the membership index.
         return {
-            "files": self.files,
-            "read_files": self.read_files,
-            "write_files": self.write_files,
-            "delete_files": self.delete_files,
-            "keys": self.keys,
-            "read_keys": self.read_keys,
-            "write_keys": self.write_keys,
-            "delete_keys": self.delete_keys,
-            "executed_commands": self.executed_commands,
-            "resolved_apis": self.resolved_apis,
-            "mutexes": self.mutexes,
-            "created_services": self.created_services,
-            "started_services": self.started_services,
+            "files": self.files.as_list(),
+            "read_files": self.read_files.as_list(),
+            "write_files": self.write_files.as_list(),
+            "delete_files": self.delete_files.as_list(),
+            "keys": self.keys.as_list(),
+            "read_keys": self.read_keys.as_list(),
+            "write_keys": self.write_keys.as_list(),
+            "delete_keys": self.delete_keys.as_list(),
+            "executed_commands": self.executed_commands.as_list(),
+            "resolved_apis": self.resolved_apis.as_list(),
+            "mutexes": self.mutexes.as_list(),
+            "created_services": self.created_services.as_list(),
+            "started_services": self.started_services.as_list(),
         }
 
 
@@ -1162,11 +1213,12 @@ class ProcessTree:
 
     def __init__(self):
         self.processes = []
+        self.seen_pids = set()
 
     def event_apicall(self, call, process):
-        for entry in self.processes:
-            if entry["pid"] == process["process_id"]:
-                return
+        pid = process["process_id"]
+        if pid in self.seen_pids:
+            return
 
         self.processes.append(
             {
@@ -1179,6 +1231,9 @@ class ProcessTree:
                 "environ": process["environ"],
             }
         )
+        # Recorded only after the entry exists, so a process dict missing a field is
+        # retried on the next call exactly as it was when this was a list scan.
+        self.seen_pids.add(pid)
 
     def run(self):
         # Index processes by PID.
@@ -1191,6 +1246,12 @@ class ProcessTree:
         for p in self.processes:
             p["children"] = []
 
+        # Each process level adds two container levels (dict + children list) in JSON/BSON.
+        # Capping tree depth at 64 (~132 container levels) stays well below both MongoDB's
+        # BSON nesting limit (code 15 Overflow at 200) and orjson's 254-level recursion limit.
+        max_depth = 64
+        detached_roots = set()
+
         for p in self.processes:
             parent_pid = p.get("parent_id")
 
@@ -1198,16 +1259,17 @@ class ProcessTree:
             if parent_pid in node_lookup and parent_pid != p["pid"]:
                 parent = node_lookup[parent_pid]
 
-                # Cycle Detection: Traverse ancestry to ensure 'p' is not an ancestor of 'parent'
+                # Cycle Detection & Depth Bounding: Traverse ancestry to ensure 'p' is not
+                # an ancestor of 'parent' and that attaching 'p' does not exceed max_depth.
                 curr = parent
                 is_cycle = False
-                # Use a simple counter or set to avoid infinite checks if the map has internal loops
-                depth = 0
-                max_depth = 100
+                depth = 1
 
-                while depth < max_depth:
+                while depth <= max_depth:
                     if curr is p:
                         is_cycle = True
+                        break
+                    if curr["pid"] in detached_roots:
                         break
 
                     # Move up to the next parent
@@ -1219,11 +1281,24 @@ class ProcessTree:
                         # Reached a root or unknown parent
                         break
 
-                if not is_cycle:
+                sub_depth = 0
+                if not is_cycle and depth <= max_depth and p["children"]:
+                    stack = [(p, 0)]
+                    while stack:
+                        node, d = stack.pop()
+                        if d > sub_depth:
+                            sub_depth = d
+                        for child in node["children"]:
+                            stack.append((child, d + 1))
+
+                if not is_cycle and depth + sub_depth <= max_depth:
                     parent["children"].append(p)
                 else:
                     # Cycle detected or depth limit hit, treat as root to avoid breaking JSON
-                    log.warning("Cycle or deep nesting detected for process %s (parent %s). treating as root.", p["pid"], parent_pid)
+                    log.warning(
+                        "Cycle or deep nesting detected for process %s (parent %s). treating as root.", p["pid"], parent_pid
+                    )
+                    detached_roots.add(p["pid"])
                     roots.append(p)
             else:
                 roots.append(p)
@@ -1267,13 +1342,15 @@ class NetworkMap:
                 # Capture any out-of-process activation (CLSCTX includes LOCAL_SERVER=4)
                 ctx = _safe_int(args_map.get("clscontext", "0"))
                 if ctx & 0x4 or clsid in self._OOP_CLSIDS:
-                    self.com_activations.append({
+                    self.com_activations.append(
+                        {
                             "clsid": clsid,
                             "progid": progid,
                             "activator_pid": process.get("process_id"),
                             "activator_name": process.get("process_name", ""),
                             "target_binary": self._OOP_CLSIDS.get(clsid, ""),
-                        })
+                        }
+                    )
             return
         if cat != "network":
             return
@@ -1336,7 +1413,9 @@ class NetworkMap:
                         _add_http_host(self.http_host_map, host2, pinfo, sock=sock)
 
             if api in ("internetconnectw", "internetconnecta", "winhttpconnect"):
-                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName", "szServerName", "pszServerName", "pswzServerName")
+                server_name = _get_arg_any(
+                    args_map, "ServerName", "lpszServerName", "szServerName", "pszServerName", "pswzServerName"
+                )
                 if server_name:
                     _add_http_host(self.http_host_map, server_name, pinfo, sock=sock)
 
@@ -1384,14 +1463,14 @@ class NetworkMap:
         # BSON/JSON keys must be strings.
         # Let's convert tuple keys to string representation "ip:port"
 
-        endpoint_map_str = {}
-        for (ip, port), entries in self.endpoint_map.items():
-            endpoint_map_str[f"{ip}:{port}"] = entries
+        endpoint_map_list = [{"ip_port": f"{ip}:{port}", "pinfo": entries} for (ip, port), entries in self.endpoint_map.items()]
+        http_host_map_list = [{"host": k, "pinfo": v} for k, v in self.http_host_map.items()]
+        dns_intents_list = [{"domain": k, "intents": v} for k, v in self.dns_intents.items()]
 
         return {
-            "endpoint_map": endpoint_map_str,
-            "http_host_map": self.http_host_map,
-            "dns_intents": self.dns_intents,
+            "endpoint_map": endpoint_map_list,
+            "http_host_map": http_host_map_list,
+            "dns_intents": dns_intents_list,
             "http_requests": self.http_requests,
             "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
             "com_activations": self.com_activations,
@@ -1405,6 +1484,10 @@ class EncryptedBuffers:
 
     def __init__(self):
         self.bufs = []
+        # (api_call, buffer) pairs already recorded. The guard below used to be
+        # `buf not in self.bufs`, comparing a str against a list of dicts: always true,
+        # so nothing was ever deduplicated and every check walked the whole list.
+        self.seen = set()
 
     def get_argument(self, call, argname, strip=False):
         return next(
@@ -1418,49 +1501,65 @@ class EncryptedBuffers:
             None,
         )
 
+    def _record(self, api_call, buf, entry):
+        key = (api_call, buf)
+        if key in self.seen:
+            return
+        self.seen.add(key)
+        self.bufs.append(entry)
+
     def event_apicall(self, call, process):
         """Generate processes list from streamed calls/processes.
         @return: None.
         """
 
-        if call["api"].startswith("SslEncryptPacket"):
+        api = call["api"]
+
+        if api.startswith("SslEncryptPacket"):
             buf = self.get_argument(call, "Buffer", strip=True)
             bufsize = self.get_argument(call, "BufferSize")
-            if buf and buf not in self.bufs:
-                self.bufs.append(
+            if buf:
+                self._record(
+                    "SslEncryptPacket",
+                    buf,
                     {
                         "process_name": process["process_name"],
                         "pid": process["process_id"],
                         "api_call": "SslEncryptPacket",
                         "buffer": buf,
                         "buffer_size": bufsize,
-                    }
+                    },
                 )
 
-        if call["api"].startswith("CryptEncrypt"):
+        # Checked before the CryptEncrypt prefix, which would otherwise also match
+        # CryptEncryptMessage and record the same call under both names.
+        if api.startswith("CryptEncryptMessage"):
+            buf = self.get_argument(call, "Buffer", strip=True)
+            if buf:
+                self._record(
+                    "CryptEncryptMessage",
+                    buf,
+                    {
+                        "process_name": process["process_name"],
+                        "pid": process["process_id"],
+                        "api_call": "CryptEncryptMessage",
+                        "buffer": buf,
+                    },
+                )
+        elif api.startswith("CryptEncrypt"):
             key = self.get_argument(call, "CryptKey")
             buf = self.get_argument(call, "Buffer", strip=True)
-            if buf and buf not in self.bufs:
-                self.bufs.append(
+            if buf:
+                self._record(
+                    "CryptEncrypt",
+                    buf,
                     {
                         "process_name": process["process_name"],
                         "pid": process["process_id"],
                         "api_call": "CryptEncrypt",
                         "buffer": buf,
                         "crypt_key": key,
-                    }
-                )
-
-        if call["api"].startswith("CryptEncryptMessage"):
-            buf = self.get_argument(call, "Buffer", strip=True)
-            if buf and buf not in self.bufs:
-                self.bufs.append(
-                    {
-                        "process_name": process["process_name"],
-                        "pid": process["process_id"],
-                        "api_call": "CryptEncryptMessage",
-                        "buffer": buf,
-                    }
+                    },
                 )
 
     def run(self):
@@ -1468,6 +1567,9 @@ class EncryptedBuffers:
         @return: Summary of keys, read keys, written keys, mutexes and files.
         """
         return self.bufs
+
+
+_COM_HOST_PARENTS = {"svchost.exe", "dllhost.exe"}
 
 
 
@@ -1489,19 +1591,29 @@ def _enrich_tree_com_parents(tree_nodes, com_activations):
         if binary:
             binary_map.setdefault(binary, []).append(act)
 
-    def _walk(nodes):
+    def _walk(nodes, parent_name=None):
         for node in nodes:
-            path = node.get("module_path") or ""
+            path = node.get("module_path") or node.get("name") or ""
             name = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
-            if name in binary_map:
-                act = binary_map[name][0]
-                node["com_logical_parent_pid"] = act["activator_pid"]
-                node["com_logical_parent_name"] = act["activator_name"]
-                node["com_progid"] = act.get("progid", "")
-                node["com_clsid"] = act.get("clsid", "")
-            _walk(node.get("children") or [])
+            if name in binary_map and (parent_name is None or parent_name in _COM_HOST_PARENTS):
+                act = next(
+                    (
+                        a
+                        for a in binary_map[name]
+                        if a.get("activator_pid") != node.get("pid")
+                        and a.get("activator_pid") != node.get("parent_id")
+                    ),
+                    None,
+                )
+                if act:
+                    node["com_logical_parent_pid"] = act["activator_pid"]
+                    node["com_logical_parent_name"] = act["activator_name"]
+                    node["com_progid"] = act.get("progid", "")
+                    node["com_clsid"] = act.get("clsid", "")
+            _walk(node.get("children") or [], parent_name=name)
 
     _walk(tree_nodes)
+
 
 class BehaviorAnalysis(Processing):
     """Behavior Analyzer."""

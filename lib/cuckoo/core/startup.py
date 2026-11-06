@@ -54,7 +54,7 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
 from lib.cuckoo.core.log import ConsoleHandler, init_json_file_handler, init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
-from lib.cuckoo.core.rooter import gateways, rooter, socks5s, vpns
+from lib.cuckoo.core.rooter import gateways, rooter, rooter_required, socks5s, vpns
 
 log = logging.getLogger()
 
@@ -242,7 +242,7 @@ def validate_default_route(routing_cfg):
     (from gateways global) when nexthop is enabled, bypassing the vpn.enabled gate.
     Extracted from init_routing so it is independently unit-testable (review H3)."""
     route = routing_cfg.routing.route
-    if route in ("none", "internet", "tor", "inetsim"):
+    if str(route).lower() in ("none", "drop", "false", "internet", "tor", "inetsim"):
         return
     nexthop_on = hasattr(routing_cfg, "nexthop") and routing_cfg.nexthop.enabled
     if nexthop_on and (route in gateways or route in _POLICY_TOKENS or route == "nexthop"):
@@ -304,7 +304,8 @@ def check_working_directory():
 
 def check_webgui_mongo(exit_on_connection_failure=True):
     if repconf.mongodb.enabled:
-        from dev_utils.mongodb import connect_to_mongo, mongo_create_index
+        import dev_utils.mongodb as mdb_mod
+        from dev_utils.mongodb import close_mongodb, connect_to_mongo, mongo_create_index
 
         client = connect_to_mongo()
         if not client:
@@ -317,48 +318,59 @@ def check_webgui_mongo(exit_on_connection_failure=True):
             log.warning(message)
             return
 
-        # Create required indexes to improve scalability with large amounts of data.
-        # Note: Silently ignores creation if an equivalent index already exists.
-        index_configs = [
-            ("analysis", [("info.id", -1)], {"name": "info_id_desc"}),
-            ("calls", [("task_id", 1)], {"name": "task_id_1"}),
-            ("files", [("_task_ids", 1)], {}),
-        ]
-        if repconf.mongodb.get("index_yara", False):
-            index_configs.extend([
-                ("files", "yara.name", {"name": "yara_name"}),
-                ("files", "cape_yara.name", {"name": "cape_yara_name"}),
-            ])
-        if repconf.mongodb.get("index_clamav", False):
-            index_configs.append(("files", "clamav", {"name": "clamav_index"}))
-        if repconf.mongodb.get("index_hashes", False):
-            index_configs.extend([
-                ("files", "md5", {"name": "file_md5"}),
-                ("files", "sha1", {"name": "file_sha1"}),
-                ("files", "ssdeep", {"name": "file_ssdeep"}),
-            ])
-        if repconf.mongodb.get("index_detections", False):
-            index_configs.append(("analysis", [("detections.family", 1), ("_id", -1)], {"name": "detections_family_id_desc"}))
-        if repconf.mongodb.get("index_filenames", False):
-            index_configs.append(("analysis", [("target.file.name", 1), ("_id", -1)], {"name": "target_file_name_id_desc"}))
+        if mdb_mod._client is None and hasattr(client, "__getitem__"):
+            mdb_mod._client = client
+            with suppress(Exception):
+                mdb_mod._results_db = client[mdb_mod.mdb]
 
-        # Obsolete indexes to drop
-        obsolete_indexes = {
-            "analysis": ["info.id_1", "detections_family", "name_1", "detections_family_1", "target_file_name_1"],
-        }
+        try:
+            # Create required indexes to improve scalability with large amounts of data.
+            # Note: Silently ignores creation if an equivalent index already exists.
+            index_configs = [
+                ("analysis", [("info.id", -1)], {"name": "info_id_desc"}),
+                ("calls", [("task_id", 1)], {"name": "task_id_1"}),
+                ("files", [("_task_ids", 1)], {}),
+            ]
+            if repconf.mongodb.get("index_yara", False):
+                index_configs.extend([
+                    ("files", "yara.name", {"name": "yara_name"}),
+                    ("files", "cape_yara.name", {"name": "cape_yara_name"}),
+                ])
+            if repconf.mongodb.get("index_clamav", False):
+                index_configs.append(("files", "clamav", {"name": "clamav_index"}))
+            if repconf.mongodb.get("index_hashes", False):
+                index_configs.extend([
+                    ("files", "md5", {"name": "file_md5"}),
+                    ("files", "sha1", {"name": "file_sha1"}),
+                    ("files", "ssdeep", {"name": "file_ssdeep"}),
+                ])
+            if repconf.mongodb.get("index_detections", False):
+                index_configs.append(("analysis", [("detections.family", 1), ("_id", -1)], {"name": "detections_family_id_desc"}))
+            if repconf.mongodb.get("index_filenames", False):
+                index_configs.append(("analysis", [("target.file.name", 1), ("_id", -1)], {"name": "target_file_name_id_desc"}))
 
-        for coll, keys, kwargs in index_configs:
-            try:
-                mongo_create_index(coll, keys, **kwargs)
-            except Exception as e:
-                log.warning("Failed to create MongoDB index %s on %s: %s", kwargs.get("name", keys), coll, e)
+            # Obsolete indexes to drop
+            obsolete_indexes = {
+                "analysis": ["info.id_1", "detections_family", "name_1", "detections_family_1", "target_file_name_1"],
+            }
 
-        # Drop obsolete indexes
-        from dev_utils.mongodb import results_db
-        for coll, indexes in obsolete_indexes.items():
-            for index_name in indexes:
+            for coll, keys, kwargs in index_configs:
+                try:
+                    mongo_create_index(coll, keys, **kwargs)
+                except Exception as e:
+                    log.warning("Failed to create MongoDB index %s on %s: %s", kwargs.get("name", keys), coll, e)
+
+            # Drop obsolete indexes
+            from dev_utils.mongodb import results_db
+            for coll, indexes in obsolete_indexes.items():
+                for index_name in indexes:
+                    with suppress(Exception):
+                        getattr(results_db, coll).drop_index(index_name)
+        finally:
+            if client is not mdb_mod._client and hasattr(client, "close"):
                 with suppress(Exception):
-                    getattr(results_db, coll).drop_index(index_name)
+                    client.close()
+            close_mongodb()
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
         pass
@@ -636,15 +648,7 @@ def init_rooter(apply_state=False):
 
     # The default configuration doesn't require the rooter to be ran.
     # A nexthop-only node still needs the rooter for forward_drop() + fail-closed arm.
-    _nexthop_enabled = hasattr(routing, "nexthop") and routing.nexthop.enabled
-    if (
-        not routing.vpn.enabled
-        and not routing.tor.enabled
-        and not routing.inetsim.enabled
-        and not routing.socks5.enabled
-        and routing.routing.route == "none"
-        and not _nexthop_enabled
-    ):
+    if not rooter_required(routing):
         return
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -784,7 +788,7 @@ def init_routing(apply_nexthop_state=False):
     validate_default_route(routing)
 
     # Check whether the dirty line exists if it has been defined.
-    if routing.routing.internet != "none":
+    if routing.routing.internet and str(routing.routing.internet).lower() not in ("none", "false"):
         is_nic_available = rooter("nic_available", routing.routing.internet)["output"]
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")

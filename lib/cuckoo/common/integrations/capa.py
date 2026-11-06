@@ -19,7 +19,18 @@ integrations_conf = Config("integrations")
 
 rules = False
 HAVE_FLARE_CAPA = False
+HAVE_MALCAT_CAPA = False
 if integrations_conf.flare_capa.enabled:
+    try:
+        if integrations_conf.flare_capa.get("malcat_capa", False):
+            from lib.cuckoo.common.integrations.malcat.capa import malcat_capa_details
+
+            HAVE_MALCAT_CAPA = True
+            HAVE_FLARE_CAPA = True
+    except Exception:
+        HAVE_MALCAT_CAPA = False
+
+if integrations_conf.flare_capa.enabled and (not HAVE_MALCAT_CAPA or integrations_conf.flare_capa.get("behavior", False)):
     try:
         # from platform import python_version
 
@@ -257,6 +268,10 @@ def flare_capa_details(
         and not integrations_conf.flare_capa.on_demand
         or on_demand
     ):
+        if HAVE_MALCAT_CAPA and backend == "viv":
+            return malcat_capa_details(file_path, category=category, on_demand=on_demand, results=results)
+        if not rules:
+            return {}
         # ToDo check if PE file in TYPE
         try:
             file_path_object = path_object(file_path)

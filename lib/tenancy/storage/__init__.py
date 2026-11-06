@@ -5,7 +5,6 @@ from lib.tenancy.storage.artifact_storage import (
     artifact_response,
     ensure_local_analysis,
     ensure_local_memory,
-    job_id_from_custom,
     materialize_artifact,
     read_artifact_text,
 )
@@ -35,7 +34,7 @@ from lib.tenancy.storage.job_directory import (
     get_job_directory,
     loc_from_item,
 )
-from lib.tenancy.storage.reporting import CentralStore, ObjectStorage, resolve_job_id, upload_analysis_artifacts
+from lib.tenancy.storage.reporting import CentralStore, ObjectStorage, upload_analysis_artifacts
 from lib.tenancy.storage.scope import viewer_can_view_sample, viewer_scope
 from lib.tenancy.storage.storage_backend import (
     ArtifactNotFound,
@@ -70,10 +69,8 @@ __all__ = [
     "ensure_local_memory",
     "materialize_artifact",
     "read_artifact_text",
-    "job_id_from_custom",
     "ObjectStorage",
     "CentralStore",
-    "resolve_job_id",
     "upload_analysis_artifacts",
     "viewer_scope",
     "viewer_can_view_sample",

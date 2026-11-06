@@ -193,6 +193,12 @@ API key must belong to a superuser, with ``local_admins_manage_all_tenants = yes
 on the worker: ``main_task_id``, ``parent_sample`` and ``task_acl`` attributes from
 anyone else are dropped, and any other key sees only its own tasks in the
 worker's reports, task lists and ``cuckoo/status`` queue counts.
+Likewise, ``utils/gcp_pubsub_service.py`` runs as an internal service without a
+request viewer (and therefore counts as a trusted submitter) and copies
+``main_task_id``, ``task_acl`` and arbitrary ``attributes`` from the Pub/Sub
+message payload onto the submitted task. Because those fields determine a
+report's task numbering and ACL, IAM publish permissions on the Pub/Sub topic
+must be restricted to trusted operators and services.
 
 Task Visibility Levels: ``private`` vs. ``tenant`` (Group) vs. ``public``
 -------------------------------------------------------------------------

@@ -21,6 +21,7 @@ from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.tenancy.storage.config import (
+    object_storage_bridge_required,
     object_storage_config,
     upload_target_realpath,
 )
@@ -196,12 +197,21 @@ class ObjectStorage(Report):
         if not isinstance(attrs, dict):
             attrs = {}
         main_task_id = attrs.get("main_task_id") or os.environ.get("CAPE_MAIN_TASK_ID")
+        if not main_task_id and info.get("local_task_id") is not None and info.get("id") is not None:
+            main_task_id = info.get("id")
         if main_task_id:
             try:
+                cid = int(main_task_id)
+                if cid <= 0:
+                    raise ValueError
                 info["local_task_id"] = local_id
-                info["id"] = int(main_task_id)
+                info["id"] = cid
             except (TypeError, ValueError):
-                pass
+                main_task_id = None
+        if not main_task_id and object_storage_bridge_required():
+            raise CuckooReportError(
+                "object_storage: refusing unmapped analysis upload under multitenancy (requires main_task_id)"
+            )
 
         try:
             task_id = int(info.get("id"))
@@ -247,7 +257,11 @@ class ObjectStorage(Report):
 CentralStore = ObjectStorage
 
 
-def upload_analysis_artifacts(results: dict[str, Any], analysis_path: Optional[str] = None) -> None:
+def upload_analysis_artifacts(
+    results: dict[str, Any],
+    analysis_path: Optional[str] = None,
+    task: Optional[dict[str, Any]] = None,
+) -> None:
     """Invoke `ObjectStorage` upload from the report hook when `[object_storage] enabled = yes`."""
     cfg = object_storage_config()
     if not cfg.enabled:
@@ -261,6 +275,8 @@ def upload_analysis_artifacts(results: dict[str, Any], analysis_path: Optional[s
         if os.path.isdir(cand):
             analysis_path = cand
     reporter = ObjectStorage()
+    if isinstance(task, dict):
+        reporter.task = task
     if analysis_path:
         reporter.set_path(analysis_path)
     reporter.run(results)

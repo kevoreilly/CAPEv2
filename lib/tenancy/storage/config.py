@@ -266,6 +266,24 @@ def object_storage_config() -> ObjectStorageConfig:
 central_mode_config = object_storage_config
 
 
+def object_storage_bridge_required() -> bool:
+    """True when tenant isolation requires a bridged central task (`object_storage` AND `multitenancy` enabled)."""
+    try:
+        if not object_storage_config().enabled:
+            return False
+    except Exception:
+        return True
+    try:
+        from lib.tenancy.policy import multitenancy_config
+
+        return bool(multitenancy_config().enabled)
+    except Exception:
+        return True
+
+
+central_bridge_required = object_storage_bridge_required
+
+
 def object_storage_own_analysis_filter(task_id: Any, tenant_id: Any) -> dict[str, Any]:
     """Build the MongoDB filter identifying the caller's own analysis doc for a task."""
     _tid = int(task_id)

@@ -51,7 +51,7 @@ except ImportError:
 try:
     from PIL import Image
 
-    Image.logger.setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
 except ImportError:
     log.error("Missed dependency: poetry install")
 

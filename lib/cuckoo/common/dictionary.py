@@ -4,6 +4,8 @@ import copy
 class Dictionary(dict):
     """Cuckoo custom dict."""
 
+    __slots__ = ()
+
     def __deepcopy__(self, memo=None):
         new = self.__class__()
         for key, value in self.items():

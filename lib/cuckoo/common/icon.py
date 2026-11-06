@@ -9,6 +9,7 @@ from ctypes import c_ushort as WORD
 
 
 class GRPICONDIR(Structure):
+    _layout_ = "ms"
     _pack_ = 1
     _fields_ = [
         ("idReserved", WORD),  # must be 0
@@ -19,6 +20,7 @@ class GRPICONDIR(Structure):
 
 
 class GRPICONDIRENTRY(Structure):
+    _layout_ = "ms"
     _pack_ = 1
     _fields_ = [
         ("bWidth", BYTE),
@@ -33,6 +35,7 @@ class GRPICONDIRENTRY(Structure):
 
 
 class ICONDIR(Structure):
+    _layout_ = "ms"
     _pack_ = 1
     _fields_ = [
         ("idReserved", WORD),  # must be 0
@@ -43,6 +46,7 @@ class ICONDIR(Structure):
 
 
 class ICONDIRENTRY(Structure):
+    _layout_ = "ms"
     _pack_ = 1
     _fields_ = [
         ("bWidth", BYTE),

@@ -186,6 +186,8 @@ class MiniHTTPServer:
         port: int = 8000,
         event = None,
     ):
+        self.handler.httpd = self
+        request.environ["werkzeug.server.shutdown"] = self.shutdown
         socketserver.ThreadingTCPServer.allow_reuse_address = True
         self.s = socketserver.ThreadingTCPServer((str(host), port), self.handler)
 
@@ -193,7 +195,10 @@ class MiniHTTPServer:
         if event:
             event.set()
 
-        self.s.serve_forever()
+        try:
+            self.s.serve_forever()
+        finally:
+            self.s.server_close()
 
     def route(self, path: str, methods: Iterable[str] = ["GET"]):
         def register(fn):

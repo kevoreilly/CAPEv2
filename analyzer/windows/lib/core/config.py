@@ -9,7 +9,7 @@ class Config:
     def __init__(self, cfg):
         """@param cfg: configuration file."""
         config = configparser.ConfigParser(allow_no_value=True, interpolation=None)
-        config.read(cfg)
+        config.read(cfg, encoding="utf-8")
 
         for section in config.sections():
             for name, raw_value in config.items(section):

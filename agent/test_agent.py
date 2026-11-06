@@ -483,6 +483,42 @@ class TestAgent:
         js = self.post_form("store", form, 500, files=upload_file)
         assert js["message"].startswith("Error storing file")
 
+    def test_store_large_binary_spills_to_tempfile_and_preserves_bytes(self):
+        """Ensure payloads larger than the in-memory limit stream cleanly without corruption."""
+        block = b"#!/bin/sh\r\necho start\npayload\r\x00\xff--not-a-boundary\r\n"
+        payload = (block * 48000)[: int(2.2 * 1024 * 1024)] + b"\r"
+        dest_path = os.path.join(DIRPATH, make_temp_name() + ".run")
+
+        js = self.post_form(
+            "store",
+            {"filepath": dest_path},
+            files={"file": ("sample.bin", payload, "application/octet-stream")},
+        )
+        assert js["message"] == "Successfully stored file"
+        with open(dest_path, "rb") as stored_fp:
+            assert stored_fp.read() == payload
+
+    def test_store_rejects_truncated_multipart_body(self):
+        """Ensure an incomplete multipart body returns 400 and does not write a partial file."""
+        dest_path = os.path.join(DIRPATH, make_temp_name() + ".trunc")
+        boundary = "----capeTestBoundary9911"
+        partial_body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="filepath"\r\n\r\n'
+            f"{dest_path}\r\n"
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="sample.bin"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8") + (b"A" * 4096)
+
+        r = requests.post(
+            f"{BASE_URL}/store",
+            data=partial_body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        )
+        assert r.status_code == 400
+        assert not os.path.exists(dest_path)
+
     def test_retrieve(self):
         """Create a file, then try to retrieve it."""
         first_line = make_temp_name()
@@ -537,6 +573,25 @@ class TestAgent:
         assert self.file_contains(expected_path, file_contents)
 
         # todo should I check the filesytem for the file?
+
+    def test_extract_large_zip_spills_to_tempfile(self):
+        """Ensure zip uploads larger than 1 MiB extract cleanly from TemporaryFile."""
+        file_dir = make_temp_name()
+        file_name = make_temp_name() + ".bin"
+        payload = os.urandom(1200 * 1024)
+        zfile = io.BytesIO()
+        with zipfile.ZipFile(zfile, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr(os.path.join(file_dir, file_name), payload)
+
+        js = self.post_form(
+            "extract",
+            {"dirpath": DIRPATH},
+            files={"zipfile": ("analyzer.zip", zfile.getvalue())},
+        )
+        assert js["message"] == "Successfully extracted zip file"
+        expected_path = os.path.join(DIRPATH, file_dir, file_name)
+        with open(expected_path, "rb") as extracted_fp:
+            assert extracted_fp.read() == payload
 
     def test_extract_invalid(self):
         form = {"dirpath": DIRPATH}
@@ -821,3 +876,72 @@ class TestBrowserExtension:
         assert self.post(monkeypatch, "[]").status_code == 200
         assert len(calls) == 2
         assert pathlib.Path(agent.AGENT_BROWSER_EXT_PATH).read_text(encoding="utf-8") == "[]"
+
+
+class TestMultipartStreamParser:
+    """Unit tests for chunk-split boundaries, false boundary prefixes, and tempfile cleanup."""
+
+    def test_chunk_split_boundaries_and_false_prefixes(self):
+        boundary = b"boundary-7f3a9c"
+        payload = (
+            b"\x00\r\n--boundary-7f3a9cNOT_A_BOUNDARY\r\n"
+            + b"line1\r\nline2\nline3\r"
+            + (b"X" * 200)
+            + b"\r"
+        )
+        raw = (
+            b"--" + boundary + b"\r\n"
+            b'Content-Disposition: form-data; name="filepath"\r\n\r\n'
+            b"/tmp/sample.run\r\n"
+            b"--" + boundary + b"\r\n"
+            b'Content-Disposition: form-data; name="file"; filename="sample.bin"\r\n'
+            b"Content-Type: application/octet-stream\r\n\r\n"
+            + payload
+            + b"\r\n--" + boundary + b"--\r\n"
+        )
+        reader = agent._BoundedReader(io.BytesIO(raw), len(raw))
+        # Tiny chunk_size (11 bytes) forces every boundary across multiple read() calls;
+        # spool_max_bytes=64 forces _PartFileSink to spill from BytesIO to TemporaryFile.
+        form, files = agent._parse_multipart_stream(
+            reader,
+            boundary,
+            chunk_size=11,
+            spool_max_bytes=64,
+        )
+        try:
+            assert form == {"filepath": "/tmp/sample.run"}
+            assert "file" in files
+            assert not isinstance(files["file"], io.BytesIO)
+            assert files["file"].read() == payload
+            assert reader.remaining == 0
+        finally:
+            for fp in files.values():
+                fp.close()
+
+    def test_aborted_stream_closes_spilled_tempfiles(self, monkeypatch):
+        created_files = []
+        real_temp_file = tempfile.TemporaryFile
+
+        def tracking_temp_file(*args, **kwargs):
+            fp = real_temp_file(*args, **kwargs)
+            created_files.append(fp)
+            return fp
+
+        monkeypatch.setattr(agent.tempfile, "TemporaryFile", tracking_temp_file)
+
+        boundary = b"bndry123"
+        truncated = (
+            b"--" + boundary + b"\r\n"
+            b'Content-Disposition: form-data; name="first"; filename="a.bin"\r\n\r\n'
+            + (b"A" * 128)
+            + b"\r\n--" + boundary + b"\r\n"
+            b'Content-Disposition: form-data; name="second"; filename="b.bin"\r\n\r\n'
+            + (b"B" * 128)
+            # Missing closing boundary
+        )
+        reader = agent._BoundedReader(io.BytesIO(truncated), len(truncated))
+        with pytest.raises(agent._FormParseError):
+            agent._parse_multipart_stream(reader, boundary, chunk_size=17, spool_max_bytes=32)
+
+        assert len(created_files) == 2
+        assert all(fp.closed for fp in created_files)

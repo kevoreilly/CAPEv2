@@ -48,6 +48,7 @@ def _proc_env(monkeypatch, tmp_path, object_storage=True, env=None):
         cfg = types.SimpleNamespace(enabled=False)
     monkeypatch.setattr("lib.tenancy.storage.config.object_storage_config", lambda: cfg)
     monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
     monkeypatch.setattr("lib.tenancy.storage.reporting.CUCKOO_ROOT", str(tmp_path))
     for k in ("CAPE_TASK_VISIBILITY", "CAPE_TASK_TENANT_ID", "CAPE_TASK_USER_ID", "CAPE_TASK_VISIBILITY_SEQ", "CAPE_MAIN_TASK_ID"):
         monkeypatch.delenv(k, raising=False)

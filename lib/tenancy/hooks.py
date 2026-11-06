@@ -121,9 +121,12 @@ def is_task_own_report(task_id: int, doc: Any) -> bool:
         return False
     info = doc.get("info") or {}
     try:
-        return int(info.get("id")) == int(task_id)
+        if int(info.get("id")) != int(task_id):
+            return False
     except (TypeError, ValueError):
         return False
+    job_id = info.get("job_id")
+    return job_id in (None, "", str(int(task_id)), f"ui-{int(task_id)}", f"local-{int(task_id)}")
 
 
 
@@ -1535,34 +1538,49 @@ def _lookup_existing_report_stamp(remote_task_id: int) -> Optional[Dict[str, Any
     candidates: List[Dict[str, Any]] = []
 
     mongo_mod = sys.modules.get("dev_utils.mongodb") or sys.modules.get("modules.reporting.mongodb")
+    mongo_find = getattr(mongo_mod, "mongo_find", None) if mongo_mod is not None else None
     mongo_find_one = getattr(mongo_mod, "mongo_find_one", None) if mongo_mod is not None else None
-    if callable(mongo_find_one):
+    if callable(mongo_find) or callable(mongo_find_one):
         from lib.tenancy.acl import own_report_mongo_query
 
         m_query = own_report_mongo_query(int(remote_task_id))
         m_proj = {
             "info.id": 1,
+            "info.job_id": 1,
             "info.user_id": 1,
             "info.tenant_id": 1,
             "info.visibility": 1,
             "info.visibility_seq": 1,
         }
         tok = _skip_mongo_filter_ctx.set(True)
-        m_doc = None
+        m_docs: List[Dict[str, Any]] = []
         try:
-            try:
-                m_doc = mongo_find_one("analysis", m_query, m_proj, no_hooks=True)
-            except TypeError:
+            if callable(mongo_find):
                 try:
-                    m_doc = mongo_find_one("analysis", m_query, m_proj)
+                    m_docs = list(mongo_find("analysis", m_query, m_proj, no_hooks=True) or [])
                 except TypeError:
-                    m_doc = mongo_find_one("analysis", m_query)
+                    with contextlib.suppress(Exception):
+                        m_docs = list(mongo_find("analysis", m_query, m_proj) or [])
+                except Exception:
+                    m_docs = []
+            if not m_docs and callable(mongo_find_one):
+                try:
+                    one = mongo_find_one("analysis", m_query, m_proj, no_hooks=True)
+                except TypeError:
+                    try:
+                        one = mongo_find_one("analysis", m_query, m_proj)
+                    except TypeError:
+                        one = mongo_find_one("analysis", m_query)
+                if isinstance(one, dict):
+                    m_docs = [one]
         except Exception:
-            m_doc = None
+            m_docs = []
         finally:
             _skip_mongo_filter_ctx.reset(tok)
 
-        if isinstance(m_doc, dict):
+        for m_doc in m_docs:
+            if not isinstance(m_doc, dict):
+                continue
             m_info = m_doc.get("info")
             if isinstance(m_info, dict) and is_task_own_report(int(remote_task_id), m_doc):
                 vis = m_info.get("visibility")
@@ -1677,7 +1695,7 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
             from lib.tenancy.storage.reporting import upload_analysis_artifacts
 
             if object_storage_config().enabled:
-                upload_analysis_artifacts(results)
+                upload_analysis_artifacts(results, task=task if isinstance(task, dict) else None)
         except Exception:
             pass
 

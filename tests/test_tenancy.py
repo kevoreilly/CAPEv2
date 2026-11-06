@@ -2289,3 +2289,44 @@ def test_central_file_dropped_and_cape_fallback_to_selfextracted(monkeypatch):
     assert requested_paths == ["CAPE/cafebabe", "selfextracted/cafebabe"]
 
 
+def test_object_storage_refuses_unmapped_upload_under_multitenancy(tmp_path, monkeypatch):
+    from lib.cuckoo.common.exceptions import CuckooReportError
+    from lib.tenancy.storage.reporting import ObjectStorage
+
+    store_root = tmp_path / "store"
+    analysis_dir = tmp_path / "analyses" / "9"
+    analysis_dir.mkdir(parents=True)
+    (analysis_dir / "dump.pcap").write_bytes(b"worker-9-bytes")
+    central_9 = store_root / "results" / "9"
+    central_9.mkdir(parents=True)
+    (central_9 / "dump.pcap").write_bytes(b"central-9-bytes")
+
+    monkeypatch.setattr(
+        "lib.tenancy.storage.reporting.object_storage_config",
+        lambda: ObjectStorageConfig(enabled=True, backend="local", local_root=str(store_root), prefix="results"),
+    )
+    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_bridge_required", lambda: True)
+    monkeypatch.delenv("CAPE_MAIN_TASK_ID", raising=False)
+
+    # 1. Unmapped direct API submission on worker under multitenancy: refused, central task 9 untouched
+    results = {"info": {"id": 9}}
+    reporter = ObjectStorage()
+    reporter.task = {"id": 9, "attributes": {}}
+    reporter.set_path(str(analysis_dir))
+    with pytest.raises(CuckooReportError):
+        reporter.run(results)
+    assert (central_9 / "dump.pcap").read_bytes() == b"central-9-bytes"
+
+    # 2. Bridged worker task with main_task_id: mapped to central task 3
+    results_bridged = {"info": {"id": 9}}
+    reporter_bridged = ObjectStorage()
+    reporter_bridged.task = {"id": 9, "attributes": {"main_task_id": 3}}
+    reporter_bridged.set_path(str(analysis_dir))
+    reporter_bridged.run(results_bridged)
+    assert results_bridged["info"]["id"] == 3
+    assert results_bridged["info"]["local_task_id"] == 9
+    assert (store_root / "results" / "3" / "dump.pcap").read_bytes() == b"worker-9-bytes"
+    assert (central_9 / "dump.pcap").read_bytes() == b"central-9-bytes"
+
+
+

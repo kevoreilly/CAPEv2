@@ -1368,6 +1368,10 @@ def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch)
 
     import dev_utils.mongodb as mongo_mod
 
+    foreign_no_seq = {
+        "_id": "foreign-1",
+        "info": {"id": 100, "job_id": "broker-other", "user_id": 99, "tenant_id": 99, "visibility": "public"},
+    }
     own_doc = {
         "_id": "own-2",
         "info": {
@@ -1379,15 +1383,12 @@ def test_dist_worker_reprocess_colliding_foreign_broker_doc_ignored(monkeypatch)
         },
     }
 
-    def _mock_mongo_find_one(collection, query, proj=None, **kw):
+    def _mock_mongo_find(collection, query, proj=None, **kw):
         if collection == "analysis" and query.get("info.id") == 100:
-            if isinstance(proj, dict):
-                projected_info = {k: v for k, v in own_doc["info"].items() if proj.get(f"info.{k}")}
-                return {"_id": own_doc["_id"], "info": projected_info}
-            return dict(own_doc)
-        return None
+            return [dict(foreign_no_seq), dict(own_doc)]
+        return []
 
-    monkeypatch.setattr(mongo_mod, "mongo_find_one", _mock_mongo_find_one)
+    monkeypatch.setattr(mongo_mod, "mongo_find", _mock_mongo_find)
 
     class _MockES:
         def search(self, index, body=None, **kw):

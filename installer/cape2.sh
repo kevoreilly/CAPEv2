@@ -1700,7 +1700,7 @@ function install_passivedns() {
 
 function update() {
     echo "[+] Updating CAPEv2"
-    sudo systemctl stop cape*
+    sudo systemctl stop "cape*"
     cd "$CAPE_ROOT" || return
     sudo -u ${USER} git pull
     sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; export CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"

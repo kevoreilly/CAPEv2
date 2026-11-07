@@ -219,6 +219,9 @@ def install(
                     path_mkdir(filepath)
                 continue
 
+            if not member.isfile():
+                continue
+
             install = False
             dest_file = os.path.basename(filepath)
             is_core = shadows_core_file(folder, relpath)
@@ -255,8 +258,17 @@ def install(
                     path_mkdir(os.path.dirname(filepath))
 
                 try:
+                    extracted = t.extractfile(member)
+                    if extracted is None:
+                        continue
                     with open(filepath, "wb") as f:
-                        f.write(t.extractfile(member).read())
+                        f.write(extracted.read())
+                    if member.mode & 0o111:
+                        os.chmod(filepath, 0o755)
+                    else:
+                        current_mode = os.stat(filepath).st_mode & 0o777
+                        if current_mode & 0o111:
+                            os.chmod(filepath, current_mode & ~0o111)
                     print(f'File "{filepath}" {colors.green("installed")}')
                 except PermissionError:
                     print(colors.red(f"Fix permission on: {filepath}"))

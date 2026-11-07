@@ -416,5 +416,48 @@ class TestStaticPreview(SimpleTestCase):
         finally:
             analysis_views.processing_cfg.strings.on_demand = orig_strings
 
+    def test_shellcode_on_demand_kwargs_and_preview_package(self):
+        """Shellcode on-demand resolves arch/entry/va hints and tolerates missing SQL tasks."""
+        import analysis.views as analysis_views
+
+        sample_bytes = b"\x90" * 64
+        db, task, sha256, tmp_file = self._create_sample_task(sample_bytes, filename="sc.bin")
+        with db.session.begin():
+            t = db.view_task(task.id)
+            t.package = "shellcode_x64"
+            t.options = "offset=0x100"
+        task = db.view_task(task.id)
+
+        preview = static_preview.get_static_preview(task, run_full=False)
+        self.assertEqual(preview["analysis"]["info"]["package"], "shellcode_x64")
+
+        self.assertEqual(
+            analysis_views._shellcode_on_demand_kwargs(str(task.id), "static", sha256),
+            {"arch": "x64", "entry": "0x100"},
+        )
+        self.assertIsNone(analysis_views._shellcode_on_demand_kwargs(str(task.id), "static", "00" * 32))
+
+        # Distributed / cleaned SQL task: db.view_task returns None, falls back to MongoDB without AttributeError
+        mongo_doc = {
+            "info": {"package": "shellcode", "options": "offset=0x40"},
+            "target": {"file": {"sha256": sha256}},
+            "CAPE": {"payloads": [{"sha256": sha256, "cape_type_code": 9, "virtual_address": "0x00790000"}]},
+        }
+        with (
+            patch.object(analysis_views.db, "view_task", return_value=None),
+            patch.dict(analysis_views.enabledconf, {"mongodb": True}),
+            patch.object(analysis_views, "mongo_find_one", return_value=mongo_doc, create=True),
+            patch.object(analysis_views, "ANALYSIS_BASE_PATH", os.path.dirname(tmp_file)),
+        ):
+            self.assertEqual(analysis_views.get_task_package(999999), "")
+            self.assertEqual(
+                analysis_views._shellcode_on_demand_kwargs("999999", "target.file", sha256),
+                {"arch": "x86", "entry": "0x40"},
+            )
+            self.assertEqual(
+                analysis_views._shellcode_on_demand_kwargs("999999", "CAPE", sha256),
+                {"va": "0x00790000"},
+            )
+
 
 

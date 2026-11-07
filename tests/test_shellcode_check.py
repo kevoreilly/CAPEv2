@@ -189,11 +189,15 @@ def test_cape_processing_attaches_shellcode_check(tmp_path, monkeypatch):
     import hashlib
     import json
 
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
     import modules.processing.CAPE as cape_mod
 
     if not cape_mod.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_PAYLOADS", True)
 
     payloads = {9: MSF_STYLE_X86, 4: _rand(1262, 7)}
     (tmp_path / "CAPE").mkdir()
@@ -228,11 +232,15 @@ def test_cape_processing_skips_dumps_that_are_complete_pes(tmp_path, monkeypatch
     import hashlib
     import json
 
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
     import modules.processing.CAPE as cape_mod
 
     if not cape_mod.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_PAYLOADS", True)
     pe = _pe_file()
     exec_pe = bytearray(pe)
     redir = b"MZER" + bytes.fromhex("e800000000594883e909488bc14805") + len(pe).to_bytes(4, "little") + b"\xff\xd0\xc3"
@@ -388,8 +396,8 @@ def test_config_section():
 
     section = Config("processing").static_shellcode_check
     assert dict(section) == {
-        "enabled": True,
-        "on_demand": True,
+        "enabled": False,
+        "on_demand": False,
         "cape_payloads": True,
         "submitted_shellcode": True,
         "shellcode_depth": 262144,
@@ -405,11 +413,14 @@ def test_entry_offset_hint():
 
 
 def test_submitted_shellcode_package(tmp_path, monkeypatch):
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
     import modules.processing.CAPE as cape_mod
 
     if not cape_mod.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
     sample = tmp_path / "binary"
     sample.write_bytes(_rand(0x100, 32) + MSF_STYLE_X64)
 
@@ -506,11 +517,14 @@ def test_whole_blob_indicators_have_locations():
 
 
 def test_shellcode_depth_from_config(tmp_path, monkeypatch):
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
     import modules.processing.CAPE as cape_mod
 
     if not cape_mod.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
     monkeypatch.setattr(cape_mod, "SHELLCODE_ON_SUBMISSION", True)
     monkeypatch.setattr(cape_mod, "SHELLCODE_DEPTH", 4096)
     sample = tmp_path / "binary"
@@ -1003,11 +1017,14 @@ def test_stager_strings_without_the_connect_call_are_not_a_config():
 
 
 # --------------------------------------------------------------------------- known generators (real output)
-FIXTURES = os.path.join(os.path.dirname(__file__), "shellcode_fixtures")
+FIXTURES = os.path.join(os.path.dirname(__file__), "data", "malware", "shellcodes")
 
 
 def _fixture(name):
-    with open(os.path.join(FIXTURES, name + ".b64")) as f:
+    path = os.path.join(FIXTURES, name + ".b64")
+    if not os.path.exists(path):
+        pytest.skip(f"Required data file is not present: {path}")
+    with open(path) as f:
         return zlib.decompress(base64.b64decode("".join(f.read().split())))
 
 
@@ -1129,13 +1146,21 @@ def test_shikata_ga_nai_is_decoded_and_proven(data, layers):
     assert "Metasploit" in INDICATORS["shikata_ga_nai"][1]
 
 
-def _msf_vectors():
+def _msf_vectors(allow_missing=False):
     import json
 
+    path = os.path.join(FIXTURES, "msf_encoders.b64")
+    if allow_missing and not os.path.exists(path):
+        return {}
     return json.loads(_fixture("msf_encoders"))
 
 
-@pytest.mark.parametrize("name", sorted(_msf_vectors()))
+_MSF_VECTOR_NAMES = sorted(_msf_vectors(allow_missing=True)) or [
+    pytest.param("missing", marks=pytest.mark.skip(reason="Required data file is not present: msf_encoders.b64"))
+]
+
+
+@pytest.mark.parametrize("name", _MSF_VECTOR_NAMES)
 def test_msfvenom_encoders_are_identified_and_decoded(name):
     v = {k: bytes.fromhex(x) for k, x in _msf_vectors()[name].items()}
     r = analyse(v["blob"], extract_payloads=True)
@@ -1283,11 +1308,15 @@ def test_cape_processing_detections_and_extracted_payloads(tmp_path, monkeypatch
     import hashlib
     import json
 
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
     import modules.processing.CAPE as cape_mod
 
     if not cape_mod.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_PAYLOADS", True)
     monkeypatch.setattr(cape_mod, "SHELLCODE_DETECTIONS", True)
     monkeypatch.setattr(cape_mod, "SHELLCODE_EXTRACT", True)
     (tmp_path / "CAPE").mkdir()
@@ -1340,3 +1369,42 @@ def test_paths_without_letters_are_not_iocs():
     data = MSF_STYLE_X64 + b"\\\\33\\\\333333333333333333\\\\330\0" + b"C:\\Users\\Public\\run.dll\0"
     paths = analyse(data).get("iocs", {}).get("paths", [])
     assert paths == ["C:\\Users\\Public\\run.dll"]
+
+
+def test_x64_encoder_evaluates_inner_payload_as_x64():
+    from lib.cuckoo.common.integrations.shellcode_check import _xor_blocks
+
+    inner = MSF_STYLE_X64 + b"\x90" * (-len(MSF_STYLE_X64) % 8)
+    blocks = len(inner) // 8
+    key = 0x1122334455667788
+    stub = (
+        b"\x48\x31\xc9\x48\x81\xe9"
+        + (-blocks & 0xFFFFFFFF).to_bytes(4, "little")
+        + b"\x48\x8d\x05\xef\xff\xff\xff\x48\xbb"
+        + key.to_bytes(8, "little")
+        + b"\x48\x31\x58\x27\x48\x2d\xf8\xff\xff\xff\xe2\xf4"
+    )
+    r = analyse(stub + _xor_blocks(inner, key, 8))
+    assert r["encoder"]["name"] == "x64/xor" and r["encoder"]["payload"] == "x64 code"
+    assert "peb_walk" in r["encoder"]["payload_indicators"]
+
+
+def test_alpha_encoder_rejects_non_ascii_latin1_bytes():
+    from lib.cuckoo.common.integrations.shellcode_check import _MSF_ALPHA
+
+    # 0xb2 ('²') and 0xb3 ('³') satisfy Unicode str.isalnum(), but are not ASCII alpha2 pairs
+    blob = _MSF_ALPHA[0][0] + b"\xb2\xb3" * 16 + b"AA"
+    assert not analyse(blob).get("encoder")
+
+
+def test_framework_extract_caps_at_extract_max(monkeypatch):
+    from lib.cuckoo.common.integrations import shellcode_check as sc
+
+    monkeypatch.setattr(sc, "EXTRACT_MAX", 128)
+    pe = bytearray(_pe_file())
+    stub = len(pe)
+    redir = b"MZER" + bytes.fromhex("e800000000594883e909488bc14805") + stub.to_bytes(4, "little") + b"\xff\xd0\xc3"
+    pe[0 : len(redir)] = redir
+    r = sc.analyse(bytes(pe) + MSF_STYLE_X64, extract_payloads=True)
+    assert _framework(r, "pe2shc")["confidence"] == "identified"
+    assert r["_payloads"] == []

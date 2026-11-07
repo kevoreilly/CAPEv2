@@ -446,6 +446,7 @@ def _format_preview_context(task, file_info: dict, malware_conf: list, source_ur
         "info": {
             "id": task_id,
             "category": getattr(task, "category", "file"),
+            "package": getattr(task, "package", "") or "",
             "tlp": getattr(task, "tlp", None),
             "has_cents_rules": False,
         },

@@ -3133,7 +3133,11 @@ def identify_srdi(data):
         if ud and all(0x20 <= c < 0x7F for c in ud):
             details["user_data"] = ud.decode()
         end = dll + size if size else len(data)
-        payload = {"extract": lambda: bytes(data[dll:end]), "offset": dll, "description": f"sRDI DLL: {kind}"}
+        payload = {
+            "extract": lambda: bytes(data[dll:end]) if 0 < end - dll <= EXTRACT_MAX and end <= len(data) else None,
+            "offset": dll,
+            "description": f"sRDI DLL: {kind}",
+        }
         return {"name": "sRDI", "confidence": "identified", "arch": arch, "_payload": payload,
                 "evidence": [f"sRDI {arch} bootstrap at {m.start():#x} (fixed template, variable fields decoded)",
                              f"the DLL offset it computes ({dll:#x}) holds the payload: {kind}"],
@@ -3167,7 +3171,11 @@ def identify_pe2shc(data):
         if not size <= stub < len(data):
             continue  # the loader must sit after the PE's last section
         kind = f"{pes[0]['arch']} {'DLL' if pes[0]['dll'] else 'EXE'}"
-        payload = {"extract": lambda: bytes(data[:stub]), "offset": 0, "description": f"pe2shc original PE: {kind}"}
+        payload = {
+            "extract": lambda: bytes(data[:stub]) if 0 < stub <= EXTRACT_MAX else None,
+            "offset": 0,
+            "description": f"pe2shc original PE: {kind}",
+        }
         return {"name": "pe2shc", "confidence": "identified", "arch": pes[0]["arch"], "_payload": payload,
                 "evidence": [f"pe2shc {arch} redirection stub in the DOS header", f"it calls the loader appended at {stub:#x}, after the PE's sections"],
                 "details": {"payload": kind, "payload_size": stub, "loader_stub": f"{stub:#x}-{len(data):#x}"}, "iocs": {},
@@ -3460,7 +3468,7 @@ def _enc_alpha(buf):
             continue
         start = at + len(core)
         end = start
-        while end + 1 < len(buf) and buf[end : end + 2] != b"AA" and chr(buf[end]).isalnum() and chr(buf[end + 1]).isalnum():
+        while end + 1 < len(buf) and buf[end : end + 2] != b"AA" and buf[end : end + 2].isalnum():
             end += 2
         if buf[end : end + 2] != b"AA" or end == start:
             continue
@@ -3543,7 +3551,7 @@ def identify_encoders(data):
     if head:
         d = _Descent(head, CS_MODE_64 if arch == "x64" else CS_MODE_32, 1500)
         d.run(_seeds(head, d.md, 8))
-        r = _evaluate_island(head, d, False, None, {"context": 0}, nested=True)
+        r = _evaluate_island(head, d, arch == "x64", None, {"context": 0}, nested=True)
         if r["structure"]["coherent"]:
             found = [t for t in r["tags"] if t not in UNSCORED and r["_weights"].get(t, 0) >= MEDIUM]
             what = f"{arch} code"

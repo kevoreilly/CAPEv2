@@ -14,8 +14,27 @@ from lib.common.results import upload_to_host
 log = logging.getLogger(__name__)
 
 
+def _cleanup_new_entries(extract_path, existing_entries):
+    """Remove any file, symlink, or directory in extract_path not in existing_entries."""
+    if not os.path.exists(extract_path):
+        os.makedirs(extract_path, mode=0o700, exist_ok=True)
+        return
+    for item in os.listdir(extract_path):
+        if item not in existing_entries:
+            target = os.path.join(extract_path, item)
+            try:
+                if os.path.islink(target) or os.path.isfile(target):
+                    os.unlink(target)
+                elif os.path.isdir(target):
+                    shutil.rmtree(target, ignore_errors=True)
+            except OSError as e:
+                log.warning("Failed to clean up new entry %s: %s", target, e)
+
+
 def extract_archive(seven_zip_path, archive_path, extract_path, password="infected", try_multiple_passwords=False):
     """Extract an archive, including encrypted headers, using the supplied passwords."""
+    os.makedirs(extract_path, mode=0o700, exist_ok=True)
+    existing_entries = set(os.listdir(extract_path))
     password = password or "infected"
     passwords = ([p for p in password.split(":") if p] or ["infected"]) if try_multiple_passwords else [password]
     for candidate in passwords:
@@ -29,10 +48,18 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
             return
         if b"Wrong password" not in result.stderr + result.stdout:
             details = (result.stderr or result.stdout).decode(errors="replace").strip()
+            current_entries = set(os.listdir(extract_path)) if os.path.exists(extract_path) else set()
+            if current_entries - existing_entries:
+                log.warning(
+                    "7z exited with code %s while extracting %s, continuing with extracted files: %s",
+                    result.returncode,
+                    archive_path,
+                    details,
+                )
+                return
             raise CuckooPackageError(f"Unable to extract archive: {details}")
         # Discard partial members between candidates without relaxing privacy.
-        shutil.rmtree(extract_path)
-        os.makedirs(extract_path, mode=0o700)
+        _cleanup_new_entries(extract_path, existing_entries)
     raise CuckooPackageError("Wrong password(s) provided")
 
 

@@ -17,6 +17,13 @@ from lib.common.results import NetlogFile, append_buffer_to_host
 
 log = logging.getLogger(__name__)
 
+_NON_EXECUTABLE_ELF_SUFFIXES = (".so", ".o", ".a", ".ko")
+
+
+def _is_non_executable_elf_name(file_name: str) -> bool:
+    base = os.path.basename(file_name).lower()
+    return base.endswith(_NON_EXECUTABLE_ELF_SUFFIXES) or ".so." in base
+
 class Package:
     """Base abstract analysis package."""
 
@@ -88,6 +95,7 @@ class Package:
         self.proc = subprocess.Popen(
             final_cmd,
             env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"},
+            stdin=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             shell=True
         )
@@ -178,7 +186,7 @@ class Package:
         elif file_name.lower().endswith(".ps1"):
             exec_string = f"/usr/bin/pwsh -NoProfile -File {quoted_path}"
             return self.execute(exec_string)
-        elif is_elf_image(file_path):
+        elif not _is_non_executable_elf_name(file_name) and is_elf_image(file_path):
             os.chmod(file_path, st_mode | stat.S_IXUSR)
             exec_string = f'{shlex.quote(file_path)} {self.options.get(OPT_ARGUMENTS, "")}'
             return self.execute(exec_string)

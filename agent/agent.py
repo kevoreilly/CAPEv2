@@ -4,6 +4,7 @@
 
 import argparse
 import base64
+import contextlib
 import enum
 import http.server
 import ipaddress
@@ -146,12 +147,62 @@ class _BoundedReader:
                 break
 
 
+class _SpilledTempFile:
+    """NamedTemporaryFile wrapper that supports zero-copy move_to() and unlinks on close()."""
+
+    def __init__(self) -> None:
+        self._fp: IO[bytes] = tempfile.NamedTemporaryFile("w+b", prefix="cape-part-", delete=False)
+        self.name: str = self._fp.name
+        self._moved = False
+
+    @property
+    def closed(self) -> bool:
+        return self._fp.closed
+
+    def write(self, data: Union[bytes, bytearray]) -> int:
+        return self._fp.write(data)
+
+    def read(self, size: int = -1) -> bytes:
+        return self._fp.read(size)
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self._fp.seek(offset, whence)
+
+    def seekable(self) -> bool:
+        return True
+
+    def readable(self) -> bool:
+        return True
+
+    def writable(self) -> bool:
+        return True
+
+    def tell(self) -> int:
+        return self._fp.tell()
+
+    def flush(self) -> None:
+        self._fp.flush()
+
+    def move_to(self, dest_path: str) -> None:
+        self._fp.flush()
+        self._fp.close()
+        shutil.move(self.name, dest_path)
+        self._moved = True
+
+    def close(self) -> None:
+        with contextlib.suppress(Exception):
+            self._fp.close()
+        if not self._moved and self.name:
+            with contextlib.suppress(OSError):
+                os.unlink(self.name)
+
+
 class _PartFileSink:
-    """Buffer small uploaded files in BytesIO and spill larger ones to TemporaryFile."""
+    """Buffer small uploaded files in BytesIO and spill larger ones to a temporary file."""
 
     def __init__(self, max_mem_bytes: int = _MULTIPART_MEMORY_LIMIT) -> None:
         self._max_mem_bytes = max_mem_bytes
-        self._buf: IO[bytes] = BytesIO()
+        self._buf: Any = BytesIO()
         self._size = 0
         self._spilled = False
 
@@ -160,7 +211,7 @@ class _PartFileSink:
             return
         next_size = self._size + len(data)
         if not self._spilled and next_size > self._max_mem_bytes:
-            tmp: IO[bytes] = tempfile.TemporaryFile("w+b")
+            tmp: Any = _SpilledTempFile()
             self._buf.seek(0)
             shutil.copyfileobj(self._buf, tmp)
             self._buf.close()
@@ -931,11 +982,17 @@ def do_store():
         return json_error(400, "No file has been provided")
 
     try:
-        dirpath = os.path.dirname(request.form["filepath"])
+        filepath = request.form["filepath"]
+        dirpath = os.path.dirname(filepath)
         if dirpath:
             os.makedirs(dirpath, exist_ok=True)
-        with open(request.form["filepath"], "wb") as f:
-            shutil.copyfileobj(request.files["file"], f, 10 * 1024 * 1024)
+        uploaded = request.files["file"]
+        move_to = getattr(uploaded, "move_to", None)
+        if callable(move_to):
+            move_to(filepath)
+        else:
+            with open(filepath, "wb") as f:
+                shutil.copyfileobj(uploaded, f, 10 * 1024 * 1024)
     except Exception as ex:
         return json_exception(f"Error storing file: {ex}")
 

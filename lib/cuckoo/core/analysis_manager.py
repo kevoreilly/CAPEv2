@@ -1,4 +1,5 @@
 import contextlib
+import datetime
 import functools
 import logging
 import os
@@ -21,6 +22,7 @@ from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
+from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.database import Database, _Database, run_db_unit
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, TASK_FAILED_ANALYSIS, Task
 from lib.cuckoo.core.data.machines import Machine
@@ -149,6 +151,9 @@ class AnalysisManager(threading.Thread):
         self.nexthop_interface = None
         self.nexthop_rt_table = None
         self.nexthop_priority = None
+        self.guest_manager: Optional[GuestManager] = None
+        self.guest_started_on: Optional[datetime.datetime] = None
+        self.stuck_vm_killed: bool = False
 
     def _db_unit(self, fn: Callable[[], Any], desc: str) -> Any:
         """Run fn() in its own transaction, retried once on a lost DB connection."""
@@ -455,6 +460,7 @@ class AnalysisManager(threading.Thread):
         options = self.build_options()
 
         guest_manager = GuestManager(self.machine.name, self.machine.ip, self.machine.platform, self.task.id, self)
+        self.guest_manager = guest_manager
 
         def _prepare_guest_start():
             if Config("web").guacamole.enabled and hasattr(self.machinery_manager.machinery, "store_vnc_port"):
@@ -465,6 +471,7 @@ class AnalysisManager(threading.Thread):
 
         options["clock"] = self._db_unit(_prepare_guest_start, f"guest start preparation for task {self.task.id}")
         guest_manager.start_analysis(options)
+        self.guest_started_on = _utcnow_naive()
         try:
             if guest_manager.get_status_from_db() == "starting":
                 guest_manager.set_status_in_db("running")

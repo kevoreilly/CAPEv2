@@ -606,6 +606,8 @@ class GuestManager:
                 break
 
             time.sleep(1)
+            if not self.do_run:
+                break
 
             if cfg.cuckoo.machinery_screenshots:
                 if count == 0:
@@ -627,6 +629,8 @@ class GuestManager:
             try:
                 status = self.get("/status", timeout=5).json()
             except (CuckooGuestError, requests.exceptions.ReadTimeout) as e:
+                if not self.do_run:
+                    break
                 # Add a counter for consecutive failures
                 consecutive_failures += 1  # You need to init this to 0 outside loop
 
@@ -638,6 +642,8 @@ class GuestManager:
                     return # Or raise exception
                 continue
             except Exception as e:
+                if not self.do_run:
+                    break
                 log.exception("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e)
                 continue
 

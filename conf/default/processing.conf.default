@@ -148,8 +148,8 @@ nullterminated_only = no
 minchars = 5
 
 [static_shellcode_check]
-enabled = yes
-on_demand = yes
+enabled = no
+on_demand = no
 cape_payloads = yes
 submitted_shellcode = yes
 shellcode_depth = 262144

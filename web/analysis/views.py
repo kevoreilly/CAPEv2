@@ -140,6 +140,12 @@ HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
+from lib.cuckoo.common.integrations.shellcode_utils import (
+    HAVE_SHELLCODE_CHECK,
+    run_shellcode_on_demand,
+    shellcode_on_demand_kwargs,
+)
+
 HAVE_VIRUSTOTAL = False
 if processing_cfg.virustotal.on_demand:
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
@@ -276,6 +282,8 @@ def get_tags_tasks(task_ids: list) -> str:
 
 def get_task_package(task_id: int) -> str:
     task = db.view_task(task_id)
+    if not task:
+        return ""
     task_dict = task.to_dict()
     return task_dict.get("package", "")
 
@@ -3970,6 +3978,21 @@ def statistics_data(request, days=7):
     return render(request, "error.html", {"title": "Statistics", "error": "Provide days as number"})
 
 
+def _shellcode_on_demand_kwargs(task_id, category: str, sha256: str) -> dict | None:
+    """On-demand shellcode analysis only for what CAPE typed as shellcode
+    (Injected Shellcode/Data, Unpacked Shellcode) or a shellcode-package submission."""
+    return shellcode_on_demand_kwargs(
+        task_id,
+        category,
+        sha256,
+        db=db,
+        analysis_base_path=ANALYSIS_BASE_PATH,
+        path_safe_fn=_path_safe,
+        mongodb_enabled=bool(enabledconf.get("mongodb")),
+        mongo_find_one_fn=globals().get("mongo_find_one"),
+    )
+
+
 on_demand_config_mapper = {
     "bingraph": reporting_cfg,
     "flare_capa": integrations_cfg,
@@ -3978,6 +4001,7 @@ on_demand_config_mapper = {
     "strings": processing_cfg,
     "floss": integrations_cfg,
     "virustotal": integrations_cfg,
+    "static_shellcode_check": processing_cfg,
 }
 
 
@@ -4104,6 +4128,21 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             details = extract_strings(path, on_demand=True)
             if not details:
                 details = {"strings": "No strings extracted"}
+
+        elif service == "static_shellcode_check" and HAVE_SHELLCODE_CHECK:
+            sc_kwargs = _shellcode_on_demand_kwargs(task_id, category, sha256)
+            if sc_kwargs is None:
+                return render(
+                    request,
+                    "error.html",
+                    {"error": "Shellcode analysis is only offered for CAPE shellcode payloads and shellcode package submissions"},
+                    status=400,
+                )
+            details = run_shellcode_on_demand(
+                path,
+                sc_kwargs,
+                max_scan=int(processing_cfg.static_shellcode_check.get("shellcode_depth", 262144) or 262144),
+            )
 
         elif service == "virustotal" and HAVE_VIRUSTOTAL:
             details = vt_lookup("file", sha256, on_demand=True)
@@ -4244,7 +4283,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 else:
                     update_static_preview_service(sha256, service, details)
                 if request.headers.get("HX-Request"):
-                    preview = get_static_preview(task, run_full=False) or {}
+                    preview = dict(get_static_preview(task, run_full=False) or {})
+                    preview["expand_service"] = service
                     return render(request, "analysis/generic/_file_info.html", preview)
                 return redirect("submission_status", task_id=task_id)
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
@@ -4327,7 +4367,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             if task and task_sha256 == sha256:
                 from submission.static_preview import get_static_preview
 
-                preview = get_static_preview(task, run_full=False) or {}
+                preview = dict(get_static_preview(task, run_full=False) or {})
+                preview["expand_service"] = service
                 return render(request, "analysis/generic/_file_info.html", preview)
             return HttpResponse("Analysis not found", status=404)
 
@@ -4377,6 +4418,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             "on_demand": on_demand_conf,
             "graphs": graphs,
             "analysis": report,
+            "expand_service": service,
         }
         return render(request, "analysis/generic/_file_info.html", context)
 

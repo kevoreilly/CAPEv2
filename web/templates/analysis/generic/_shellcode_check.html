@@ -1,0 +1,193 @@
+<section id="static_analysis_shellcode" class="mb-4">
+    {% with sc=file.static_shellcode_check %}
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex flex-wrap justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-microchip me-2 text-info"></i> Shellcode Analysis</h5>
+            <div>
+                {% if sc.verdict == "shellcode" %}<span class="badge bg-danger">Confirmed shellcode</span>
+                {% elif sc.verdict == "likely" %}<span class="badge bg-warning text-dark">Likely shellcode</span>
+                {% elif sc.verdict == "code" %}<span class="badge bg-info text-dark">Valid code, no shellcode traits</span>
+                {% elif sc.verdict == "image" %}<span class="badge bg-secondary">Image: {{sc.reason}}</span>
+                {% elif sc.verdict == "trampoline" %}<span class="badge bg-secondary">Hook/trampoline stub</span>
+                {% elif sc.verdict == "unavailable" %}<span class="badge bg-secondary">Unavailable: {{sc.error}}</span>
+                {% else %}<span class="badge bg-secondary">Data (not code){% if sc.reason %}: {{sc.reason}}{% endif %}</span>{% endif %}
+                {% if sc.arch and sc.verdict != "data" and sc.verdict != "unavailable" %}<span class="badge bg-dark border border-secondary">{{sc.arch}}</span>{% endif %}
+                {% if sc.verdict != "data" and sc.verdict != "unavailable" %}{% if sc.pic == "yes" %}<span class="badge bg-dark border border-success">PIC</span>{% elif sc.pic == "no" %}<span class="badge bg-dark border border-secondary">position-dependent</span>{% endif %}{% endif %}
+                {% if sc.encoder %}<span class="badge bg-info text-dark">encoder: {{sc.encoder.name}}</span>{% endif %}
+                {% for fw in sc.frameworks %}<span class="badge bg-warning text-dark">{{fw.label|default:fw.name}}</span>{% endfor %}
+                {% if sc.score %}<span class="badge bg-dark border border-secondary">score {{sc.score}}</span>{% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+
+            {% if sc.capabilities %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Capabilities</h6>
+            <div class="mb-3">
+                {% for cap, apis in sc.capabilities.items %}
+                <span class="badge bg-primary me-1 mb-1"{% if apis %} title="{{apis|join:", "}}"{% endif %}>{{cap}}{% if apis %} <span class="fw-normal opacity-75">({{apis|join:", "}})</span>{% endif %}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if sc.frameworks %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Frameworks</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    <thead><tr><th style="width: 14%;">Framework</th><th style="width: 10%;" title="identified: the generator's exact output layout plus an internal consistency check">Confidence</th><th>Evidence</th><th style="width: 34%;">Details</th></tr></thead>
+                    {% for fw in sc.frameworks %}
+                    <tr>
+                        <td class="fw-bold">{{fw.name}}{% if fw.arch %} <span class="badge bg-dark border border-secondary">{{fw.arch}}</span>{% endif %}</td>
+                        <td><span class="badge bg-warning text-dark">identified</span></td>
+                        <td>{% for ev in fw.evidence %}<div>{{ev}}</div>{% endfor %}</td>
+                        <td>{% for k, v in fw.details.items %}<div><span class="text-white-50">{{k}}:</span> <span class="font-monospace">{{v}}</span></div>{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
+            {% if sc.encoder %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Encoder</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    <thead><tr><th style="width: 24%;">Encoder</th><th style="width: 10%;">Layers</th><th style="width: 24%;">Decoded payload</th><th>Inner indicators</th></tr></thead>
+                    <tr>
+                        <td class="fw-bold font-monospace">{{sc.encoder.name}}{% if sc.encoder.arch %} <span class="badge bg-dark border border-secondary">{{sc.encoder.arch}}</span>{% endif %}</td>
+                        <td>{{sc.encoder.layers}}</td>
+                        <td>{% if sc.encoder.payload %}{{sc.encoder.payload}} ({{sc.encoder.payload_size|filesizeformat}}){% else %}<span class="text-white-50">identified (not decoded)</span>{% endif %}</td>
+                        <td class="font-monospace">{% if sc.encoder.payload_indicators %}{{sc.encoder.payload_indicators}}{% else %}<span class="text-white-50">-</span>{% endif %}</td>
+                    </tr>
+                </table>
+            </div>
+            {% endif %}
+
+            {% if sc.indicators %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Indicators</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    <thead><tr><th style="width: 10%;" title="How strongly this indicator on its own shows the blob is shellcode. Not a measure of maliciousness.">Shellcode confidence</th><th style="width: 18%;">Indicator</th><th style="width: 12%;">Group</th><th>Description</th><th style="width: 22%;">Where</th></tr></thead>
+                    {% for ind in sc.indicators %}
+                    <tr>
+                        <td>
+                            {% if ind.confidence == "high" %}<span class="badge bg-primary">high</span>
+                            {% elif ind.confidence == "medium" %}<span class="badge bg-info text-dark">medium</span>
+                            {% elif ind.confidence == "low" %}<span class="badge bg-secondary">low</span>
+                            {% else %}<span class="badge bg-dark border border-secondary">info</span>{% endif %}
+                        </td>
+                        <td class="font-monospace">{{ind.name}}</td>
+                        <td class="text-white-50">{{ind.group}}</td>
+                        <td>{{ind.description}}</td>
+                        <td class="font-monospace">{% for off in ind.offsets %}{% if ind.name == "framework_layout" %}{{off}}{% else %}<a href="#sc-{{file.sha256}}-{{ind.name}}-{{off}}">{{off}}</a>{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
+            {% if sc.regions %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Protected / decoded regions</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    <thead><tr><th>Start</th><th>End</th><th>Size</th><th title="verified: decoded statically and checked; structural: bounds proven by the blob's own layout (length field, computed offset); linked: decoder tied to the blob, output not checkable without stepping">Status</th><th>Framework</th><th>Found by</th><th>Decodes to</th><th title="Byte entropy of the region as stored (and after decoding)">Entropy</th></tr></thead>
+                    {% for rg in sc.regions %}
+                    <tr>
+                        <td class="font-monospace">{{rg.start}}</td>
+                        <td class="font-monospace">{% if rg.end %}{{rg.end}}{% else %}<span class="text-white-50" title="The loop bound is not a constant">unknown</span>{% endif %}</td>
+                        <td>{% if rg.size %}{{rg.size}} bytes{% else %}<span class="text-white-50">-</span>{% endif %}</td>
+                        <td>{% if rg.status == "verified" %}<span class="badge bg-danger">verified</span>{% elif rg.status == "structural" %}<span class="badge bg-info text-dark">structural</span>{% else %}<span class="badge bg-secondary">linked</span>{% endif %}</td>
+                        <td>{% if rg.framework %}<span class="badge bg-warning text-dark">{{rg.framework}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}</td>
+                        <td class="font-monospace">{{rg.source}}</td>
+                        <td>{% if rg.result %}{{rg.result}}{% else %}<span class="text-white-50">-</span>{% endif %}</td>
+                        <td class="font-monospace">{% if rg.entropy is not None %}{{rg.entropy}}{% else %}<span class="text-white-50">-</span>{% endif %}{% if rg.decoded_entropy is not None %} &rarr; {{rg.decoded_entropy}}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
+            {% if sc.extracted %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Extracted payloads</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    <thead><tr><th style="width: 18%;">Type</th><th>SHA256</th><th style="width: 10%;">Size</th><th style="width: 8%;">Offset</th><th>Recovered from</th></tr></thead>
+                    {% for ex in sc.extracted %}
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">{{ex.cape_type}}</span></td>
+                        <td class="font-monospace text-break">{% if tab_name == "CAPE" %}<a href="#file-info-{{ex.sha256}}" class="text-info text-decoration-none">{{ex.sha256}}</a>{% else %}{{ex.sha256}}{% endif %}</td>
+                        <td>{{ex.size|filesizeformat}}</td>
+                        <td class="font-monospace">{{ex.offset}}</td>
+                        <td>{{ex.description}}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
+            {% if sc.iocs %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Extracted Indicators (IOCs)</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    {% for cat, values in sc.iocs.items %}
+                    <tr>
+                        <th style="width: 12%;">{{cat}}</th>
+                        <td class="text-break">{% for v in values %}<code class="me-2">{{v}}</code>{% endfor %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
+            {% if sc.evidence %}
+            {% for ev in sc.evidence %}{% if ev.indicator != "framework_layout" %}{% ifchanged %}<h6 class="text-white-50 text-uppercase small fw-bold">Where it matched</h6>{% endifchanged %}{% endif %}{% endfor %}
+            <div class="row">
+                {% for ev in sc.evidence %}{% if ev.indicator != "framework_layout" %}
+                <div class="col-lg-6 mb-3" id="sc-{{file.sha256}}-{{ev.indicator}}-{{ev.offset}}">
+                    <div class="small"><span class="font-monospace text-info">{{ev.offset}}</span> <span class="font-monospace">{{ev.indicator}}</span></div>
+                    {% if ev.context %}
+                    <pre class="bg-black border border-secondary rounded p-2 mb-0 small">{% for line in ev.context %}{% if not line.0 %}<span class="text-white-50 d-block fst-italic">{{""|stringformat:"10s"}}  {{line.1}}{% if line.3 %}  ({{line.3}}){% endif %}</span>{% else %}<span class="{% if line.2 %}bg-warning text-dark fw-bold{% else %}text-white-50{% endif %} d-block">{{line.0|stringformat:"10s"}}  {{line.1}}{% if line.3 %}<span class="{% if line.2 %}text-dark{% else %}text-info{% endif %} fw-normal">  ; {{line.3}}</span>{% endif %}</span>{% endif %}{% endfor %}</pre>
+                    {% else %}
+                    <pre class="bg-black border border-secondary rounded p-2 mb-0 small"><span class="bg-warning text-dark fw-bold d-block">{{ev.insn}}</span></pre>
+                    {% endif %}
+                </div>
+                {% endif %}{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row">
+                {% if sc.apis %}
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-white-50 text-uppercase small fw-bold">Resolved / referenced APIs</h6>
+                    {% for api in sc.apis %}<span class="badge bg-dark border border-secondary me-1 mb-1 font-monospace">{{api}}</span>{% endfor %}
+                </div>
+                {% endif %}
+                {% if sc.stack_strings %}
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-white-50 text-uppercase small fw-bold">Stack strings</h6>
+                    {% for s in sc.stack_strings %}<code class="me-2">{{s}}</code>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if sc.embedded_pe %}
+            <h6 class="text-white-50 text-uppercase small fw-bold">Embedded PE images</h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-dark table-striped table-sm mb-0 small">
+                    <thead><tr><th>Offset</th><th>NT header</th><th>Arch</th><th>Type</th><th>SizeOfImage</th><th>MZ</th></tr></thead>
+                    {% for pe in sc.embedded_pe %}
+                    <tr><td class="font-monospace">{{pe.offset}}</td><td class="font-monospace">{{pe.nt_offset}}</td><td>{{pe.arch}}</td><td>{% if pe.dll %}DLL{% else %}EXE{% endif %}</td><td class="font-monospace">{{pe.size_of_image}}</td><td>{% if pe.mz %}present{% else %}wiped{% endif %}</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
+            <div class="small text-white-50">
+                {% if sc.entry %}entry {{sc.entry}} &middot; {% endif %}
+                {% if sc.structure %}{{sc.structure.instructions}} instructions, {{sc.structure.reached_bytes}} bytes reached &middot; {% endif %}
+                analysed {{sc.scanned|filesizeformat}} of {{sc.size|filesizeformat}}
+                {% if sc.deep_windows %} plus {{sc.deep_windows|length}} deeper window{{sc.deep_windows|length|pluralize}} ({% for w in sc.deep_windows %}{{w.start}} {{w.verdict}}{% if not forloop.last %}, {% endif %}{% endfor %}){% endif %}
+                &middot; {{sc.time_ms}} ms
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+</section>

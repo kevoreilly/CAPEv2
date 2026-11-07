@@ -147,6 +147,17 @@ on_demand = no
 nullterminated_only = no
 minchars = 5
 
+[static_shellcode_check]
+enabled = no
+on_demand = no
+cape_payloads = yes
+submitted_shellcode = yes
+shellcode_depth = 262144
+# Identified shellcode frameworks only (Donut, sRDI, pe2shc etc.)
+framework_detections = yes
+# Payloads are recovered statically (Donut, sRDI etc. or shellcode decoded from an encoder or decoder loop)
+extract_payloads = yes
+
 # Community
 [trid]
 # Specify the path to the trid binary to use for static analysis.

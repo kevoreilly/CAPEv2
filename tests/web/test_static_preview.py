@@ -416,5 +416,182 @@ class TestStaticPreview(SimpleTestCase):
         finally:
             analysis_views.processing_cfg.strings.on_demand = orig_strings
 
+    def test_shellcode_on_demand_kwargs_and_preview_package(self):
+        """Shellcode on-demand resolves arch/entry/va hints and tolerates missing SQL tasks."""
+        import analysis.views as analysis_views
+
+        sample_bytes = b"\x90" * 64
+        db, task, sha256, tmp_file = self._create_sample_task(sample_bytes, filename="sc.bin")
+        with db.session.begin():
+            t = db.view_task(task.id)
+            t.package = "shellcode_x64"
+            t.options = "offset=0x100"
+        task = db.view_task(task.id)
+
+        preview = static_preview.get_static_preview(task, run_full=False)
+        self.assertEqual(preview["analysis"]["info"]["package"], "shellcode_x64")
+
+        self.assertEqual(
+            analysis_views._shellcode_on_demand_kwargs(str(task.id), "static", sha256),
+            {"arch": "x64", "entry": "0x100"},
+        )
+        self.assertIsNone(analysis_views._shellcode_on_demand_kwargs(str(task.id), "static", "00" * 32))
+
+        # Distributed / cleaned SQL task: db.view_task returns None, falls back to MongoDB without AttributeError
+        mongo_doc = {
+            "info": {"package": "shellcode", "options": "offset=0x40"},
+            "target": {"file": {"sha256": sha256}},
+            "CAPE": {"payloads": [{"sha256": sha256, "cape_type_code": 9, "virtual_address": "0x00790000"}]},
+        }
+        with (
+            patch.object(analysis_views.db, "view_task", return_value=None),
+            patch.dict(analysis_views.enabledconf, {"mongodb": True}),
+            patch.object(analysis_views, "mongo_find_one", return_value=mongo_doc, create=True),
+            patch.object(analysis_views, "ANALYSIS_BASE_PATH", os.path.dirname(tmp_file)),
+        ):
+            self.assertEqual(analysis_views.get_task_package(999999), "")
+            self.assertEqual(
+                analysis_views._shellcode_on_demand_kwargs("999999", "target.file", sha256),
+                {"arch": "x86", "entry": "0x40"},
+            )
+            self.assertEqual(
+                analysis_views._shellcode_on_demand_kwargs("999999", "CAPE", sha256),
+                {"va": "0x00790000"},
+            )
+
+    def test_static_preview_auto_enriches_shellcode_package(self):
+        """When static_shellcode_check is enabled without on_demand, shellcode packages are enriched in preview."""
+        import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
+
+        if not sc_utils.HAVE_SHELLCODE_CHECK:
+            self.skipTest("Capstone unavailable")
+
+        msf_x64 = bytes.fromhex(
+            "fc4883e4f0e8c0000000415141505251564831d265488b5260488b5218488b5220488b7250480fb74a4a4d31c94831c0ac3c61"
+            "7c022c2041c1c90d4101c1e2ed524151488b52208b423c4801d08b80880000004885c074674801d0508b4818448b40204901d0"
+            "e35648ffc9418b34884801d64d31c94831c0ac41c1c90d4101c138e075f14c034c24084539d175d858448b40244901d066418b"
+            "0c48448b401c4901d0418b04884801d0415841585e595a41584159415a4883ec204152ffe05841595a488b12e957ffffff5d49"
+            "c7c63332000041564989e64c89f141ba4c772607ffd54831c9ba0010000041b80030000041b94000000041ba58a453e5ffd5c3"
+        )
+        db, task, sha256, tmp_file = self._create_sample_task(b"\x90" * 0x20 + msf_x64, filename="stager.bin")
+        with db.session.begin():
+            t = db.view_task(task.id)
+            t.package = "shellcode_x64"
+            t.options = "offset=0x20"
+        task = db.view_task(task.id)
+
+        sc_section = {"enabled": True, "on_demand": False, "submitted_shellcode": True, "shellcode_depth": 65536}
+        with (
+            patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
+            patch.object(static_preview.processing_conf, "static_shellcode_check", sc_section, create=True),
+        ):
+            preview = static_preview.get_static_preview(task, run_full=True)
+            sc = preview["file"].get("static_shellcode_check")
+            self.assertIsNotNone(sc)
+            self.assertEqual(sc["verdict"], "shellcode")
+            self.assertEqual(sc["arch"], "x64")
+            self.assertEqual(sc["entry"], "0x20")
+            self.assertNotIn("_payloads", sc)
+
+    def test_shellcode_templates_render_encoder_capabilities_and_links(self):
+        """Verify _file_info.html and _shellcode_check.html improvements for shellcode display."""
+        from django.template.loader import render_to_string
+
+        parent_sha = "11" * 32
+        child_sha = "22" * 32
+        sc_data = {
+            "verdict": "shellcode",
+            "arch": "x86",
+            "pic": "yes",
+            "score": 12,
+            "scanned": 512,
+            "size": 512,
+            "time_ms": 1.2,
+            "capabilities": {"raw_socket": ["WSAStartup", "connect"]},
+            "encoder": {
+                "name": "x86/shikata_ga_nai x3",
+                "arch": "x86",
+                "layers": 3,
+                "payload": "x86 code",
+                "payload_size": 310,
+                "payload_indicators": "peb_walk, api_hash_loop",
+            },
+            "indicators": [
+                {
+                    "name": f"ind_{idx}",
+                    "group": "decoders",
+                    "confidence": "high",
+                    "description": f"desc {idx}",
+                    "offsets": [f"0x{idx:x}"],
+                }
+                for idx in range(7)
+            ]
+            + [
+                {
+                    "name": "framework_layout",
+                    "group": "framework",
+                    "confidence": "high",
+                    "description": "Donut layout",
+                    "offsets": ["0x0"],
+                }
+            ],
+            "extracted": [
+                {
+                    "sha256": child_sha,
+                    "size": 4096,
+                    "cape_type": "Extracted Shellcode Payload",
+                    "framework": None,
+                    "offset": "0x1b",
+                    "description": "x86/shikata_ga_nai x3 decoded x86 code",
+                }
+            ],
+            "evidence": [{"offset": "0x0", "indicator": "framework_layout", "insn": "Donut"}],
+        }
+        html = render_to_string(
+            "analysis/generic/_file_info.html",
+            {
+                "file": {
+                    "sha256": parent_sha,
+                    "name": "payload.bin",
+                    "size": 512,
+                    "extracted_from": "00" * 32,
+                    "static_shellcode_check": sc_data,
+                },
+                "tab_name": "CAPE",
+                "id": 42,
+                "config": {"static_shellcode_check": True},
+                "on_demand": {"static_shellcode_check": False},
+                "graphs": {"bingraph": {"enabled": False, "content": {}}, "vba2graph": {"enabled": False, "content": {}}},
+                "analysis": {"info": {"id": 42, "package": "exe"}, "target": {"file": {"sha256": "ff" * 32}}},
+                "expand_service": "static_shellcode_check",
+            },
+        )
+        self.assertIn("encoder: x86/shikata_ga_nai x3", html)
+        self.assertIn("peb_walk, api_hash_loop", html)
+        self.assertIn("(WSAStartup, connect)", html)
+        self.assertIn("+2 more", html)
+        self.assertIn("1 payload extracted", html)
+        self.assertIn(f'href="#file-info-{"00" * 32}"', html)
+        self.assertIn(f'href="#file-info-{child_sha}"', html)
+        self.assertNotIn(f'href="#sc-{parent_sha}-framework_layout-0x0"', html)
+        self.assertNotIn("Where it matched", html)
+        self.assertIn(f'class="collapse show mb-3" id="shellcode_check_{parent_sha}"', html)
+
+        # Derived shellcode payload (cape_type_code == 8197 / 0x2005) gets the on-demand button
+        ondemand_html = render_to_string(
+            "analysis/generic/_file_info.html",
+            {
+                "file": {"sha256": child_sha, "name": "derived.bin", "size": 256, "cape_type_code": 8197},
+                "tab_name": "CAPE",
+                "id": 42,
+                "config": {"static_shellcode_check": True},
+                "on_demand": {"static_shellcode_check": True},
+                "graphs": {"bingraph": {"enabled": False, "content": {}}, "vba2graph": {"enabled": False, "content": {}}},
+                "analysis": {"info": {"id": 42, "package": "exe"}, "target": {"file": {"sha256": "ff" * 32}}},
+            },
+        )
+        self.assertIn("Extract: Shellcode Analysis", ondemand_html)
+
+
 
 

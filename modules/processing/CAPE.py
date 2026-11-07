@@ -26,6 +26,11 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
+from lib.cuckoo.common.integrations.shellcode_utils import (
+    SHELLCODE_CODE_MAPPING,
+    extract_shellcode_payloads,
+    process_file_shellcode,
+)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
@@ -72,6 +77,8 @@ code_mapping = {
     0x1000: "Unpacked PE Image",
     0x6A: "AMSI Buffer",
     0x6B: "AMSI Stream",
+    # recovered statically by static_shellcode_check from a shellcode payload
+    **SHELLCODE_CODE_MAPPING,
 }
 
 inject_map = {
@@ -301,6 +308,10 @@ class CAPE(Processing):
             )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
+        if metadata.get("extracted_from"):
+            file_info["extracted_from"] = metadata["extracted_from"]
+        else:
+            file_info.pop("extracted_from", None)
 
         if category in ("static", "file"):
             if MISP_HASH_LOOKUP:
@@ -423,6 +434,17 @@ class CAPE(Processing):
                     log.debug("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(cape_name, tmp_config, file_info)
 
+        shellcode_payloads = process_file_shellcode(
+            file_info,
+            file_data,
+            category=category,
+            task=self.task,
+            opts=opts,
+            results=self.results,
+            detect2pid=self.detect2pid,
+            add_statistic=self.add_statistic_tmp,
+        )
+
         self.link_configs_to_analysis()
         self.add_family_detections(file_info, cape_names)
 
@@ -441,6 +463,20 @@ class CAPE(Processing):
                 self.add_statistic_tmp("flare_capa", "time", pretime=pretime)
             self.cape["payloads"].append(file_info)
 
+        if shellcode_payloads:
+            deferred = getattr(self, "_deferred_shellcode_payloads", None)
+            if deferred is not None:
+                deferred.append((file_info, shellcode_payloads))
+            else:
+                extract_shellcode_payloads(
+                    file_info,
+                    shellcode_payloads,
+                    self_extracted_dir=self.self_extracted,
+                    process_file_cb=lambda path, append, meta: self.process_file(
+                        path, append, meta, category="CAPE", duplicated=duplicated
+                    ),
+                )
+
     def _set_dict_keys(self):
         self.cape = {"payloads": [], "configs": []}
 
@@ -449,6 +485,7 @@ class CAPE(Processing):
         @return: list of CAPE output files with related information.
         """
         self._set_dict_keys()
+        self._deferred_shellcode_payloads = []
         meta = {}
         # Required to control files extracted by integrations.conf as we store them in dropped
         duplicated: DuplicatesType = collections.defaultdict(set)
@@ -559,6 +596,16 @@ class CAPE(Processing):
                             # We set append_file to False as we don't wan't to include
                             # the files by default in the CAPE tab
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
+        deferred, self._deferred_shellcode_payloads = self._deferred_shellcode_payloads, None
+        for parent_info, payloads in deferred:
+            extract_shellcode_payloads(
+                parent_info,
+                payloads,
+                self_extracted_dir=self.self_extracted,
+                process_file_cb=lambda path, append, meta: self.process_file(
+                    path, append, meta, category="CAPE", duplicated=duplicated
+                ),
+            )
         return self.cape
 
     def update_cape_configs(self, cape_name, config, file_obj):

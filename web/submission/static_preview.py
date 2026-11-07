@@ -29,6 +29,7 @@ from lib.cuckoo.common.integrations.file_extra_info import (
     parse_rdp_file,
     trid_info,
 )
+from lib.cuckoo.common.integrations.shellcode_utils import enrich_static_preview_shellcode
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_read_file
 from lib.cuckoo.common.utils import get_options, is_text_file
@@ -258,6 +259,14 @@ def _run_read_only_static_enrichment(file_info: dict, file_path: str, task_id: s
         with suppress(Exception):
             file_info["strings"] = extract_strings(file_path, dedup=True)
 
+    enrich_static_preview_shellcode(
+        file_info,
+        file_data,
+        package=package,
+        options_dict=options_dict,
+        sc_cfg=getattr(processing_conf, "static_shellcode_check", None),
+    )
+
 
 def _store_in_memory_cache(sha256: str, file_info: dict, malware_conf: list, enriched: bool):
     if not sha256:
@@ -446,6 +455,7 @@ def _format_preview_context(task, file_info: dict, malware_conf: list, source_ur
         "info": {
             "id": task_id,
             "category": getattr(task, "category", "file"),
+            "package": getattr(task, "package", "") or "",
             "tlp": getattr(task, "tlp", None),
             "has_cents_rules": False,
         },

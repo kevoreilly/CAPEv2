@@ -152,11 +152,18 @@ class Archive(Package):
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             ret_list = []
+            max_executables = max(1, int(self.options.get("max_executables", 16) or 16))
 
             # Let the dispatcher recognize extensions case-insensitively and ELF
             # contents independently of suffix, rather than filtering twice.
             log.debug("Missing file option, inspecting extracted members: %s", file_names)
             for interesting_file in file_names:
+                if len(ret_list) >= max_executables:
+                    log.info(
+                        "Reached max_executables limit (%d) while auto-executing archive members",
+                        max_executables,
+                    )
+                    break
                 file_path = os.path.join(root, interesting_file)
                 pid = self.execute_interesting_file(root, interesting_file, file_path)
                 if pid is not None:

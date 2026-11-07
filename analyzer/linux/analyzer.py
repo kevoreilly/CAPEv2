@@ -332,11 +332,13 @@ class Analyzer:
             pid_check = False
 
         time_counter = 0
+        analysis_start = time.monotonic()
+        timeout_seconds = int(self.config.timeout)
         complete_folder = hashlib.md5(f"cape-{self.config.id}".encode()).hexdigest()
         complete_analysis_pattern = os.path.join(os.environ.get("TMP", "/tmp"), complete_folder)
         while True:
             time_counter += 1
-            if time_counter > int(self.config.timeout):
+            if time_counter > timeout_seconds or (time.monotonic() - analysis_start) >= timeout_seconds:
                 log.info("Analysis timeout hit, terminating analysis")
                 break
             if os.path.isdir(complete_analysis_pattern):

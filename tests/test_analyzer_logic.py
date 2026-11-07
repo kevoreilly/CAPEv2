@@ -505,6 +505,44 @@ def test_windows_zip_utils_extract_archive_and_upload_containment(monkeypatch, t
     zip_utils.upload_extracted_files(str(extract_dir), ["good.exe", "escape.txt"])
     upload_mock.assert_called_once()
     assert upload_mock.call_args.kwargs["metadata"] == "good.exe"
+
+    sfx_dir = tmp_path / "sfx_extract"
+    sfx_dir.mkdir()
+
+    def fake_sfx_run(cmd, **kwargs):
+        (sfx_dir / "setup.exe").write_bytes(b"MZ")
+        res = MagicMock()
+        res.returncode = 1
+        res.stderr = b"WARNING: There are some data after the end of the payload data\n"
+        res.stdout = b""
+        return res
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_sfx_run)
+    zip_utils.extract_archive("C:\\7z.exe", str(tmp_path / "installer.run"), str(sfx_dir))
+    assert (sfx_dir / "setup.exe").read_bytes() == b"MZ"
+
+
+def test_windows_archive_caps_max_executables(mock_archive_package, tmp_path, monkeypatch):
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    Archive, _ = mock_archive_package
+    monkeypatch.chdir(tmp_path)
+    archive_pkg = Archive(options={"max_executables": 2}, config=MagicMock())
+    archive_pkg.get_path_app_in_path = MagicMock(return_value="C:\\7z.exe")
+
+    def fake_extract(seven_zip_path, path, root, password, try_multiple):
+        for idx in range(5):
+            Path(root, f"p{idx}.exe").write_bytes(b"MZ\x90\x00")
+
+    monkeypatch.setitem(Archive.start.__globals__, "extract_archive", fake_extract)
+    monkeypatch.setitem(Archive.start.__globals__, "upload_extracted_files", MagicMock())
+    archive_pkg.execute_interesting_file = MagicMock(side_effect=[101, 102, 103, 104, 105])
+
+    pids = archive_pkg.start(str(tmp_path / "many.zip"))
+    assert pids == [101, 102]
+    assert archive_pkg.execute_interesting_file.call_count == 2
+
 def test_pipe_forwarder_socket_connect_error(monkeypatch):
     import ctypes
     import os

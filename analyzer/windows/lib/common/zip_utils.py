@@ -81,6 +81,15 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
             return
         if b"Wrong password" not in result.stderr + result.stdout:
             details = (result.stderr or result.stdout).decode(errors="replace").strip()
+            current_entries = set(os.listdir(extract_path)) if os.path.exists(extract_path) else set()
+            if current_entries - existing_entries:
+                log.warning(
+                    "7z exited with code %s while extracting %s, continuing with extracted files: %s",
+                    result.returncode,
+                    archive_path,
+                    details,
+                )
+                return
             raise CuckooPackageError(f"Unable to extract archive: {details}")
         log.debug("The provided password '%s' was incorrect", str(candidate))
         _cleanup_new_entries(extract_path, existing_entries)

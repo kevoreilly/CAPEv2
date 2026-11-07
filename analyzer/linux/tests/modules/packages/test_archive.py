@@ -249,3 +249,51 @@ def test_extract_archive_empty_password_defaults_to_infected_and_reads_stdout_er
     with pytest.raises(archive.CuckooPackageError, match="Can not open the file as archive"):
         zip_utils.extract_archive("/usr/bin/7z", str(tmp_path / "bad.7z"), str(tmp_path), password="")
     assert "-pinfected" in seen_args[0]
+
+
+def test_extract_archive_tolerates_nonzero_exit_when_files_extracted(monkeypatch, tmp_path):
+    from lib.common import zip_utils
+
+    extract_dir = tmp_path / "out"
+    extract_dir.mkdir()
+
+    def fake_run(cmd, **kwargs):
+        (extract_dir / "payload.sh").write_bytes(b"echo ok\n")
+        res = Mock()
+        res.returncode = 1
+        res.stderr = b"WARNING: There are some data after the end of the payload data\n"
+        res.stdout = b""
+        return res
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run)
+    zip_utils.extract_archive("/usr/bin/7z", str(tmp_path / "sample.run"), str(extract_dir))
+    assert (extract_dir / "payload.sh").exists()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Requires ELF Python binary")
+def test_archive_skips_shared_libraries_and_caps_max_executables(prepare_archive, tmp_path):
+    elf_bytes = Path(sys.executable).read_bytes()
+    members = {
+        "libfoo.so": elf_bytes,
+        "libbar.so.1.2": elf_bytes,
+        "mod.ko": elf_bytes,
+        "s1.sh": b"echo 1\n",
+        "s2.sh": b"echo 2\n",
+        "s3.sh": b"echo 3\n",
+    }
+    package, _, _ = prepare_archive(members, {"max_executables": 2})
+    executed = []
+
+    def track_exec(cmd):
+        executed.append(cmd)
+        return 1000 + len(executed)
+
+    package.execute = track_exec
+    try:
+        pids = package.start(str(tmp_path / "bundle.zip"))
+        assert pids == [1001, 1002]
+        assert len(executed) == 2
+        assert all(".so" not in cmd and ".ko" not in cmd for cmd in executed)
+    finally:
+        package.finish()
+

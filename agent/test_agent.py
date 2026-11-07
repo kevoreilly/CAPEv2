@@ -921,14 +921,14 @@ class TestMultipartStreamParser:
 
     def test_aborted_stream_closes_spilled_tempfiles(self, monkeypatch):
         created_files = []
-        real_temp_file = tempfile.TemporaryFile
+        real_spilled = agent._SpilledTempFile
 
-        def tracking_temp_file(*args, **kwargs):
-            fp = real_temp_file(*args, **kwargs)
+        def tracking_spilled(*args, **kwargs):
+            fp = real_spilled(*args, **kwargs)
             created_files.append(fp)
             return fp
 
-        monkeypatch.setattr(agent.tempfile, "TemporaryFile", tracking_temp_file)
+        monkeypatch.setattr(agent, "_SpilledTempFile", tracking_spilled)
 
         boundary = b"bndry123"
         truncated = (
@@ -946,3 +946,25 @@ class TestMultipartStreamParser:
 
         assert len(created_files) == 2
         assert all(fp.closed for fp in created_files)
+        assert all(not os.path.exists(fp.name) for fp in created_files)
+
+    def test_do_store_moves_spilled_tempfile_without_second_copy(self, tmp_path, monkeypatch):
+        sink = agent._PartFileSink(max_mem_bytes=16)
+        payload = b"Z" * 64
+        sink.write(payload)
+        spilled = sink.finish()
+        temp_path = spilled.name
+        assert os.path.exists(temp_path)
+
+        dest_path = tmp_path / "stored" / "sample.run"
+        monkeypatch.setattr(agent.request, "form", {"filepath": str(dest_path)})
+        monkeypatch.setattr(agent.request, "files", {"file": spilled})
+        try:
+            resp = agent.do_store()
+            assert resp.status_code == 200
+            assert dest_path.read_bytes() == payload
+            assert not os.path.exists(temp_path)
+        finally:
+            spilled.close()
+        assert dest_path.read_bytes() == payload
+

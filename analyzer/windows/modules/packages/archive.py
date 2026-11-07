@@ -33,6 +33,9 @@ from modules.packages.dll import DLL_OPTIONS
 
 log = logging.getLogger(__name__)
 
+_MAX_ROOT_COPY_FILES = 100
+_MAX_ROOT_COPY_BYTES = 100 * 1024 * 1024
+
 
 class Archive(Package):
     """Archive analysis package."""
@@ -80,20 +83,30 @@ class Archive(Package):
             self._free_mode_execution_succeeded = True
         return pid
 
-    def execute_files(self, root, interesting_files):
+    def execute_files(self, root, interesting_files, max_executables=None):
         ret_list = []
         last_error = None
         self._free_mode_execution_succeeded = False
+        launched_files = 0
         try:
             for interesting_file in interesting_files:
+                if max_executables is not None and launched_files >= max_executables:
+                    log.info(
+                        "Reached max_executables limit (%d) while auto-executing archive members",
+                        max_executables,
+                    )
+                    break
                 file_path = os.path.join(root, interesting_file)
                 try:
                     pids = self.execute_interesting_file(root, interesting_file, file_path)
                     if pids:
+                        launched_files += 1
                         if isinstance(pids, list):
                             ret_list.extend(pids)
                         else:
                             ret_list.append(pids)
+                    elif self.options.get(OPT_FREE, False) and self._free_mode_execution_succeeded:
+                        launched_files += 1
                 except CuckooPackageError as e:
                     last_error = e
                     log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
@@ -225,27 +238,44 @@ class Archive(Package):
 
         upload_extracted_files(root, files_at_root)
 
+        total_bytes = 0
+        if len(files_at_root) <= _MAX_ROOT_COPY_FILES:
+            for rel_path in files_at_root:
+                try:
+                    total_bytes += os.path.getsize(os.path.join(root, rel_path))
+                except OSError:
+                    continue
+                if total_bytes > _MAX_ROOT_COPY_BYTES:
+                    break
+
         # Copy these files to the root directory, just in case!
-        dirs = []
-        for item in os.listdir(root):
-            d = os.path.join(root, item)
-            resolved_d = os.path.realpath(d)
-            if os.path.commonpath((resolved_root, resolved_d)) != resolved_root:
-                continue
-            if d in nested_dirs or d in extracted_archives:
-                continue
-            if os.path.isdir(d):
-                if d not in dirs:
-                    dirs.append(d)
+        if len(files_at_root) <= _MAX_ROOT_COPY_FILES and total_bytes <= _MAX_ROOT_COPY_BYTES:
+            dirs = []
+            for item in os.listdir(root):
+                d = os.path.join(root, item)
+                resolved_d = os.path.realpath(d)
+                if os.path.commonpath((resolved_root, resolved_d)) != resolved_root:
+                    continue
+                if d in nested_dirs or d in extracted_archives:
+                    continue
+                if os.path.isdir(d):
+                    if d not in dirs:
+                        dirs.append(d)
+                        try:
+                            shutil.copytree(d, os.path.join("C:\\", item), dirs_exist_ok=True)
+                        except Exception as e:
+                            log.warning("Couldn't copy %s to root of C: %s", d, str(e))
+                else:
                     try:
-                        shutil.copytree(d, os.path.join("C:\\", item), dirs_exist_ok=True)
+                        shutil.copy(d, "C:\\")
                     except Exception as e:
                         log.warning("Couldn't copy %s to root of C: %s", d, str(e))
-            else:
-                try:
-                    shutil.copy(d, "C:\\")
-                except Exception as e:
-                    log.warning("Couldn't copy %s to root of C: %s", d, str(e))
+        else:
+            log.info(
+                "Skipping copy of %d archive members (%d bytes) to C:\\",
+                len(files_at_root),
+                total_bytes,
+            )
 
         file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.
@@ -257,7 +287,8 @@ class Archive(Package):
                 log.debug("No interesting files found, auto executing the first file: %s", file_names[0])
                 interesting_files.append(file_names[0])
 
+            max_executables = max(1, int(self.options.get("max_executables", 16) or 16))
             log.debug("Missing file option, auto executing: %s", interesting_files)
-            return self.execute_files(root, interesting_files)
+            return self.execute_files(root, interesting_files, max_executables=max_executables)
         else:
             return self.execute_files(root, [file_name])

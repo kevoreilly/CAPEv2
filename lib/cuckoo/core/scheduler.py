@@ -25,6 +25,7 @@ from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.database import Database, _Database
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.task import Task, TASK_FAILED_ANALYSIS, TASK_PENDING
+from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.machinery_manager import MachineryManager
 
 log = logging.getLogger(__name__)
@@ -92,13 +93,33 @@ class Scheduler:
             for analysis in self.analysis_threads:
                 if not analysis.machine or not analysis.task or not analysis.task.started_on:
                     continue
+                if getattr(analysis, "stuck_vm_killed", False):
+                    continue
 
                 stuck_seconds = self.cfg.timeouts.get("stuck_seconds", 100)
                 vm_state = self.cfg.timeouts.get("vm_state", 100)
                 timeout = analysis.task.timeout or self.cfg.timeouts.default
-                max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state
-                duration = (_utcnow_naive() - analysis.task.started_on).total_seconds()
+                guest_started_on = getattr(analysis, "guest_started_on", None)
+                if guest_started_on is not None:
+                    max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds
+                    duration = (_utcnow_naive() - guest_started_on).total_seconds()
+                else:
+                    upload_grace = 0
+                    binary_path = getattr(analysis, "binary", "") or getattr(analysis.task, "target", "")
+                    if binary_path:
+                        with contextlib.suppress(OSError):
+                            file_size = os.path.getsize(binary_path)
+                            upload_grace = GuestManager._upload_timeout(file_size)[1]
+                    max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state + upload_grace
+                    duration = (_utcnow_naive() - analysis.task.started_on).total_seconds()
+
                 if duration > max_runtime:
+                    analysis.stuck_vm_killed = True
+                    guest_manager = getattr(analysis, "guest_manager", None)
+                    if guest_manager is not None:
+                        with contextlib.suppress(Exception):
+                            guest_manager.stop()
+
                     log.warning(
                         "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",
                         analysis.task.id,

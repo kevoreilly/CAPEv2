@@ -250,10 +250,19 @@ class Package:
         if not stat.S_ISREG(st_mode):
             return None
 
+        # Start the file from the folder that contains it, as Explorer does on a double-click.
+        # A sample in a sub folder of an archive often starts its other files with relative
+        # paths, e.g. a .lnk with an empty "Start in" that runs "cmd /c start ~\run.bat".
+        # For a file at the top of the extraction folder, this folder is root itself.
+        run_folder = os.path.dirname(file_path)
+        if run_folder:
+            run_folder = os.path.normpath(run_folder)
+        else:
+            run_folder = root
         # File extensions that require cmd.exe to run
         if file_name.lower().endswith((".lnk", ".bat", ".cmd")):
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
+            cmd_args = f'/c "cd ^"{run_folder}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
         # File extensions that require msiexec.exe to run
         elif file_name.lower().endswith(".msi"):
@@ -264,7 +273,7 @@ class Package:
         elif file_name.lower().endswith((".js", ".jse", ".vbs", ".vbe", ".wsf")):
             cmd_path = self.get_path("cmd.exe")
             wscript = self.get_path_app_in_path("wscript.exe")
-            cmd_args = f'/c "cd ^"{root}^" && {wscript} ^"{file_path}^"'
+            cmd_args = f'/c "cd ^"{run_folder}^" && {wscript} ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
         # File extensions that require rundll32.exe/regsvr32.exe to run
         elif file_name.lower().endswith((".dll", ".db", ".dat", ".tmp", ".temp")):
@@ -325,7 +334,7 @@ class Package:
                 os.rename(file_path, new_path)
                 file_path = new_path
             cmd_path = self.get_path("cmd.exe")
-            cmd_args = f'/c "cd ^"{root}^" && start /wait ^"^" ^"{file_path}^"'
+            cmd_args = f'/c "cd ^"{run_folder}^" && start /wait ^"^" ^"{file_path}^"'
             return self.execute(cmd_path, cmd_args, file_path)
 
 

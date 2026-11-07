@@ -80,7 +80,7 @@
             {% if file.extracted_from %}
             <tr>
                 <th class="text-end text-info" style="width: 15%;">Extracted From</th>
-                <td class="font-monospace text-break">{{file.extracted_from}}</td>
+                <td class="font-monospace text-break">{% if tab_name == "CAPE" %}<a href="#file-info-{{file.extracted_from}}" class="text-info text-decoration-none">{{file.extracted_from}}</a>{% else %}{{file.extracted_from}}{% endif %}</td>
             </tr>
             {% endif %}
 
@@ -296,22 +296,28 @@
             {% if file.static_shellcode_check %}
             {% with sc=file.static_shellcode_check %}
             <tr>
-                <th class="text-end text-info" style="width: 15%;">Shellcode Check</th>
+                <th class="text-end text-info" style="width: 15%;">
+                    <a class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" href="#shellcode_check_{{file.sha256}}" role="button"><i class="fas fa-microchip"></i> Shellcode Check</a>
+                </th>
                 <td>
                     {% if sc.verdict == "shellcode" %}<span class="badge bg-danger">Confirmed shellcode</span>
                     {% elif sc.verdict == "likely" %}<span class="badge bg-warning text-dark">Likely shellcode</span>
                     {% elif sc.verdict == "code" %}<span class="badge bg-info text-dark">Valid code</span>
                     {% elif sc.verdict == "trampoline" %}<span class="badge bg-secondary">Hook/trampoline stub</span>
                     {% elif sc.verdict == "image" %}<span class="badge bg-secondary">Image: {{sc.reason}}</span>
-                    {% else %}<span class="badge bg-secondary">Data (not code)</span>{% endif %}
-                    {% if sc.verdict != "data" and sc.verdict != "image" %}
+                    {% elif sc.verdict == "unavailable" %}<span class="badge bg-secondary">Unavailable{% if sc.error %}: {{sc.error}}{% endif %}</span>
+                    {% else %}<span class="badge bg-secondary">Data (not code){% if sc.reason %}: {{sc.reason}}{% endif %}</span>{% endif %}
+                    {% if sc.verdict != "data" and sc.verdict != "image" and sc.verdict != "unavailable" %}
                         {% if sc.arch %}<span class="badge bg-dark border border-secondary">{{sc.arch}}</span>{% endif %}
                         {% if sc.pic == "yes" %}<span class="badge bg-dark border border-success">PIC</span>
                         {% elif sc.pic == "no" %}<span class="badge bg-dark border border-secondary">position-dependent</span>{% endif %}
                     {% endif %}
-                    {% for ind in sc.indicators %}<span class="badge bg-dark border {% if ind.confidence == "high" %}border-primary{% elif ind.confidence == "medium" %}border-info{% else %}border-secondary text-white-50{% endif %} me-1">{{ind.name}}</span>{% endfor %}
+                    {% if sc.encoder %}<span class="badge bg-info text-dark me-1">encoder: {{sc.encoder.name}}</span>{% endif %}
                     {% for fw in sc.frameworks %}<span class="badge bg-warning text-dark me-1">{{fw.label|default:fw.name}}</span>{% endfor %}
+                    {% for ind in sc.indicators|slice:":6" %}<span class="badge bg-dark border {% if ind.confidence == "high" %}border-primary{% elif ind.confidence == "medium" %}border-info{% else %}border-secondary text-white-50{% endif %} me-1">{{ind.name}}</span>{% endfor %}
+                    {% if sc.indicators|length > 6 %}<a class="badge bg-dark border border-secondary text-white-50 text-decoration-none me-1" data-bs-toggle="collapse" href="#shellcode_check_{{file.sha256}}">+{{sc.indicators|length|add:"-6"}} more</a>{% endif %}
                     {% for rg in sc.regions %}{% if rg.status == "verified" and not rg.framework %}<span class="badge bg-danger me-1">{{rg.start}}{% if rg.end %}-{{rg.end}}{% endif %} decodes to {% if rg.result_type == "pe" %}PE{% elif rg.result_type == "lowentropy" %}data{% else %}{{rg.result_type}}{% endif %}</span>{% endif %}{% endfor %}
+                    {% if sc.extracted %}<span class="badge bg-warning text-dark me-1">{{sc.extracted|length}} payload{{sc.extracted|length|pluralize}} extracted</span>{% endif %}
                 </td>
             </tr>
             {% endwith %}
@@ -358,7 +364,7 @@
 
             {% if file.static_shellcode_check %}
                 <a class="btn btn-sm btn-outline-danger me-2 mb-2" data-bs-toggle="collapse" href="#shellcode_check_{{file.sha256}}">Shellcode Analysis</a>
-            {% elif config.static_shellcode_check and on_demand.static_shellcode_check %}{% if file.cape_type_code == 4 or file.cape_type_code == 9 or file.sha256 == analysis.target.file.sha256 and analysis.info.package == "shellcode" or file.sha256 == analysis.target.file.sha256 and analysis.info.package == "shellcode_x64" %}
+            {% elif config.static_shellcode_check and on_demand.static_shellcode_check %}{% if file.cape_type_code == 4 or file.cape_type_code == 9 or file.cape_type_code == 8197 or file.sha256 == analysis.target.file.sha256 and analysis.info.package == "shellcode" or file.sha256 == analysis.target.file.sha256 and analysis.info.package == "shellcode_x64" %}
                 <a class="btn btn-sm btn-secondary me-2 mb-2"
                    href="{% url "on_demand" "static_shellcode_check" id tab_name file.sha256 %}"
                    hx-get="{% url "on_demand" "static_shellcode_check" id tab_name file.sha256 %}"
@@ -613,7 +619,7 @@
         {% if config.yara_detail and file.yara %} <div class="collapse mb-3" id="yara_{{file.sha256}}"> {% include "analysis/generic/_yara.html" %}</div>{% endif %}
         {% if config.yara_detail and file.cape_yara %} <div class="collapse mb-3" id="capeyara_{{file.sha256}}"> {% include "analysis/generic/_capeyara.html" %}</div>{% endif %}
         {% if file.pe %} <div class="collapse mb-3" id="pe_{{file.sha256}}"> {% include "analysis/generic/_pe.html" %}</div>{% endif %}
-        {% if file.static_shellcode_check %} <div class="collapse mb-3" id="shellcode_check_{{file.sha256}}"> {% include "analysis/generic/_shellcode_check.html" %}</div>{% endif %}
+        {% if file.static_shellcode_check %} <div class="collapse{% if expand_service == "static_shellcode_check" or tab_name == "static" and file.static_shellcode_check.verdict == "shellcode" or tab_name == "static" and file.static_shellcode_check.verdict == "likely" %} show{% endif %} mb-3" id="shellcode_check_{{file.sha256}}"> {% include "analysis/generic/_shellcode_check.html" %}</div>{% endif %}
         {% if file.dotnet %} <div class="collapse mb-3" id="dotnet_{{file.sha256}}"> {% include "analysis/generic/_dotnet.html" %}</div>{% endif %}
         {% if file.pdf %} <div class="collapse mb-3" id="pdf_{{file.sha256}}"> {% include "analysis/generic/_pdf.html" %}</div>{% endif %}
         {% if file.lnk %} <div class="collapse mb-3" id="lnk_{{file.sha256}}"> {% include "analysis/generic/_lnk.html" %}</div>{% endif %}

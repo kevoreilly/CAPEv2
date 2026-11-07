@@ -26,6 +26,11 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
+from lib.cuckoo.common.integrations.shellcode_utils import (
+    SHELLCODE_CODE_MAPPING,
+    extract_shellcode_payloads,
+    process_file_shellcode,
+)
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
@@ -56,22 +61,6 @@ HAVE_FLARE_CAPA = False
 if integrations_conf.flare_capa.enabled and not integrations_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
-HAVE_SHELLCODE_CHECK = False
-shellcode_conf = getattr(processing_conf, "static_shellcode_check", None) or {}
-SHELLCODE_ON_PAYLOADS = bool(shellcode_conf.get("enabled") and shellcode_conf.get("cape_payloads"))
-SHELLCODE_ON_SUBMISSION = bool(shellcode_conf.get("enabled") and shellcode_conf.get("submitted_shellcode"))
-# bytes analysed in full from the start of each payload; larger payloads are still analysed and the
-# deep scan still follows code past this point (e.g. a pe2shc stub at the end of a large PE)
-SHELLCODE_DEPTH = int(shellcode_conf.get("shellcode_depth", 262144) or 262144)
-# identified shellcode frameworks (Donut, sRDI, pe2shc) become family detections
-SHELLCODE_DETECTIONS = bool(shellcode_conf.get("framework_detections"))
-# payloads recovered statically (framework modules, decoded PE/shellcode) become CAPE payloads
-SHELLCODE_EXTRACT = bool(shellcode_conf.get("extract_payloads"))
-with suppress(ImportError):
-    from lib.cuckoo.common.integrations.shellcode_check import HAVE_CAPSTONE as HAVE_SHELLCODE_CHECK
-    from lib.cuckoo.common.integrations.shellcode_check import analyse as shellcode_analyse
-    from lib.cuckoo.common.integrations.shellcode_check import framework_family
-
 MISP_HASH_LOOKUP = False
 if externalservices_conf.misp.enabled:
     with suppress(Exception):
@@ -89,13 +78,8 @@ code_mapping = {
     0x6A: "AMSI Buffer",
     0x6B: "AMSI Stream",
     # recovered statically by static_shellcode_check from a shellcode payload
-    0x2001: "Donut Shellcode Payload",
-    0x2002: "sRDI Shellcode Payload",
-    0x2003: "pe2shc Shellcode Payload",
-    0x2005: "Extracted Shellcode Payload",
+    **SHELLCODE_CODE_MAPPING,
 }
-# framework -> type code of the payload extracted from it (None: decoded from an encoder or a decoder loop)
-SHELLCODE_PAYLOAD_CODES = {"Donut": 0x2001, "sRDI": 0x2002, "pe2shc": 0x2003, None: 0x2005}
 
 inject_map = {
     3: "Injected PE Image",
@@ -106,13 +90,6 @@ unpack_map = {
     8: "Unpacked PE Image",
     9: "Unpacked Shellcode",
 }
-
-# Payload types the monitor labels as shellcode; confirmed by static_shellcode_check
-SHELLCODE_TYPE_CODES = (4, 9)
-# extracted payloads that are themselves shellcode (checked, but not extracted from again)
-DERIVED_SHELLCODE_CODES = (0x2005,)
-# Submission packages that run the target as raw shellcode, and the architecture they imply
-SHELLCODE_PACKAGES = {"shellcode": "x86", "shellcode_x64": "x64"}
 
 
 class CAPE(Processing):
@@ -457,36 +434,16 @@ class CAPE(Processing):
                     log.debug("CAPE: config returned for: %s", cape_name)
                     self.update_cape_configs(cape_name, tmp_config, file_info)
 
-        shellcode_payloads = []
-        if HAVE_SHELLCODE_CHECK and file_data:
-            # Re-run even for cached files: it is cheap and the VA hint is per-dump
-            kwargs = None
-            code = file_info.get("cape_type_code")
-            if SHELLCODE_ON_PAYLOADS and category == "CAPE" and code in SHELLCODE_TYPE_CODES:
-                kwargs = {"va": file_info.get("virtual_address"), "extract_payloads": SHELLCODE_EXTRACT}
-            elif SHELLCODE_ON_PAYLOADS and category == "CAPE" and code in DERIVED_SHELLCODE_CODES and file_data[:2] != b"MZ":
-                kwargs = {}
-            elif SHELLCODE_ON_SUBMISSION and category in ("static", "file"):
-                package = self.task.get("package", "")
-                if package in SHELLCODE_PACKAGES:
-                    kwargs = {
-                        "arch": SHELLCODE_PACKAGES[package],
-                        "entry": opts.get("offset"),
-                        "extract_payloads": SHELLCODE_EXTRACT,
-                    }
-            if kwargs is not None:
-                pretime = timeit.default_timer()
-                try:
-                    check = shellcode_analyse(file_data, max_scan=SHELLCODE_DEPTH, **kwargs)
-                    shellcode_payloads = check.pop("_payloads", None) or []
-                    # a dump that turned out to be a complete PE (DOS header not executable) is not
-                    # shellcode, and CAPE's PE analysis already covers it: attach nothing
-                    if check.get("reason") != "PE image":
-                        file_info["static_shellcode_check"] = check
-                        self.add_framework_detections(file_info, check)
-                except Exception as e:
-                    log.error("static_shellcode_check failed for %s: %s", file_info.get("sha256"), e)
-                self.add_statistic_tmp("static_shellcode_check", "time", pretime=pretime)
+        shellcode_payloads = process_file_shellcode(
+            file_info,
+            file_data,
+            category=category,
+            task=self.task,
+            opts=opts,
+            results=self.results,
+            detect2pid=self.detect2pid,
+            add_statistic=self.add_statistic_tmp,
+        )
 
         self.link_configs_to_analysis()
         self.add_family_detections(file_info, cape_names)
@@ -511,51 +468,14 @@ class CAPE(Processing):
             if deferred is not None:
                 deferred.append((file_info, shellcode_payloads))
             else:
-                self.add_shellcode_payloads(file_info, shellcode_payloads, duplicated)
-
-    def add_framework_detections(self, file_info, check):
-        """Identified shellcode frameworks as family detections (encoders are indicators, not families)."""
-        if not SHELLCODE_DETECTIONS:
-            return
-        for fw in check.get("frameworks") or []:
-            if fw.get("confidence") != "identified":
-                continue
-            family = framework_family(fw["name"])
-            add_family_detection(self.results, family, "Shellcode", file_info["sha256"])
-            if file_info.get("pid"):
-                self.detect2pid(str(file_info["pid"]), family)
-
-    def add_shellcode_payloads(self, file_info, payloads, duplicated):
-        """Store payloads recovered statically from a shellcode payload (framework module, decoded PE
-        or shellcode) in selfextracted/ and process them as CAPE payloads of the same process."""
-        folder = self.self_extracted
-        os.makedirs(folder, exist_ok=True)
-        check = file_info.get("static_shellcode_check")
-        pids = [file_info["pid"]] if file_info.get("pid") else []
-        for payload in payloads:
-            data = payload["data"]
-            sha256 = hashlib.sha256(data).hexdigest()
-            path = os.path.join(folder, sha256)
-            if not path_exists(path):
-                Path(path).write_bytes(data)
-            code = SHELLCODE_PAYLOAD_CODES.get(payload["framework"], SHELLCODE_PAYLOAD_CODES[None])
-            if check is not None:
-                check.setdefault("extracted", []).append(
-                    {
-                        "sha256": sha256,
-                        "size": len(data),
-                        "cape_type": code_mapping[code],
-                        "framework": payload["framework"],
-                        "offset": payload["offset"],
-                        "description": payload["description"],
-                    }
+                extract_shellcode_payloads(
+                    file_info,
+                    shellcode_payloads,
+                    self_extracted_dir=self.self_extracted,
+                    process_file_cb=lambda path, append, meta: self.process_file(
+                        path, append, meta, category="CAPE", duplicated=duplicated
+                    ),
                 )
-            metadata = {
-                "metadata": f"{code};?{file_info.get('process_path', '')};?{file_info.get('module_path', '')};?",
-                "pids": pids,
-                "extracted_from": file_info["sha256"],
-            }
-            self.process_file(path, True, metadata, category="CAPE", duplicated=duplicated)
 
     def _set_dict_keys(self):
         self.cape = {"payloads": [], "configs": []}
@@ -678,7 +598,14 @@ class CAPE(Processing):
                             self.process_file(filepath, False, meta.get(filepath, {}), category=category, duplicated=duplicated)
         deferred, self._deferred_shellcode_payloads = self._deferred_shellcode_payloads, None
         for parent_info, payloads in deferred:
-            self.add_shellcode_payloads(parent_info, payloads, duplicated)
+            extract_shellcode_payloads(
+                parent_info,
+                payloads,
+                self_extracted_dir=self.self_extracted,
+                process_file_cb=lambda path, append, meta: self.process_file(
+                    path, append, meta, category="CAPE", duplicated=duplicated
+                ),
+            )
         return self.cape
 
     def update_cape_configs(self, cape_name, config, file_obj):

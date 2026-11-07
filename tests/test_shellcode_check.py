@@ -190,14 +190,15 @@ def test_cape_processing_attaches_shellcode_check(tmp_path, monkeypatch):
     import json
 
     import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+    import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
     import modules.processing.CAPE as cape_mod
 
-    if not cape_mod.HAVE_SHELLCODE_CHECK:
+    if not sc_utils.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
     monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
     monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_PAYLOADS", True)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_ON_PAYLOADS", True)
 
     payloads = {9: MSF_STYLE_X86, 4: _rand(1262, 7)}
     (tmp_path / "CAPE").mkdir()
@@ -233,14 +234,15 @@ def test_cape_processing_skips_dumps_that_are_complete_pes(tmp_path, monkeypatch
     import json
 
     import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+    import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
     import modules.processing.CAPE as cape_mod
 
-    if not cape_mod.HAVE_SHELLCODE_CHECK:
+    if not sc_utils.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
     monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
     monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_PAYLOADS", True)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_ON_PAYLOADS", True)
     pe = _pe_file()
     exec_pe = bytearray(pe)
     redir = b"MZER" + bytes.fromhex("e800000000594883e909488bc14805") + len(pe).to_bytes(4, "little") + b"\xff\xd0\xc3"
@@ -414,9 +416,10 @@ def test_entry_offset_hint():
 
 def test_submitted_shellcode_package(tmp_path, monkeypatch):
     import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+    import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
     import modules.processing.CAPE as cape_mod
 
-    if not cape_mod.HAVE_SHELLCODE_CHECK:
+    if not sc_utils.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
     monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
@@ -428,7 +431,7 @@ def test_submitted_shellcode_package(tmp_path, monkeypatch):
         __getattr__ = dict.get
 
     def run(package, on):
-        monkeypatch.setattr(cape_mod, "SHELLCODE_ON_SUBMISSION", on)
+        monkeypatch.setattr(sc_utils, "SHELLCODE_ON_SUBMISSION", on)
         proc = cape_mod.CAPE()
         proc.set_path(str(tmp_path))
         proc.file_path = str(sample)
@@ -518,15 +521,16 @@ def test_whole_blob_indicators_have_locations():
 
 def test_shellcode_depth_from_config(tmp_path, monkeypatch):
     import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+    import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
     import modules.processing.CAPE as cape_mod
 
-    if not cape_mod.HAVE_SHELLCODE_CHECK:
+    if not sc_utils.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
     monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
     monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_SUBMISSION", True)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_DEPTH", 4096)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_ON_SUBMISSION", True)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_DEPTH", 4096)
     sample = tmp_path / "binary"
     sample.write_bytes(MSF_STYLE_X64 + _rand(64 * 1024, 41))
 
@@ -1309,16 +1313,17 @@ def test_cape_processing_detections_and_extracted_payloads(tmp_path, monkeypatch
     import json
 
     import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+    import lib.cuckoo.common.integrations.shellcode_utils as sc_utils
     import modules.processing.CAPE as cape_mod
 
-    if not cape_mod.HAVE_SHELLCODE_CHECK:
+    if not sc_utils.HAVE_SHELLCODE_CHECK:
         pytest.skip("static_shellcode_check disabled in processing.conf")
     monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
     monkeypatch.setattr(cape_mod, "HAVE_VIRUSTOTAL", False)
     monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_ON_PAYLOADS", True)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_DETECTIONS", True)
-    monkeypatch.setattr(cape_mod, "SHELLCODE_EXTRACT", True)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_ON_PAYLOADS", True)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_DETECTIONS", True)
+    monkeypatch.setattr(sc_utils, "SHELLCODE_EXTRACT", True)
     (tmp_path / "CAPE").mkdir()
     with open(tmp_path / "files.json", "w") as fh:
         for data in (_fixture("donut_x64_enc"), SGN_1):

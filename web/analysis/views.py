@@ -45,7 +45,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder, get_options, yara_detected
+from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
@@ -140,10 +140,11 @@ HAVE_XLM_DEOBF = False
 if processing_cfg.xlsdeobf.on_demand:
     from lib.cuckoo.common.integrations.XLMMacroDeobfuscator import HAVE_XLM_DEOBF, xlmdeobfuscate
 
-HAVE_SHELLCODE_CHECK = False
-with suppress(ImportError):
-    from lib.cuckoo.common.integrations.shellcode_check import HAVE_CAPSTONE as HAVE_SHELLCODE_CHECK
-    from lib.cuckoo.common.integrations.shellcode_check import analyse as shellcode_analyse
+from lib.cuckoo.common.integrations.shellcode_utils import (
+    HAVE_SHELLCODE_CHECK,
+    run_shellcode_on_demand,
+    shellcode_on_demand_kwargs,
+)
 
 HAVE_VIRUSTOTAL = False
 if processing_cfg.virustotal.on_demand:
@@ -3977,65 +3978,19 @@ def statistics_data(request, days=7):
     return render(request, "error.html", {"title": "Statistics", "error": "Provide days as number"})
 
 
-SHELLCODE_PACKAGES = {"shellcode": "x86", "shellcode_x64": "x64"}
-
-
 def _shellcode_on_demand_kwargs(task_id, category: str, sha256: str) -> dict | None:
     """On-demand shellcode analysis only for what CAPE typed as shellcode
     (Injected Shellcode/Data, Unpacked Shellcode) or a shellcode-package submission."""
-    try:
-        tid = int(task_id)
-    except (TypeError, ValueError):
-        return None
-    if category in ("static", "target.file"):
-        package = ""
-        options = ""
-        task = db.view_task(tid)
-        if task:
-            sample_sha = getattr(getattr(task, "sample", None), "sha256", None)
-            if sample_sha and sample_sha != sha256:
-                return None
-            task_dict = task.to_dict()
-            package = task_dict.get("package") or ""
-            options = task_dict.get("options") or ""
-        elif enabledconf.get("mongodb"):
-            doc = mongo_find_one(
-                "analysis",
-                {"info.id": tid},
-                {"info.package": 1, "info.options": 1, "target.file.sha256": 1},
-                no_hooks=True,
-            )
-            if doc:
-                target_sha = (doc.get("target") or {}).get("file", {}).get("sha256")
-                if target_sha and target_sha != sha256:
-                    return None
-                info = doc.get("info") or {}
-                package = info.get("package") or ""
-                options = info.get("options") or ""
-        if package not in SHELLCODE_PACKAGES:
-            return None
-        return {"arch": SHELLCODE_PACKAGES[package], "entry": get_options(options).get("offset")}
-    if category != "CAPE":
-        return None
-    files_json = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(tid), "files.json")
-    if _path_safe(files_json) and path_exists(files_json):
-        with open(files_json, "rb") as f:
-            for line in f:
-                with suppress(ValueError):
-                    entry = json.loads(line)
-                    if entry.get("path", "").rsplit("/", 1)[-1] == sha256:
-                        parts = str(entry.get("metadata", "")).split(";?")
-                        code = parts[0] if parts else ""
-                        if code in ("4", "9", "8197"):
-                            va = parts[3] if code == "9" and len(parts) > 3 and parts[3] else None
-                            return {"va": va} if va else {}
-    if enabledconf.get("mongodb"):
-        doc = mongo_find_one("analysis", {"info.id": tid}, {"CAPE.payloads": 1}, no_hooks=True)
-        for payload in ((doc or {}).get("CAPE") or {}).get("payloads") or []:
-            if isinstance(payload, dict) and payload.get("sha256") == sha256 and payload.get("cape_type_code") in (4, 9, 0x2005):
-                va = payload.get("virtual_address")
-                return {"va": va} if va else {}
-    return None
+    return shellcode_on_demand_kwargs(
+        task_id,
+        category,
+        sha256,
+        db=db,
+        analysis_base_path=ANALYSIS_BASE_PATH,
+        path_safe_fn=_path_safe,
+        mongodb_enabled=bool(enabledconf.get("mongodb")),
+        mongo_find_one_fn=globals().get("mongo_find_one"),
+    )
 
 
 on_demand_config_mapper = {
@@ -4183,12 +4138,11 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     {"error": "Shellcode analysis is only offered for CAPE shellcode payloads and shellcode package submissions"},
                     status=400,
                 )
-            with open(path, "rb") as f:
-                details = shellcode_analyse(
-                    f.read(),
-                    max_scan=int(processing_cfg.static_shellcode_check.get("shellcode_depth", 262144) or 262144),
-                    **sc_kwargs,
-                )
+            details = run_shellcode_on_demand(
+                path,
+                sc_kwargs,
+                max_scan=int(processing_cfg.static_shellcode_check.get("shellcode_depth", 262144) or 262144),
+            )
 
         elif service == "virustotal" and HAVE_VIRUSTOTAL:
             details = vt_lookup("file", sha256, on_demand=True)
@@ -4329,7 +4283,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 else:
                     update_static_preview_service(sha256, service, details)
                 if request.headers.get("HX-Request"):
-                    preview = get_static_preview(task, run_full=False) or {}
+                    preview = dict(get_static_preview(task, run_full=False) or {})
+                    preview["expand_service"] = service
                     return render(request, "analysis/generic/_file_info.html", preview)
                 return redirect("submission_status", task_id=task_id)
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
@@ -4412,7 +4367,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             if task and task_sha256 == sha256:
                 from submission.static_preview import get_static_preview
 
-                preview = get_static_preview(task, run_full=False) or {}
+                preview = dict(get_static_preview(task, run_full=False) or {})
+                preview["expand_service"] = service
                 return render(request, "analysis/generic/_file_info.html", preview)
             return HttpResponse("Analysis not found", status=404)
 
@@ -4462,6 +4418,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             "on_demand": on_demand_conf,
             "graphs": graphs,
             "analysis": report,
+            "expand_service": service,
         }
         return render(request, "analysis/generic/_file_info.html", context)
 

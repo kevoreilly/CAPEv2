@@ -27,7 +27,7 @@ from email.parser import BytesHeaderParser
 from email.policy import default as email_policy
 from io import BufferedIOBase, BytesIO, StringIO
 from threading import Lock
-from typing import BinaryIO, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, IO, Iterable, Optional, Tuple, Union
 from urllib.parse import parse_qs
 from zipfile import ZipFile
 
@@ -103,7 +103,7 @@ AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
 agent_mutexes: dict = {}
 """Holds handles of mutexes held by the agent."""
-state = {
+state: Dict[str, Any] = {
     "status": Status.INIT,
     "description": "",
     "async_subprocess": None,
@@ -123,7 +123,7 @@ class _FormParseError(ValueError):
 class _BoundedReader:
     """Read at most *limit* bytes from an underlying binary stream."""
 
-    def __init__(self, rfile: Union[BufferedIOBase, BinaryIO], limit: int) -> None:
+    def __init__(self, rfile: Union[BufferedIOBase, IO[bytes]], limit: int) -> None:
         self._rfile = rfile
         self.remaining = max(0, limit)
 
@@ -151,7 +151,7 @@ class _PartFileSink:
 
     def __init__(self, max_mem_bytes: int = _MULTIPART_MEMORY_LIMIT) -> None:
         self._max_mem_bytes = max_mem_bytes
-        self._buf: BinaryIO = BytesIO()
+        self._buf: IO[bytes] = BytesIO()
         self._size = 0
         self._spilled = False
 
@@ -160,7 +160,7 @@ class _PartFileSink:
             return
         next_size = self._size + len(data)
         if not self._spilled and next_size > self._max_mem_bytes:
-            tmp: BinaryIO = tempfile.TemporaryFile("w+b")
+            tmp: IO[bytes] = tempfile.TemporaryFile("w+b")
             self._buf.seek(0)
             shutil.copyfileobj(self._buf, tmp)
             self._buf.close()
@@ -169,7 +169,7 @@ class _PartFileSink:
         self._buf.write(data)
         self._size = next_size
 
-    def finish(self) -> BinaryIO:
+    def finish(self) -> IO[bytes]:
         self._buf.seek(0)
         return self._buf
 
@@ -182,10 +182,10 @@ def _parse_multipart_stream(
     boundary_bytes: bytes,
     chunk_size: int = _MULTIPART_CHUNK_SIZE,
     spool_max_bytes: int = _MULTIPART_MEMORY_LIMIT,
-) -> Tuple[Dict[str, str], Dict[str, BinaryIO]]:
+) -> Tuple[Dict[str, str], Dict[str, IO[bytes]]]:
     """Stream-parse a multipart/form-data body without buffering whole files in RAM."""
     form: Dict[str, str] = {}
-    files: Dict[str, BinaryIO] = {}
+    files: Dict[str, IO[bytes]] = {}
     dash_boundary = b"--" + boundary_bytes
     buf = bytearray()
     skipped_preamble = False
@@ -385,7 +385,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     multipart_memory_limit: int = _MULTIPART_MEMORY_LIMIT
 
     @staticmethod
-    def _close_files(files: Dict[str, BinaryIO]) -> None:
+    def _close_files(files: Dict[str, IO[bytes]]) -> None:
         for file_obj in files.values():
             try:
                 file_obj.close()
@@ -402,7 +402,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
-    def _parse_form_and_files(self) -> Tuple[Dict[str, str], Dict[str, BinaryIO]]:
+    def _parse_form_and_files(self) -> Tuple[Dict[str, str], Dict[str, IO[bytes]]]:
         try:
             content_length = max(0, int(self.headers.get("Content-Length", "0") or 0))
         except ValueError as exc:
@@ -437,7 +437,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         body = self.rfile.read(content_length) if content_length > 0 else b""
         form: Dict[str, str] = {}
-        files: Dict[str, BinaryIO] = {}
+        files: Dict[str, IO[bytes]] = {}
         if media_type == "application/x-www-form-urlencoded":
             # Match cgi.FieldStorage default behavior: ignore blank form values.
             parsed = parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=False)
@@ -563,14 +563,14 @@ class MiniHTTPServer:
         elif isinstance(ret, send_file):
             ret.write(obj, obj.wfile)
 
-        if hasattr(self, "s") and self.s._BaseServer__shutdown_request:
+        if hasattr(self, "s") and getattr(self.s, "_BaseServer__shutdown_request", False):
             self.close_connection = True
 
     def shutdown(self):
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):
-            self.s._BaseServer__shutdown_request = True
+            setattr(self.s, "_BaseServer__shutdown_request", True)
         else:
             # When running unit tests in Windows, the system would hang here,
             # until this `exit(1)` was added.
@@ -718,6 +718,8 @@ def get_subprocess_status():
     """Return the subprocess status."""
     async_subprocess = state.get("async_subprocess")
     message = "Analysis status"
+    if async_subprocess is None:
+        return json_success(message=message, status=str(state.get("status")), description=state.get("description"))
     exitcode = async_subprocess.poll()
     if exitcode is None or (sys.platform == "win32" and exitcode == 259):
         # Process is still running.
@@ -848,7 +850,7 @@ def put_status():
 
 @app.route("/logs")
 def get_logs():
-    if isinstance(sys.stdout, StringIO):
+    if isinstance(sys.stdout, StringIO) and isinstance(sys.stderr, StringIO):
         stdoutbuf = sys.stdout.getvalue()
         stderrbuf = sys.stderr.getvalue()
     else:

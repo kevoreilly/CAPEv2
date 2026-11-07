@@ -226,13 +226,14 @@ class TestAgent:
         shutil.rmtree(DIRPATH, ignore_errors=True)
         assert not os.path.isdir(DIRPATH)
 
-        if sys.platform == "win32":
-            # shutdown will hang on win32 without this
-            self.agent_process.terminate()
+        if self.agent_process is not None:
+            if sys.platform == "win32":
+                # shutdown will hang on win32 without this
+                self.agent_process.terminate()
 
-        # Ensure agent process completes; release resources.
-        self.agent_process.join()
-        self.agent_process.close()
+            # Ensure agent process completes; release resources.
+            self.agent_process.join()
+            self.agent_process.close()
 
     @staticmethod
     def non_existent_directory():

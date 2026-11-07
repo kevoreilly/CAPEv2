@@ -59,9 +59,9 @@ jobs:
       - name: Run Linux analyzer unit tests
         run: poetry --project . --directory "analyzer/linux" run python -m pytest -v
 
-      # see the mypy configuration in pyproject.toml
-      - name: Run mypy
-        run: poetry run mypy
+      # see the ty configuration in pyproject.toml
+      - name: Run ty
+        run: poetry run ty check
 
   format:
     runs-on: ubuntu-latest

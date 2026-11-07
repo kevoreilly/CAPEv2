@@ -115,7 +115,7 @@ dist = [
 dev = [
     "black>=24.3.0",
     "isort>=5.10.1",
-    "mypy==1.14.1",
+    "ty>=0.0.99",
     "pytest>=9.0.3",
     "pytest-pretty>=1.2.0",
     "pytest-cov>=5.0.0",
@@ -206,8 +206,8 @@ line-ending = "auto"
 known-first-party = ["libqtile", "test"]
 default-section = "third-party"
 
-[tool.mypy]
-warn_unused_configs = true
-files = [
-    "agent/**/*.py",
-]
+[tool.ty.environment]
+extra-paths = ["agent"]
+
+[tool.ty.src]
+include = ["agent/**/*.py"]

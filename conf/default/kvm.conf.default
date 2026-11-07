@@ -25,7 +25,7 @@ arch = x86
 label = cuckoo1
 
 # Specify the operating system platform used by current machine
-# [windows/darwin/linux].
+# [windows/darwin/linux/android].
 platform = windows
 
 # Specify the IP address of the current virtual machine. Make sure that the
@@ -75,6 +75,16 @@ ip = 192.168.122.105
 # x64 or x86
 arch = x86
 
-# (Optional) Specify whether or not the machine should be reserved, meaning that it will
-# only be used for a detonation if specifically requested by its label.
+# (Optional) Specify whether or not the machine should be reserved, meaning that it
+# will only be used for a detonation if specifically requested by its label.
 # reserved = no
+
+# Example Android-x86 KVM guest. See docs/book/src/installation/guest/android.rst
+# Do not enable this stanza unless you have built that guest; copy it into kvm.conf.
+# [android1]
+# label = android1
+# platform = android
+# ip = 192.168.122.50
+# arch = x64
+# snapshot = clean
+# interface = virbr0

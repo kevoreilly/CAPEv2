@@ -686,6 +686,33 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     r = None
     # Add timeout to requests
     request_timeout = 300  # 5 minutes for large files
+    max_retries = 3
+    retry_delay = 2
+    headers = {"Authorization": f"Token {apikey}"}
+
+    def _post_with_retry(url, label, post_fn):
+        last_exc = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                return post_fn()
+            except requests.RequestException as e:
+                last_exc = e
+                if attempt < max_retries:
+                    log.warning(
+                        "Transient error submitting %s task (Main: %d, attempt %d/%d): %s",
+                        label,
+                        task.main_task_id,
+                        attempt,
+                        max_retries,
+                        e,
+                    )
+                    time.sleep(retry_delay)
+            except OSError as e:
+                last_exc = e
+                break
+        log.error("Error submitting %s task (Main: %d): %s", label, task.main_task_id, last_exc)
+        _mark_failed_reporting()
+        return None
 
     if task.category in ("file", "pcap"):
         if task.category == "pcap":
@@ -697,53 +724,55 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         if not path_exists(task.path):
             _mark_failed_reporting()
             return
-        try:
-            # Use context manager for file
+
+        def _post_file():
             with open(task.path, "rb") as f:
-                r = requests.post(
+                return requests.post(
                     url,
                     data=data,
                     files={"file": f},
-                    headers={"Authorization": f"Token {apikey}"},
+                    headers=headers,
                     verify=False,
                     timeout=request_timeout,
                 )
-        except (OSError, requests.RequestException) as e:
-            log.error("Error submitting file task (Main: %d): %s", task.main_task_id, e)
-            _mark_failed_reporting()
+
+        r = _post_with_retry(url, "file", _post_file)
+        if r is None:
             return
     elif task.category == "url":
         url = urljoin(node.url, "tasks/create/url/")
-        try:
-            r = requests.post(
+        r = _post_with_retry(
+            url,
+            "url",
+            lambda: requests.post(
                 url,
                 data={**data, "url": task.path},
-                headers={"Authorization": f"Token {apikey}"},
+                headers=headers,
                 verify=False,
                 timeout=request_timeout,
-            )
-        except requests.RequestException as e:
-            log.error("Error submitting url task (Main: %d): %s", task.main_task_id, e)
-            _mark_failed_reporting()
+            ),
+        )
+        if r is None:
             return
     elif task.category == "static":
         url = urljoin(node.url, "tasks/create/static/")
         if not path_exists(task.path):
             _mark_failed_reporting()
             return
-        try:
+
+        def _post_static():
             with open(task.path, "rb") as f:
-                r = requests.post(
+                return requests.post(
                     url,
                     data=data,
                     files={"file": f},
-                    headers={"Authorization": f"Token {apikey}"},
+                    headers=headers,
                     verify=False,
                     timeout=request_timeout,
                 )
-        except (OSError, requests.RequestException) as e:
-            log.error("Error submitting static task (Main: %d): %s", task.main_task_id, e)
-            _mark_failed_reporting()
+
+        r = _post_with_retry(url, "static", _post_static)
+        if r is None:
             return
     else:
         log.debug("Target category is: %s", task.category)
@@ -754,7 +783,12 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         if r is not None and r.status_code == 500 and task.category == "file":
             with open(task.path, "rb") as f:
                 r = requests.post(
-                    url, data=data, files={"file": ("file", f.read())}, verify=False, timeout=request_timeout
+                    url,
+                    data=data,
+                    files={"file": ("file", f.read())},
+                    headers=headers,
+                    verify=False,
+                    timeout=request_timeout,
                 )
     except (OSError, requests.RequestException) as e:
         log.error("Error re-submitting file task (Main: %d): %s", task.main_task_id, e)

@@ -163,7 +163,7 @@ def test_node_submit_task_error_logging(caplog):
 
     with (
         patch("utils.dist.dist_transaction") as mock_tx,
-        patch("utils.dist.requests.post", return_value=mock_response) as mock_post,
+        patch("utils.dist.http_session.post", return_value=mock_response) as mock_post,
     ):
         mock_tx.return_value.__enter__.return_value = mock_db
         with caplog.at_level(logging.INFO):
@@ -224,7 +224,7 @@ def test_node_submit_task_includes_parent_sample_in_attributes(tmp_path):
     with (
         patch("utils.dist.dist_transaction") as mock_tx,
         patch("utils.dist.main_db") as mock_main_db,
-        patch("utils.dist.requests.post", return_value=mock_response) as mock_post,
+        patch("utils.dist.http_session.post", return_value=mock_response) as mock_post,
     ):
         mock_tx.return_value.__enter__.return_value = mock_db
         mock_main_db.get_parent_sample_from_task.return_value = mock_parent
@@ -300,7 +300,7 @@ def test_node_fetch_tasks_timeout():
     mock_resp.ok = True
     mock_resp.json.return_value = {"data": [{"id": 1}]}
 
-    with patch("utils.dist.requests.get", return_value=mock_resp) as mock_get:
+    with patch("utils.dist.http_session.get", return_value=mock_resp) as mock_get:
         tasks = node_fetch_tasks("completed", "http://worker:8000", "testkey", action="fetch", since=100)
         assert tasks == [{"id": 1}]
         mock_get.assert_called_once()
@@ -429,7 +429,7 @@ def test_node_submit_task_holds_no_transaction_during_http(dist_sqlite):
         resp.json.return_value = {"data": {"task_ids": [777]}}
         return resp
 
-    with patch("utils.dist.requests.post", side_effect=fake_post):
+    with patch("utils.dist.http_session.post", side_effect=fake_post):
         assert node_submit_task(task_id, node_id, 500) is True
 
     assert checked_out_during_post == [0]
@@ -718,7 +718,7 @@ def test_notification_pass_marks_only_accepted_tasks(dist_sqlite):
     mock_main_db = MagicMock()
     with (
         patch("utils.dist.main_db", mock_main_db),
-        patch("utils.dist.requests.post", side_effect=fake_post),
+        patch("utils.dist.http_session.post", side_effect=fake_post),
     ):
         dist.Retriever()._notification_pass(["http://cb"], {"x-api-key": "k"})
 
@@ -802,7 +802,7 @@ def test_node_submit_task_formats_datetime_clock_for_worker_api():
 
     with (
         patch("utils.dist.dist_transaction") as mock_tx,
-        patch("utils.dist.requests.post", return_value=mock_resp) as mock_post,
+        patch("utils.dist.http_session.post", return_value=mock_resp) as mock_post,
     ):
         mock_tx.return_value.__enter__.return_value = mock_db
         assert node_submit_task(10, 2, 44) is True
@@ -824,10 +824,9 @@ def test_dist_defines_gcs_enabled_when_gcp_disabled():
 
 
 def test_node_submit_task_acl_probe_skips_object_storage_upload_and_marks_url_failure():
+    from http.client import RemoteDisconnected
     from types import SimpleNamespace
     from unittest.mock import MagicMock, patch
-
-    import requests
 
     from lib.cuckoo.common.dist_db import Node
     from lib.cuckoo.core.data.task import TASK_FAILED_REPORTING
@@ -871,16 +870,93 @@ def test_node_submit_task_acl_probe_skips_object_storage_upload_and_marks_url_fa
     with (
         patch("utils.dist.dist_transaction") as mock_tx,
         patch("utils.dist.main_db") as mock_main_db,
+        patch("urllib3.util.retry.time.sleep") as mock_sleep,
         patch("lib.cuckoo.common.hooks.run_report_hooks", side_effect=lambda r, **kw: hook_stages.append(kw.get("stage"))),
-        patch("utils.dist.requests.post", side_effect=requests.ConnectionError("worker down")),
+        patch(
+            "urllib3.connectionpool.HTTPConnectionPool._make_request",
+            side_effect=RemoteDisconnected("worker down"),
+        ) as mock_make_request,
     ):
         mock_tx.return_value.__enter__.return_value = mock_db
         node_submit_task(10, 2, 44)
 
     assert hook_stages == ["acl_probe"]
+    assert mock_make_request.call_count == 4
+    assert mock_sleep.call_count == 2
     assert mock_task.finished is True
     assert mock_task.retrieved is True
     mock_main_db.set_status.assert_called_once_with(44, TASK_FAILED_REPORTING)
+
+
+def test_node_submit_task_retries_transient_disconnect_and_replays_file_body(tmp_path):
+    from http.client import RemoteDisconnected
+    import io
+    from unittest.mock import MagicMock, patch
+
+    from urllib3.response import HTTPResponse
+
+    from lib.cuckoo.common.dist_db import Node
+    from utils.dist import node_submit_task
+
+    sample_file = tmp_path / "sample.bin"
+    sample_bytes = b"MZ" + b"A" * 128
+    sample_file.write_bytes(sample_bytes)
+
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_task = MagicMock(
+        id=10,
+        main_task_id=44,
+        category="file",
+        path=str(sample_file),
+        package="",
+        timeout=120,
+        priority=1,
+        options="",
+        machine="",
+        platform="windows",
+        tags="",
+        custom="",
+        clock="10-31-2026 14:05:09",
+        memory=False,
+        enforce_timeout=False,
+        route="none",
+        tlp="",
+        finished=False,
+        retrieved=False,
+    )
+    mock_db = MagicMock()
+    mock_db.get.side_effect = lambda model, pk: mock_node if model is Node else mock_task
+
+    sent_bodies = []
+
+    def fake_make_request(conn, method, url, **kwargs):
+        sent_bodies.append(kwargs.get("body", b""))
+        if len(sent_bodies) < 3:
+            raise RemoteDisconnected("Remote end closed connection without response")
+        return HTTPResponse(
+            body=io.BytesIO(b'{"data": {"task_ids": [901]}}'),
+            status=200,
+            preload_content=False,
+        )
+
+    with (
+        patch("utils.dist.dist_transaction") as mock_tx,
+        patch("utils.dist.main_db") as mock_main_db,
+        patch("urllib3.util.retry.time.sleep") as mock_sleep,
+        patch("urllib3.connectionpool.HTTPConnectionPool._make_request", side_effect=fake_make_request),
+    ):
+        mock_tx.return_value.__enter__.return_value = mock_db
+        mock_main_db.get_parent_sample_from_task.return_value = None
+        assert node_submit_task(10, 2, 44) is True
+
+    assert len(sent_bodies) == 3
+    assert all(sample_bytes in body for body in sent_bodies)
+    assert sent_bodies[0] == sent_bodies[1] == sent_bodies[2]
+    assert mock_sleep.call_count == 1
+    assert mock_task.task_id == 901
+    assert mock_task.node_id == 2
+    assert mock_task.finished is False
+    mock_main_db.set_status.assert_not_called()
 
 
 def test_wrapped_validate_task_resolves_fallback_owner_for_recovered_task():

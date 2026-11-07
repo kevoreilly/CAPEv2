@@ -1705,7 +1705,7 @@ def test_dist_forwards_url_tasks_with_their_machine_tags_route_and_timeout(monke
         posted.update(data)
         raise requests.RequestException("stop here")
 
-    monkeypatch.setattr(dist.requests, "post", post)
+    monkeypatch.setattr(dist.http_session, "post", post)
     dist.node_submit_task(1, 1, 5, db=fake_db)
     assert posted["url"] == "http://a.test/"
     assert (posted["tags"], posted["route"], posted["timeout"]) == ("pool_alpha", "none", 120)

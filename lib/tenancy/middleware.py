@@ -59,8 +59,8 @@ _MAX_TASK_ID_RANGE = 1000
 _ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader", "ban_user", "ban_all_user_tasks")
 _ANON_NOT_VIEWABLE_VIEWS = ("file", "remove", "pending", "filtered_chunk", "search_behavior", "statistics_data")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
-# Views that only read on GET but change or control the task on POST (tasks/status: status=finish, tasks_file_stream).
-_MANAGE_ON_POST_VIEW_NAMES = ("tasks_status", "tasks_file_stream")
+# Views that only read on GET but change or control the task on POST (tasks/status: status=finish/stop, status: action=stop, tasks_file_stream).
+_MANAGE_ON_POST_VIEW_NAMES = ("tasks_status", "tasks_file_stream", "status")
 # Route kwargs joined onto a task directory as a path: a separator walks out of it.
 _PATH_KWARGS = ("filename", "dlfile")
 # apiv2 views that follow a recovered task's custom "Recovery_<id>" to that copy (validate_task,
@@ -284,6 +284,8 @@ def _is_submission_post(request: Any, view_func: Callable[..., Any]) -> bool:
         return False
     path = _route_path(request).lower()
     view_name = _view_name(view_func).lower()
+    if view_name == "status" or path.startswith(("/submit/status/", "/submit/remote_session/")):
+        return False
     if view_name in _SUBMISSION_VIEW_NAMES:
         return True
     if path.startswith("/submit") or path.startswith("/apiv2/tasks/create/"):

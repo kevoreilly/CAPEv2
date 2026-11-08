@@ -5,9 +5,17 @@
     <div class="col-lg-10">
         <!-- Persistent Auto-Redirect Controls (outside #status-card so HTMX polling preserves state) -->
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 px-1 gap-2">
+            {% if static_preview_enabled %}
             <span class="text-white-50 small">
                 <i class="fas fa-bolt me-1 text-info"></i>Static triage available immediately while dynamic execution runs
             </span>
+            {% elif static_preview_on_demand %}
+            <span class="text-white-50 small">
+                <i class="fas fa-bolt me-1 text-info"></i>On-demand static triage available while dynamic execution runs
+            </span>
+            {% else %}
+            <span></span>
+            {% endif %}
             <div class="d-flex flex-wrap align-items-center gap-3">
                 {% if interactive %}
                 <div class="form-check form-switch mb-0">
@@ -40,6 +48,21 @@
                         <small class="text-info font-monospace ms-2">{{target}}</small>
                     </h5>
                     <div class="d-flex align-items-center gap-2">
+                        {% if allow_stop_analysis and not completed and status in "pending,running,distributed" %}
+                        <button type="button"
+                                id="stop-analysis-btn"
+                                class="btn btn-outline-danger btn-sm"
+                                hx-post="{% url 'submission_status' task_id %}"
+                                hx-vals='{"action": "stop"}'
+                                hx-target="#status-card"
+                                hx-select="#status-card"
+                                hx-swap="outerHTML"
+                                title="Stop dynamic VM execution and finalize report with static results">
+                            <i class="fas fa-stop-circle me-1"></i>Stop Dynamic Analysis
+                        </button>
+                        {% elif stop_requested and not completed %}
+                        <span class="badge bg-secondary px-2 py-2"><i class="fas fa-spinner fa-spin me-1"></i>Stopping VM...</span>
+                        {% endif %}
                         {% if completed %}
                             <span class="badge bg-success px-3 py-2">COMPLETED</span>
                         {% elif status == "distributed" %}
@@ -215,7 +238,7 @@
         </div>
 
         <!-- Static Analysis Preview (sibling of #status-card; preserved across 5s HTMX status polls) -->
-        {% if file %}
+        {% if static_preview_enabled and file %}
         <div id="static-preview-container"
              {% if not static_enriched %}
              hx-get="{% url 'submission_status' task_id %}?static=1"
@@ -229,6 +252,26 @@
             </div>
             {% endif %}
             {% include "submission/_static_preview.html" %}
+        </div>
+        {% elif static_preview_on_demand %}
+        <div id="static-preview-container">
+            <div class="card bg-dark border-secondary mb-3">
+                <div class="card-body py-3 px-4 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <h6 class="mb-0 text-white"><i class="fas fa-bolt me-2 text-info"></i>Static Analysis Preview</h6>
+                        <small class="text-white-50">Run YARA, CAPE config extractors, and static format parsers now without waiting for dynamic VM execution.</small>
+                    </div>
+                    <button type="button"
+                            id="load-static-preview-btn"
+                            class="btn btn-outline-info btn-sm"
+                            hx-get="{% url 'submission_status' task_id %}?static=1"
+                            hx-target="#static-preview-container"
+                            hx-swap="innerHTML"
+                            onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Running Static Analysis...';">
+                        <i class="fas fa-search me-1"></i>Load Static Analysis Preview
+                    </button>
+                </div>
+            </div>
         </div>
         {% endif %}
     </div>

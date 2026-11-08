@@ -27,8 +27,22 @@
 {% if analysis.malware_conf %}
 <section id="malware-config" class="mb-3">
     <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary">
+        <div class="card-header border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
             <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-danger"></i> Malware Configuration (Static)</h5>
+            {% if allow_stop_analysis and task_status in "pending,running,distributed" %}
+            <button type="button"
+                    id="stop-analysis-config-btn"
+                    class="btn btn-outline-danger btn-sm"
+                    hx-post="{% url 'submission_status' task_id %}"
+                    hx-vals='{"action": "stop"}'
+                    hx-target="#status-card"
+                    hx-select="#status-card"
+                    hx-swap="outerHTML"
+                    onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin me-1\'></i>Stopping VM...';"
+                    title="Config extracted — stop dynamic VM execution and finalize report">
+                <i class="fas fa-stop-circle me-1"></i>Stop VM &amp; Finalize Report
+            </button>
+            {% endif %}
         </div>
         <div class="card-body p-0">
             <div class="accordion" id="malwareConfAccordion">

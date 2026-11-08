@@ -592,6 +592,158 @@ class TestStaticPreview(SimpleTestCase):
         )
         self.assertIn("Extract: Shellcode Analysis", ondemand_html)
 
+    def test_static_preview_web_conf_enabled_on_demand_and_disabled(self):
+        _, task, sha256, tmp_file = self._create_sample_task()
+        orig_enabled = web_conf.static_preview.get("enabled", True)
+        orig_on_demand = web_conf.static_preview.get("on_demand", True)
+        try:
+            with patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)):
+                # 1. enabled = False, on_demand = True -> does not auto-load static preview on initial GET, renders Load button
+                web_conf.static_preview.enabled = False
+                web_conf.static_preview.on_demand = True
+                with patch("submission.static_preview.get_static_preview") as mock_get_preview:
+                    resp = self.client.get(f"/submit/status/{task.id}/")
+                    self.assertEqual(resp.status_code, 200)
+                    body = resp.content.decode()
+                    mock_get_preview.assert_not_called()
+                    self.assertIn('id="load-static-preview-btn"', body)
+                    self.assertIn("Load Static Analysis Preview", body)
+                    self.assertNotIn('hx-trigger="load"', body)
+
+                # On-demand ?static=1 request succeeds when on_demand = True
+                with patch.object(
+                    static_preview,
+                    "_extract_static_cape_configs",
+                    return_value=[{"TestMalware": {"URL": ["hxxp://bad.example/cfg"]}, "_associated_config_hashes": [{"sha256": sha256}]}],
+                ):
+                    on_demand_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                    self.assertEqual(on_demand_resp.status_code, 200)
+                    self.assertIn("Malware Configuration (Static)", on_demand_resp.content.decode())
+
+                # 2. enabled = False, on_demand = False -> hides static preview container and rejects ?static=1
+                web_conf.static_preview.enabled = False
+                web_conf.static_preview.on_demand = False
+                resp_disabled = self.client.get(f"/submit/status/{task.id}/")
+                self.assertEqual(resp_disabled.status_code, 200)
+                disabled_body = resp_disabled.content.decode()
+                self.assertNotIn('id="static-preview-container"', disabled_body)
+                self.assertNotIn('id="load-static-preview-btn"', disabled_body)
+
+                forbidden_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                self.assertEqual(forbidden_resp.status_code, 403)
+        finally:
+            web_conf.static_preview.enabled = orig_enabled
+            web_conf.static_preview.on_demand = orig_on_demand
+
+    def test_stop_pending_task_from_status_page_initializes_storage_and_completes(self):
+        import lib.cuckoo.common.constants as cuckoo_constants
+        from lib.cuckoo.core.data.task import TASK_COMPLETED
+
+        db, task, sha256, tmp_file = self._create_sample_task()
+        tmp_root = os.path.dirname(tmp_file)
+
+        with (
+            patch.object(static_preview, "CUCKOO_ROOT", tmp_root),
+            patch.object(cuckoo_constants, "CUCKOO_ROOT", tmp_root),
+        ):
+            # Initial status page shows Stop Dynamic Analysis button
+            get_resp = self.client.get(f"/submit/status/{task.id}/")
+            self.assertEqual(get_resp.status_code, 200)
+            self.assertIn('id="stop-analysis-btn"', get_resp.content.decode())
+
+            # POST action=stop transitions pending task to completed ("processing" in UI) and prepares storage/analyses/<id>
+            post_resp = self.client.post(f"/submit/status/{task.id}/", {"action": "stop"}, HTTP_HX_REQUEST="true")
+            self.assertEqual(post_resp.status_code, 200)
+            post_body = post_resp.content.decode()
+            self.assertIn("PROCESSING", post_body)
+            self.assertNotIn('id="stop-analysis-btn"', post_body)
+
+            updated_task = db.view_task(task.id)
+            self.assertEqual(updated_task.status, TASK_COMPLETED)
+            self.assertIsNotNone(updated_task.started_on)
+            self.assertIsNotNone(updated_task.completed_on)
+
+            analysis_dir = os.path.join(tmp_root, "storage", "analyses", str(task.id))
+            self.assertTrue(os.path.isdir(analysis_dir))
+            self.assertTrue(os.path.isdir(os.path.join(analysis_dir, "logs")))
+            self.assertTrue(os.path.isdir(os.path.join(analysis_dir, "files")))
+            self.assertTrue(os.path.lexists(os.path.join(analysis_dir, "binary")))
+
+    def test_stop_running_task_from_status_page_and_api_sets_guest_stopping(self):
+        from lib.cuckoo.core.data.guests import Guest
+        from lib.cuckoo.core.data.task import TASK_RUNNING, Task
+
+        db, task, sha256, tmp_file = self._create_sample_task()
+        with db.session.begin():
+            t = db.session.get(Task, task.id)
+            t.status = TASK_RUNNING
+            guest = Guest("win10_1", "win10_1", "windows", "KVM", task.id)
+            guest.status = "running"
+            db.session.add(guest)
+
+        with patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)):
+            # 1. Static preview config card renders "Stop VM & Finalize Report" button while task is running
+            with patch.object(
+                static_preview,
+                "_extract_static_cape_configs",
+                return_value=[{"TestMalware": {"URL": ["hxxp://bad.example/cfg"]}, "_associated_config_hashes": [{"sha256": sha256}]}],
+            ):
+                static_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                self.assertEqual(static_resp.status_code, 200)
+                self.assertIn('id="stop-analysis-config-btn"', static_resp.content.decode())
+
+            # 2. POST /submit/status/<id>/ sets guest status to "stopping" and displays Stopping VM badge
+            post_resp = self.client.post(f"/submit/status/{task.id}/", {"action": "stop"}, HTTP_HX_REQUEST="true")
+            self.assertEqual(post_resp.status_code, 200)
+            self.assertIn("Stopping VM...", post_resp.content.decode())
+            self.assertEqual(db.guest_get_status(task.id), "stopping")
+
+            # Reset guest status to "running" and test POST /apiv2/tasks/status/<id>/ with status="stop"
+            db.guest_set_status(task.id, "running")
+            api_resp = self.client.post(
+                f"/apiv2/tasks/status/{task.id}/",
+                data='{"status": "stop"}',
+                content_type="application/json",
+            )
+            self.assertEqual(api_resp.status_code, 200)
+            api_json = api_resp.json()
+            self.assertFalse(api_json["error"])
+            self.assertEqual(api_json["data"], "stopping")
+            self.assertEqual(db.guest_get_status(task.id), "stopping")
+
+    def test_tenancy_middleware_requires_manage_rights_on_status_stop_post(self):
+        import lib.tenancy.middleware as mw_mod
+        from lib.tenancy.policy import TENANT, ResourceScope, ViewerContext
+        from submission.views import status as status_view
+
+        scope = ResourceScope(owner_id=7, tenant_id=1, visibility=TENANT)
+        owner = ViewerContext(user_id=7, tenant_id=1, is_authenticated=True, tenant_ids=(1,))
+        peer = ViewerContext(user_id=9, tenant_id=1, is_authenticated=True, tenant_ids=(1,))
+
+        def make_mw(viewer):
+            return mw_mod.TenancyMiddleware(
+                lambda r: None,
+                viewer_resolver=lambda _u: viewer,
+                task_scope_resolver=lambda _tid: scope,
+            )
+
+        get_req = type("Req", (), {"path": "/submit/status/42/", "path_info": "/submit/status/42/", "method": "GET", "user": None, "viewer": None, "entitlements": None, "POST": {}, "META": {}})()
+        post_req = type("Req", (), {"path": "/submit/status/42/", "path_info": "/submit/status/42/", "method": "POST", "user": None, "viewer": None, "entitlements": None, "POST": {"action": "stop"}, "META": {}})()
+
+        # Peer in same tenant can GET status page, but cannot POST stop action
+        self.assertIsNone(make_mw(peer).process_view(get_req, status_view, (), {"task_id": 42}))
+        peer_post_res = make_mw(peer).process_view(post_req, status_view, (), {"task_id": 42})
+        self.assertIsNotNone(peer_post_res)
+        self.assertEqual(getattr(peer_post_res, "status_code", None), 404)
+
+        # Task owner can POST stop action (and middleware does not misclassify it as a file submission POST)
+        post_req.viewer = None
+        post_req.entitlements = None
+        self.assertFalse(mw_mod._is_submission_post(post_req, status_view))
+        self.assertIsNone(make_mw(owner).process_view(post_req, status_view, (), {"task_id": 42}))
+
+
+
 
 
 

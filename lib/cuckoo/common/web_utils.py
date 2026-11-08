@@ -37,11 +37,15 @@ from lib.cuckoo.common.utils import (
 )
 from lib.cuckoo.core.data.task import (
     ALL_DB_STATUSES,
+    TASK_COMPLETED,
+    TASK_DISTRIBUTED,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
+    TASK_PENDING,
     TASK_RECOVERED,
     TASK_REPORTED,
+    TASK_RUNNING,
     Task,
     )
 from lib.cuckoo.core.data.samples import Sample
@@ -1877,3 +1881,208 @@ def get_running_commit() -> str:
     git_folder = Path(CUCKOO_ROOT, ".git")
     head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
     return Path(git_folder, head_name).read_text().replace("\n", "")
+
+
+def init_static_analysis_storage(task, sha256: str = "") -> bool:
+    """Ensure storage/analyses/<task_id>/ and binary symlink exist so utils/process.py can finalize a stopped task."""
+    import shutil
+
+    from lib.cuckoo.common import constants as cuckoo_constants
+
+    root_dir = getattr(cuckoo_constants, "CUCKOO_ROOT", CUCKOO_ROOT)
+    task_id = getattr(task, "id", None)
+    if task_id is None:
+        return False
+
+    storage_dir = os.path.join(root_dir, "storage", "analyses", str(task_id))
+    path_mkdir(storage_dir, exist_ok=True)
+    for subdir in ("logs", "files", "aux"):
+        with suppress(Exception):
+            path_mkdir(os.path.join(storage_dir, subdir), exist_ok=True)
+
+    category = getattr(task, "category", "") or ""
+    if category == "url":
+        return True
+
+    target = getattr(task, "target", "") or ""
+    if not sha256:
+        sample = getattr(task, "sample", None)
+        if sample is not None:
+            sha256 = getattr(sample, "sha256", "") or ""
+        if not sha256 and target and path_exists(target):
+            with suppress(Exception):
+                sha256 = File(target).get_sha256()
+
+    binaries_dir = os.path.join(root_dir, "storage", "binaries")
+    path_mkdir(binaries_dir, exist_ok=True)
+    binary_store_path = os.path.join(binaries_dir, sha256) if sha256 else ""
+
+    if binary_store_path and not path_exists(binary_store_path) and target and path_exists(target):
+        with suppress(OSError, shutil.Error):
+            shutil.copy(target, binary_store_path)
+
+    source_path = binary_store_path if (binary_store_path and path_exists(binary_store_path)) else target
+    if source_path and path_exists(source_path):
+        dest_binary = os.path.join(storage_dir, "binary")
+        if not os.path.lexists(dest_binary):
+            try:
+                if hasattr(os, "symlink"):
+                    os.symlink(source_path, dest_binary)
+                else:
+                    shutil.copy(source_path, dest_binary)
+            except OSError:
+                with suppress(OSError, shutil.Error):
+                    shutil.copy(source_path, dest_binary)
+
+        if category == "pcap":
+            dest_pcap = os.path.join(storage_dir, "dump.pcap")
+            if not os.path.lexists(dest_pcap):
+                with suppress(OSError, shutil.Error):
+                    if hasattr(os, "symlink"):
+                        os.symlink(source_path, dest_pcap)
+                    else:
+                        shutil.copy(source_path, dest_pcap)
+
+    return True
+
+
+def stop_analysis_task(task_id: int, mode: str = "stop") -> dict:
+    """Stop an in-progress or pending analysis task so it transitions to post-processing/reporting.
+
+    Args:
+        task_id: Task ID to stop.
+        mode: ``"stop"`` (immediate host-side stop for pending/running/distributed tasks)
+              or ``"finish"`` (graceful in-guest finish via agent HTTP, falling back to host stop).
+    """
+    from urllib.parse import urljoin
+
+    from lib.cuckoo.core.data.db_common import _utcnow_naive
+    from lib.cuckoo.core.data.guests import Guest
+
+    try:
+        tid = int(task_id)
+    except (TypeError, ValueError):
+        return {"error": True, "error_value": "Invalid task ID"}
+
+    task_status = None
+    guest_name = None
+    sample_sha256 = ""
+    pending_snapshot = None
+
+    with db.session.begin():
+        stmt = select(Task).where(Task.id == tid).with_for_update()
+        task = db.session.scalar(stmt)
+        if not task:
+            return {"error": True, "error_value": "Task does not exist"}
+
+        task_status = task.status
+        if getattr(task, "sample", None):
+            sample_sha256 = getattr(task.sample, "sha256", "") or ""
+        elif task.sample_id:
+            sample_obj = db.session.get(Sample, task.sample_id)
+            if sample_obj:
+                sample_sha256 = sample_obj.sha256 or ""
+
+        if task_status == TASK_PENDING:
+            if not task.started_on:
+                task.started_on = _utcnow_naive()
+            pending_snapshot = type(
+                "TaskSnapshot",
+                (),
+                {
+                    "id": task.id,
+                    "target": task.target,
+                    "category": task.category,
+                    "sample": type("S", (), {"sha256": sample_sha256})() if sample_sha256 else None,
+                },
+            )()
+            init_static_analysis_storage(pending_snapshot, sha256=sample_sha256)
+            db.set_task_status(task, TASK_COMPLETED)
+            return {"error": False, "data": "completed"}
+
+        if task_status == TASK_RUNNING:
+            guest = db.session.scalar(select(Guest).where(Guest.task_id == tid))
+            if guest is not None:
+                guest_name = guest.name
+                if mode == "stop":
+                    guest.status = "stopping"
+
+    if task_status == TASK_RUNNING:
+        if mode == "finish" and guest_name:
+            machine = db.view_machine(guest_name)
+            if machine and getattr(machine, "status", None) == "running" and getattr(machine, "ip", None):
+                try:
+                    guest_env = requests.get(f"http://{machine.ip}:8000/environ", timeout=5).json()
+                    complete_folder = hashlib.md5(f"cape-{tid}".encode()).hexdigest()
+                    dest_folder = ""
+                    if machine.platform == "windows":
+                        dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
+                    elif machine.platform == "linux":
+                        dest_folder = f"{guest_env['environ'].get('TMP', '/tmp')}/{complete_folder}"
+                    if dest_folder:
+                        r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder}, timeout=5)
+                        return {"error": r.status_code != 200, "data": r.text}
+                except Exception as exc:
+                    logging.getLogger(__name__).warning("In-guest finish for task %s failed (%s); falling back to host stop", tid, exc)
+                    db.guest_set_status(tid, "stopping")
+                    return {"error": False, "data": "stopping"}
+            db.guest_set_status(tid, "stopping")
+            return {"error": False, "data": "stopping"}
+
+        if guest_name is None:
+            db.guest_set_status(tid, "stopping")
+        return {"error": False, "data": "stopping"}
+
+    if task_status == TASK_DISTRIBUTED and HAVE_DIST and dist_conf.distributed.enabled:
+        worker_url = None
+        worker_apikey = None
+        worker_task_id = None
+        completed_locally = False
+        try:
+            with dist_session() as dist_db, dist_db.begin():
+                dtask = dist_db.scalar(
+                    select(DTask).where(DTask.main_task_id == tid, DTask.finished.is_(False)).with_for_update()
+                )
+                if dtask is not None:
+                    if dtask.node_id and dtask.task_id:
+                        node = dist_db.get(Node, dtask.node_id)
+                        if node and node.url:
+                            worker_url = node.url
+                            worker_apikey = node.apikey
+                            worker_task_id = dtask.task_id
+                    else:
+                        dtask.finished = True
+                        dtask.retrieved = True
+                        dtask.notificated = True
+                        completed_locally = True
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Distributed stop lookup failed for task %s: %s", tid, exc)
+
+        if completed_locally:
+            with db.session.begin():
+                t = db.session.get(Task, tid)
+                if t:
+                    if not t.started_on:
+                        t.started_on = _utcnow_naive()
+                    init_static_analysis_storage(t, sha256=sample_sha256)
+                    db.set_task_status(t, TASK_COMPLETED)
+            return {"error": False, "data": "completed"}
+
+        if worker_url and worker_task_id:
+            try:
+                headers = {"Authorization": f"Token {worker_apikey}"} if worker_apikey else {}
+                r = requests.post(
+                    urljoin(worker_url, f"tasks/status/{worker_task_id}/"),
+                    headers=headers,
+                    json={"status": "stop"},
+                    verify=False,
+                    timeout=10,
+                )
+                return {"error": r.status_code != 200, "data": "stopping"}
+            except Exception as exc:
+                return {"error": True, "error_value": f"Failed to stop distributed worker task: {exc}"}
+
+    if task_status in (TASK_COMPLETED, TASK_REPORTED):
+        return {"error": False, "data": task_status}
+
+    return {"error": True, "error_value": f"Task cannot be stopped in state '{task_status}'"}

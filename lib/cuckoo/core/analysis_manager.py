@@ -394,6 +394,9 @@ class AnalysisManager(threading.Thread):
     def dump_machine_memory(self) -> None:
         if not self.cfg.cuckoo.memory_dump and not self.task.memory:
             return
+        if getattr(self, "stopped_by_user", False):
+            self.log.info("Skipping machine memory dump for task #%s (stopped early by user)", self.task.id)
+            return
 
         assert self.machinery_manager and self.machine
 
@@ -473,9 +476,14 @@ class AnalysisManager(threading.Thread):
         guest_manager.start_analysis(options)
         self.guest_started_on = _utcnow_naive()
         try:
-            if guest_manager.get_status_from_db() == "starting":
+            current_status = guest_manager.get_status_from_db()
+            if current_status == "starting":
                 guest_manager.set_status_in_db("running")
                 guest_manager.wait_for_completion()
+                if guest_manager.get_status_from_db() == "stopping":
+                    self.stopped_by_user = True
+            elif current_status == "stopping":
+                self.stopped_by_user = True
             guest_manager.set_status_in_db("stopping")
         except Exception as e:
             self.log.exception("Unknown exception waiting for guest completion: %s", str(e))

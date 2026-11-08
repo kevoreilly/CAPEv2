@@ -1357,8 +1357,9 @@ function install_CAPE() {
     fi
 
     cd "$CAPE_ROOT/" || return
-    # copy *.conf.default and *.env to their destination so we have all properly updated fields
-    for filename in conf/default/*.conf.default conf/default/*.env; do
+    # copy *.conf.default and *.env.default to their destination so we have all properly updated fields
+    for filename in conf/default/*.conf.default conf/default/*.env.default; do
+        [ -e "$filename" ] || continue
         dest="conf/${filename#conf/default/}"
         cp -vf "./$filename" "./${dest%.default}"
     done
@@ -1698,6 +1699,39 @@ function install_passivedns() {
     fi
 }
 
+function sync_installed_systemd_units() {
+    local systemd_dir="${SYSTEMD_UNIT_DIR:-/lib/systemd/system}"
+    local updated=0
+    for svc_src in "$CAPE_ROOT"/systemd/cape*.service; do
+        [ -f "$svc_src" ] || continue
+        local svc_name
+        svc_name=$(basename "$svc_src")
+        local svc_dest="$systemd_dir/$svc_name"
+        [ -f "$svc_dest" ] || continue
+
+        local svc_use_uv="$USE_UV"
+        local svc_uv_bin="/usr/local/bin/uv"
+        if [ "$svc_use_uv" = "true" ] || [ "$svc_use_uv" = "True" ]; then
+            svc_uv_bin="${PYTHON_MGR:-/usr/local/bin/uv}"
+        elif grep -Eq '^ExecStart=.*/uv([[:space:]]|$)' "$svc_dest" 2>/dev/null; then
+            svc_use_uv="true"
+        fi
+
+        sudo cp "$svc_src" "$svc_dest"
+        if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
+            sudo sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" "$svc_dest"
+        fi
+        if [ "$svc_use_uv" = "true" ] || [ "$svc_use_uv" = "True" ]; then
+            sudo sed -i "\|^ExecStartPre=.*/poetry .*|d" "$svc_dest" || true
+            sudo sed -i "s|/etc/poetry/bin/poetry|$svc_uv_bin|g" "$svc_dest"
+        fi
+        updated=1
+    done
+    if [ "$updated" -eq 1 ]; then
+        sudo systemctl daemon-reload
+    fi
+}
+
 function update() {
     echo "[+] Updating CAPEv2"
     sudo systemctl stop "cape*"
@@ -1711,6 +1745,7 @@ function update() {
         sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --noinput
     fi
     sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
+    sync_installed_systemd_units
     systemctl list-unit-files "cape*" --state=enabled --no-legend | awk '{print $1}' | xargs -r sudo systemctl start
 }
 

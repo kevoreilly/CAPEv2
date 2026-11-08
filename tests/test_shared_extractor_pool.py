@@ -428,3 +428,26 @@ def test_unreaped_pool_stays_registered_for_exit_finalizer(monkeypatch):
     fx._teardown_extractor_pool(clean)
     assert clean not in fx._ACTIVE_EXTRACTOR_POOLS
     fx._ACTIVE_EXTRACTOR_POOLS.clear()
+
+
+def test_extractor_pool_worker_sets_extractor_proctitle(monkeypatch):
+    """Nested extractor pool workers must replace any inherited [Task N] suffix
+    with [extractor] so ps/htop only shows [Task N] on real task workers."""
+    import setproctitle as spt
+
+    applied_titles = []
+    monkeypatch.setattr(spt, "getproctitle", lambda: "python utils/process.py [Task 999]")
+    monkeypatch.setattr(spt, "setproctitle", lambda title: applied_titles.append(title))
+
+    fx._init_extractor_worker()
+    assert applied_titles == ["python utils/process.py [extractor]"]
+
+    captured_kwargs = {}
+
+    def _fake_process_pool(**kwargs):
+        captured_kwargs.update(kwargs)
+        return _FakePool()
+
+    monkeypatch.setattr(fx.pebble, "ProcessPool", _fake_process_pool)
+    fx._new_extractor_pool(max_workers=2)
+    assert captured_kwargs.get("initializer") is fx._init_extractor_worker

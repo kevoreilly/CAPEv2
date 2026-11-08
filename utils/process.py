@@ -14,6 +14,11 @@ import signal
 import sys
 from contextlib import suppress
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
 log = logging.getLogger()
 
 try:
@@ -69,6 +74,73 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 check_linux_dist()
 
 original_proctitle = getproctitle()
+_IS_WORKER = False
+_AUTO_LOCK_FD = None
+
+
+def _close_auto_lock_in_child():
+    """Close inherited supervisor lock descriptor in forked children so a dying or
+    wedged worker never holds process_auto.lock after the supervisor exits."""
+    global _AUTO_LOCK_FD
+    fd = _AUTO_LOCK_FD
+    _AUTO_LOCK_FD = None
+    if fd is not None:
+        with suppress(OSError):
+            fd.close()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_close_auto_lock_in_child)
+
+
+def _acquire_autoprocess_lock(cuckoo_root: str = CUCKOO_ROOT):
+    """Acquire a non-blocking single-instance flock for continuous auto mode.
+
+    Prevents multiple concurrent ``utils/process.py`` auto supervisors from
+    exceeding ``CAPE_PARALLEL`` or double-processing the same ``TASK_COMPLETED``
+    rows, while leaving targeted ``utils/process.py <id> -r`` runs unrestricted.
+    """
+    global _AUTO_LOCK_FD
+    if fcntl is None:
+        return None
+
+    lock_dir = os.path.join(cuckoo_root, "log")
+    lock_path = os.path.join(lock_dir, "process_auto.lock")
+    raw_fd = None
+    lock_file = None
+    try:
+        if not path_exists(lock_dir):
+            path_mkdir(lock_dir)
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        raw_fd = os.open(lock_path, flags, 0o600)
+        lock_file = os.fdopen(raw_fd, "r+")
+        raw_fd = None
+    except OSError as err:
+        if raw_fd is not None:
+            with suppress(OSError):
+                os.close(raw_fd)
+        log.warning("Unable to open autoprocess lockfile %s (%s); continuing unlocked", lock_path, err)
+        return None
+
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock_file.close()
+        log.error("Another cape-processor auto instance is already running (lock held on %s); exiting.", lock_path)
+        sys.exit(1)
+    except OSError as err:
+        lock_file.close()
+        log.warning("flock unavailable on %s (%s); continuing unlocked", lock_path, err)
+        return None
+
+    with suppress(OSError):
+        lock_file.seek(0)
+        lock_file.truncate()
+        lock_file.write(f"{os.getpid()}\n")
+        lock_file.flush()
+
+    _AUTO_LOCK_FD = lock_file
+    return lock_file
 
 
 # https://stackoverflow.com/questions/41105733/limit-ram-usage-to-python-program
@@ -247,10 +319,13 @@ def run_task(task, memory_debugging=False, debug=False):
     finally:
         file_extra_info.shutdown_shared_extractor_pool()
         set_formatter_fmt()
-        setproctitle(original_proctitle)
+        setproctitle(f"{original_proctitle} [worker: idle]" if _IS_WORKER else original_proctitle)
 
 
 def init_worker():
+    global _IS_WORKER
+    _IS_WORKER = True
+    setproctitle(f"{original_proctitle} [worker: idle]")
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     with suppress(CuckooDatabaseInitializationError):
@@ -485,45 +560,60 @@ def autoprocess(
     from lib.cuckoo.core.processing_engine import get_engine
     from lib.cuckoo.core.processing_engine.source import TaskSource
 
+    global _AUTO_LOCK_FD
+    if parallel < 1:
+        log.warning("Invalid parallel=%s; clamping to 1", parallel)
+        parallel = 1
+
+    lock_file = _acquire_autoprocess_lock(CUCKOO_ROOT)
     try:
-        if not disable_memory_limit:
-            memory_limit()
-        log.info("Processing analysis data (engine=%s)", engine)
+        try:
+            if not disable_memory_limit:
+                memory_limit()
+            setproctitle(f"{original_proctitle} [supervisor parallel={parallel}]")
+            log.info("Processing analysis data (engine=%s, parallel=%d)", engine, parallel)
 
-        # Compile the YARA ruleset ONCE in the supervisor, before the engine forks any
-        # workers. Every forked child then inherits the compiled rules via copy-on-write
-        # fork (0s + shared read-only pages), and its init_worker() File.init_yara() call
-        # short-circuits on the idempotency guard. Without this, prefork — which forks a
-        # fresh child per task — would pay the ~3s compile on every single task. Safe to
-        # call here: compilation is single-threaded, so it does not break the prefork
-        # single-threaded-before-fork invariant.
-        from lib.cuckoo.common.objects import File
+            # Compile the YARA ruleset ONCE in the supervisor, before the engine forks any
+            # workers. Every forked child then inherits the compiled rules via copy-on-write
+            # fork (0s + shared read-only pages), and its init_worker() File.init_yara() call
+            # short-circuits on the idempotency guard. Without this, prefork — which forks a
+            # fresh child per task — would pay the ~3s compile on every single task. Safe to
+            # call here: compilation is single-threaded, so it does not break the prefork
+            # single-threaded-before-fork invariant.
+            from lib.cuckoo.common.objects import File
 
-        File.init_yara()
+            File.init_yara()
 
-        source = TaskSource(db, failed_processing=failed_processing)
-        eng = get_engine(
-            engine,
-            task_fn=functools.partial(run_task, memory_debugging=memory_debugging, debug=debug),
-            worker_init=init_worker,
-            source=source,
-            parallel=parallel,
-            timeout=processing_timeout,
-        )
-        eng.max_count = cfg.cuckoo.max_analysis_count
-        if engine == "pebble":
-            eng.max_tasks = maxtasksperchild
-        eng.run()
-    except KeyboardInterrupt:
-        raise
-    except (MemoryError, OSError) as e:
-        mem = get_memory() / 1024 / 1024
-        log.critical(
-            "Memory Exception: Remain: %.2f GB. Your system doesn't have enough FREE RAM to run processing! Error: %s",
-            mem,
-            e,
-        )
-        sys.exit(1)
+            source = TaskSource(db, failed_processing=failed_processing)
+            eng = get_engine(
+                engine,
+                task_fn=functools.partial(run_task, memory_debugging=memory_debugging, debug=debug),
+                worker_init=init_worker,
+                source=source,
+                parallel=parallel,
+                timeout=processing_timeout,
+            )
+            eng.max_count = cfg.cuckoo.max_analysis_count
+            if engine == "pebble":
+                eng.max_tasks = maxtasksperchild
+            eng.run()
+        except KeyboardInterrupt:
+            raise
+        except (MemoryError, OSError) as e:
+            mem = get_memory() / 1024 / 1024
+            log.critical(
+                "Memory Exception: Remain: %.2f GB. Your system doesn't have enough FREE RAM to run processing! Error: %s",
+                mem,
+                e,
+            )
+            sys.exit(1)
+    finally:
+        setproctitle(original_proctitle)
+        if lock_file is not None:
+            if _AUTO_LOCK_FD is lock_file:
+                _AUTO_LOCK_FD = None
+            with suppress(OSError):
+                lock_file.close()
 
 
 def _load_report(task_id: int):
@@ -604,13 +694,82 @@ def parse_id(id_string: str):
     return blocks
 
 
-def main():
+def _parse_env_file(path: str) -> dict[str, str]:
+    """Parse a systemd-compatible KEY=VALUE environment file."""
+    values: dict[str, str] = {}
+    if not path_exists(path):
+        return values
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for raw_line in fh:
+                line = raw_line.strip()
+                if not line or line.startswith(("#", ";")):
+                    continue
+                if line.startswith(("export ", "export\t")):
+                    line = line[6:].lstrip()
+                if "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip()
+                if not key:
+                    continue
+                if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
+                    val = val[1:-1]
+                else:
+                    for idx, ch in enumerate(val):
+                        if ch == "#" and idx > 0 and val[idx - 1].isspace():
+                            val = val[:idx].rstrip()
+                            break
+                values[key] = val
+    except OSError as err:
+        log.warning("Failed to read processor env file %s: %s", path, err)
+    return values
+
+
+def load_processor_env(cuckoo_root: str = CUCKOO_ROOT, environ: dict[str, str] | None = None) -> dict[str, str]:
+    """Resolve processor configuration from conf/cape-processor.env,
+    custom/conf/cape-processor.env, and process environment variables."""
+    env = dict(os.environ if environ is None else environ)
+    conf_env = _parse_env_file(os.path.join(cuckoo_root, "conf", "cape-processor.env"))
+    custom_env = _parse_env_file(os.path.join(cuckoo_root, "custom", "conf", "cape-processor.env"))
+    merged: dict[str, str] = {}
+    merged.update(conf_env)
+    if env.get("INVOCATION_ID") and "PYTEST_CURRENT_TEST" not in env:
+        # Under systemd, ensure custom/conf/cape-processor.env overrides unit
+        # Environment= defaults even if the installed unit file predates custom/conf.
+        merged.update(env)
+        merged.update(custom_env)
+    else:
+        # Outside systemd, explicit caller environment variables override .env files.
+        merged.update(custom_env)
+        merged.update(env)
+    return merged
+
+
+def _env_int(env: dict[str, str], key: str, default: int, minimum: int | None = None) -> int:
+    raw = env.get(key)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        log.warning("Invalid integer %s=%r; falling back to %d", key, raw, default)
+        return default
+    if minimum is not None and value < minimum:
+        log.warning("Out-of-range %s=%d; clamping to %d", key, value, minimum)
+        return minimum
+    return value
+
+
+def build_arg_parser(cuckoo_root: str = CUCKOO_ROOT, environ: dict[str, str] | None = None) -> argparse.ArgumentParser:
+    proc_env = load_processor_env(cuckoo_root=cuckoo_root, environ=environ)
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "id",
         type=parse_id,
         help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10 or 1,3,5,7",
-        default=os.getenv("CAPE_ID") or "auto",
+        default=proc_env.get("CAPE_ID") or "auto",
         nargs="?",
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
@@ -620,7 +779,7 @@ def main():
         help="Display debug messages",
         action="store_true",
         required=False,
-        default=str_to_bool(os.getenv("CAPE_DEBUG", "false")),
+        default=str_to_bool(proc_env.get("CAPE_DEBUG", "false")),
     )
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
     parser.add_argument(
@@ -629,7 +788,7 @@ def main():
         help="Number of parallel threads to use (auto mode only).",
         type=int,
         required=False,
-        default=int(os.getenv("CAPE_PARALLEL") or 1),
+        default=_env_int(proc_env, "CAPE_PARALLEL", 1, minimum=1),
     )
     parser.add_argument(
         "-fp",
@@ -637,7 +796,7 @@ def main():
         help="reprocess failed processing",
         action="store_true",
         required=False,
-        default=str_to_bool(os.getenv("CAPE_FAILED_PROCESSING", "false")),
+        default=str_to_bool(proc_env.get("CAPE_FAILED_PROCESSING", "false")),
     )
     parser.add_argument(
         "-mc",
@@ -646,7 +805,7 @@ def main():
         action="store",
         type=int,
         required=False,
-        default=int(os.getenv("CAPE_MAXTASKSPERCHILD") or 7),
+        default=_env_int(proc_env, "CAPE_MAXTASKSPERCHILD", 7, minimum=0),
     )
     parser.add_argument(
         "-md",
@@ -654,7 +813,7 @@ def main():
         help="Enable logging garbage collection related info",
         action="store_true",
         required=False,
-        default=str_to_bool(os.getenv("CAPE_MEMORY_DEBUGGING", "false")),
+        default=str_to_bool(proc_env.get("CAPE_MEMORY_DEBUGGING", "false")),
     )
     parser.add_argument(
         "-pt",
@@ -663,7 +822,7 @@ def main():
         action="store",
         type=int,
         required=False,
-        default=int(os.getenv("CAPE_PROCESSING_TIMEOUT") or 300),
+        default=_env_int(proc_env, "CAPE_PROCESSING_TIMEOUT", 300, minimum=1),
     )
     testing_args = parser.add_argument_group("Signature testing options")
     testing_args.add_argument(
@@ -695,27 +854,38 @@ def main():
         help="Disable memory limit.",
         action="store_true",
         required=False,
-        default=str_to_bool(os.getenv("CAPE_DISABLE_MEMORY_LIMIT", "false")),
+        default=str_to_bool(proc_env.get("CAPE_DISABLE_MEMORY_LIMIT", "false")),
     )
     parser.add_argument(
         "--engine",
         choices=["pebble", "prefork"],
-        default=os.getenv("CAPE_ENGINE") or "pebble",
+        default=proc_env.get("CAPE_ENGINE") or "pebble",
         help="Processing engine: pebble (default, A/B control) or prefork.",
     )
     if getattr(cfg, "multitenancy", {}).get("enabled", False):
+        raw_tenant_id = (proc_env.get("CAPE_TENANT_ID") or "").strip()
+        try:
+            default_tenant_id = int(raw_tenant_id) if raw_tenant_id else None
+        except ValueError:
+            log.warning("Invalid integer CAPE_TENANT_ID=%r; ignoring", raw_tenant_id)
+            default_tenant_id = None
         parser.add_argument(
             "--visibility",
             choices=["public", "tenant", "private"],
-            default=os.getenv("CAPE_VISIBILITY") or None,
+            default=proc_env.get("CAPE_VISIBILITY") or None,
             help="Override task visibility (public, tenant, private) when processing/reporting.",
         )
         parser.add_argument(
             "--tenant-id",
             type=int,
-            default=int(os.getenv("CAPE_TENANT_ID")) if os.getenv("CAPE_TENANT_ID") else None,
+            default=default_tenant_id,
             help="Override task tenant/group ID when processing/reporting.",
         )
+    return parser
+
+
+def main():
+    parser = build_arg_parser(cuckoo_root=CUCKOO_ROOT)
     args = parser.parse_args()
 
     init_database()

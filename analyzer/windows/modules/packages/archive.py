@@ -20,6 +20,7 @@ from lib.common.constants import (
     OPT_MULTI_PASSWORD,
     OPT_PASSWORD,
     OPT_RECURSION_DEPTH,
+    OPT_MAX_EXECUTABLES,
 )
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
@@ -130,7 +131,7 @@ class Archive(Package):
         seven_zip_path = self.get_path_app_in_path("7z.exe")
         password = self.options.get(OPT_PASSWORD) or "infected"
         archive_name = Path(path).name
-        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
+        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0) or 0))
         diec_path = self.get_path_app_in_path("diec.exe") if recursion_depth > 0 else None
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
@@ -287,7 +288,7 @@ class Archive(Package):
                 log.debug("No interesting files found, auto executing the first file: %s", file_names[0])
                 interesting_files.append(file_names[0])
 
-            max_executables = max(1, int(self.options.get("max_executables", 16) or 16))
+            max_executables = max(1, int(self.options.get(OPT_MAX_EXECUTABLES, 16) or 16))
             log.debug("Missing file option, auto executing: %s", interesting_files)
             return self.execute_files(root, interesting_files, max_executables=max_executables)
         else:

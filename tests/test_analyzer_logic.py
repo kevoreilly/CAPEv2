@@ -79,12 +79,14 @@ def mock_archive_package(monkeypatch):
         "OPT_MULTI_PASSWORD",
         "OPT_PASSWORD",
         "OPT_RECURSION_DEPTH",
+        "OPT_MAX_EXECUTABLES",
     ]:
         setattr(mock_constants, opt, opt)
     mock_constants.ARCHIVE_OPTIONS = (
         mock_constants.OPT_FILE,
         mock_constants.OPT_PASSWORD,
         mock_constants.OPT_RECURSION_DEPTH,
+        mock_constants.OPT_MAX_EXECUTABLES,
     )
     mock_constants.DLL_OPTIONS = (
         mock_constants.OPT_ARGUMENTS,
@@ -552,7 +554,7 @@ def test_windows_archive_caps_max_executables(mock_archive_package, tmp_path, mo
 
     Archive, _ = mock_archive_package
     monkeypatch.chdir(tmp_path)
-    archive_pkg = Archive(options={"max_executables": 2}, config=MagicMock())
+    archive_pkg = Archive(options={"OPT_MAX_EXECUTABLES": 2}, config=MagicMock())
     archive_pkg.get_path_app_in_path = MagicMock(return_value="C:\\7z.exe")
 
     def fake_extract(seven_zip_path, path, root, password, try_multiple):

@@ -12,6 +12,7 @@ from lib.common.constants import (
     OPT_MULTI_PASSWORD,
     OPT_PASSWORD,
     OPT_RECURSION_DEPTH,
+    OPT_MAX_EXECUTABLES,
 )
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
@@ -77,7 +78,7 @@ class Archive(Package):
         except CuckooPackageError:
             seven_zip_path = self.get_path_app_in_path("7zz")
         password = self.options.get(OPT_PASSWORD) or "infected"
-        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
+        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0) or 0))
         file_util_path = self.get_path_app_in_path("file") if recursion_depth > 0 else None
 
         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
@@ -152,7 +153,7 @@ class Archive(Package):
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             ret_list = []
-            max_executables = max(1, int(self.options.get("max_executables", 16) or 16))
+            max_executables = max(1, int(self.options.get(OPT_MAX_EXECUTABLES, 16) or 16))
 
             # Let the dispatcher recognize extensions case-insensitively and ELF
             # contents independently of suffix, rather than filtering twice.

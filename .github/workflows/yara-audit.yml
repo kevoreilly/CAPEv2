@@ -28,9 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo bash ./installer/cape2.sh yara
-          cd $GITHUB_WORKSPACE
-          bash -c "poetry run ./extra/yara_installer.sh"
+          sudo USE_UV=True bash ./installer/cape2.sh yara
 
       - name: Run unit tests
-        run: poetry run pytest tests/test_yara.py -s --import-mode=append
+        run: uv run pytest tests/test_yara.py -s --import-mode=append

@@ -187,6 +187,11 @@ def static_file_info(
     if "MSI Installer" in data_dictionary.get("type", "") and "msi" not in data_dictionary:
         data_dictionary["msi"] = parse_msi(file_path)
 
+    if HAVE_MALCAT and "malcat" not in data_dictionary:
+        malcat_info = malcat_details(file_path, category=category, file_type=data_dictionary.get("type", ""))
+        if malcat_info:
+            data_dictionary["malcat"] = malcat_info
+
     # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary.get("type", "") or "MS-DOS executable" in data_dictionary.get("type", "")):
         if "pe" not in data_dictionary:
@@ -245,11 +250,6 @@ def static_file_info(
     #    data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp" and integration_conf.general.hwp:
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
-
-    if HAVE_MALCAT and "malcat" not in data_dictionary:
-        malcat_info = malcat_details(file_path, category=category, file_type=data_dictionary.get("type", ""))
-        if malcat_info:
-            data_dictionary["malcat"] = malcat_info
 
     data = path_read_file(file_path)
 

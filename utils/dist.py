@@ -30,8 +30,27 @@ from sqlalchemy import and_, or_, select, func, delete, case, update
 from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 requests.packages.urllib3.disable_warnings()
+
+http_session = requests.Session()
+http_session.verify = False
+_http_adapter = HTTPAdapter(
+    pool_connections=20,
+    pool_maxsize=20,
+    max_retries=Retry(
+        total=3,
+        connect=3,
+        read=3,
+        backoff_factor=1,
+        allowed_methods=Retry.DEFAULT_ALLOWED_METHODS | {"POST"},
+        raise_on_status=False,
+    ),
+)
+http_session.mount("http://", _http_adapter)
+http_session.mount("https://", _http_adapter)
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -231,7 +250,7 @@ def node_status(url: str, name: str, apikey: str) -> dict:
             an empty dictionary is returned.
     """
     try:
-        r = requests.get(
+        r = http_session.get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=5
         )
         return r.json().get("data", {})
@@ -259,7 +278,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=30)
+        r = http_session.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=30)
         if not r.ok:
             log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
@@ -286,7 +305,7 @@ def node_list_machines(url, apikey):
         HTTPException: If the request to the CAPE node fails or returns an error.
     """
     try:
-        r = requests.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = http_session.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
@@ -308,7 +327,7 @@ def node_list_exitnodes(url, apikey):
         HTTPException: If the request fails or the response is invalid.
     """
     try:
-        r = requests.get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = http_session.get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for exitnode in r.json()["data"]:
             yield exitnode
     except Exception as e:
@@ -334,7 +353,7 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
     """
     try:
         url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
-        return requests.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
+        return http_session.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
     except Exception as e:
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
@@ -553,7 +572,7 @@ def _delete_many(node, ids, nodes):
             log.info("[REMOVE] %-15s ==> CAPE ID: %s (Worker ID: %s)", nodes[node].name, ",".join(map(str, cape_ids)), ids)
         else:
             log.info("[REMOVE] %-15s ==> Worker ID: %s", nodes[node].name, ids)
-        res = requests.post(
+        res = http_session.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
             data={"ids": ids, "delete_mongo": False},
@@ -686,6 +705,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     r = None
     # Add timeout to requests
     request_timeout = 300  # 5 minutes for large files
+    headers = {"Authorization": f"Token {apikey}"}
 
     if task.category in ("file", "pcap"):
         if task.category == "pcap":
@@ -700,11 +720,11 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         try:
             # Use context manager for file
             with open(task.path, "rb") as f:
-                r = requests.post(
+                r = http_session.post(
                     url,
                     data=data,
                     files={"file": f},
-                    headers={"Authorization": f"Token {apikey}"},
+                    headers=headers,
                     verify=False,
                     timeout=request_timeout,
                 )
@@ -715,10 +735,10 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     elif task.category == "url":
         url = urljoin(node.url, "tasks/create/url/")
         try:
-            r = requests.post(
+            r = http_session.post(
                 url,
                 data={**data, "url": task.path},
-                headers={"Authorization": f"Token {apikey}"},
+                headers=headers,
                 verify=False,
                 timeout=request_timeout,
             )
@@ -733,11 +753,11 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             return
         try:
             with open(task.path, "rb") as f:
-                r = requests.post(
+                r = http_session.post(
                     url,
                     data=data,
                     files={"file": f},
-                    headers={"Authorization": f"Token {apikey}"},
+                    headers=headers,
                     verify=False,
                     timeout=request_timeout,
                 )
@@ -753,8 +773,13 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         # encoding problem
         if r is not None and r.status_code == 500 and task.category == "file":
             with open(task.path, "rb") as f:
-                r = requests.post(
-                    url, data=data, files={"file": ("file", f.read())}, verify=False, timeout=request_timeout
+                r = http_session.post(
+                    url,
+                    data=data,
+                    files={"file": ("file", f.read())},
+                    headers=headers,
+                    verify=False,
+                    timeout=request_timeout,
                 )
     except (OSError, requests.RequestException) as e:
         log.error("Error re-submitting file task (Main: %d): %s", task.main_task_id, e)
@@ -975,7 +1000,7 @@ class Retriever(threading.Thread):
             notified = False
             for url in urls:
                 try:
-                    res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(main_task_id)}), timeout=30)
+                    res = http_session.post(url, headers=headers, data=json.dumps({"task_id": int(main_task_id)}), timeout=30)
                     if res is not None and res.ok:
                         notified = True
                     else:

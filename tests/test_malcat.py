@@ -333,4 +333,58 @@ def test_malcat_details_prefetches_capa_in_single_bridge_call(monkeypatch, tmp_p
     assert fake_client.analyze.call_count == 1
 
 
+def test_static_file_info_runs_malcat_before_flare_capa(monkeypatch, tmp_path):
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+
+    pe_file = tmp_path / "sample.exe"
+    pe_file.write_bytes(b"MZ" + b"\x90" * 64)
+    call_order = []
+
+    def fake_malcat_details(file_path, category="static", file_type=""):
+        call_order.append("malcat")
+        return {"anomalies": [{"label": "test"}]}
+
+    def fake_flare_capa_details(file_path, category="static", **kwargs):
+        call_order.append("flare_capa")
+        return {"CAPABILITY": {"ns": ["cap"]}}
+
+    class _FakePE:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def run(self, task_id):
+            return {}
+
+    monkeypatch.setattr(fei_mod, "HAVE_MALCAT", True)
+    monkeypatch.setattr(fei_mod, "HAVE_PEFILE", True)
+    monkeypatch.setattr(fei_mod, "HAVE_FLARE_CAPA", True)
+    monkeypatch.setattr(fei_mod, "HAVE_FLOSS", False)
+    monkeypatch.setattr(fei_mod, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(fei_mod, "malcat_details", fake_malcat_details, raising=False)
+    monkeypatch.setattr(fei_mod, "flare_capa_details", fake_flare_capa_details, raising=False)
+    monkeypatch.setattr(fei_mod, "PortableExecutable", _FakePE, raising=False)
+    monkeypatch.setattr(fei_mod, "generic_file_extractors", lambda *a, **k: None)
+
+    data_dict = {"type": "PE32 executable (GUI) Intel 80386, for MS Windows", "sha256": "a" * 64}
+    fei_mod.static_file_info(
+        data_dict,
+        str(pe_file),
+        "1",
+        "exe",
+        "",
+        str(tmp_path),
+        {},
+        {"sha256": set()},
+        category="static",
+    )
+    assert call_order == ["malcat", "flare_capa"]
+
+
+
 

@@ -382,6 +382,79 @@ class TestStaticPreview(SimpleTestCase):
             cape_mod.reporting_conf.mongodb.enabled = orig_mongo
             cape_mod.processing_conf.CAPE.file_cache = orig_cache
 
+    def test_cape_process_file_runs_static_when_file_cache_disabled_and_resolves_selfextract_fallback(self):
+        from modules.processing import CAPE as cape_mod
+
+        _, task, sha256, tmp_file = self._create_sample_task()
+        orig_mongo = cape_mod.reporting_conf.mongodb.enabled
+        orig_cache = cape_mod.processing_conf.CAPE.file_cache
+
+        child_bytes = b"MZ_child_payload"
+        child_sha = hashlib.sha256(child_bytes).hexdigest()
+        storage_child = os.path.join(
+            os.path.dirname(tmp_file), "storage", "files", child_sha[:2], child_sha[2:4], child_sha
+        )
+        os.makedirs(os.path.dirname(storage_child), exist_ok=True)
+        with open(storage_child, "wb") as fh:
+            fh.write(child_bytes)
+
+        options_hash = hashlib.sha256(b"{}").hexdigest()
+        persisted_doc = {
+            "_id": sha256,
+            "sha256": sha256,
+            "size": 27,
+            "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+            "yara": [],
+            "cape_yara": [],
+            "yara_hash": cape_mod.File.yara_rules_hash,
+            "options_hash": options_hash,
+            "static_preview_enriched": True,
+            "selfextract": {
+                "Unpacker": {
+                    "extracted_files": [
+                        {
+                            "sha256": child_sha,
+                            "path": "/nonexistent/storage/analyses/1/selfextracted/" + child_sha,
+                            "cape_yara": [{"name": "ChildFamily", "meta": {"cape_type": "ChildFamily Payload"}}],
+                        }
+                    ]
+                }
+            },
+        }
+
+        try:
+            cape_mod.reporting_conf.mongodb.enabled = True
+            cape_mod.processing_conf.CAPE.file_cache = False
+
+            processor = cape_mod.CAPE()
+            processor.task = {"id": task.id + 100, "target": tmp_file, "options": "", "package": "exe"}
+            processor.options = cape_mod.processing_conf.CAPE
+            processor.results = {"statistics": {"processing": []}}
+            processor.cape = {"payloads": [], "configs": []}
+            processor.self_extracted = ""
+
+            with (
+                patch.object(cape_mod, "mongo_find_one", return_value=dict(persisted_doc)),
+                patch.object(cape_mod, "get_files_storage_path", return_value=storage_child),
+                patch.object(cape_mod, "static_file_info") as mock_static_info,
+                patch.object(
+                    cape_mod,
+                    "static_config_parsers",
+                    return_value={"ChildFamily": {"C2": ["192.0.2.1:80"]}},
+                ) as mock_cfg_parser,
+            ):
+                processor.process_file(
+                    tmp_file, False, {}, category="file", duplicated={"sha256": set(), "TLSH": set()}
+                )
+                # Even though options_hash and yara_hash match, file_cache=False must still run static_file_info
+                mock_static_info.assert_called_once()
+                # And stale selfextract path must fall back to get_files_storage_path without FileNotFoundError
+                mock_cfg_parser.assert_called_once()
+                self.assertEqual(processor.cape["configs"][0]["ChildFamily"]["C2"], ["192.0.2.1:80"])
+        finally:
+            cape_mod.reporting_conf.mongodb.enabled = orig_mongo
+            cape_mod.processing_conf.CAPE.file_cache = orig_cache
+
     def test_on_demand_rejects_mismatched_sha256_for_unreported_task(self):
         """on_demand must not fall back to storage/binaries/<sha256> when sha256 does not match the task sample."""
         import analysis.views as analysis_views

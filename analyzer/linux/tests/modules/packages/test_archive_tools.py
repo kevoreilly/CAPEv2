@@ -14,6 +14,9 @@ from modules.packages import archive
 
 @pytest.fixture
 def seven_zip():
+    repo_7zz = Path(__file__).resolve().parents[5] / "data" / "7zz"
+    if repo_7zz.is_file() and (repo_7zz.stat().st_mode & 0o111):
+        return str(repo_7zz)
     binary = shutil.which("7z") or shutil.which("7zz")
     if binary is None:
         pytest.skip("7-Zip is required for real archive extraction")

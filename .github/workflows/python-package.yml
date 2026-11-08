@@ -32,12 +32,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Setup 7zz binary
-        run: |
-          mkdir -p data/
-          wget -q --tries=5 --waitretry=2 --retry-connrefused --retry-on-http-error=500,502,503,504 https://github.com/CAPESandbox/community/raw/master/data/7zz -O data/7zz
-          chmod +x data/7zz
-
       - name: Install pyattck
         run: |
           poetry run pip install git+https://github.com/CAPESandbox/pyattck maco

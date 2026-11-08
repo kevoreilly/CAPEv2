@@ -1704,11 +1704,14 @@ function update() {
     cd "$CAPE_ROOT" || return
     sudo -u ${USER} git pull
     sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; export CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
-    if sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check | grep -Fq "alembic upgrade head"; then
+    if sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check 2>&1 | grep -Fq "alembic upgrade head"; then
         sudo -u ${USER} bash -c "cd $CAPE_ROOT/utils/db_migration && $PYTHON_MGR $PYTHON_MGR_CMD alembic upgrade head"
     fi
+    if ! sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --check >/dev/null 2>&1; then
+        sudo -u ${USER} $PYTHON_MGR --directory "$CAPE_ROOT" $PYTHON_MGR_CMD python web/manage.py migrate --noinput
+    fi
     sudo -u ${USER} find "$CAPE_ROOT" -name '*.pyc' -delete
-    systemctl list-unit-files "cape*" --no-legend | awk '{print $1}' | xargs sudo systemctl start
+    systemctl list-unit-files "cape*" --state=enabled --no-legend | awk '{print $1}' | xargs -r sudo systemctl start
 }
 
 # Doesn't work ${$1,,}

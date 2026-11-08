@@ -318,6 +318,8 @@ def central_vtupload(request: Any, category: str, task_id: Any, filename: str, d
 
     scope = viewer_scope(request.user)
     path, is_temp = materialize_artifact(task_id, relpath, scope=scope)
+    if not path and category in ("dropped", "CAPE"):
+        path, is_temp = materialize_artifact(task_id, f"selfextracted/{filename}", scope=scope)
     if not path:
         return render(request, "error.html", {"error": "File not found"})
     try:

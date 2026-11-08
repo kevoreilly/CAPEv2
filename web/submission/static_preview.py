@@ -443,7 +443,7 @@ def update_static_preview_service(sha256: str, service: str, details) -> dict | 
     if reporting_conf.mongodb.enabled:
         with suppress(Exception):
             update_field = "office.XLMMacroDeobfuscator" if service == "xlsdeobf" else service
-            mongo_update_one("files", {"_id": sha256}, {"$set": {update_field: details}}, upsert=True)
+            mongo_update_one("files", {"_id": sha256}, {"$set": {"sha256": sha256, update_field: details}}, upsert=True)
 
     return updated_file
 

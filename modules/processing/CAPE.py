@@ -38,6 +38,7 @@ from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
     get_clamav_consensus,
+    get_files_storage_path,
     get_options,
     make_bytes,
     texttypes,
@@ -231,7 +232,7 @@ class CAPE(Processing):
                     options_match = db_file.get("options_hash", "") == options_hash
                     file_info = db_file
                     cached = True
-                    if yara_match and options_match:
+                    if processing_conf.CAPE.file_cache and yara_match and options_match:
                         run_static = False
                         if HAVE_VIRUSTOTAL:
                             # We might want to refresh VT based on cache policy
@@ -382,7 +383,19 @@ class CAPE(Processing):
                 if file.get("data", b""):
                     extracted_file_data = make_bytes(file["data"])
                 else:
-                    extracted_file_data = Path(file["path"]).read_bytes()
+                    extracted_path = file.get("path", "")
+                    if not (extracted_path and path_exists(extracted_path)) and file.get("sha256"):
+                        candidate = os.path.join(self.self_extracted, file["sha256"]) if self.self_extracted else ""
+                        if candidate and path_exists(candidate):
+                            extracted_path = candidate
+                        else:
+                            with suppress(ValueError):
+                                storage_candidate = get_files_storage_path(file["sha256"])
+                                if path_exists(storage_candidate):
+                                    extracted_path = storage_candidate
+                    if not (extracted_path and path_exists(extracted_path)):
+                        continue
+                    extracted_file_data = Path(extracted_path).read_bytes()
                 for yara in file["cape_yara"]:
                     all_files.append(
                         (

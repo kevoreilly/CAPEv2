@@ -119,10 +119,26 @@ def is_vnc_console_enabled():
     return bool(enabled)
 
 
-def _error(request, task_id, msg):
-    return render(request, "guac/error.html", {
-        "error_msg": msg, "error": "remote session", "task_id": task_id,
-    })
+def _error(request, task_id, msg, status=200):
+    return render(
+        request,
+        "guac/error.html",
+        {"error_msg": msg, "error": "remote session", "task_id": task_id},
+        status=status,
+    )
+
+
+def _resolve_guac_viewer(request):
+    from lib.tenancy.middleware import default_viewer_resolver
+
+    viewer = getattr(request, "viewer", None)
+    if viewer is not None:
+        return viewer
+    return default_viewer_resolver(getattr(request, "user", None))
+
+
+def _is_direct_vnc_authorized(request) -> bool:
+    return bool(_resolve_guac_viewer(request).see_all)
 
 
 def _vm_target_for_task(task_id):
@@ -237,6 +253,9 @@ def direct_vnc_host_port(request, host, port):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
 
+    if not _is_direct_vnc_authorized(request):
+        return _error(request, 0, "VNC Console is restricted to administrators", status=403)
+
     token = uuid.uuid4()
     try:
         with db.transaction():
@@ -276,6 +295,9 @@ def direct_vnc_host_port(request, host, port):
 def direct_vnc_vm(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
+
+    if not _is_direct_vnc_authorized(request):
+        return _error(request, 0, "VNC Console is restricted to administrators", status=403)
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
@@ -615,7 +637,7 @@ sys.exit(res.returncode)
                                 logger.error("Execpy clock sync failed on VM '%s': %s", vm_name, exec_res.text)
 
                             try:
-                                session.post(f"http://{ip}:{port}/remove", data={"filepath": remote_script_path}, timeout=5.0)
+                                session.post(f"http://{ip}:{port}/remove", data={"path": remote_script_path}, timeout=5.0)
                             except Exception:
                                 pass
                         else:
@@ -650,6 +672,9 @@ sys.exit(res.returncode)
 def direct_vnc_vm_start(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
+
+    if not _is_direct_vnc_authorized(request):
+        return _error(request, 0, "VNC Console is restricted to administrators", status=403)
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
@@ -744,6 +769,9 @@ def direct_vnc_vm_start(request, vm_name):
 def direct_vnc_vm_shutdown(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
+    if not _is_direct_vnc_authorized(request):
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -846,6 +874,9 @@ def direct_vnc_vm_route(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
 
+    if not _is_direct_vnc_authorized(request):
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
+
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
 
@@ -933,6 +964,9 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
 
+    if not _is_direct_vnc_authorized(request):
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
+
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
 
@@ -992,6 +1026,9 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
 def direct_vnc_vm_snapshot_create(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
+    if not _is_direct_vnc_authorized(request):
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -1078,6 +1115,9 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
 def direct_vnc_vm_snapshot_delete(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
+    if not _is_direct_vnc_authorized(request):
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)

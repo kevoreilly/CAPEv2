@@ -69,3 +69,41 @@ def test_guac_login_required_redirects_anonymous():
     request.session = {SESSION_KEY: str(u.pk), HASH_SESSION_KEY: "0" * 64}
     response = guac_login_required(_view)(request)
     assert response.status_code == 302
+
+
+@pytest.mark.django_db
+def test_direct_vnc_views_reject_non_admin_viewer(monkeypatch):
+    """Direct VNC HTTP views must enforce viewer.see_all even without TenancyMiddleware."""
+    import types
+    import guac.views as guac_views
+
+    monkeypatch.setattr(guac_views, "is_vnc_console_enabled", lambda: True)
+    monkeypatch.setattr(
+        guac_views,
+        "_resolve_guac_viewer",
+        lambda _req: types.SimpleNamespace(see_all=False),
+    )
+
+    u = User.objects.create_user("regularuser", password="pw-12345")
+    session = {
+        SESSION_KEY: str(u.pk),
+        BACKEND_SESSION_KEY: "django.contrib.auth.backends.ModelBackend",
+        HASH_SESSION_KEY: u.get_session_auth_hash(),
+    }
+
+    for view_fn, kwargs in (
+        (guac_views.direct_vnc_host_port, {"host": "127.0.0.1", "port": 5900}),
+        (guac_views.direct_vnc_vm, {"vm_name": "win10_1"}),
+        (guac_views.direct_vnc_vm_start, {"vm_name": "win10_1"}),
+        (guac_views.direct_vnc_vm_shutdown, {"vm_name": "win10_1"}),
+        (guac_views.direct_vnc_vm_route, {"vm_name": "win10_1"}),
+        (guac_views.direct_vnc_vm_snapshots_list, {"vm_name": "win10_1"}),
+        (guac_views.direct_vnc_vm_snapshot_create, {"vm_name": "win10_1"}),
+        (guac_views.direct_vnc_vm_snapshot_delete, {"vm_name": "win10_1"}),
+    ):
+        req = RequestFactory().post("/guac/direct/")
+        req.user = u
+        req.session = dict(session)
+        resp = view_fn(req, **kwargs)
+        assert resp.status_code == 403
+

@@ -17,20 +17,23 @@ processing - identical to FLARE's own failure behaviour.
 
 import hashlib
 import logging
+import threading
 from collections import OrderedDict
 
 log = logging.getLogger(__name__)
 
 _client = None
+_CACHE_LOCK = threading.Lock()
 _CAPA_PREFETCH_CACHE: "OrderedDict[str, dict]" = OrderedDict()
 _MAX_PREFETCH_ENTRIES = 32
 
 
 def _cache_put_capa(sha256: str, shaped: dict) -> None:
-    _CAPA_PREFETCH_CACHE[sha256] = shaped
-    _CAPA_PREFETCH_CACHE.move_to_end(sha256)
-    while len(_CAPA_PREFETCH_CACHE) > _MAX_PREFETCH_ENTRIES:
-        _CAPA_PREFETCH_CACHE.popitem(last=False)
+    with _CACHE_LOCK:
+        _CAPA_PREFETCH_CACHE[sha256] = shaped
+        _CAPA_PREFETCH_CACHE.move_to_end(sha256)
+        while len(_CAPA_PREFETCH_CACHE) > _MAX_PREFETCH_ENTRIES:
+            _CAPA_PREFETCH_CACHE.popitem(last=False)
 
 
 def _should_prefetch_capa(integ, cat_norm: str, _as_bool) -> bool:
@@ -97,7 +100,8 @@ def malcat_capa_details(file_path, category=False, on_demand=False, results=None
         return {}
 
     sha256 = hashlib.sha256(data).hexdigest()
-    prefetched = _CAPA_PREFETCH_CACHE.pop(sha256, None)
+    with _CACHE_LOCK:
+        prefetched = _CAPA_PREFETCH_CACHE.pop(sha256, None)
     if prefetched is not None:
         return prefetched if prefetched.get("CAPABILITY") else {}
 

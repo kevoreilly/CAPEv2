@@ -288,12 +288,13 @@ def _build_batch_tasks_info(request, task_ids):
         if not task:
             continue
 
-        status = str(task.get("status", "pending"))
+        raw_status = str(task.get("status", "pending"))
+        status = "processing" if raw_status == "completed" else raw_status
         target = task.get("target") or ""
         sample = task.get("sample") or {}
         sha256 = sample.get("sha256", "") if isinstance(sample, dict) else getattr(sample, "sha256", "")
-        is_reported = status in {"reported", "distributed_completed"}
-        is_terminal = status in _BATCH_TERMINAL_STATUSES
+        is_reported = raw_status in {"reported", "distributed_completed"}
+        is_terminal = raw_status in _BATCH_TERMINAL_STATUSES
         if not is_terminal:
             all_terminal = False
 

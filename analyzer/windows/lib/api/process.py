@@ -569,12 +569,14 @@ class Process:
                 "InitializeProcThreadAttributeList(size probe) unexpected result: ok=%s last_error=%d size=%d",
                 ok, last_error, cb_attribute_list_size.value
             )
+            return None, None, None
 
         attr_buf = create_string_buffer(cb_attribute_list_size.value)
         attr_list = cast(attr_buf, LPVOID)
 
         if not KERNEL32.InitializeProcThreadAttributeList(attr_list, 1, 0, byref(cb_attribute_list_size)):
             log.error("InitializeProcThreadAttributeList(init)")
+            return None, None, None
 
         hwnd = windll.user32.GetShellWindow()
         explorer_pid = DWORD()
@@ -584,6 +586,7 @@ class Process:
         if not raw_parent:
             KERNEL32.DeleteProcThreadAttributeList(attr_list)
             log.error("OpenProcess")
+            return None, None, None
 
         h_parent = HANDLE(raw_parent)
         if not KERNEL32.UpdateProcThreadAttribute(
@@ -598,6 +601,7 @@ class Process:
             KERNEL32.CloseHandle(h_parent)
             KERNEL32.DeleteProcThreadAttributeList(attr_list)
             log.error("UpdateProcThreadAttribute")
+            return None, None, None
 
         return attr_list, attr_buf, h_parent
 
@@ -668,8 +672,10 @@ class Process:
         )
         last_error = KERNEL32.GetLastError()
 
-        KERNEL32.CloseHandle(h_parent)
-        KERNEL32.DeleteProcThreadAttributeList(attr_list)
+        if h_parent:
+            KERNEL32.CloseHandle(h_parent)
+        if attr_list:
+            KERNEL32.DeleteProcThreadAttributeList(attr_list)
 
         if not created:
             log.warning(

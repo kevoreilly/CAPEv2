@@ -4306,7 +4306,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             servicedata = buf.get("target", {}).get("file", {})
             if servicedata:
                 if service == "xlsdeobf":
-                    servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                    servicedata.setdefault("office", {})["XLMMacroDeobfuscator"] = details
                 elif service == "kesakode" and kesakode_rows is not None:
                     if extractedfile:
                         _merge_kesakode_rows(servicedata, sha256, kesakode_rows)
@@ -4318,7 +4318,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 elif extractedfile:
                     _set_service_by_sha256(servicedata, sha256, service, details)
                 else:
-                    servicedata.setdefault(service, details)
+                    servicedata[service] = details
         elif service in CUSTOM_SERVICES:
             servicedata = details
             category = service

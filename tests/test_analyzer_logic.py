@@ -431,6 +431,30 @@ def test_windows_abstracts_dllregisterserver_no_unbound_local(windows_abstracts_
     pkg.execute.assert_called_once_with("C:\\Windows\\System32\\regsvr32.exe", f'/s "{dll}"', str(dll))
 
 
+def test_windows_abstracts_execute_interesting_file_sets_subfolder_curdir(windows_abstracts_mod, tmp_path):
+    from unittest.mock import MagicMock
+
+    root = tmp_path / "extracted"
+    sub = root / "nested"
+    sub.mkdir(parents=True)
+    bat = sub / "run.bat"
+    bat.write_text("@echo off\n")
+
+    pkg = windows_abstracts_mod.Package(options={})
+    pkg.get_path = MagicMock(return_value="C:\\Windows\\System32\\cmd.exe")
+    observed_curdir = []
+
+    def fake_execute(path, args, interest):
+        observed_curdir.append(pkg.options.get("OPT_CURDIR"))
+        return 1234
+
+    pkg.execute = fake_execute
+    pid = pkg.execute_interesting_file(str(root), bat.name, str(bat))
+    assert pid == 1234
+    assert observed_curdir == [str(sub)]
+    assert "OPT_CURDIR" not in pkg.options
+
+
 def test_windows_zip_utils_extract_archive_and_upload_containment(monkeypatch, tmp_path):
     import importlib.util
     import sys

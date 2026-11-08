@@ -305,8 +305,10 @@ class Disguise(Auxiliary):
                 byref(process_info),
             )
 
-            KERNEL32.CloseHandle(h_parent)
-            KERNEL32.DeleteProcThreadAttributeList(attr_list)
+            if h_parent:
+                KERNEL32.CloseHandle(h_parent)
+            if attr_list:
+                KERNEL32.DeleteProcThreadAttributeList(attr_list)
 
             if not created:
                 raise RuntimeError("CreateProcessW failed")

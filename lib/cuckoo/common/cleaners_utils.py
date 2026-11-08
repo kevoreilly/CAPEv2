@@ -668,13 +668,13 @@ def cuckoo_clean_before(args: dict):
     log.info("number of matching records %s before suri/custom filter", len(id_arr))
     if id_arr and args.get("suricata_zero_alert_filter"):
         result = list(
-            mongo_find("analysis", {"suricata.alerts.alert": {"$exists": False}, "$or": id_arr}, {"info.id": 1, "_id": 0})
+            mongo_find("analysis", {"suricata.alerts.alert": {"$exists": False}, "info.id": {"$in": id_arr}}, {"info.id": 1, "_id": 0})
         )
         id_arr = [entry["info"]["id"] for entry in result]
     if id_arr and args.get("custom_include_filter"):
         result = list(
             mongo_find(
-                "analysis", {"info.custom": {"$regex": args.get("custom_include_filter")}, "$or": id_arr}, {"info.id": 1, "_id": 0}
+                "analysis", {"info.custom": {"$regex": args.get("custom_include_filter")}, "info.id": {"$in": id_arr}}, {"info.id": 1, "_id": 0}
             )
         )
         id_arr = [entry["info"]["id"] for entry in result]
@@ -700,8 +700,13 @@ def cuckoo_clean_before(args: dict):
                 sys.exit()
         mongo_delete_data(id_arr)
 
-    with db.transaction():
-        db.delete_tasks(added_before=added_before, category=category, tags_tasks_like=tags_tasks_like)
+    if args.get("suricata_zero_alert_filter") or args.get("custom_include_filter"):
+        if id_arr:
+            with db.transaction():
+                db.delete_tasks(task_ids=id_arr)
+    else:
+        with db.transaction():
+            db.delete_tasks(added_before=added_before, category=category, tags_tasks_like=tags_tasks_like)
 
 
 def cuckoo_clean_sorted_pcap_dump():
@@ -866,7 +871,7 @@ def binaries_clean_before(timerange: str):
             if not os.path.exists(bin_path):
                 continue
             st_ctime = path_get_date(bin_path)
-            if datetime.fromtimestamp(st_ctime) > olden_than:
+            if datetime.fromtimestamp(st_ctime) < olden_than:
                 # ToDo check database here to ensure that file is not used
                 if not path_exists(bin_path):
                     continue
@@ -888,11 +893,13 @@ def files_clean_before(timerange: str):
     referenced = set()
     if repconf.mongodb.enabled and is_reporting_db_connected():
         try:
-            docs = mongo_find("files", {}, {"_id": 1})
+            docs = mongo_find("files", {}, {"_id": 1, "sha256": 1})
             if docs:
                 for doc in docs:
-                    if doc.get("_id"):
-                        referenced.add(str(doc["_id"]).lower())
+                    for key in ("sha256", "_id"):
+                        val = doc.get(key)
+                        if isinstance(val, str) and len(val) == 64:
+                            referenced.add(val.lower())
         except Exception as e:
             log.error("Failed to fetch referenced files from MongoDB: %s", e)
 

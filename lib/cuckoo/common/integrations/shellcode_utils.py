@@ -16,8 +16,9 @@ import timeit
 from typing import Any
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.utils import add_family_detection, get_options
+from lib.cuckoo.common.utils import add_family_detection, deduplicate_file_to_storage, get_options
 
 log = logging.getLogger(__name__)
 
@@ -143,12 +144,22 @@ def extract_shellcode_payloads(
     os.makedirs(self_extracted_dir, exist_ok=True)
     check = parent_info.get("static_shellcode_check")
     pids = [parent_info["pid"]] if parent_info.get("pid") else []
+    folder_name = os.path.basename(os.path.normpath(self_extracted_dir)) or "selfextracted"
+    files_json_path = os.path.join(os.path.dirname(os.path.normpath(self_extracted_dir)), "files.json")
+    in_cuckoo_root = False
+    with suppress(ValueError, OSError):
+        cuckoo_abs = os.path.abspath(CUCKOO_ROOT)
+        in_cuckoo_root = os.path.commonpath([cuckoo_abs, os.path.abspath(self_extracted_dir)]) == cuckoo_abs
     for payload in payloads:
         data = payload["data"]
         sha256 = hashlib.sha256(data).hexdigest()
         path = os.path.join(self_extracted_dir, sha256)
-        if not path_exists(path):
+        dest_existed = path_exists(path)
+        if not dest_existed:
             Path(path).write_bytes(data)
+            if in_cuckoo_root:
+                with suppress(Exception):
+                    deduplicate_file_to_storage(path, sha256, path)
         code = SHELLCODE_PAYLOAD_CODES.get(payload["framework"], SHELLCODE_PAYLOAD_CODES[None])
         if check is not None:
             check.setdefault("extracted", []).append(
@@ -166,6 +177,22 @@ def extract_shellcode_payloads(
             "pids": pids,
             "extracted_from": parent_info["sha256"],
         }
+        if not dest_existed and path_exists(files_json_path):
+            with suppress(OSError), open(files_json_path, "a", encoding="utf-8") as fh:
+                fh.write(
+                    json.dumps(
+                        {
+                            "path": os.path.join(folder_name, sha256),
+                            "filepath": sha256,
+                            "pids": pids,
+                            "ppids": [],
+                            "metadata": metadata["metadata"],
+                            "category": folder_name,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
         process_file_cb(path, True, metadata)
 
 

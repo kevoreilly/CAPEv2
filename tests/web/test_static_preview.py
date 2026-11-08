@@ -126,9 +126,11 @@ class TestStaticPreview(SimpleTestCase):
     def test_status_view_initial_and_htmx_static_and_poll(self):
         _, task, sha256, tmp_file = self._create_sample_task()
         orig_existent = web_conf.general.get("existent_tasks", False)
+        orig_preview_enabled = web_conf.static_preview.get("enabled", False)
 
         try:
             web_conf.general.existent_tasks = True
+            web_conf.static_preview.enabled = True
             fake_prior = [{"info": {"id": 999, "started": "2026-01-01 10:00:00"}, "target": {"file": {"sha256": sha256}}, "malfamily": "TestFamily"}]
             with (
                 patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
@@ -170,6 +172,7 @@ class TestStaticPreview(SimpleTestCase):
                     mock_preview.assert_not_called()
         finally:
             web_conf.general.existent_tasks = orig_existent
+            web_conf.static_preview.enabled = orig_preview_enabled
 
     def test_report_view_redirects_in_progress_task_to_submission_status(self):
         _, task, _, _ = self._create_sample_task()
@@ -667,9 +670,12 @@ class TestStaticPreview(SimpleTestCase):
 
     def test_static_preview_web_conf_enabled_on_demand_and_disabled(self):
         _, task, sha256, tmp_file = self._create_sample_task()
-        orig_enabled = web_conf.static_preview.get("enabled", True)
+        orig_enabled = web_conf.static_preview.get("enabled", False)
         orig_on_demand = web_conf.static_preview.get("on_demand", True)
         try:
+            # Verify default config values are disabled for existent_tasks and static_preview.enabled
+            self.assertFalse(bool(web_conf.general.get("existent_tasks", False)))
+            self.assertFalse(bool(orig_enabled))
             with patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)):
                 # 1. enabled = False, on_demand = True -> does not auto-load static preview on initial GET, renders Load button
                 web_conf.static_preview.enabled = False

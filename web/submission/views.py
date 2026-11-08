@@ -999,11 +999,11 @@ def _get_queue_position(request, task) -> int | None:
 def _get_static_preview_settings():
     cfg_section = getattr(web_conf, "static_preview", None)
     if cfg_section is not None and hasattr(cfg_section, "get"):
-        enabled = bool(cfg_section.get("enabled", True))
+        enabled = bool(cfg_section.get("enabled", False))
         on_demand = bool(cfg_section.get("on_demand", True))
         allow_stop = bool(cfg_section.get("allow_stop", True))
     else:
-        enabled = True
+        enabled = False
         on_demand = True
         allow_stop = True
     return enabled, on_demand, allow_stop

@@ -302,4 +302,26 @@ def test_get_digital_signers_crl_distribution_points_without_full_name():
     assert json.loads(json.dumps(signer)) == signer
 
 
+def test_get_filetype_memfd_fallback_on_zip_buffer(monkeypatch):
+    import io
+    import zipfile
+
+    import lib.cuckoo.common.integrations.parse_pe as parse_pe
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("hello.txt", b"hello world\n")
+    zip_bytes = buf.getvalue()
+
+    pe_helper = parse_pe.PortableExecutable("/tmp/fake_resource.exe")
+    monkeypatch.setattr(parse_pe, "HAVE_MAGIC", True)
+    monkeypatch.delattr(parse_pe.magic, "open", raising=False)
+    monkeypatch.setattr(parse_pe.magic, "from_buffer", lambda _data: "data")
+
+    filetype = pe_helper._get_filetype(zip_bytes)
+    assert filetype is not None
+    assert "Zip archive data" in filetype
+
+
+
 

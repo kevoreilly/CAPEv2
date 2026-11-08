@@ -24,7 +24,14 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter, apply_route_filter
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_mkdir, path_write_file
+from lib.cuckoo.common.path_utils import (
+    magic_from_buffer,
+    magic_from_file,
+    path_exists,
+    path_get_filename,
+    path_mkdir,
+    path_write_file,
+)
 from lib.cuckoo.common.utils import (
     generate_fake_name,
     get_ip_address,
@@ -763,9 +770,11 @@ def get_magic_type(data: bytes) -> str:
     """
     try:
         if path_exists(data):
-            return magic.from_file(data)
+            res = magic_from_file(data, magic_module=magic)
         else:
-            return magic.from_buffer(data)
+            res = magic_from_buffer(data, magic_module=magic)
+        if res is not None:
+            return res
     except Exception as e:
         print(e, "get_magic_type")
 

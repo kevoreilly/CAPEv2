@@ -473,5 +473,22 @@ def test_top_detections_and_top_asn_handle_execution_timeout(monkeypatch):
     assert len(calls) == 3
 
 
+def test_get_magic_type_memfd_fallback_for_zip_buffer(monkeypatch):
+    import io
+    import zipfile
+
+    import lib.cuckoo.common.web_utils as wu
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+        zf.writestr("payload.bin", b"test payload")
+    zip_bytes = buf.getvalue()
+
+    monkeypatch.setattr(wu.magic, "from_buffer", lambda _data: "data")
+    res = wu.get_magic_type(zip_bytes)
+    assert isinstance(res, str)
+    assert "Zip archive data" in res
+
+
 if __name__ == "__main__":
     unittest.main()

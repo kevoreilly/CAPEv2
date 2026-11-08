@@ -98,10 +98,12 @@ def decode_hex(m: re.Match) -> str:
     if len(s) % 2 != 0:
         return s
     try:
-        result = "".join(binascii.unhexlify(s))
-    except Exception:
-        return ""
-    return result
+        decoded = binascii.unhexlify(s).decode("latin-1")
+    except (binascii.Error, ValueError):
+        return s
+    if not is_printable(decoded):
+        return s
+    return decoded
 
 
 @quote
@@ -124,11 +126,12 @@ def decrypt_xor(m: re.Match) -> str:
 @quote
 def decrypt_sub(m: re.Match):
     with contextlib.suppress(Exception):
-        # TODO: Needs a relook, will likely error
-        first = int([c for c in m.group(1) if c.isdigit()])
-        second = int([c for c in m.group(2) if c.isdigit()])
-        if first and second:
-            return chr(first - second)
+        first_digits = "".join(c for c in m.group(1) if c.isdigit())
+        second_digits = "".join(c for c in m.group(2) if c.isdigit())
+        if first_digits and second_digits:
+            diff = int(first_digits) - int(second_digits)
+            if 0 <= diff < 0x110000:
+                return chr(diff)
     return m.group()
 
 
@@ -144,10 +147,12 @@ def handle_techniques(line: str, **opts) -> str:
     decrypt_func = opts["decrypt_func"]
 
     line = line.replace('"', '"""')
-    line = re.sub(r'"""([A-F0-9]{2,})"""', decode_hex, line)
+    if decrypt_func is decrypt_sub:
+        line = re.sub(rf'(?i)\b{enc_func_name}\((?:""")?(\d+)(?:""")?,\s*(?:""")?(\d+)(?:""")?\)', decrypt_func, line)
+    line = re.sub(r'"""([A-F0-9]{4,})"""', decode_hex, line)
     line = re.sub(r'"""([\w_+=/]{2,})"""', decode_base64, line)
     line = re.sub(r"(?i)Chr[A-Z$]\(Asc[A-Z$](.+?)\)\)", r"\1", line)
-    line = re.sub(r'(?i)Asc[A-Z$]\("""(\w)\w*"""\)', lambda m: ord(m.group(1)), line)
+    line = re.sub(r'(?i)Asc[A-Z$]?\("""(\w)\w*"""\)', lambda m: str(ord(m.group(1))), line)
     line = re.sub(r"(?i)((?:Chr[A-Z$]?\(\d+\)\s*&?\s*)+)", decode_chr, line)
     line = re.sub(rf'(?i)\b{enc_func_name}\s*\(\w+\("""(.+?)"""\),\s*\w+\("""(.+?)"""', decrypt_func, line)
     line = re.sub(rf'(?i)\b{enc_func_name}\((?:""")?(.+?)(?:""")?,\s*(?:""")?(.+?)(?:""")?\)', decrypt_func, line)

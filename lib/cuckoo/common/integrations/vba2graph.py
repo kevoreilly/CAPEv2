@@ -32,6 +32,7 @@ processing_conf = Config("processing")
 
 LINE_SEP = "\n"
 HAVE_VBA2GRAPH = False
+HAVE_OLETOOLS = False
 
 lst_mal_case_sensetive = [
     "Open",
@@ -373,8 +374,6 @@ if processing_conf.vba2graph.enabled:
     try:
         from oletools.olevba import VBA_Parser
 
-        # Temporary workaround. Change when oletools 0.56 will be released.
-        VBA_Parser.detect_vba_stomping = lambda self: False
         HAVE_OLETOOLS = True
     except ImportError:
         HAVE_OLETOOLS = False
@@ -404,7 +403,11 @@ def vba2graph_from_vba_object(filepath):
         filepath (string): path to file
     """
     log.info("Extracting macros from file")
-    if HAVE_OLETOOLS:
+    if not HAVE_OLETOOLS:
+        return False
+    full_vba_code = ""
+    vba = None
+    try:
         try:
             vba = VBA_Parser(filepath)
         except ValueError as e:
@@ -413,15 +416,15 @@ def vba2graph_from_vba_object(filepath):
         except Exception as e:
             log.error(e)
             return False
-    full_vba_code = ""
-    for subfilename, stream_path, vba_filename, vba_code in vba.extract_macros():
-        full_vba_code += "VBA MACRO %s \n" % vba_filename
-        full_vba_code += "- " * 39 + "\n"
-        # Temporary workaround. Change when oletools 0.56 will be released.
-        if isinstance(vba_code, bytes):
-            vba_code = vba_code.decode("utf8", errors="replace")
-        full_vba_code += vba_code
-    vba.close()
+        for subfilename, stream_path, vba_filename, vba_code in vba.extract_macros():
+            full_vba_code += "VBA MACRO %s \n" % vba_filename
+            full_vba_code += "- " * 39 + "\n"
+            if isinstance(vba_code, bytes):
+                vba_code = vba_code.decode("utf8", errors="replace")
+            full_vba_code += vba_code
+    finally:
+        if vba is not None:
+            vba.close()
     if full_vba_code:
         input_vba_content = handle_olevba_input(full_vba_code)
         return input_vba_content

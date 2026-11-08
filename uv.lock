@@ -679,6 +679,8 @@ dependencies = [
     { name = "lnkparse3" },
     { name = "maco" },
     { name = "maxminddb" },
+    { name = "msoffcrypto-tool", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "msoffcrypto-tool", version = "6.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "olefile" },
     { name = "oletools" },
     { name = "orjson" },
@@ -814,10 +816,11 @@ requires-dist = [
     { name = "maco", specifier = "==1.1.8" },
     { name = "maco", marker = "extra == 'maco'" },
     { name = "maxminddb", specifier = ">=2.6.3" },
+    { name = "msoffcrypto-tool", specifier = ">=6.0.0" },
     { name = "msrest", marker = "extra == 'azure'" },
     { name = "msrestazure", marker = "extra == 'azure'" },
     { name = "olefile", specifier = "==0.47" },
-    { name = "oletools", specifier = "==0.60.2" },
+    { name = "oletools", specifier = ">=0.60.2" },
     { name = "orjson", specifier = ">=3.9.15" },
     { name = "packaging", specifier = ">=24.2" },
     { name = "paramiko", specifier = "==3.5.0" },
@@ -3940,15 +3943,52 @@ wheels = [
 
 [[package]]
 name = "msoffcrypto-tool"
-version = "5.4.2"
+version = "6.0.0"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cryptography" },
-    { name = "olefile" },
+resolution-markers = [
+    "python_full_version < '3.11' and platform_python_implementation == 'CPython'",
+    "python_full_version < '3.11' and platform_python_implementation != 'CPython'",
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/b7/0fd6573157e0ec60c0c470e732ab3322fba4d2834fd24e1088d670522a01/msoffcrypto_tool-5.4.2.tar.gz", hash = "sha256:44b545adba0407564a0cc3d6dde6ca36b7c0fdf352b85bca51618fa1d4817370", size = 41183, upload-time = "2024-08-08T15:50:28.462Z" }
+dependencies = [
+    { name = "cryptography", marker = "python_full_version < '3.11'" },
+    { name = "olefile", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a6/34/6250bdddaeaae24098e45449ea362fb3555a65fba30cad0ad5630ea48d1a/msoffcrypto_tool-6.0.0.tar.gz", hash = "sha256:9a5ebc4c0096b42e5d7ebc2350afdc92dc511061e935ca188468094fdd032bbe", size = 40593, upload-time = "2026-01-12T08:59:56.73Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/03/54/7f6d3d9acad083dae8c22d9ab483b657359a1bf56fee1d7af88794677707/msoffcrypto_tool-5.4.2-py3-none-any.whl", hash = "sha256:274fe2181702d1e5a107ec1b68a4c9fea997a44972ae1cc9ae0cb4f6a50fef0e", size = 48713, upload-time = "2024-08-08T15:50:27.093Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/85/9e359fa9279e1d6861faaf9b6f037a3226374deb20a054c3937be6992013/msoffcrypto_tool-6.0.0-py3-none-any.whl", hash = "sha256:46c394ed5d9641e802fc79bf3fb0666a53748b23fa8c4aa634ae9d30d46fe397", size = 48791, upload-time = "2026-01-12T08:59:55.394Z" },
+]
+
+[[package]]
+name = "msoffcrypto-tool"
+version = "6.1.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.15' and platform_python_implementation == 'CPython'",
+    "python_full_version == '3.14.*' and platform_python_implementation == 'CPython'",
+    "python_full_version == '3.13.*' and platform_python_implementation == 'CPython'",
+    "python_full_version == '3.12.*' and platform_python_implementation == 'CPython'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.12' and platform_python_implementation == 'CPython'",
+    "python_full_version >= '3.11' and python_full_version < '3.11.5' and platform_python_implementation == 'CPython'",
+    "python_full_version >= '3.15' and platform_python_implementation == 'PyPy'",
+    "python_full_version >= '3.15' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy'",
+    "python_full_version == '3.14.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.14.*' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy'",
+    "python_full_version == '3.13.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.13.*' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy'",
+    "python_full_version == '3.12.*' and platform_python_implementation == 'PyPy'",
+    "python_full_version == '3.12.*' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.12' and platform_python_implementation == 'PyPy'",
+    "python_full_version >= '3.11.5' and python_full_version < '3.12' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy'",
+    "python_full_version >= '3.11' and python_full_version < '3.11.5' and platform_python_implementation == 'PyPy'",
+    "python_full_version >= '3.11' and python_full_version < '3.11.5' and platform_python_implementation != 'CPython' and platform_python_implementation != 'PyPy'",
+]
+dependencies = [
+    { name = "cryptography", marker = "python_full_version >= '3.11'" },
+    { name = "olefile", marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/09/f3/4256235af3e868097dc270627159c672a8d00573833c91669526d025c810/msoffcrypto_tool-6.1.0.tar.gz", hash = "sha256:e2d7dfca6ff69cf3da0a7225329e6c26febb4360f329db4937d6ee527fdd2569", size = 41025, upload-time = "2026-11-03T18:19:38.15Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/9e/d6a7b1e343d8cea4ac63a1b672ca7eed491ef5fce1813308942d96fca8e1/msoffcrypto_tool-6.1.0-py3-none-any.whl", hash = "sha256:32ced1299858018e6c1ca3d0007127335dbcff90e777a77eb52f92d5112869f8", size = 49366, upload-time = "2026-11-03T18:19:39.431Z" },
 ]
 
 [[package]]
@@ -4435,7 +4475,8 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorclass" },
     { name = "easygui" },
-    { name = "msoffcrypto-tool", marker = "(platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (platform_python_implementation != 'PyPy' and sys_platform == 'win32') or (sys_platform != 'darwin' and sys_platform != 'win32')" },
+    { name = "msoffcrypto-tool", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version < '3.11' and platform_python_implementation != 'PyPy' and sys_platform == 'win32') or (python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'win32')" },
+    { name = "msoffcrypto-tool", version = "6.1.0", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and platform_python_implementation != 'PyPy' and sys_platform == 'darwin') or (python_full_version >= '3.11' and platform_python_implementation != 'PyPy' and sys_platform == 'win32') or (python_full_version >= '3.11' and sys_platform != 'darwin' and sys_platform != 'win32')" },
     { name = "olefile" },
     { name = "pcodedmp" },
     { name = "pyparsing" },

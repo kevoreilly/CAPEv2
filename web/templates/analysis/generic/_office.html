@@ -177,9 +177,67 @@
             </div>
             {% endif %}
 
+            {% if file.office.external_relationships %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">External Relationships</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Relationship</th>
+                                <th>Target</th>
+                                <th>CVE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for rel in file.office.external_relationships %}
+                            <tr>
+                                <td>{{rel.relationship}}</td>
+                                <td><code>{{rel.target}}</code></td>
+                                <td>{{rel.CVE}}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.office.embedded_objects %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Embedded OLE Objects</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Size</th>
+                                <th>Stream</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for block in file.office.embedded_objects %}
+                            <tr>
+                                <td>
+                                    {% if block.sha256 %}
+                                        <a href="{% url "file" "rtf" id block.sha256 %}" class="btn btn-sm btn-outline-info">{{block.filename}}</a>
+                                    {% else %}
+                                        {{block.filename}}
+                                    {% endif %}
+                                </td>
+                                <td>{{block.size}}</td>
+                                <td><code>{{block.stream}}</code></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
             {% if file.office.dde %}
             <div class="alert alert-warning">
-                <strong>DDE Detected:</strong> {{file.dde}}
+                <strong>DDE Detected:</strong> {{file.office.dde}}
             </div>
             {% endif %}
 

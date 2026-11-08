@@ -9,6 +9,8 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
+import timeit
 
 # from contextlib import suppress
 from typing import Any, DefaultDict, List, Optional, Set
@@ -20,6 +22,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info_modules import (
     ExtractorReturnType,
     SuccessfulExtractionReturnType,
+    _collision_safe_destination,
     collect_extracted_filenames,
     extractor_ctx,
     time_tracker,
@@ -45,7 +48,7 @@ from lib.cuckoo.common.path_utils import (
     path_read_file,
     path_write_file,
 )
-from lib.cuckoo.common.utils import deduplicate_file_to_storage, get_options, is_text_file
+from lib.cuckoo.common.utils import deduplicate_file_to_storage, get_options, is_text_file, sanitize_filename
 
 try:
     from sflock import unpack
@@ -155,6 +158,50 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 tools_folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
+_OFFICE_EXTENSIONS = (
+    ".doc",
+    ".docx",
+    ".docm",
+    ".dot",
+    ".dotm",
+    ".rtf",
+    ".xls",
+    ".xlsx",
+    ".xlsm",
+    ".xlsb",
+    ".ppt",
+    ".pptx",
+    ".pptm",
+    ".ppsm",
+    ".pub",
+)
+
+
+_OFFICE_TYPE_MARKERS = (
+    "Rich Text Format",
+    "Microsoft Word",
+    "Microsoft Excel",
+    "Microsoft PowerPoint",
+    "Microsoft OOXML",
+    "Microsoft Office Word",
+    "Microsoft Office Excel",
+    "Microsoft Office PowerPoint",
+)
+
+
+def _is_office_target(file_path: str, data_dictionary: dict, package: str) -> bool:
+    file_name = data_dictionary.get("name", "")
+    if isinstance(file_name, list):
+        file_name = file_name[0] if file_name else ""
+    elif not isinstance(file_name, str):
+        file_name = ""
+    file_type = data_dictionary.get("type", "") or ""
+    return (
+        package in {"doc", "ppt", "xls", "pub"}
+        or file_name.lower().endswith(_OFFICE_EXTENSIONS)
+        or file_path.lower().endswith(_OFFICE_EXTENSIONS)
+        or any(marker in file_type for marker in _OFFICE_TYPE_MARKERS)
+    )
 
 
 def static_file_info(
@@ -217,10 +264,37 @@ def static_file_info(
                     if dotnet_strings:
                         data_dictionary.setdefault("dotnet_strings", dotnet_strings)
 
-    elif (HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integration_conf.general.office) or data_dictionary.get("name", "").endswith((".doc", ".ppt", ".xls", ".pub")):
+    elif HAVE_OLETOOLS and integration_conf.general.office and _is_office_target(file_path, data_dictionary, package):
         if "office" not in data_dictionary:
+            time_start = timeit.default_timer()
             # options is dict where we need to get pass get_options
-            data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
+            office_parser = Office(file_path, task_id, data_dictionary.get("sha256", ""), options_dict)
+            data_dictionary["office"] = office_parser.run()
+            if office_parser.extracted_files and destination_folder:
+                path_mkdir(tools_folder, exist_ok=True)
+                if not path_exists(destination_folder):
+                    path_mkdir(destination_folder, exist_ok=True)
+                tempdir = tempfile.mkdtemp(prefix="office_", dir=tools_folder)
+                try:
+                    written_names = []
+                    for orig_name, payload in office_parser.extracted_files:
+                        raw_name = os.path.basename((orig_name or "").replace("\\", "/").strip())
+                        safe_name = sanitize_filename(raw_name) if raw_name else "extracted.bin"
+                        if safe_name in {"", ".", ".."} or all(c == "." for c in safe_name):
+                            safe_name = "extracted.bin"
+                        dest_path = _collision_safe_destination("", os.path.join(tempdir, safe_name))
+                        _ = path_write_file(dest_path, payload)
+                        written_names.append(os.path.basename(dest_path))
+                    if written_names:
+                        metadata = _extracted_files_metadata(tempdir, destination_folder, files=written_names, results=results)
+                        if metadata:
+                            data_dictionary.setdefault("selfextract", {})["Office"] = {
+                                "extracted_files": metadata,
+                                "extracted_files_time": timeit.default_timer() - time_start,
+                                "password": options_dict.get("password", ""),
+                            }
+                finally:
+                    shutil.rmtree(tempdir, ignore_errors=True)
     elif ("PDF" in data_dictionary.get("type", "") or file_path.endswith(".pdf")) and integration_conf.general.pdf:
         if "pdf" not in data_dictionary:
             data_dictionary["pdf"] = PDF(file_path).run()

@@ -36,17 +36,17 @@ def trim_file(filename: bytes) -> bool:
 
 
 def trim_doc(filename: bytes) -> int:
-    ole = olefile.OleFileIO(filename)
-    num_sectors_per_fat_sector = ole.sector_size / 4
-    num_sectors_in_fat = num_sectors_per_fat_sector * ole.num_fat_sectors
-    max_filesize_fat = (num_sectors_in_fat + 1) * ole.sector_size
-    if ole._filesize > max_filesize_fat:
-        last_used_sector = len(ole.fat) - 1
-        for i in range(len(ole.fat) - 1, 0, -1):
-            last_used_sector = i
-            if ole.fat[i] != olefile.FREESECT:
-                break
-        return ole.sectorsize * (last_used_sector + 2)
+    with olefile.OleFileIO(filename) as ole:
+        num_sectors_per_fat_sector = ole.sector_size / 4
+        num_sectors_in_fat = num_sectors_per_fat_sector * ole.num_fat_sectors
+        max_filesize_fat = (num_sectors_in_fat + 1) * ole.sector_size
+        if ole._filesize > max_filesize_fat:
+            last_used_sector = len(ole.fat) - 1
+            for i in range(len(ole.fat) - 1, 0, -1):
+                last_used_sector = i
+                if ole.fat[i] != olefile.FREESECT:
+                    break
+            return ole.sector_size * (last_used_sector + 2)
 
 
 def trim_pe(first_chunk):

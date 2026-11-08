@@ -79,12 +79,14 @@ def mock_archive_package(monkeypatch):
         "OPT_MULTI_PASSWORD",
         "OPT_PASSWORD",
         "OPT_RECURSION_DEPTH",
+        "OPT_MAX_EXECUTABLES",
     ]:
         setattr(mock_constants, opt, opt)
     mock_constants.ARCHIVE_OPTIONS = (
         mock_constants.OPT_FILE,
         mock_constants.OPT_PASSWORD,
         mock_constants.OPT_RECURSION_DEPTH,
+        mock_constants.OPT_MAX_EXECUTABLES,
     )
     mock_constants.DLL_OPTIONS = (
         mock_constants.OPT_ARGUMENTS,

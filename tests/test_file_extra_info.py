@@ -466,5 +466,39 @@ def test_files_clean_before_respects_nested_symlinks_and_prunes_shards(tmp_path,
     assert not os.path.exists(os.path.dirname(master_old))
 
 
+@pytest.mark.skipif(
+    __import__("sys").platform != "linux" or __import__("platform").machine() != "x86_64",
+    reason="data/7zz is a Linux x86_64 binary",
+)
+def test_bundled_7zz_binary_and_sevenzip_unpack(tmp_path):
+    import os
+    import subprocess
+    from lib.cuckoo.common.constants import CUCKOO_ROOT
+
+    bundled_7zz = pathlib.Path(CUCKOO_ROOT) / "data" / "7zz"
+    assert bundled_7zz.is_file()
+    assert os.access(bundled_7zz, os.X_OK)
+
+    payload_file = tmp_path / "sample.txt"
+    payload_file.write_text("bundled 7zz extraction test\n", encoding="utf-8")
+    archive_file = tmp_path / "sample.7z"
+    subprocess.run(
+        [str(bundled_7zz), "a", "-t7z", "-pinfected", "-y", str(archive_file), str(payload_file)],
+        check=True,
+        capture_output=True,
+    )
+
+    extracted = file_extra_info.SevenZip_unpack(
+        file=str(archive_file),
+        filetype="",
+        data_dictionary={"die": ["7-zip Installer data"]},
+        options={"password": "infected"},
+        test=True,
+    )
+    assert extracted is not None
+    assert extracted["result"]["extracted_files"] == ["sample.txt"]
+
+
+
 
 

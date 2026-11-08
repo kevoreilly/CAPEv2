@@ -132,6 +132,14 @@ class TestSubmissionViews(SimpleTestCase):
             resp_dist = self.client.get("/submit/?batch_tasks=101,102")
             self.assertIn("DISTRIBUTED", resp_dist.content.decode())
 
+            # Completed SQL status maps to PROCESSING badge (not bg-danger COMPLETED) and keeps polling
+            fake_tasks[101]["status"] = "completed"
+            resp_proc = self.client.get("/submit/?batch_tasks=101,102")
+            html_proc = resp_proc.content.decode()
+            self.assertIn("PROCESSING", html_proc)
+            self.assertNotIn("bg-danger", html_proc)
+            self.assertIn('hx-trigger="every 5s"', html_proc)
+
         # Verify apply_sql_task_filter scoping is respected when a hook filters out tasks
         with patch(
             "lib.cuckoo.common.hooks.apply_sql_task_filter",

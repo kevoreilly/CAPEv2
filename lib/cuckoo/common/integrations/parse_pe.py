@@ -23,7 +23,7 @@ from PIL import Image
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.icon import PEGroupIconDir
-from lib.cuckoo.common.path_utils import path_exists, path_read_file
+from lib.cuckoo.common.path_utils import magic_from_buffer, path_exists, path_read_file
 
 try:
     import cryptography
@@ -358,31 +358,14 @@ class PortableExecutable:
         """
         return f"{pe.OPTIONAL_HEADER.MajorOperatingSystemVersion}.{pe.OPTIONAL_HEADER.MinorOperatingSystemVersion}" if pe else None
 
-    # This function is duplicated
     def _get_filetype(self, data: bytes) -> str:
         """Gets filetype, uses libmagic if available.
         @param data: data to be analyzed.
         @return: file type or None.
         """
-        if not HAVE_MAGIC:
+        if not HAVE_MAGIC or not data:
             return None
-
-        if not data:
-            return None
-
-        try:
-            ms = magic.open(magic.MAGIC_SYMLINK)
-            ms.load()
-            file_type = ms.buffer(data)
-        except Exception:
-            try:
-                file_type = magic.from_buffer(data)
-            except Exception:
-                return None
-        finally:
-            with suppress(Exception):
-                ms.close()
-        return file_type
+        return magic_from_buffer(data, magic_module=magic)
 
     def get_resources(self, pe: pefile.PE) -> List[Dict[str, str]]:
         """Get resources.

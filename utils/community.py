@@ -16,6 +16,7 @@ if sys.version_info[:2] < (3, 8):
 import argparse
 import logging
 import tarfile
+import time
 from io import BytesIO
 
 import urllib3
@@ -37,6 +38,21 @@ log = logging.getLogger(__name__)
 # determined"; the sentinel distinguishes that from "not looked up yet".
 _UNSET = object()
 _CORE_TRACKED_CACHE = _UNSET
+_HTTP_RETRY = urllib3.Retry(
+    total=5,
+    connect=5,
+    read=5,
+    status=5,
+    backoff_factor=2,
+    status_forcelist=(429, 500, 502, 503, 504),
+)
+
+
+def _http_client(proxy=None):
+    timeout = urllib3.Timeout(connect=15.0, read=60.0)
+    if proxy:
+        return urllib3.ProxyManager(proxy, retries=_HTTP_RETRY, timeout=timeout)
+    return urllib3.PoolManager(retries=_HTTP_RETRY, timeout=timeout)
 
 
 def flare_capa(proxy=None):
@@ -46,10 +62,7 @@ def flare_capa(proxy=None):
         "https://github.com/mandiant/capa/raw/master/sigs/3_flare_common_libs.sig",
     )
     try:
-        if proxy:
-            http = urllib3.ProxyManager(proxy)
-        else:
-            http = urllib3.PoolManager()
+        http = _http_client(proxy)
         data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
         dest_folder = os.path.join(CUCKOO_ROOT, "data")
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
@@ -151,26 +164,31 @@ def install(
         t = tarfile.TarFile.open(filepath, mode="r:gz")
     else:
         print(f"Downloading modules from {url}")
-        try:
-            if proxy:
-                http = urllib3.ProxyManager(proxy)
+        http = _http_client(proxy)
+        headers = None
+        if access_token is not None:
+            if "github" in url:
+                headers = {"Authorization": f"token {access_token}", "User-Agent": "CAPEv2_sandbox"}
             else:
-                http = urllib3.PoolManager()
-            if access_token is None:
-                data = http.request("GET", url).data
-            elif "github" in url:
-                data = http.request(
-                    "GET", url, headers={"Authorization": f"token {access_token}", "User-Agent": "CAPEv2_sandbox"}
-                ).data
-            else:
-                data = http.request("GET", url, headers={"PRIVATE-TOKEN": access_token}).data
+                headers = {"PRIVATE-TOKEN": access_token}
 
-            if b"Not Found" == data:
-                print("You don't have permissions to access this repo")
-                return
-            t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
-        except Exception as e:
-            print("ERROR: Unable to download archive: %s" % e)
+        t = None
+        last_err = None
+        for attempt in range(3):
+            try:
+                resp = http.request("GET", url, headers=headers)
+                data = resp.data
+                if b"Not Found" == data or resp.status == 404:
+                    print("You don't have permissions to access this repo")
+                    return
+                t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
+                break
+            except Exception as e:
+                last_err = e
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1))
+        if t is None:
+            print("ERROR: Unable to download archive: %s" % last_err)
             return
 
     folders = {

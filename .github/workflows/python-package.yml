@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Checkout test files repo
         uses: actions/checkout@v4
@@ -32,21 +30,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Setup 7zz binary
-        run: |
-          mkdir -p data/
-          wget -q --tries=5 --waitretry=2 --retry-connrefused --retry-on-http-error=500,502,503,504 https://github.com/CAPESandbox/community/raw/master/data/7zz -O data/7zz
-          chmod +x data/7zz
-
       - name: Install pyattck
         run: |
-          poetry run pip install git+https://github.com/CAPESandbox/pyattck maco
+          uv pip install git+https://github.com/CAPESandbox/pyattck
 
       - name: Run Ruff
-        run: poetry run ruff check . --output-format=github .
+        run: uv run ruff check . --output-format=github .
 
       - name: Run unit tests
-        run: poetry run python -m pytest --import-mode=append
+        run: uv run python -m pytest --import-mode=append
 
       # The web/ Django suites (tenant-isolation, apiv2, guac, submission, ...) live
       # outside testpaths=["tests","agent"], so the arg-less run above never collects
@@ -54,14 +46,14 @@ jobs:
       # pythonpath=web); DJANGO_SETTINGS_MODULE + pythonpath come from pyproject's
       # [tool.pytest.ini_options] and still apply with an explicit path arg.
       - name: Run web unit tests
-        run: poetry run python -m pytest web/ --import-mode=importlib
+        run: uv run python -m pytest web/ --import-mode=importlib
 
       - name: Run Linux analyzer unit tests
-        run: poetry --project . --directory "analyzer/linux" run python -m pytest -v
+        run: uv --project . --directory "analyzer/linux" run python -m pytest -v
 
       # see the ty configuration in pyproject.toml
       - name: Run ty
-        run: poetry run ty check
+        run: uv run ty check
 
   format:
     runs-on: ubuntu-latest

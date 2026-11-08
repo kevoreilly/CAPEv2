@@ -520,6 +520,18 @@ def _is_extractor_pool_healthy(pool):
     return is_pool_healthy(pool)
 
 
+def _init_extractor_worker():
+    """Tag nested extractor pool children so ps/htop does not mistake them for
+    top-level utils/process.py [Task N] workers."""
+    try:
+        from setproctitle import getproctitle, setproctitle
+
+        base_title = getproctitle().split(" [", 1)[0]
+        setproctitle(f"{base_title} [extractor]")
+    except Exception:
+        pass
+
+
 def _new_extractor_pool(max_workers=None):
     """Create a fresh fork-context pebble pool. Fork (not forkserver/spawn) is
     deliberate: the task child is single-threaded when the pool is created, so
@@ -528,7 +540,7 @@ def _new_extractor_pool(max_workers=None):
     ctx = multiprocessing.get_context("fork")
     configured = int(integration_conf.general.max_workers)
     workers = max(1, min(configured, int(max_workers))) if max_workers else configured
-    return pebble.ProcessPool(max_workers=workers, context=ctx)
+    return pebble.ProcessPool(max_workers=workers, initializer=_init_extractor_worker, context=ctx)
 
 
 def _create_extractor_pool(max_workers=None):

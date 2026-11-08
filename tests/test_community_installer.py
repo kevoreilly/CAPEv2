@@ -279,3 +279,30 @@ def test_install_skips_non_regular_tar_member_without_truncating_existing_file(m
 
     community.install(["data"], force=True, rewrite=True, filepath=str(archive))
     assert target.read_bytes() == b"existing binary"
+
+
+def test_install_retries_transient_non_gzip_download(monkeypatch, tmp_path):
+    relpath = "data/mitre/TTPs.json"
+    archive = _make_tarball(tmp_path, relpath, payload=b"{}")
+    valid_bytes = open(archive, "rb").read()
+
+    responses = [
+        type("_Resp", (), {"status": 502, "data": b"<html>502 Bad Gateway</html>"})(),
+        type("_Resp", (), {"status": 200, "data": valid_bytes})(),
+    ]
+
+    class _FakeHTTP:
+        def request(self, method, url, headers=None):
+            return responses.pop(0)
+
+    root = tmp_path / "root"
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community, "core_tracked_files", lambda: frozenset())
+    monkeypatch.setattr(community, "blocklist", {})
+    monkeypatch.setattr(community, "_http_client", lambda proxy=None: _FakeHTTP())
+    monkeypatch.setattr(community.time, "sleep", lambda _: None)
+
+    community.install(["mitre"], force=True, rewrite=True, url="https://github.com/kevoreilly/community/archive/master.tar.gz")
+    assert (root / "data" / "mitre" / "TTPs.json").read_bytes() == b"{}"
+    assert responses == []
+

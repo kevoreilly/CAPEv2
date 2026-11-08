@@ -30,7 +30,7 @@ from lib.cuckoo.common.defines import (
 from lib.cuckoo.common.integrations.clamav import get_clamav
 from lib.cuckoo.common.integrations.magika import MAGIKA_ENABLED, magika_info
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import magic_from_file, path_exists
 
 try:
     # python-magic, not file-magic!
@@ -353,20 +353,9 @@ class File:
         file_type = None
         if self.path_object.exists():
             if HAVE_MAGIC:
-                try:
-                    file_type = magic.from_file(self.file_path_ansii)
-                except magic.MagicException as e:
-                    log.error("Magic error: %s", str(e))
-                except Exception as e:
-                    log.exception(e)
-                if not file_type and hasattr(magic, "open"):
-                    try:
-                        ms = magic.open(magic.MAGIC_MIME | magic.MAGIC_SYMLINK)
-                        ms.load()
-                        file_type = ms.file(self.file_path)
-                        ms.close()
-                    except Exception as e:
-                        log.exception(e)
+                file_type = magic_from_file(self.file_path_ansii, magic_module=magic)
+                if not file_type:
+                    file_type = magic_from_file(self.file_path, mime=True, magic_module=magic)
 
             if file_type is None:
                 try:

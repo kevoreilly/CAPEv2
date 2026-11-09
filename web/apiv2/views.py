@@ -36,7 +36,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.hooks import apply_route_filter
+from lib.cuckoo.common.hooks import apply_route_filter, apply_sql_task_filter
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
@@ -2562,7 +2562,8 @@ def task_x_hours(request):
     """Number of tasks added per hour during the last 24 hours."""
     since = datetime.now() - timedelta(days=1)
     with db.transaction():
-        added = db.session.scalars(select(Task.added_on).where(Task.added_on >= since)).all()
+        stmt = apply_sql_task_filter(select(Task.added_on).where(Task.added_on >= since))
+        added = db.session.scalars(stmt).all()
     results = {}
     for added_on in added:
         bucket = added_on.strftime("%Y-%m-%dT%H:00:00")

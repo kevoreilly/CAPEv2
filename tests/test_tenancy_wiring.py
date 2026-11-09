@@ -3571,3 +3571,71 @@ def test_perform_search_files_pipeline_guards_replace_root_with_object_type_matc
     assert '{"$match": {"task_doc": {"$type": "object"}}}' in src
 
 
+def test_task_x_hours_stats_are_scoped_to_the_viewer(db, monkeypatch, mt_enabled):
+    from datetime import datetime, timedelta
+    import pathlib
+
+    from django.test import RequestFactory
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core.data.task import Task
+    from lib.tenancy.hooks import register_core_hooks
+    from lib.tenancy.policy import PUBLIC, TENANT
+
+    web_dir = str(pathlib.Path(__file__).resolve().parents[1] / "web")
+    if web_dir not in sys.path:
+        monkeypatch.syspath_prepend(web_dir)
+    from apiv2 import views as apiv2_views
+
+    monkeypatch.setattr(apiv2_views, "db", db)
+    monkeypatch.setattr(apiv2_views, "authentication_classes", (), raising=False)
+
+    t_user_a_priv = db.add_url("http://example.com/a-priv", user_id=7)
+    t_tenant_1 = db.add_url("http://example.com/t1-shared", user_id=7)
+    t_user_b_priv = db.add_url("http://example.com/b-priv", user_id=8)
+    t_tenant_2 = db.add_url("http://example.com/t2-shared", user_id=9)
+    t_public = db.add_url("http://example.com/public", user_id=7)
+    t_old = db.add_url("http://example.com/b-old", user_id=8)
+
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        set_task_acl(db.session, t_user_a_priv, user_id=7, tenant_id=1, visibility=PRIVATE)
+        set_task_acl(db.session, t_tenant_1, user_id=7, tenant_id=1, visibility=TENANT)
+        set_task_acl(db.session, t_user_b_priv, user_id=8, tenant_id=2, visibility=PRIVATE)
+        set_task_acl(db.session, t_tenant_2, user_id=9, tenant_id=2, visibility=TENANT)
+        set_task_acl(db.session, t_public, user_id=7, tenant_id=1, visibility=PUBLIC)
+        set_task_acl(db.session, t_old, user_id=8, tenant_id=2, visibility=PRIVATE)
+        db.session.get(Task, t_old).added_on = datetime.now() - timedelta(days=3)
+
+    def _stats_total(viewer):
+        req = RequestFactory().get("/apiv2/tasks/stats/")
+        req.user = _User(viewer.user_id)
+        mw = TenancyMiddleware(
+            lambda r: mw.process_view(r, apiv2_views.task_x_hours, (), {}) or apiv2_views.task_x_hours(r),
+            viewer_resolver=lambda _u: viewer,
+        )
+        resp = mw(req)
+        assert resp.status_code == 200
+        assert resp.data["error"] is False
+        return sum(resp.data["stats"].values())
+
+    register_core_hooks()
+    try:
+        # User 8 in tenant 2 sees own private (1) + tenant 2 shared (1) + public (1) = 3; excludes user 7's tasks and >24h task.
+        assert _stats_total(_viewer(user_id=8, tenant_id=2)) == 3
+        # Peer user 9 in tenant 2 sees tenant 2 shared (1) + public (1) = 2; excludes user 8's private task.
+        assert _stats_total(_viewer(user_id=9, tenant_id=2)) == 2
+        # Break-glass local admin sees all 5 in-window tasks across tenants.
+        admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
+        assert _stats_total(admin) == 5
+    finally:
+        core_hooks.clear_all_hooks()
+
+    # With tenancy hooks cleared ([multitenancy] enabled = no), all 5 in-window tasks are counted.
+    req = RequestFactory().get("/apiv2/tasks/stats/")
+    req.user = _User(8)
+    resp = apiv2_views.task_x_hours(req)
+    assert sum(resp.data["stats"].values()) == 5
+
+
+

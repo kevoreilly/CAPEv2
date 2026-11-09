@@ -71,6 +71,7 @@ $(function() {
                 <i class="fas fa-project-diagram me-2"></i>Behavioral Analysis
             </a>
         </li>
+        {% if config.tracee %}
         <li class="nav-item">
             <a class="nav-link" id="tracee-tab" href="#tracee"
                hx-get="/analysis/load_files/{{analysis.info.id}}/tracee/"
@@ -80,6 +81,7 @@ $(function() {
                 <i class="fas fa-search me-2"></i>Detailed Behaviour (Tracee)
             </a>
         </li>
+        {% endif %}
     {% elif analysis.info.category != "pcap" and analysis.info.category != "static" %}
         <li class="nav-item">
             <a class="nav-link" id="behavior-tab" href="#behavior"
@@ -256,9 +258,11 @@ $(function() {
     <div class="tab-pane fade" id="strace">
         {% include "analysis/strace/index.html" %}
     </div>
+    {% if analysis.info.machine.platform == "linux" and config.tracee %}
     <div class="tab-pane fade" id="tracee">
         {% include "analysis/tracee/index.html" %}
     </div>
+    {% endif %}
     <div class="tab-pane fade" id="network">
         {% include "analysis/network/index.html" %}
     </div>

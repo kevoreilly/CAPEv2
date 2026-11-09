@@ -1,11 +1,54 @@
-<div id="tracee">
+<div class="tracee-container">
     {% if tracee %}
-    <script src="/static/js/pako_inflate.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="/static/js/datatables.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <link href="/static/css/datatables.min.css" rel="stylesheet" />
-
     <script>
         async function tracee() {
+            const assetPromises = (window._capeAssetPromises = window._capeAssetPromises || {});
+
+            function loadStyleOnce(href) {
+                if (document.querySelector(`link[rel="stylesheet"][href="${href}"]`)) {
+                    return Promise.resolve();
+                }
+                if (!assetPromises[href]) {
+                    assetPromises[href] = new Promise((resolve, reject) => {
+                        const link = document.createElement("link");
+                        link.rel = "stylesheet";
+                        link.href = href;
+                        link.onload = () => resolve();
+                        link.onerror = () => {
+                            delete assetPromises[href];
+                            reject(new Error(`Failed to load stylesheet: ${href}`));
+                        };
+                        document.head.appendChild(link);
+                    });
+                }
+                return assetPromises[href];
+            }
+
+            function loadScriptOnce(src, globalName) {
+                if (globalName && window[globalName]) {
+                    return Promise.resolve();
+                }
+                if (!assetPromises[src]) {
+                    assetPromises[src] = new Promise((resolve, reject) => {
+                        const script = document.createElement("script");
+                        script.src = src;
+                        script.onload = () => resolve();
+                        script.onerror = () => {
+                            delete assetPromises[src];
+                            reject(new Error(`Failed to load script: ${src}`));
+                        };
+                        document.head.appendChild(script);
+                    });
+                }
+                return assetPromises[src];
+            }
+
+            await Promise.all([
+                loadStyleOnce("{{ STATIC_URL }}css/datatables.min.css"),
+                loadScriptOnce("{{ STATIC_URL }}js/pako_inflate.min.js", "pako"),
+                loadScriptOnce("{{ STATIC_URL }}js/datatables.min.js", "DataTable"),
+            ]);
+
             function base64ToArrayBuffer(base64) {
                 var binaryString = atob(base64);
                 var bytes = new Uint8Array(binaryString.length);
@@ -85,7 +128,9 @@
                         shownProcs[pid] = false;
                     }
 
-                    dt.draw();
+                    if (dt) {
+                        dt.draw();
+                    }
 
                     console.log(shownProcs);
                 });
@@ -180,10 +225,6 @@ and its usage could be suspicious as it can give visibility into low-level syste
             }
 
             console.log(preparedTraceeData);
-
-            await new Promise(resolve => {
-                setTimeout(() => { resolve() }, 1000)
-            });
 
             try {
                 dt = new DataTable('#tracee-mainTable', {
@@ -289,7 +330,7 @@ and its usage could be suspicious as it can give visibility into low-level syste
                 }, 1000);
             }
             catch (e) {
-                console.log(e);
+                console.error("Tracee UI failed to initialize:", e);
             }
         }
     </script>

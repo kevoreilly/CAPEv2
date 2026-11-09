@@ -278,3 +278,181 @@ def test_gcs_uploader_zip_archive_clamps_timestomped_mtimes(tmp_path, monkeypatc
     dates = uploaded_archives[0]
     assert dates["123/epoch_1970.bin"][0] == 1980
     assert dates["123/future_2150.bin"][0] == 2107
+
+
+def test_gcs_uploader_zip_archive_uses_cape_external_and_cleans_up(tmp_path, monkeypatch):
+    import os
+    from unittest.mock import MagicMock
+
+    import lib.cuckoo.common.gcp as gcp_mod
+
+    ext_dir = tmp_path / "cape-external"
+    ext_dir.mkdir()
+    monkeypatch.setattr(gcp_mod, "get_cape_external_dir", lambda: str(ext_dir))
+
+    src_dir = tmp_path / "analysis"
+    src_dir.mkdir()
+    (src_dir / "report.json").write_text("{}", encoding="utf-8")
+
+    staged_paths = []
+
+    class _FakeBlob:
+        def __init__(self, _name):
+            self.metadata = None
+
+        def upload_from_filename(self, filename):
+            staged_paths.append(filename)
+            assert os.path.exists(filename)
+
+    uploader = object.__new__(gcp_mod.GCSUploader)
+    uploader.exclude_dirs = set()
+    uploader.exclude_files = set()
+    uploader.mode = "zip"
+    uploader.bucket = MagicMock()
+    uploader.bucket.name = "test-bucket"
+    uploader.bucket.blob.side_effect = _FakeBlob
+
+    uploader.upload_zip_archive(456, str(src_dir))
+    assert len(staged_paths) == 1
+    assert os.path.dirname(staged_paths[0]) == str(ext_dir)
+    assert os.path.basename(staged_paths[0]).startswith("gcs_456_")
+    assert staged_paths[0].endswith(".zip")
+    assert list(ext_dir.iterdir()) == []
+
+    # Already-deleted temp file in finally: does not raise FileNotFoundError
+    class _UnlinkingBlob:
+        def __init__(self, _name):
+            self.metadata = None
+
+        def upload_from_filename(self, filename):
+            os.unlink(filename)
+
+    uploader.bucket.blob.side_effect = _UnlinkingBlob
+    uploader.upload_zip_archive(456, str(src_dir))
+    assert list(ext_dir.iterdir()) == []
+
+
+def test_gcs_upload_diagnostic_report_and_helper(monkeypatch):
+    import json
+    from unittest.mock import MagicMock
+
+    import lib.cuckoo.common.gcp as gcp_mod
+
+    uploaded = []
+
+    class _FakeDiagBlob:
+        def __init__(self, name):
+            self.name = name
+
+        def upload_from_string(self, payload, content_type=None):
+            uploaded.append((self.name, json.loads(payload), content_type))
+
+    uploader = object.__new__(gcp_mod.GCSUploader)
+    uploader.bucket = MagicMock()
+    uploader.bucket.name = "diag-bucket"
+    uploader.bucket.blob.side_effect = _FakeDiagBlob
+
+    report = {"mounts": [{"path": "/tmp", "free_mb": 12}], "truncated": False}
+    uri = uploader.upload_diagnostic_report(report, prefix="/disk_usage/")
+    assert uri is not None
+    assert uri.startswith("gs://diag-bucket/diagnostics/disk_usage_")
+    assert uri.endswith(".json")
+    assert len(uploaded) == 1
+    assert uploaded[0][1] == report
+    assert uploaded[0][2] == "application/json"
+
+    monkeypatch.setattr(gcp_mod, "GCS_ENABLED", False)
+    monkeypatch.setattr(gcp_mod, "gcs_uploader", uploader)
+    assert gcp_mod.gcs_upload_disk_report(report) is None
+
+    monkeypatch.setattr(gcp_mod, "GCS_ENABLED", True)
+    assert gcp_mod.gcs_upload_disk_report(report) == uri
+
+    def _fail_upload(_payload, content_type=None):
+        raise RuntimeError("gcs unavailable")
+
+    class _FailingBlob:
+        def __init__(self, _name):
+            self.upload_from_string = _fail_upload
+
+    uploader.bucket.blob.side_effect = _FailingBlob
+    assert gcp_mod.gcs_upload_disk_report(report) is None
+
+
+def test_gcs_refetch_banned_uses_cape_external_and_unlinks_always(db, tmp_path, monkeypatch):
+    import os
+    from pathlib import Path
+
+    import pytest
+
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    import lib.cuckoo.common.gcp as gcp_mod
+    import utils.submit as submit_mod
+    from lib.cuckoo.core.data.samples import Sample
+    from lib.cuckoo.core.data.task import TASK_BANNED, Task
+
+    sha256 = "f" * 64
+    with db.session.begin():
+        sample = Sample(
+            md5="0" * 32,
+            crc32="00000000",
+            sha1="0" * 40,
+            sha256=sha256,
+            sha512="0" * 128,
+            file_size=4,
+            file_type="PE32",
+        )
+        db.session.add(sample)
+        db.session.flush()
+        task = Task(target="/samples/banned.bin")
+        task.category = "file"
+        task.timeout = 0
+        task.priority = 1
+        task.memory = False
+        task.enforce_timeout = False
+        task.timedout = False
+        task.sample_id = sample.id
+        task.status = TASK_BANNED
+        db.session.add(task)
+
+    ext_dir = tmp_path / "cape-external"
+    ext_dir.mkdir()
+    monkeypatch.setattr(gcp_mod, "HAVE_GCP", True)
+    monkeypatch.setattr(gcp_mod, "get_cape_external_dir", lambda: str(ext_dir))
+
+    seen_dests = []
+
+    def _ok_download(_uri, dest_path, **_kw):
+        seen_dests.append(dest_path)
+        Path(dest_path).write_bytes(b"MZ\x90\x00")
+        return True
+
+    monkeypatch.setattr(gcp_mod, "download_from_gcs", _ok_download)
+    monkeypatch.setattr(submit_mod, "submit_file", lambda **_kw: ([1234], {}))
+
+    gcp_mod.gcs_refetch_banned("1d", samples_bucket="test-samples")
+    assert len(seen_dests) == 1
+    assert os.path.dirname(seen_dests[0]) == str(ext_dir)
+    assert os.path.basename(seen_dests[0]).startswith(f"refetch_{sha256[:12]}_")
+    assert list(ext_dir.iterdir()) == []
+
+    # Failed download also unlinks temp file
+    def _fail_download(_uri, dest_path, **_kw):
+        Path(dest_path).write_bytes(b"partial")
+        return False
+
+    monkeypatch.setattr(gcp_mod, "download_from_gcs", _fail_download)
+    gcp_mod.gcs_refetch_banned("1d", samples_bucket="test-samples")
+    assert list(ext_dir.iterdir()) == []
+
+    # Exception inside submit_file still unlinks temp file via finally:
+    monkeypatch.setattr(gcp_mod, "download_from_gcs", _ok_download)
+
+    def _boom_submit(**_kw):
+        raise RuntimeError("submit failed")
+
+    monkeypatch.setattr(submit_mod, "submit_file", _boom_submit)
+    with pytest.raises(RuntimeError, match="submit failed"):
+        gcp_mod.gcs_refetch_banned("1d", samples_bucket="test-samples")
+    assert list(ext_dir.iterdir()) == []
+

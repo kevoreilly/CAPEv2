@@ -261,6 +261,7 @@ def central_open_procdump(
     import zipfile
 
     from django.conf import settings
+    from lib.cuckoo.common.utils import get_cape_external_dir
     from lib.tenancy.storage.artifact_storage import materialize_artifact
     from lib.tenancy.storage.scope import viewer_scope
 
@@ -272,7 +273,8 @@ def central_open_procdump(
     zpath, zt = materialize_artifact(task_id, f"memory/{origname}.zip", scope=scope)
     if not zpath:
         return None, None, None
-    tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
+    ext_dir = get_cape_external_dir(tmppath=getattr(settings, "TEMP_PATH", None))
+    tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=ext_dir)
     try:
         with zipfile.ZipFile(zpath, "r") as f:
             extracted = f.extract(origname, path=tmpdir)

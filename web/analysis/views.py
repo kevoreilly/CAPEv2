@@ -45,7 +45,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder, yara_detected
+from lib.cuckoo.common.utils import delete_folder, get_cape_external_dir, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
@@ -3528,47 +3528,53 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
         dumpfile += ".zip"
         if not path_exists(dumpfile):
             return render(request, "error.html", {"error": "File not found"})
-        f = zipfile.ZipFile(dumpfile, "r")
-        tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
-        tmp_file_path = f.extract(origname, path=tmpdir)
-        f.close()
-        dumpfile = tmp_file_path
+        ext_dir = get_cape_external_dir(tmppath=getattr(settings, "TEMP_PATH", None))
+        tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=ext_dir)
+        try:
+            with zipfile.ZipFile(dumpfile, "r") as f:
+                tmp_file_path = f.extract(origname, path=tmpdir)
+            dumpfile = tmp_file_path
+        except Exception:
+            with suppress(Exception):
+                delete_folder(tmpdir)
+            return render(request, "error.html", {"error": "File not found"})
 
     content_type = "application/octet-stream"
 
-    if not path_exists(dumpfile):
-        return render(request, "error.html", {"error": "File not found"})
+    try:
+        if not path_exists(dumpfile):
+            return render(request, "error.html", {"error": "File not found"})
 
-    file_name = f"{process_id}_{int(start, 16):x}.dmp"
-    with open(dumpfile, "rb") as file_item:
-        for proc in analysis.get("procmemory", []) or []:
-            if proc["pid"] == int(process_id):
-                s = BytesIO()
-                for memmap in proc["address_space"]:
-                    for chunk in memmap["chunks"]:
-                        if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
-                            file_item.seek(chunk["offset"])
-                            s.write(file_item.read(int(chunk["size"], 16)))
-                s.seek(0)
-                if zipped and HAVE_PYZIPPER:
-                    mem_zip = BytesIO()
-                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
-                        zf.setpassword(settings.ZIP_PWD)
-                        zf.writestr(file_name, s.getvalue())
-                    file_name += ".zip"
-                    content_type = "application/zip"
-                    mem_zip.seek(0)
-                    s = mem_zip
-                response = StreamingHttpResponse(s, content_type=content_type)
-                response["Content-Length"] = len(s.getvalue())
-                response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
-                break
-
-    with suppress(Exception):
-        if tmp_file_path:
-            Path(tmp_file_path).unlink()
-        if tmpdir:
-            delete_folder(tmpdir)
+        file_name = f"{process_id}_{int(start, 16):x}.dmp"
+        with open(dumpfile, "rb") as file_item:
+            for proc in analysis.get("procmemory", []) or []:
+                if proc["pid"] == int(process_id):
+                    s = BytesIO()
+                    for memmap in proc["address_space"]:
+                        for chunk in memmap["chunks"]:
+                            if int(chunk["start"], 16) >= int(start, 16) and int(chunk["end"], 16) <= int(end, 16):
+                                file_item.seek(chunk["offset"])
+                                s.write(file_item.read(int(chunk["size"], 16)))
+                    s.seek(0)
+                    if zipped and HAVE_PYZIPPER:
+                        mem_zip = BytesIO()
+                        with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
+                            zf.setpassword(settings.ZIP_PWD)
+                            zf.writestr(file_name, s.getvalue())
+                        file_name += ".zip"
+                        content_type = "application/zip"
+                        mem_zip.seek(0)
+                        s = mem_zip
+                    response = StreamingHttpResponse(s, content_type=content_type)
+                    response["Content-Length"] = len(s.getvalue())
+                    response["Content-Disposition"] = "attachment; filename={0}".format(file_name)
+                    break
+    finally:
+        with suppress(Exception):
+            if tmp_file_path:
+                Path(tmp_file_path).unlink()
+            if tmpdir:
+                delete_folder(tmpdir)
 
     if response:
         return response

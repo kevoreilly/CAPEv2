@@ -371,3 +371,42 @@ def test_task_load_listener_syncs_and_clears_main_task_id():
     task.attributes = {}
     _sync_task_main_id_on_load(task)
     assert get_task_main_id(205) is None
+
+
+def test_init_console_logging_idempotent_and_preserves_lower_level():
+    import sys
+
+    from lib.cuckoo.core import startup
+    from lib.cuckoo.core.log import ConsoleHandler
+
+    root_log = startup.log
+    orig_handlers = list(root_log.handlers)
+    orig_level = root_log.level
+    try:
+        root_log.handlers = []
+        root_log.setLevel(logging.DEBUG)
+        root_log.addHandler(logging.StreamHandler(sys.stderr))
+
+        startup.init_console_logging()
+        startup.init_console_logging()
+
+        console_handlers = [h for h in root_log.handlers if isinstance(h, ConsoleHandler)]
+        assert len(console_handlers) == 1
+        assert root_log.level == logging.DEBUG
+
+        for h in console_handlers:
+            root_log.removeHandler(h)
+            h.close()
+
+        root_log.setLevel(logging.NOTSET)
+        startup.init_console_logging()
+        assert len([h for h in root_log.handlers if isinstance(h, ConsoleHandler)]) == 1
+        assert root_log.level == logging.INFO
+    finally:
+        for h in list(root_log.handlers):
+            if h not in orig_handlers:
+                root_log.removeHandler(h)
+                h.close()
+        root_log.handlers = orig_handlers
+        root_log.setLevel(orig_level)
+

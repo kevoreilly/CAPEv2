@@ -1034,3 +1034,203 @@ def test_sync_sharded_files_nfs_copies_sharded_and_flat_targets_and_rewrites_sym
     assert link_sharded.read_bytes() == payload_sharded
     assert link_flat.read_bytes() == payload_flat
 
+
+def test_save_dist_error_html_routes_to_cape_external_and_handles_oserror(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock, patch
+
+    import utils.dist as dist_mod
+
+    ext_dir = tmp_path / "cape-external"
+    ext_dir.mkdir()
+    monkeypatch.setattr(dist_mod, "get_cape_external_dir", lambda: str(ext_dir))
+
+    written = dist_mod._save_dist_error_html(b"<html>500</html>")
+    assert written == str(ext_dir / "dist_error.html")
+    assert (ext_dir / "dist_error.html").read_bytes() == b"<html>500</html>"
+
+    # Non-ok worker response writes to cape-external/dist_error.html and returns None.
+    fake_resp = MagicMock(ok=False, status_code=500, url="http://worker/apiv2/tasks/list/", content=b"<html>node-err</html>")
+    with patch.object(dist_mod.http_session, "get", return_value=fake_resp):
+        assert dist_mod.node_fetch_tasks("reported", "http://worker/apiv2/", "key") is None
+    assert (ext_dir / "dist_error.html").read_bytes() == b"<html>node-err</html>"
+
+    # node_submit_task 500 error also routes dist_error.html into cape-external.
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_task = MagicMock(
+        id=10,
+        main_task_id=44,
+        category="url",
+        path="https://example.invalid/",
+        package="",
+        timeout=120,
+        priority=1,
+        options="",
+        machine="",
+        platform="windows",
+        tags="",
+        custom="",
+        clock="10-31-2026 14:05:09",
+        memory=False,
+        enforce_timeout=False,
+        route="none",
+        tlp="",
+        finished=False,
+        retrieved=False,
+    )
+    mock_db = MagicMock()
+    mock_db.get.side_effect = lambda model, _pk: mock_node if model is dist_mod.Node else mock_task
+    submit_500 = MagicMock(status_code=500, content=b"<html>submit-500</html>", text="submit error")
+    with (
+        patch("utils.dist.dist_transaction") as mock_tx,
+        patch("utils.dist.main_db") as mock_main_db,
+        patch.object(dist_mod.http_session, "post", return_value=submit_500),
+    ):
+        mock_tx.return_value.__enter__.return_value = mock_db
+        mock_main_db.get_parent_sample_from_task.return_value = None
+        assert dist_mod.node_submit_task(10, 2, 44) is False
+    assert (ext_dir / "dist_error.html").read_bytes() == b"<html>submit-500</html>"
+
+    # ENOSPC / OSError writing dist_error.html does not raise.
+    with patch.object(dist_mod, "path_write_file", side_effect=OSError("disk full")):
+        assert dist_mod._save_dist_error_html(b"ignored") is None
+
+
+def test_retriever_free_space_mon_and_backpressure(tmp_path, monkeypatch):
+    import queue
+    import threading
+    from unittest.mock import patch
+
+    import pytest
+
+    import utils.dist as dist_mod
+
+    # 1. Skips immediately when freespace == 0.
+    retriever = dist_mod.Retriever()
+    retriever.stop_dist = threading.Event()
+    retriever.low_disk_space = threading.Event()
+
+    monkeypatch.setitem(dist_mod.cfg.cuckoo, "freespace", 0)
+    with patch.object(dist_mod, "free_space_monitor") as mock_fsm:
+        retriever.free_space_mon()
+    mock_fsm.assert_not_called()
+
+    # 2. Checks both analyses and cape-external when on different filesystems; skips duplicate st_dev.
+    ext_dir = tmp_path / "cape-external"
+    ext_dir.mkdir()
+    analyses_dir = tmp_path / "storage" / "analyses"
+    analyses_dir.mkdir(parents=True)
+
+    checked_paths = []
+
+    def _record_fsm(path, analysis=False, on_state_change=None, should_stop=None):
+        checked_paths.append((path, analysis, on_state_change, should_stop))
+
+    monkeypatch.setitem(dist_mod.cfg.cuckoo, "freespace", 500)
+    with (
+        patch.object(dist_mod, "CUCKOO_ROOT", str(tmp_path)),
+        patch.object(dist_mod, "get_cape_external_dir", return_value=str(ext_dir)),
+        patch.object(retriever, "_resolve_st_dev", side_effect=[101, 202]),
+        patch.object(dist_mod, "free_space_monitor", side_effect=_record_fsm),
+        patch.object(dist_mod.time, "sleep", side_effect=lambda _s: retriever.stop_dist.set()),
+    ):
+        retriever.free_space_mon()
+
+    assert [c[0] for c in checked_paths] == [str(analyses_dir.resolve()), str(ext_dir.resolve())]
+    assert all(
+        c[1] is True and c[2] == retriever._on_space_state_change and callable(c[3]) for c in checked_paths
+    )
+
+    checked_paths.clear()
+    retriever.stop_dist.clear()
+    with (
+        patch.object(dist_mod, "CUCKOO_ROOT", str(tmp_path)),
+        patch.object(dist_mod, "get_cape_external_dir", return_value=str(ext_dir)),
+        patch.object(retriever, "_resolve_st_dev", side_effect=[101, 101]),
+        patch.object(dist_mod, "free_space_monitor", side_effect=_record_fsm),
+        patch.object(dist_mod.time, "sleep", side_effect=lambda _s: retriever.stop_dist.set()),
+    ):
+        retriever.free_space_mon()
+
+    assert [c[0] for c in checked_paths] == [str(analyses_dir.resolve())]
+
+    # 3. _on_space_state_change toggles low_disk_space Event; exceptions caught cleanly in free_space_mon.
+    retriever._on_space_state_change(True, 25)
+    assert retriever.low_disk_space.is_set()
+    retriever._on_space_state_change(False, 900)
+    assert not retriever.low_disk_space.is_set()
+
+    retriever.stop_dist.clear()
+    loop_errors = []
+
+    def _boom_fsm(*_args, **_kwargs):
+        retriever.stop_dist.set()
+        raise RuntimeError("fsm failure")
+
+    with (
+        patch.object(dist_mod, "CUCKOO_ROOT", str(tmp_path)),
+        patch.object(dist_mod, "get_cape_external_dir", return_value=str(ext_dir)),
+        patch.object(dist_mod, "free_space_monitor", side_effect=_boom_fsm),
+        patch.object(dist_mod, "handle_loop_error", side_effect=lambda name, exc: loop_errors.append((name, str(exc)))),
+    ):
+        retriever.free_space_mon()
+    assert loop_errors == [("free_space_mon", "fsm failure")]
+
+    # 4. fetcher pauses while low_disk_space is set and resumes when cleared.
+    class _StopLoop(BaseException):
+        pass
+
+    retriever = dist_mod.Retriever()
+    retriever.stop_dist = threading.Event()
+    retriever.low_disk_space = threading.Event()
+    retriever.low_disk_space.set()
+    fetcher_passes = []
+    fetcher_sleeps = []
+
+    def _fetcher_sleep(sec):
+        fetcher_sleeps.append(sec)
+        if len(fetcher_sleeps) == 1:
+            assert fetcher_passes == []
+            retriever.low_disk_space.clear()
+        else:
+            raise _StopLoop
+
+    with (
+        patch.object(retriever, "_fetcher_pass", side_effect=lambda lc: fetcher_passes.append(dict(lc))),
+        patch.object(dist_mod.time, "sleep", side_effect=_fetcher_sleep),
+    ):
+        with pytest.raises(_StopLoop):
+            retriever.fetcher()
+    assert fetcher_sleeps == [5, 5]
+    assert len(fetcher_passes) == 1
+
+    # 5. fetch_latest_reports_nfs pauses while low_disk_space is set and resumes when cleared.
+    retriever = dist_mod.Retriever()
+    retriever.stop_dist = threading.Event()
+    retriever.low_disk_space = threading.Event()
+    retriever.low_disk_space.set()
+    retriever.current_queue = {}
+    retriever.fetcher_queue = queue.Queue()
+    retriever.fetcher_queue.put(({"id": 77}, 3))
+    nfs_sleeps = []
+    fetched = []
+
+    def _nfs_sleep(sec):
+        nfs_sleeps.append(sec)
+        assert fetched == []
+        assert not retriever.fetcher_queue.empty()
+        retriever.low_disk_space.clear()
+
+    def _fake_fetch_nfs(task, node_id):
+        fetched.append((task["id"], node_id))
+        raise _StopLoop
+
+    with (
+        patch.object(retriever, "_fetch_report_nfs", side_effect=_fake_fetch_nfs),
+        patch.object(dist_mod.time, "sleep", side_effect=_nfs_sleep),
+    ):
+        with pytest.raises(_StopLoop):
+            retriever.fetch_latest_reports_nfs()
+    assert nfs_sleeps == [5]
+    assert fetched == [(77, 3)]
+
+

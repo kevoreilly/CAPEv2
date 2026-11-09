@@ -39,7 +39,7 @@ from lib.cuckoo.common.network_utils import _norm_domain
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
-from lib.cuckoo.common.utils import convert_to_printable
+from lib.cuckoo.common.utils import convert_to_printable, get_cape_external_dir
 from modules.processing.decryptpcap import resolve_processing_pcap_path
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
@@ -1740,13 +1740,14 @@ def batch_sort(input_iterator, output_path, buffer_size=32000, output_class=None
         output_class = input_iterator.__class__
 
     chunks = []
+    ext_dir = get_cape_external_dir()
     try:
         while True:
             current_chunk = list(islice(input_iterator, buffer_size))
             if not current_chunk:
                 break
             current_chunk.sort()
-            fd, filepath = tempfile.mkstemp()
+            fd, filepath = tempfile.mkstemp(prefix="pcap_sort_", dir=ext_dir)
             os.close(fd)
             output_chunk = output_class(filepath)
             chunks.append(output_chunk)

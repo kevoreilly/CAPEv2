@@ -2329,4 +2329,164 @@ def test_object_storage_refuses_unmapped_upload_under_multitenancy(tmp_path, mon
     assert (central_9 / "dump.pcap").read_bytes() == b"central-9-bytes"
 
 
+def test_object_stores_materialize_uses_cape_external_and_cleans_on_error(tmp_path, monkeypatch):
+    ext_dir = tmp_path / "cape-external"
+    ext_dir.mkdir()
+    monkeypatch.setattr("lib.tenancy.storage.storage_backend._cape_external_dir", lambda: str(ext_dir))
+
+    # 1. S3Store success and cleanup-on-failure
+    s3 = S3Store("bucket")
+    s3._cli = types.SimpleNamespace(
+        get_object=lambda **_kw: {"Body": types.SimpleNamespace(iter_chunks=lambda _n: iter([b"s3-", b"data"]))}
+    )
+    path_s3, ok_s3 = s3.materialize("analyses/1", "dump.pcap")
+    assert ok_s3 is True and path_s3 is not None
+    assert Path(path_s3).parent == ext_dir
+    assert Path(path_s3).name.startswith("cape_objstore_")
+    assert Path(path_s3).read_bytes() == b"s3-data"
+    Path(path_s3).unlink()
+
+    def _s3_fail_chunks(_n):
+        yield b"partial"
+        raise RuntimeError("s3 stream aborted")
+
+    s3._cli = types.SimpleNamespace(
+        get_object=lambda **_kw: {"Body": types.SimpleNamespace(iter_chunks=_s3_fail_chunks)}
+    )
+    assert s3.materialize("analyses/1", "dump.pcap") == (None, False)
+    assert list(ext_dir.iterdir()) == []
+
+    # 2. GCSStore success and cleanup-on-failure
+    class _FakeGcsBlob:
+        def __init__(self, fail: bool):
+            self._fail = fail
+
+        def exists(self):
+            return True
+
+        def download_to_filename(self, dst):
+            Path(dst).write_bytes(b"gcs-data")
+            if self._fail:
+                raise RuntimeError("gcs download failed")
+
+    gcs = GCSStore("bucket")
+    gcs._bucket = types.SimpleNamespace(blob=lambda _key: _FakeGcsBlob(fail=False))
+    path_gcs, ok_gcs = gcs.materialize("analyses/1", "dump.pcap")
+    assert ok_gcs is True and path_gcs is not None
+    assert Path(path_gcs).parent == ext_dir
+    assert Path(path_gcs).name.startswith("cape_gcs_")
+    assert Path(path_gcs).read_bytes() == b"gcs-data"
+    Path(path_gcs).unlink()
+
+    gcs._bucket = types.SimpleNamespace(blob=lambda _key: _FakeGcsBlob(fail=True))
+    assert gcs.materialize("analyses/1", "dump.pcap") == (None, False)
+    assert list(ext_dir.iterdir()) == []
+
+    # 3. AzureBlobStore success and cleanup-on-failure
+    az = AzureBlobStore("container")
+    az._container_client = types.SimpleNamespace(
+        get_blob_client=lambda _key: types.SimpleNamespace(
+            download_blob=lambda: types.SimpleNamespace(chunks=lambda: iter([b"az-", b"data"]))
+        )
+    )
+    path_az, ok_az = az.materialize("analyses/1", "dump.pcap")
+    assert ok_az is True and path_az is not None
+    assert Path(path_az).parent == ext_dir
+    assert Path(path_az).name.startswith("cape_azure_")
+    assert Path(path_az).read_bytes() == b"az-data"
+    Path(path_az).unlink()
+
+    def _az_fail_chunks():
+        yield b"partial"
+        raise RuntimeError("az stream aborted")
+
+    az._container_client = types.SimpleNamespace(
+        get_blob_client=lambda _key: types.SimpleNamespace(
+            download_blob=lambda: types.SimpleNamespace(chunks=_az_fail_chunks)
+        )
+    )
+    assert az.materialize("analyses/1", "dump.pcap") == (None, False)
+    assert list(ext_dir.iterdir()) == []
+
+
+def test_gcp_pubsub_service_sanitizes_prefix_and_cleans_temp_files(monkeypatch, tmp_path):
+    import threading
+
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    from utils.gcp_pubsub_service import GCPPubSubService
+
+    cuckoo_root = tmp_path / "root"
+    ext_dir = tmp_path / "cape-external"
+    ext_dir.mkdir(parents=True)
+    monkeypatch.setattr("utils.gcp_pubsub_service.CUCKOO_ROOT", str(cuckoo_root))
+
+    svc = GCPPubSubService.__new__(GCPPubSubService)
+    svc.db = types.SimpleNamespace(session=types.SimpleNamespace(remove=lambda: None))
+    svc.ids_lock = threading.Lock()
+    svc.processing_ids = set()
+    svc.samples_bucket = "test-samples-bucket"
+    svc.tmp_path = str(ext_dir)
+    svc.storage_client = object()
+    monkeypatch.setattr(svc, "_init_clients", lambda: None)
+
+    submitted_paths = []
+    downloaded_paths = []
+
+    def _fake_submit(db, file_path, **_kw):
+        submitted_paths.append(file_path)
+        return [201], {}
+
+    monkeypatch.setattr("utils.gcp_pubsub_service.submit_file", _fake_submit)
+    monkeypatch.setattr(
+        "utils.gcp_pubsub_service.download_from_gcs",
+        lambda uri, path, **_kw: downloaded_paths.append(path) or Path(path).write_bytes(b"MZ") or True,
+    )
+
+    acks = []
+    nacks = []
+
+    def _make_msg(msg_id, sample_name, sample_hash):
+        return types.SimpleNamespace(
+            message_id=msg_id,
+            data=json.dumps({"name": sample_name, "sample_hash": sample_hash}).encode("utf-8"),
+            ack=lambda: acks.append(msg_id),
+            nack=lambda: nacks.append(msg_id),
+        )
+
+    # 1. Path traversal & dotdot names sanitized and temp file cleaned after submit
+    svc.process_message(_make_msg("m1", "../../etc/passwd", "a" * 64))
+    svc.process_message(_make_msg("m2", "..", "b" * 64))
+    assert acks == ["m1", "m2"]
+    assert len(downloaded_paths) == 2
+    assert Path(downloaded_paths[0]).parent == ext_dir
+    assert Path(downloaded_paths[0]).name.startswith("passwd_")
+    assert Path(downloaded_paths[1]).parent == ext_dir
+    assert Path(downloaded_paths[1]).name.startswith("sample_")
+    assert list(ext_dir.iterdir()) == []
+
+    # 2. Download failure nacks and unlinks allocated temp file
+    failed_downloads = []
+
+    def _fail_download(uri, path, **_kw):
+        failed_downloads.append(path)
+        Path(path).write_bytes(b"partial")
+        return False
+
+    monkeypatch.setattr("utils.gcp_pubsub_service.download_from_gcs", _fail_download)
+    svc.process_message(_make_msg("m3", "bad.exe", "c" * 64))
+    assert nacks == ["m3"]
+    assert len(failed_downloads) == 2
+    assert list(ext_dir.iterdir()) == []
+
+    # 3. Existing binary under storage/binaries/<hash> is preserved and not unlinked
+    existing_hash = "d" * 64
+    existing_bin = cuckoo_root / "storage" / "binaries" / existing_hash
+    existing_bin.parent.mkdir(parents=True)
+    existing_bin.write_bytes(b"existing-sample")
+    submitted_paths.clear()
+    svc.process_message(_make_msg("m4", "existing.exe", existing_hash))
+    assert "m4" in acks
+    assert submitted_paths == [str(existing_bin)]
+    assert existing_bin.read_bytes() == b"existing-sample"
+
 

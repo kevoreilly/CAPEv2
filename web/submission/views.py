@@ -8,7 +8,6 @@ import logging
 import os
 import random
 import sys
-import tempfile
 import textwrap
 from base64 import urlsafe_b64encode
 from contextlib import suppress
@@ -21,7 +20,7 @@ sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
+from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
@@ -614,12 +613,8 @@ def index(request, task_id=None, resubmit_hash=None):
                 if not content:
                     details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
-                folder = os.path.join(settings.TEMP_PATH, "cape-resubmit")
-                if not path_exists(folder):
-                    path_mkdir(folder)
-                base_dir = tempfile.mkdtemp(prefix="resubmit_", dir=folder)
                 if opt_filename:
-                    filename = base_dir + "/" + opt_filename
+                    filename = opt_filename
                 else:
                     # Try to recover the original filename from the task
                     original_filename = ""
@@ -627,7 +622,7 @@ def index(request, task_id=None, resubmit_hash=None):
                         task = db.view_task(task_id)
                         if task and task.target:
                             original_filename = sanitize_filename(os.path.basename(task.target))
-                    filename = base_dir + "/" + (original_filename or sanitize_filename(hash))
+                    filename = original_filename or sanitize_filename(hash)
                 path = store_temp_file(content, filename)
                 list_of_tasks.append((content, path, hash))
 
@@ -687,7 +682,10 @@ def index(request, task_id=None, resubmit_hash=None):
                     saz = saz_to_pcap(path)
                     if saz:
                         with suppress(Exception):
+                            parent_dir = os.path.dirname(path)
                             path_delete(path)
+                            with suppress(OSError):
+                                os.rmdir(parent_dir)
                         path = saz
                     else:
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})

@@ -18,6 +18,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.utils import get_cape_external_dir
 
 # required to work webgui
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
@@ -63,28 +64,27 @@ class PolarProxyProcessor(Processing):
             log.debug('The mergecap application does not exist at path "%s"', polarproxy_cfg.cfg.mergecap)
             return {}
 
-        temp_dir = tempfile.TemporaryDirectory()
+        with tempfile.TemporaryDirectory(prefix="polarproxy_", dir=get_cape_external_dir()) as temp_dir_name:
+            tmp_pcap = os.path.join(temp_dir_name, "tmp.pcap")
 
-        tmp_pcap = os.path.join(temp_dir.name, "tmp.pcap")
+            ret, stdout, stderr = run_subprocess([
+                polarproxy_cfg.cfg.mergecap,
+                # Make snaplen consistent across all packets so wireshark doesn't freak out
+                "-s", "262144",
+                # Use pcap format instead of pcapng for Snort
+                "-F", "pcap",
+                # Destination file
+                "-w", tmp_pcap,
+                # Input files
+                self.pcap_path,
+                tls_pcap_path
+            ])
 
-        ret, stdout, stderr = run_subprocess([
-            polarproxy_cfg.cfg.mergecap,
-            # Make snaplen consistent across all packets so wireshark doesn't freak out
-            "-s", "262144",
-            # Use pcap format instead of pcapng for Snort
-            "-F", "pcap",
-            # Destination file
-            "-w", tmp_pcap,
-            # Input files
-            self.pcap_path,
-            tls_pcap_path
-        ])
-
-        if ret == 0:
-            log.info("Creating PCAP with decrypted TLS streams")
-            shutil.move(tmp_pcap, self.pcap_path)
-        else:
-            log.warning("Failed to merge pcaps: %s", stderr.decode())
+            if ret == 0:
+                log.info("Creating PCAP with decrypted TLS streams")
+                shutil.move(tmp_pcap, self.pcap_path)
+            else:
+                log.warning("Failed to merge pcaps: %s", stderr.decode())
 
         results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
         return results

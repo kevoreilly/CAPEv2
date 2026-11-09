@@ -490,5 +490,23 @@ def test_get_magic_type_memfd_fallback_for_zip_buffer(monkeypatch):
     assert "Zip archive data" in res
 
 
+def test_download_from_3rdparty_uses_cape_external_and_removes_empty_dir(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+
+    import lib.cuckoo.common.web_utils as wu
+
+    monkeypatch.setitem(wu.cfg.cuckoo, "tmppath", str(tmp_path))
+    monkeypatch.setattr(wu, "db", MagicMock(sample_path_by_hash=MagicMock(return_value=[])))
+    monkeypatch.setattr(wu, "downloader_services", MagicMock(download=MagicMock(return_value=(None, None))))
+
+    sha256 = "a" * 64
+    details = wu.download_from_3rdparty(sha256, "", {"errors": []})
+    assert details["errors"] == [{sha256: "Can't download sample from external services"}]
+    ext_dir = tmp_path / "cape-external"
+    assert ext_dir.is_dir()
+    assert details["path"].startswith(str(ext_dir))
+    assert list(ext_dir.iterdir()) == []
+
+
 if __name__ == "__main__":
     unittest.main()

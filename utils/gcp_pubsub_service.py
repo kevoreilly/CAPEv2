@@ -9,8 +9,9 @@ import os
 import sys
 import tempfile
 import warnings
+from contextlib import suppress
 from logging import handlers
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 # Mute Google Cloud's Python version support warning for Python 3.10
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
@@ -21,6 +22,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.gcp import download_from_gcs
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
+from lib.cuckoo.common.utils import get_cape_external_dir, sanitize_filename
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.log import (
     ColoredFormatter,
@@ -147,13 +149,11 @@ class GCPPubSubService:
         self._init_clients()
 
         self.cuckoo_cfg = Config()
-        self.tmp_path = os.path.join(self.cuckoo_cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
-        if not path_exists(self.tmp_path):
-            try:
-                os.makedirs(self.tmp_path)
-            except Exception as e:
-                log.error("Failed to create temporary directory %s: %s", self.tmp_path, e)
-                sys.exit(1)
+        try:
+            self.tmp_path = get_cape_external_dir(tmppath=self.cuckoo_cfg.cuckoo.get("tmppath"))
+        except Exception as e:
+            log.error("Failed to create temporary directory: %s", e)
+            sys.exit(1)
 
     def _init_clients(self):
         """(Re)initialize Google Cloud clients."""
@@ -258,97 +258,112 @@ class GCPPubSubService:
                 # Check if sample exists locally
                 sample_hash = os.path.basename(sample_hash)
                 local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
+                temp_path: Optional[str] = None
 
-                if not path_exists(local_path):
-                    mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
-                    fd, temp_path = tempfile.mkstemp(prefix=sample_name, dir=self.tmp_path)
-                    os.close(fd)
-                    dl_start = time.time()
-
-                    # Retry download once with fresh client if TransportError/SSL issues occur
-                    success = False
-                    for attempt in range(2):
-                        if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
-                            success = True
-                            break
-                        else:
-                            if attempt == 0:
-                                mlog.warning("Transient error during download, recreating client and retrying")
-                                self._init_clients()
-                            else:
-                                mlog.error("Persistent error during download after retries")
-
-                    if success:
-                        mlog.info("Download finished in %.2f seconds", time.time() - dl_start)
-                        local_path = temp_path
-                    else:
-                        mlog.error("Failed to download sample from GCS: %s", gcs_uri)
-                        message.nack()
-                        return
-
-                # Build task_attributes for universal attributes support
-                task_attributes: Dict[str, Any] = {}
-                if correlation_id:
-                    task_attributes["correlation_id"] = correlation_id
-                if parent_id:
-                    task_attributes["parent_id"] = parent_id
-                if transaction_id:
-                    task_attributes["transaction_id"] = transaction_id
-                if source:
-                    task_attributes["source"] = source
-                if payload.get("main_task_id") is not None:
-                    try:
-                        task_attributes["main_task_id"] = int(payload["main_task_id"])
-                    except (TypeError, ValueError):
-                        pass
-                if isinstance(payload.get("task_acl"), dict):
-                    task_attributes["task_acl"] = payload["task_acl"]
-                extra_attrs = payload.get("attributes")
-                if isinstance(extra_attrs, dict):
-                    for k, v in extra_attrs.items():
-                        task_attributes.setdefault(k, v)
-
-                # Submit to CAPE
                 try:
-                    submit_start = time.time()
-                    task_ids, extra_details = submit_file(
-                        db=self.db,
-                        file_path=local_path,
-                        options=sandbox_options,
-                        custom=custom,
-                        category=category,
-                        filename=sample_name,
-                        attributes=task_attributes or None,
-                    )
-                    if task_ids:
-                        mlog.info("Successfully submitted task(s) %s for sample %s in %.2f seconds", task_ids, sample_hash, time.time() - submit_start)
-                        message.ack()
-                    elif extra_details.get("errors"):
-                        # Check if it was a duplicate, empty file, or junk
-                        error_str = str(extra_details["errors"])
-                        if "Duplicate" in error_str or "junk_filter" in error_str or "Empty file" in error_str:
-                            mlog.info("Sample %s skipped: %s", sample_hash, error_str)
-                            message.ack()
-                        else:
-                            mlog.error("Failed to add task to database for sample %s: %s", sample_hash, extra_details["errors"])
-                            message.nack()
-                    else:
-                        # No tasks but no errors means it was filtered (junk)
-                        mlog.info("Sample %s processed but no tasks created (filtered).", sample_hash)
-                        message.ack()
-                except Exception as e:
-                    import traceback
-                    mlog.error("Failed to add task to database: %s\n%s", e, traceback.format_exc())
-                    message.nack()
-                finally:
-                    # We do NOT delete local_path or cuckoo-sflock here.
-                    # CAPE's AnalysisManager will copy them to storage/binaries when analysis starts.
-                    # Background cleaner handles /tmp disk space.
+                    if not path_exists(local_path):
+                        mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
+                        safe_prefix = sanitize_filename(os.path.basename(str(sample_name or "sample")))[:64] or "sample"
+                        if safe_prefix in (".", ".."):
+                            safe_prefix = "sample"
+                        fd, temp_path = tempfile.mkstemp(prefix=f"{safe_prefix}_", dir=self.tmp_path)
+                        os.close(fd)
+                        dl_start = time.time()
 
-                    self.db.session.remove()
-                    # Force GC to close any dangling FDs from sflock or File objects
-                    import gc
-                    gc.collect()
+                        # Retry download once with fresh client if TransportError/SSL issues occur
+                        success = False
+                        for attempt in range(2):
+                            if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
+                                success = True
+                                break
+                            else:
+                                if attempt == 0:
+                                    mlog.warning("Transient error during download, recreating client and retrying")
+                                    self._init_clients()
+                                else:
+                                    mlog.error("Persistent error during download after retries")
+
+                        if success:
+                            mlog.info("Download finished in %.2f seconds", time.time() - dl_start)
+                            local_path = temp_path
+                        else:
+                            mlog.error("Failed to download sample from GCS: %s", gcs_uri)
+                            message.nack()
+                            return
+
+                    # Build task_attributes for universal attributes support
+                    task_attributes: Dict[str, Any] = {}
+                    if correlation_id:
+                        task_attributes["correlation_id"] = correlation_id
+                    if parent_id:
+                        task_attributes["parent_id"] = parent_id
+                    if transaction_id:
+                        task_attributes["transaction_id"] = transaction_id
+                    if source:
+                        task_attributes["source"] = source
+                    if payload.get("main_task_id") is not None:
+                        try:
+                            task_attributes["main_task_id"] = int(payload["main_task_id"])
+                        except (TypeError, ValueError):
+                            pass
+                    if isinstance(payload.get("task_acl"), dict):
+                        task_attributes["task_acl"] = payload["task_acl"]
+                    extra_attrs = payload.get("attributes")
+                    if isinstance(extra_attrs, dict):
+                        for k, v in extra_attrs.items():
+                            task_attributes.setdefault(k, v)
+
+                    # Submit to CAPE
+                    try:
+                        submit_start = time.time()
+                        task_ids, extra_details = submit_file(
+                            db=self.db,
+                            file_path=local_path,
+                            options=sandbox_options,
+                            custom=custom,
+                            category=category,
+                            filename=sample_name,
+                            attributes=task_attributes or None,
+                        )
+                        if task_ids:
+                            mlog.info(
+                                "Successfully submitted task(s) %s for sample %s in %.2f seconds",
+                                task_ids,
+                                sample_hash,
+                                time.time() - submit_start,
+                            )
+                            message.ack()
+                        elif extra_details.get("errors"):
+                            # Check if it was a duplicate, empty file, or junk
+                            error_str = str(extra_details["errors"])
+                            if "Duplicate" in error_str or "junk_filter" in error_str or "Empty file" in error_str:
+                                mlog.info("Sample %s skipped: %s", sample_hash, error_str)
+                                message.ack()
+                            else:
+                                mlog.error("Failed to add task to database for sample %s: %s", sample_hash, extra_details["errors"])
+                                message.nack()
+                        else:
+                            # No tasks but no errors means it was filtered (junk)
+                            mlog.info("Sample %s processed but no tasks created (filtered).", sample_hash)
+                            message.ack()
+                    except Exception as e:
+                        import traceback
+
+                        mlog.error("Failed to add task to database: %s\n%s", e, traceback.format_exc())
+                        message.nack()
+                    finally:
+                        # submit_file() copies the payload into cuckoo-tmp/upload_*/,
+                        # while CAPE's AnalysisManager copies into storage/binaries when analysis starts.
+                        self.db.session.remove()
+                        # Force GC to close any dangling FDs from sflock or File objects
+                        import gc
+
+                        gc.collect()
+                finally:
+                    # Only unlink temp files created during GCS download; preserve storage/binaries/<hash>.
+                    if temp_path and os.path.exists(temp_path):
+                        with suppress(OSError):
+                            os.unlink(temp_path)
 
             except Exception as e:
                 log.error("[%s] Error processing message: %s", correlation_id, e)

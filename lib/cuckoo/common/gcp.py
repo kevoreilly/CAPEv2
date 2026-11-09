@@ -1,13 +1,20 @@
 # From doomedraven for GCP with love
-import os
+import json
 import logging
-import time
+import os
 import shutil
+import socket
+import tempfile
+import time
+import zipfile
+from contextlib import suppress
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.utils import get_cape_external_dir
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.*")
@@ -28,9 +35,6 @@ try:
     import requests
 except ImportError:
     HAVE_REQUESTS = False
-
-import zipfile
-import tempfile
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +131,10 @@ class GCSUploader:
         log.debug("[GCS   ] CAPE ID: %s ==> Compressing and uploading files to GCS", analysis_id)
         blob_name = f"{analysis_id}_tlp_{tlp}.zip" if tlp else f"{analysis_id}.zip"
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
+        ext_dir = get_cape_external_dir()
+        with tempfile.NamedTemporaryFile(
+            delete=False, dir=ext_dir, prefix=f"gcs_{analysis_id}_", suffix=".zip"
+        ) as tmp_zip_file:
             tmp_zip_file_name = tmp_zip_file.name
         try:
             with zipfile.ZipFile(tmp_zip_file_name, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as archive:
@@ -165,7 +172,8 @@ class GCSUploader:
                 throughput,
             )
         finally:
-            os.unlink(tmp_zip_file_name)
+            with suppress(OSError):
+                os.unlink(tmp_zip_file_name)
 
     def upload_files_individually(
         self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
@@ -206,6 +214,23 @@ class GCSUploader:
         prefix = str(analysis_id)
         blobs = list(self.storage_client.list_blobs(self.bucket, prefix=prefix, max_results=1))
         return len(blobs) > 0
+
+    def upload_diagnostic_report(self, report: Dict[str, Any], prefix: str = "disk_usage") -> Optional[str]:
+        """Upload a diagnostic JSON report directly from memory without local disk staging."""
+        hostname = socket.gethostname() or "unknown"
+        utc_ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        safe_prefix = (prefix or "disk_usage").strip("/") or "disk_usage"
+        blob_name = f"diagnostics/{safe_prefix}_{hostname}_{utc_ts}.json"
+        try:
+            payload = json.dumps(report, indent=2, default=str)
+            blob = self.bucket.blob(blob_name)
+            blob.upload_from_string(payload, content_type="application/json")
+            uri = f"gs://{self.bucket.name}/{blob_name}"
+            log.info("[GCS   ] Uploaded diagnostic report to %s", uri)
+            return uri
+        except Exception as e:
+            log.error("Failed to upload diagnostic report %s to GCS: %s", blob_name, e)
+            return None
 
 
 # GCS Configuration
@@ -461,6 +486,18 @@ def gcs_upload_report(report_path: str, analysis_id: int, tlp: Optional[str] = N
         log.error("Failed to upload report to GCS for task %d: %s", analysis_id, e)
 
 
+def gcs_upload_disk_report(report: Dict[str, Any]) -> Optional[str]:
+    """Upload a disk-usage diagnostic report to GCS when GCS reporting is enabled."""
+    if not GCS_ENABLED or gcs_uploader is None:
+        return None
+
+    try:
+        return gcs_uploader.upload_diagnostic_report(report, prefix="disk_usage")
+    except Exception as e:
+        log.error("Failed to upload disk usage report to GCS: %s", e)
+        return None
+
+
 def gcs_sync(time_range: str):
     if not GCS_ENABLED:
         log.error("GCS is not enabled in reporting.conf")
@@ -522,7 +559,6 @@ def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
     from lib.cuckoo.core.data.task import TASK_BANNED, Task
     from utils.submit import submit_file
     from sqlalchemy import select
-    import tempfile
 
     db = Database()
     try:
@@ -575,12 +611,10 @@ def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
 
         gcs_uri = f"gs://{samples_bucket}/{sha256}"
 
-        # Use CAPE's temp path if available
-        tmp_dir = Config().cuckoo.get("tmppath", "/tmp")
-        fd, tmp_path = tempfile.mkstemp(dir=tmp_dir)
+        ext_dir = get_cape_external_dir()
+        fd, tmp_path = tempfile.mkstemp(prefix=f"refetch_{sha256[:12]}_", dir=ext_dir)
         os.close(fd)
 
-        task_ids = []
         try:
             if download_from_gcs(gcs_uri, tmp_path):
                 log.info("Successfully downloaded %s, resubmitting...", sha256)
@@ -599,9 +633,9 @@ def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
             else:
                 log.error("Failed to download %s from %s", sha256, gcs_uri)
         finally:
-            # Only delete if submission failed. If it succeeded, CAPE needs the file.
-            if not task_ids and os.path.exists(tmp_path):
+            # submit_file() copies tmp_path into <tmppath>/cuckoo-tmp/upload_*/, so always unlink tmp_path.
+            if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.unlink(tmp_path)
-                except Exception as e:
+                except OSError as e:
                     log.warning("Failed to delete temp file %s: %s", tmp_path, e)

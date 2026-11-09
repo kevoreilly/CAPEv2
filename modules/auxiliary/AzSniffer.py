@@ -23,6 +23,7 @@ if cfg.cuckoo.machinery == "az":
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.utils import get_cape_external_dir
 
 log = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ class AzSniffer(Auxiliary):
 
         primary_output_dir = f"/opt/CAPEv2/storage/analyses/{self.task.id}"
         primary_output_file = os.path.join(primary_output_dir, "dump.cap")
-        fallback_output_file = f"/tmp/dump_task_{self.task.id}.cap"
+        fallback_output_file = os.path.join(get_cape_external_dir(), f"dump_task_{self.task.id}.cap")
 
         try:
             parsed_url = urlparse(self.blob_url)

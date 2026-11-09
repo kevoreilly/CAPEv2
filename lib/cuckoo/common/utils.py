@@ -18,12 +18,12 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from typing import Final, List, Tuple, Union
+from typing import Final, List, Optional, Tuple, Union
 
 from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
 from lib.cuckoo.common import utils_pretty_print_funcs as pp_funcs
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import Config, _BaseConfig
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_exists, path_get_filename, path_is_dir, path_mkdir, path_read_file
@@ -704,6 +704,22 @@ def store_temp_file(filedata: bytes, filename: str, path=None) -> bytes:
 
     # ToDo consider change from bytes to str
     return tmp_file_path
+
+
+def get_cape_external_dir(tmppath: Optional[Union[str, bytes, os.PathLike]] = None) -> str:
+    """Return `<cuckoo.tmppath>/cape-external`, creating it if absent."""
+    base = tmppath
+    if base is None:
+        cfg_obj = Config() if isinstance(config, _BaseConfig) else config
+        base = cfg_obj.cuckoo.get("tmppath")
+    if isinstance(base, bytes):
+        base = base.decode("utf-8", errors="replace")
+    elif base is not None:
+        base = os.fspath(base)
+    base = (base or "/tmp").strip() or "/tmp"
+    ext_dir = os.path.join(base, "cape-external")
+    os.makedirs(ext_dir, exist_ok=True)
+    return ext_dir
 
 
 def add_family_detection(results: dict, family: str, detected_by: str, detected_on: str):

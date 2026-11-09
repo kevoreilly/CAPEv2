@@ -476,11 +476,13 @@ def init_console_logging():
             log.removeHandler(h)
             h.close()
 
-    ch = ConsoleHandler()
-    ch.setFormatter(formatter)
-    log.addHandler(ch)
-
-    log.setLevel(logging.INFO)
+    has_console = any(isinstance(h, ConsoleHandler) for h in log.handlers)
+    if not has_console:
+        ch = ConsoleHandler()
+        ch.setFormatter(formatter)
+        log.addHandler(ch)
+        if log.level == logging.NOTSET or log.level > logging.INFO:
+            log.setLevel(logging.INFO)
 
 
 def init_tasks():

@@ -9,6 +9,7 @@ import timeit
 from typing import List, Optional, TypedDict
 
 from lib.cuckoo.common.path_utils import path_mkdir, path_object
+from lib.cuckoo.common.utils import get_cape_external_dir
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +91,8 @@ def time_tracker(func):
 
 
 @contextlib.contextmanager
-def extractor_ctx(filepath, tool_name, prefix=None, folder="/tmp/cape-external"):
+def extractor_ctx(filepath, tool_name, prefix=None, folder=None):
+    folder = folder or get_cape_external_dir()
     path_mkdir(folder, exist_ok=True)
 
     tempdir = tempfile.mkdtemp(prefix=prefix, dir=folder)

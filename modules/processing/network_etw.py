@@ -28,6 +28,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.utils import get_cape_external_dir
 
 # Sysmon Event XML lives in this namespace; ElementTree returns tag names
 # already qualified, so we strip the prefix when reading element names.
@@ -461,7 +462,7 @@ class NetworkETW(Processing):
         if not (HAVE_EVTX or HAVE_EVTX_RS) or not os.path.exists(evtx_path):
             return connections, pid_to_image, dns_queries
 
-        tmpdir = tempfile.mkdtemp()
+        tmpdir = tempfile.mkdtemp(prefix="evtx_", dir=get_cape_external_dir())
         try:
             with zipfile.ZipFile(evtx_path) as z:
                 sysmon_files = sorted([f for f in z.namelist() if "Sysmon" in f])

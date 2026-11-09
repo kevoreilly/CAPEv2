@@ -19,6 +19,24 @@ import tempfile
 from typing import Any, Iterator, Optional
 
 
+def _cape_external_dir() -> str:
+    """Resolve `<cuckoo.tmppath>/cape-external` lazily without hard Config dependency."""
+    base: Any = None
+    try:
+        from lib.cuckoo.common.config import Config
+
+        base = Config().cuckoo.get("tmppath")
+    except Exception:
+        base = None
+    if isinstance(base, bytes):
+        base = base.decode("utf-8", errors="replace")
+    elif base is not None:
+        base = os.fspath(base)
+    ext_dir = os.path.join((base or "/tmp").strip() or "/tmp", "cape-external")
+    os.makedirs(ext_dir, exist_ok=True)
+    return ext_dir
+
+
 class ArtifactNotFound(Exception):
     """Raised by `stream()` when an artifact key is absent."""
 
@@ -191,7 +209,7 @@ class S3Store(ArtifactStore):
         tmp: Optional[str] = None
         try:
             obj = self._client().get_object(Bucket=self.bucket, Key=self._key(container, relpath))
-            fd, tmp = tempfile.mkstemp(prefix="cape_objstore_")
+            fd, tmp = tempfile.mkstemp(prefix="cape_objstore_", dir=_cape_external_dir())
             with os.fdopen(fd, "wb") as f:
                 for c in obj["Body"].iter_chunks(65536):
                     f.write(c)
@@ -312,7 +330,7 @@ class GCSStore(ArtifactStore):
             blob = self._get_bucket().blob(self._key(container, relpath))
             if not blob.exists():
                 return (None, False)
-            fd, tmp = tempfile.mkstemp(prefix="cape_gcs_")
+            fd, tmp = tempfile.mkstemp(prefix="cape_gcs_", dir=_cape_external_dir())
             os.close(fd)
             blob.download_to_filename(tmp)
             return (tmp, True)
@@ -413,7 +431,7 @@ class AzureBlobStore(ArtifactStore):
         try:
             blob_client = self._get_container_client().get_blob_client(self._key(container, relpath))
             downloader = blob_client.download_blob()
-            fd, tmp = tempfile.mkstemp(prefix="cape_azure_")
+            fd, tmp = tempfile.mkstemp(prefix="cape_azure_", dir=_cape_external_dir())
             with os.fdopen(fd, "wb") as f:
                 for c in downloader.chunks():
                     f.write(c)

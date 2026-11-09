@@ -34,6 +34,7 @@ from lib.cuckoo.common.path_utils import (
 )
 from lib.cuckoo.common.utils import (
     generate_fake_name,
+    get_cape_external_dir,
     get_ip_address,
     get_options,
     get_user_filename,
@@ -644,9 +645,7 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
     Returns:
         dict: The updated details dictionary with information about the processed samples, including any errors encountered.
     """
-    folder = os.path.join(cfg.cuckoo.tmppath, "cape-external")
-    if not path_exists(folder):
-        path_mkdir(folder, exist_ok=True)
+    folder = get_cape_external_dir(tmppath=cfg.cuckoo.get("tmppath"))
     for h in get_hash_list(samples):
         safe_h = sanitize_filename(path_get_filename(h))
         if not safe_h or safe_h in (".", ".."):
@@ -683,6 +682,8 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
         if not details.get("content", False):
             content, service = downloader_services.download(h, details.get("apikey"))
             if not content:
+                with suppress(OSError):
+                    os.rmdir(base_dir)
                 details["errors"].append({h: "Can't download sample from external services"})
                 continue
             details["service"] = service

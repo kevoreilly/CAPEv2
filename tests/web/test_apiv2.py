@@ -378,3 +378,82 @@ class TestTasksIocs(SimpleTestCase):
         assert body["data"]["target"]["file"] == {"name": "sample.exe", "sha256": "a" * 64}
 
 
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
+class TestEncryptedSampleDownload(SimpleTestCase):
+    def test_encrypted_sample_download_uses_cape_external_dir(self):
+        import subprocess
+        import tempfile
+
+        sha256 = "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            sample_path = root / "sample.bin"
+            sample_path.write_bytes(b"MZ-encrypted-sample-test")
+            ext_dir = root / "cape-external"
+            ext_dir.mkdir()
+
+            with (
+                patch.dict("apiv2.views.apiconf.sampledl", {"enabled": True}),
+                patch("apiv2.views.db.sample_path_by_hash", return_value=[str(sample_path)]),
+                patch("apiv2.views.USE_SEVENZIP", False),
+                patch("apiv2.views.get_cape_external_dir", return_value=str(ext_dir)),
+            ):
+                resp = self.client.get(f"/apiv2/files/get/sha256/{sha256}/?encrypted=1")
+                assert resp.status_code == 200
+                payload = b"".join(resp.streaming_content)
+                resp.close()
+
+                expected_zip = ext_dir / f"{sha256}.zip"
+                assert expected_zip.is_file()
+                assert len(payload) > 0
+
+                # Second call hits cached zip inside cape-external without re-archiving.
+                with patch("apiv2.views.pyzipper.AESZipFile", side_effect=AssertionError("unexpected re-zip")):
+                    cached_resp = self.client.get(f"/apiv2/files/get/sha256/{sha256}/?encrypted=1")
+                    assert cached_resp.status_code == 200
+                    cached_payload = b"".join(cached_resp.streaming_content)
+                    cached_resp.close()
+                assert cached_payload == payload
+
+                # Failed 7z compression cleans up temp zip and does not leave a corrupt cached archive.
+                expected_zip.unlink()
+                with (
+                    patch("apiv2.views.USE_SEVENZIP", True),
+                    patch("apiv2.views.subprocess.check_call", side_effect=subprocess.CalledProcessError(1, ["7z"])),
+                ):
+                    err_resp = self.client.get(f"/apiv2/files/get/sha256/{sha256}/?encrypted=1")
+                    assert err_resp.status_code == 200
+                    assert err_resp.json()["error"] is True
+                assert list(ext_dir.iterdir()) == []
+
+    def test_pcapng_response_uses_cape_external_and_unlinks_on_empty_output(self):
+        import tempfile
+        from apiv2.views import _pcapng_response
+
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            adir = root / "storage" / "analyses" / "99"
+            adir.mkdir(parents=True)
+            (adir / "dump.pcap").write_bytes(b"pcap")
+            ext_dir = root / "cape-external"
+            ext_dir.mkdir()
+
+            class _EmptyPcapToNg:
+                def __init__(self, *_a):
+                    pass
+
+                def generate(self, _out_path):
+                    # Leave 0-byte file
+                    pass
+
+            with (
+                patch("apiv2.views.CUCKOO_ROOT", str(root)),
+                patch("apiv2.views.get_cape_external_dir", return_value=str(ext_dir)),
+                patch("lib.cuckoo.common.pcap_utils.PcapToNg", _EmptyPcapToNg),
+            ):
+                resp = _pcapng_response(99)
+                assert resp.data["error"] is True
+            assert list(ext_dir.iterdir()) == []
+
+
+

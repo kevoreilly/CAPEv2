@@ -623,6 +623,19 @@ def test_static_file_info_bridges_office_extracted_files_to_selfextract(monkeypa
     assert not (tmp_path / "evil.exe").exists()
 
 
+def test_extractor_ctx_uses_cape_external_dir_by_default(tmp_path, monkeypatch):
+    import os
+    from lib.cuckoo.common.integrations.file_extra_info_modules import extractor_ctx
 
+    ext_dir = tmp_path / "cape-external"
+    explicit_dir = tmp_path / "explicit"
+    monkeypatch.setattr("lib.cuckoo.common.integrations.file_extra_info_modules.get_cape_external_dir", lambda: str(ext_dir))
 
+    with extractor_ctx("sample.bin", "unit_tool", prefix="u_", folder=None) as ctx:
+        assert os.path.dirname(ctx["tempdir"]) == str(ext_dir)
+        assert os.path.basename(ctx["tempdir"]).startswith("u_")
+
+    with extractor_ctx("sample.bin", "unit_tool", prefix="e_", folder=str(explicit_dir)) as ctx:
+        assert os.path.dirname(ctx["tempdir"]) == str(explicit_dir)
+        assert os.path.basename(ctx["tempdir"]).startswith("e_")
 

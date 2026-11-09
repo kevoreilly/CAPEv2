@@ -241,3 +241,38 @@ def test_is_safelisted_domain():
             utils.store_temp_file(filedata, filename)
         mock_path_mkdir.assert_called_once_with("/tmp/cuckoo-tmp")
 
+
+def test_get_cape_external_dir_resolves_and_creates_dir(tmp_path, monkeypatch, custom_conf_path):
+    from types import SimpleNamespace
+
+    from lib.cuckoo.common.config import ConfigMeta
+
+    str_base = tmp_path / "str_tmp"
+    ext_from_str = utils.get_cape_external_dir(tmppath=str(str_base))
+    assert ext_from_str == str(str_base / "cape-external")
+    assert os.path.isdir(ext_from_str)
+
+    bytes_base = tmp_path / "bytes_tmp"
+    ext_from_bytes = utils.get_cape_external_dir(tmppath=str(bytes_base).encode("utf-8"))
+    assert ext_from_bytes == str(bytes_base / "cape-external")
+    assert os.path.isdir(ext_from_bytes)
+
+    path_base = tmp_path / "path_tmp"
+    ext_from_path = utils.get_cape_external_dir(tmppath=path_base)
+    assert ext_from_path == str(path_base / "cape-external")
+    assert os.path.isdir(ext_from_path)
+
+    conf_base = tmp_path / "conf_tmp"
+    (custom_conf_path / "cuckoo.conf").write_text(f"[cuckoo]\ntmppath = {conf_base}\n", encoding="utf-8")
+    ConfigMeta.refresh()
+    ext_from_cfg = utils.get_cape_external_dir()
+    assert ext_from_cfg == str(conf_base / "cape-external")
+    assert os.path.isdir(ext_from_cfg)
+
+    mkdir_calls = []
+    monkeypatch.setattr(utils, "config", SimpleNamespace(cuckoo={"tmppath": b"  "}))
+    monkeypatch.setattr(os, "makedirs", lambda path, exist_ok=False: mkdir_calls.append((path, exist_ok)))
+    assert utils.get_cape_external_dir() == "/tmp/cape-external"
+    assert mkdir_calls == [("/tmp/cape-external", True)]
+
+

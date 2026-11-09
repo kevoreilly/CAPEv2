@@ -12,6 +12,8 @@ import zipfile
 from contextlib import suppress
 from xml.dom.minidom import parse
 
+from lib.cuckoo.common.utils import get_cape_external_dir
+
 try:
     import re2 as re
 except ImportError:
@@ -104,96 +106,71 @@ def saz_to_pcap(sazpath):
         log.error("Scapy is required for SAZ to PCAP conversion")
         return None
 
+    ext_dir = get_cape_external_dir()
+    pcapdir = tempfile.mkdtemp(prefix="sazpcap_", dir=ext_dir)
+    pcappath = os.path.join(pcapdir, f"{os.path.basename(sazpath)}.pcap")
     tmpdir = ""
-    pcappath = f"{tempfile.mkdtemp()}/{os.path.basename(sazpath)}.pcap"
     fiddler_raw_dir = ""
-    pktdump = PcapWriter(pcappath, sync=True)
-    try:
-        tmpdir = tempfile.mkdtemp()
-    except Exception as e:
-        log.error("Failed to Create temp dir for SAZ extraction %s", e)
-        return None
+    pktdump = None
+    success = False
 
     try:
-        z = zipfile.ZipFile(sazpath, "r")
-    except Exception as e:
-        log.error("Failed to open SAZ file as Zip extraction %s", e)
-        return None
+        pktdump = PcapWriter(pcappath, sync=True)
+        try:
+            tmpdir = tempfile.mkdtemp(prefix="sazextract_", dir=ext_dir)
+        except Exception as e:
+            log.error("Failed to Create temp dir for SAZ extraction %s", e)
+            return None
 
-    try:
-        z.extractall(tmpdir)
-        z.close()
-    except Exception as e:
-        log.error("Failed to extract SAZ file to temp dir %s", e)
-        return None
+        try:
+            z = zipfile.ZipFile(sazpath, "r")
+        except Exception as e:
+            log.error("Failed to open SAZ file as Zip extraction %s", e)
+            return None
 
-    if not os.path.isdir(f"{tmpdir}/raw/"):
-        return None
+        try:
+            with z:
+                z.extractall(tmpdir)
+        except Exception as e:
+            log.error("Failed to extract SAZ file to temp dir %s", e)
+            return None
 
-    fiddler_raw_dir = f"{tmpdir}/raw/"
-    m_file_list = glob.glob(f"{fiddler_raw_dir}/*_m.xml")
-    m_file_list.sort()
-    if m_file_list:
-        for xml_file in m_file_list:
-            sport = random.randint(1024, 65535)
-            src = "192.168.1.1"
-            smac = "00:11:22:aa:bb:cc"
-            dport = 80
-            dst = "10.1.1.1"
-            dmac = "c0:c1:c0:b7:ce:63"
-            dom = parse(xml_file)
-            m = re.match(r"^(?P<fid>\d+)_m\.xml", os.path.basename(xml_file))
-            if m:
-                fid = m.group("fid")
-            else:
-                log.error("Failed to find fiddler ID tag")
-                return None
+        if not os.path.isdir(f"{tmpdir}/raw/"):
+            return None
 
-            xmlTags = dom.getElementsByTagName("SessionFlag")
-            for xmlTag in xmlTags:
-                xmlTag = xmlTag.toxml()
-                m = re.match(
-                    r"\<SessionFlag N=\x22x-(?:client(?:ip\x22 V=\x22[^\x22]*?(?P<clientip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|port\x22 V=\x22(?P<sport>\d+))|hostip\x22 V=\x22[^\x22]*?(?P<hostip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))\x22",
-                    xmlTag,
-                )
-                # TODO:to enable this we need to track 5 tuples otherwise we have session reuse issues
-                # if m and m.group("sport"):
-                # sport = int(m.group("sport"))
-                if m and m.group("clientip") and src is None:
-                    src = m.group("clientip")
-                elif m and m.group("hostip"):
-                    dst = m.group("hostip")
-            with open(f"{fiddler_raw_dir}{fid}_c.txt") as f:
-                req = f.read()
-            m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
-            if m and m.group("verb") != "CONNECT":
-                req = req.replace(m.group("host_and_port"), "", 1)
-                if m.group("dport") and int(m.group("dport")) <= 65535:
-                    dport = int(m.group("dport"))
-            with open(f"{fiddler_raw_dir}{fid}_s.txt") as f:
-                resp = f.read()
-            (seq, ack) = build_handshake(src, dst, sport, dport, pktdump, smac, dmac)
-            (seq, ack) = make_pkts(src, dst, sport, dport, seq, ack, req, pktdump, smac, dmac)
-            (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)
-            build_finshake(src, dst, sport, dport, seq, ack, pktdump, smac, dmac)
-    else:
-        m_file_list = glob.glob(f"{fiddler_raw_dir}/*_c.txt")
+        fiddler_raw_dir = f"{tmpdir}/raw/"
+        m_file_list = glob.glob(f"{fiddler_raw_dir}/*_m.xml")
         m_file_list.sort()
         if m_file_list:
             for xml_file in m_file_list:
                 sport = random.randint(1024, 65535)
-                dport = 80
                 src = "192.168.1.1"
                 smac = "00:11:22:aa:bb:cc"
+                dport = 80
                 dst = "10.1.1.1"
                 dmac = "c0:c1:c0:b7:ce:63"
-                m = re.match(r"^(?P<fid>\d+)_c\.txt", os.path.basename(xml_file))
+                dom = parse(xml_file)
+                m = re.match(r"^(?P<fid>\d+)_m\.xml", os.path.basename(xml_file))
                 if m:
                     fid = m.group("fid")
                 else:
                     log.error("Failed to find fiddler ID tag")
                     return None
 
+                xmlTags = dom.getElementsByTagName("SessionFlag")
+                for xmlTag in xmlTags:
+                    xmlTag = xmlTag.toxml()
+                    m = re.match(
+                        r"\<SessionFlag N=\x22x-(?:client(?:ip\x22 V=\x22[^\x22]*?(?P<clientip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})|port\x22 V=\x22(?P<sport>\d+))|hostip\x22 V=\x22[^\x22]*?(?P<hostip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))\x22",
+                        xmlTag,
+                    )
+                    # TODO:to enable this we need to track 5 tuples otherwise we have session reuse issues
+                    # if m and m.group("sport"):
+                    # sport = int(m.group("sport"))
+                    if m and m.group("clientip") and src is None:
+                        src = m.group("clientip")
+                    elif m and m.group("hostip"):
+                        dst = m.group("hostip")
                 with open(f"{fiddler_raw_dir}{fid}_c.txt") as f:
                     req = f.read()
                 m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
@@ -208,11 +185,51 @@ def saz_to_pcap(sazpath):
                 (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)
                 build_finshake(src, dst, sport, dport, seq, ack, pktdump, smac, dmac)
         else:
-            log.error("Unsupported SAZ format")
-            return None
+            m_file_list = glob.glob(f"{fiddler_raw_dir}/*_c.txt")
+            m_file_list.sort()
+            if m_file_list:
+                for xml_file in m_file_list:
+                    sport = random.randint(1024, 65535)
+                    dport = 80
+                    src = "192.168.1.1"
+                    smac = "00:11:22:aa:bb:cc"
+                    dst = "10.1.1.1"
+                    dmac = "c0:c1:c0:b7:ce:63"
+                    m = re.match(r"^(?P<fid>\d+)_c\.txt", os.path.basename(xml_file))
+                    if m:
+                        fid = m.group("fid")
+                    else:
+                        log.error("Failed to find fiddler ID tag")
+                        return None
 
-    pktdump.close()
-    if tmpdir:
-        with suppress(Exception):
-            shutil.rmtree(tmpdir)
-    return pcappath
+                    with open(f"{fiddler_raw_dir}{fid}_c.txt") as f:
+                        req = f.read()
+                    m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
+                    if m and m.group("verb") != "CONNECT":
+                        req = req.replace(m.group("host_and_port"), "", 1)
+                        if m.group("dport") and int(m.group("dport")) <= 65535:
+                            dport = int(m.group("dport"))
+                    with open(f"{fiddler_raw_dir}{fid}_s.txt") as f:
+                        resp = f.read()
+                    (seq, ack) = build_handshake(src, dst, sport, dport, pktdump, smac, dmac)
+                    (seq, ack) = make_pkts(src, dst, sport, dport, seq, ack, req, pktdump, smac, dmac)
+                    (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)
+                    build_finshake(src, dst, sport, dport, seq, ack, pktdump, smac, dmac)
+            else:
+                log.error("Unsupported SAZ format")
+                return None
+
+        pktdump.close()
+        pktdump = None
+        success = True
+        return pcappath
+    finally:
+        if pktdump is not None:
+            with suppress(Exception):
+                pktdump.close()
+        if tmpdir:
+            with suppress(Exception):
+                shutil.rmtree(tmpdir)
+        if not success:
+            with suppress(Exception):
+                shutil.rmtree(pcapdir)

@@ -207,6 +207,65 @@ def test_az_sniffer_download_fallback(mock_config_class):
         mock_convert.assert_called_once()
 
 
+def test_az_sniffer_fallback_uses_cape_external_dir(tmp_path):
+    from modules.auxiliary.AzSniffer import AzSniffer
+
+    mock_aux_config = MagicMock()
+    mock_aux_config.enabled = True
+    mock_az_config = MagicMock()
+    mock_az_config.resource_group = "my-rg"
+    mock_az_config.storage_account = "mystorage"
+    mock_az_config.vmss_name = "myvmss"
+    mock_az_config.location = "eastus"
+    mock_az_config.subscription_id = "sub-123"
+    mock_az_config.connection_string = (
+        "DefaultEndpointsProtocol=https;AccountName=mystorage;AccountKey=key;EndpointSuffix=core.windows.net"
+    )
+    mock_az_config.tenant_id = "tenant-123"
+    mock_az_config.client_id = "client-123"
+    mock_az_config.client_secret = "secret-123"
+
+    def config_side_effect(name=None):
+        mock_inst = MagicMock()
+        if name == "auxiliary":
+            mock_inst.get.return_value = mock_aux_config
+        elif name == "az":
+            mock_inst.get.return_value = mock_az_config
+        return mock_inst
+
+    ext_dir = tmp_path / "cape-external"
+    with (
+        patch("modules.auxiliary.AzSniffer.HAVE_AZURE", True),
+        patch("modules.auxiliary.AzSniffer.Config", side_effect=config_side_effect),
+        patch("modules.auxiliary.AzSniffer.get_cape_external_dir", return_value=str(ext_dir)),
+    ):
+        sniffer = AzSniffer()
+        sniffer.task = MagicMock(id=42)
+        sniffer.capture_name = "PacketCapture_42"
+        sniffer.blob_url = "https://mystorage.blob.core.windows.net/network-watcher-logs/PacketCapture_42.cap"
+        mock_blob_client = MagicMock()
+        mock_blob_client.exists.return_value = True
+        sniffer.blob_service_client.get_blob_client.return_value = mock_blob_client
+
+        recorded_targets = []
+
+        def _download_side_effect(_blob_client, output_file):
+            recorded_targets.append(output_file)
+            if len(recorded_targets) == 1:
+                raise OSError("primary storage unwritable")
+
+        with (
+            patch.object(sniffer, "_download_to_file", side_effect=_download_side_effect),
+            patch.object(sniffer, "convert_cap_to_pcap") as mock_convert,
+        ):
+            sniffer.download_packet_capture()
+
+    expected_fallback = str(ext_dir / "dump_task_42.cap")
+    assert len(recorded_targets) == 2
+    assert recorded_targets[1] == expected_fallback
+    mock_convert.assert_called_once_with(expected_fallback)
+
+
 if __name__ == "__main__":
     print("Running AzSniffer unit tests directly...")
     # Mock Config inside main execution to avoid import errors

@@ -60,7 +60,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
-from lib.cuckoo.common.utils import get_files_storage_path, get_options
+from lib.cuckoo.common.utils import get_cape_external_dir, get_files_storage_path, get_options
 from lib.cuckoo.core.data.task import (
     TASK_BANNED,
     TASK_DISTRIBUTED,
@@ -233,6 +233,15 @@ if not path_exists(binaries_folder):
     path_mkdir(binaries_folder, mode=0o755)
 
 
+def _save_dist_error_html(content: bytes) -> Optional[str]:
+    """Best-effort dump of HTTP error responses into <tmppath>/cape-external."""
+    with contextlib.suppress(OSError):
+        target = os.path.join(get_cape_external_dir(), "dist_error.html")
+        path_write_file(target, content)
+        return target
+    return None
+
+
 def node_status(url: str, name: str, apikey: str) -> dict:
     """
     Retrieve the status of a CAPE node.
@@ -280,8 +289,11 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
             params["completed_after"] = since
         r = http_session.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=30)
         if not r.ok:
-            log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
-            _ = path_write_file("/tmp/dist_error.html", r.content)
+            err_path = _save_dist_error_html(r.content)
+            if err_path:
+                log.error("Error fetching task list. Status code: %d - %s. Saving error to %s", r.status_code, r.url, err_path)
+            else:
+                log.error("Error fetching task list. Status code: %d - %s", r.status_code, r.url)
             return None
         return r.json().get("data", [])
     except Exception as e:
@@ -809,8 +821,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             check = True
             log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, worker_task_id)
     elif r is not None and r.status_code == 500:
-        log.info("Saving error to /tmp/dist_error.html")
-        _ = path_write_file("/tmp/dist_error.html", r.content)
+        err_path = _save_dist_error_html(r.content)
+        if err_path:
+            log.info("Saving error to %s", err_path)
         log.info((r.status_code, r.text[:200]))
 
     elif r is not None and r.status_code == 429:
@@ -887,6 +900,7 @@ class Retriever(threading.Thread):
         self.current_queue = {}
         self.current_two_queue = {}
         self.stop_dist = threading.Event()
+        self.low_disk_space = threading.Event()
 
         # Define the set of threads that should be running
         thread_targets = []
@@ -942,29 +956,79 @@ class Retriever(threading.Thread):
 
         log.info("Retriever supervisor stopping.")
 
+    @staticmethod
+    def _resolve_st_dev(path: str) -> Optional[int]:
+        cur = path
+        while cur:
+            try:
+                return os.stat(cur).st_dev
+            except FileNotFoundError:
+                parent = os.path.dirname(cur)
+                if parent == cur:
+                    return None
+                cur = parent
+            except OSError:
+                return None
+        return None
+
+    def _on_space_state_change(self, need_space: bool, space_available: int) -> None:
+        event = getattr(self, "low_disk_space", None)
+        if need_space:
+            if event is not None:
+                event.set()
+            log.warning("Pausing distributed report retrieval due to low disk space (%d MB free)", space_available)
+        else:
+            if event is not None:
+                event.clear()
+            log.info("Resuming distributed report retrieval; disk space recovered (%d MB free)", space_available)
+
     def free_space_mon(self):
         """
-        Monitors the free disk space in the analysis folder and logs an error
-        message if the available space is below the configured threshold. This
-        check is performed periodically every 10 minutes. The check is ignored
-        if the 'freespace' configuration variable is set to zero.
+        Monitors free disk space in the analysis folder (and external temp dir
+        if located on a separate filesystem) and pauses report retrieval while
+        available space is below the configured threshold.
 
-        The analysis folder path is resolved to its full base path to handle
-        cases where it might be a symbolic link.
+        This check runs every 10 minutes and is skipped when 'freespace' is
+        unset/zero.
 
         Returns:
             None
         """
-        # If not enough free disk space is available, then we print an
-        # error message and wait another round (this check is ignored
-        # when the freespace configuration variable is set to zero).
-        if cfg.cuckoo.freespace:
-            # Resolve the full base path to the analysis folder, just in
-            # case somebody decides to make a symbolic link out of it.
-            dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-            while True:
-                free_space_monitor(dir_path, analysis=True)
-                time.sleep(600)
+        # If not enough free disk space is available, pause report retrieval and
+        # let cleaners reclaim space (skipped when freespace is zero/disabled).
+        if not cfg.cuckoo.freespace:
+            return
+
+        dir_path = os.path.realpath(os.path.join(CUCKOO_ROOT, "storage", "analyses"))
+        while not (getattr(self, "stop_dist", None) and self.stop_dist.is_set()):
+            try:
+                paths_to_check = [dir_path]
+                try:
+                    ext_tmp_dir = os.path.realpath(get_cape_external_dir())
+                except OSError as e:
+                    log.debug("Unable to resolve external temp dir for space monitoring: %s", e)
+                    ext_tmp_dir = None
+
+                if ext_tmp_dir and ext_tmp_dir != dir_path:
+                    dir_dev = self._resolve_st_dev(dir_path)
+                    ext_dev = self._resolve_st_dev(ext_tmp_dir)
+                    if dir_dev is None or ext_dev is None or ext_dev != dir_dev:
+                        paths_to_check.append(ext_tmp_dir)
+
+                for mon_path in paths_to_check:
+                    if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
+                        break
+                    free_space_monitor(
+                        mon_path,
+                        analysis=True,
+                        on_state_change=self._on_space_state_change,
+                        should_stop=(lambda: bool(getattr(self, "stop_dist", None) and self.stop_dist.is_set())),
+                    )
+            except Exception as e:
+                handle_loop_error("free_space_mon", e)
+            if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
+                break
+            time.sleep(600)
 
     def notification_loop(self):
         """
@@ -1095,6 +1159,9 @@ class Retriever(threading.Thread):
             if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
                 time.sleep(60)
                 continue
+            if getattr(self, "low_disk_space", None) and self.low_disk_space.is_set():
+                time.sleep(5)
+                continue
             try:
                 self._fetcher_pass(last_checks)
             except Exception as e:
@@ -1216,8 +1283,11 @@ class Retriever(threading.Thread):
         """
         while True:
             # to not exit till cleaner works
-            if self.stop_dist.is_set():
+            if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
                 time.sleep(60)
+                continue
+            if getattr(self, "low_disk_space", None) and self.low_disk_space.is_set():
+                time.sleep(5)
                 continue
             task, node_id = self.fetcher_queue.get()
 

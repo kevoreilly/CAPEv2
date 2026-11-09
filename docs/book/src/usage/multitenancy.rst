@@ -61,6 +61,19 @@ Both features are configured in ``conf/cuckoo.conf`` and default to ``enabled = 
   * ``backend = azure`` (Azure Blob Storage): ``poetry install --extras azure``
   * ``backend = local`` (shared NFS / filesystem): no extra packages required.
 
+.. note::
+
+   Enabling ``[web_auth] enabled = yes`` (``conf/web.conf``) and
+   ``token_auth_enabled = yes`` (``conf/api.conf``) with ``[multitenancy] enabled = no``
+   authenticates callers onto a **shared collaborative single-tenant** sandbox:
+   ``lib.tenancy`` is not loaded (zero tenancy overhead), and authenticated users
+   can list, view, and manage tasks across the instance. To isolate tasks across
+   users or teams (``tasks/view``, ``tasks/list``, ``tasks/delete``, ``tasks/stats``,
+   ``/analysis/remove/``, and MongoDB/Elasticsearch search), set
+   ``[multitenancy] enabled = yes`` with ``default_visibility = private`` (strict
+   per-user isolation), ``mode = locked`` (per-group ``tenant`` isolation), or
+   ``mode = shared`` (``public`` read defaults with owner/admin-only deletes).
+
 Enabling on an existing (populated) install — run the backfill
 --------------------------------------------------------------
 
@@ -179,9 +192,11 @@ authoritative. In ``locked`` mode a user no active policy covers gets no
 resources unless ``CAPE_TENANCY_UNASSIGNED_GROUP_POLICY = "allow"``.
 Download & execute (the web host fetches the URL) and the ``sslproxy`` (except
 over a VPN route), ``mitmdump`` and ``polarproxy`` options need the ``internet``
-route; ``netns=`` is refused. The statistics pages and ``yara_uploader`` span
-every tenant (and every user's private tasks) and are limited to local
-administrators whenever multitenancy or web authentication is on.
+route; ``netns=`` is refused. The deployment-wide statistics endpoints (``/statistics/<days>/`` and
+``/apiv2/tasks/statistics/<days>/``) and ``yara_uploader`` span every tenant
+(and every user's private tasks) and are limited to local administrators whenever
+multitenancy or web authentication is on, whereas ``/apiv2/tasks/stats/``
+(``task_x_hours``) scopes hourly task counts to the active viewer.
 
 In distributed mode a task submitted without a route runs with the routing of
 the worker that executes it: its default route, or a route its ``random_vpn`` /
@@ -369,12 +384,15 @@ Supported (isolation enforced end-to-end)
   ``register_report_hook`` / ``register_mongo_filter`` hooks. **MongoDB is
   required for multitenancy.**
 * **Single-node CAPE** (one host running web + processing + analysis).
-* **Single-tenant with ``WEB_AUTHENTICATION = True``** (``[multitenancy] enabled = no``):
-  when ``WEB_AUTHENTICATION`` is enabled, non-staff users can view, manage, and
-  delete their own private tasks and legacy ownerless tasks (``user_id = None``),
-  while staff/superusers retain full local-admin visibility. Group sandbox
-  resource policies (``GroupSandboxPolicy``) can be used with or without
-  ``[multitenancy] enabled = yes``.
+* **Single-tenant with ``lib.tenancy`` loaded and ``WEB_AUTHENTICATION = True``**
+  (``[multitenancy] enabled = no`` alongside ``[object_storage] enabled = yes`` or
+  explicit ``lib.tenancy.install(globals())``): non-staff users' submissions default
+  to ``private``, and non-staff users can view, manage, and delete their own private
+  tasks while staff/superusers retain full local-admin visibility. Legacy ownerless
+  tasks (``user_id = None`` or ``0``) resolve as ``public`` on direct read/sample
+  checks, cannot be deleted or toggled by non-staff users, and remain hidden from
+  un-ACL'd SQL list/count queries until stamped. Group sandbox resource policies
+  (``GroupSandboxPolicy``) can be used whenever ``lib.tenancy`` is active.
 * **Cloud / Object Storage Artifact Serving** (``[object_storage]`` in ``cuckoo.conf``,
   implemented in ``lib.tenancy.storage``): workers upload analysis artifacts and
   Guacamole session recordings to S3/MinIO (``backend = s3``), Google Cloud Storage

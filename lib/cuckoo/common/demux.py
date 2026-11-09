@@ -2,6 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import contextlib
+import io
 import re
 import logging
 import os
@@ -15,6 +17,14 @@ from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_fil
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
 from lib.cuckoo.common.utils import get_options, option_enabled, sanitize_filename
+
+try:
+    import msoffcrypto
+
+    HAS_MSOFFCRYPTO = True
+except ImportError:
+    msoffcrypto = None
+    HAS_MSOFFCRYPTO = False
 
 sfFile = False
 try:
@@ -247,22 +257,76 @@ def options2passwd(options: str) -> str:
     return password
 
 
+def _is_encrypted_office(filename: bytes, magic: str) -> bool:
+    if "CDFV2 Encrypted" in magic or "Encrypted" in magic:
+        return True
+    if HAS_MSOFFCRYPTO:
+        with contextlib.suppress(Exception):
+            with open(filename, "rb") as f:
+                ms_file = msoffcrypto.OfficeFile(f)
+                try:
+                    return bool(ms_file.is_encrypted())
+                finally:
+                    ole = getattr(ms_file, "ole", None)
+                    if ole is not None:
+                        with contextlib.suppress(Exception):
+                            ole.close()
+    return False
+
+
 def demux_office(filename: bytes, password: str, platform: str) -> List[bytes]:
     retlist = []
     target_path = os.path.join(tmp_path, "cuckoo-tmp/msoffice-crypt-tmp")
     if not path_exists(target_path):
         path_mkdir(target_path)
-    decrypted_name = os.path.join(target_path, os.path.basename(filename).decode())
+    decrypted_name = os.path.join(target_path, os.path.basename(filename).decode(errors="replace"))
 
-    if HAS_SFLOCK:
-        ofile = OfficeFile(sfFile.from_path(filename))
-        d = ofile.decrypt(password)
-        # TODO: add decryption verification checks
-        if hasattr(d, "contents") and "Encrypted" not in d.magic:
-            _ = path_write_file(decrypted_name, d.contents)
-            retlist.append((decrypted_name.encode(), platform))
-    else:
+    if not (HAS_MSOFFCRYPTO or HAS_SFLOCK):
         raise CuckooDemuxError("MS Office decryptor not available")
+
+    candidates = ([password] if password else []) + ["VelvetSweatshop", "infected", ""]
+    passwords = list(dict.fromkeys(candidates))
+
+    decrypted_bytes = b""
+    if HAS_MSOFFCRYPTO:
+        with contextlib.suppress(Exception):
+            with open(filename, "rb") as f:
+                ms_file = msoffcrypto.OfficeFile(f)
+                try:
+                    if hasattr(ms_file, "is_encrypted") and not ms_file.is_encrypted():
+                        return [(filename, platform)]
+                    for pw in passwords:
+                        out_buf = io.BytesIO()
+                        try:
+                            ms_file.load_key(password=pw)
+                            ms_file.decrypt(out_buf)
+                            candidate_bytes = out_buf.getvalue()
+                            if candidate_bytes:
+                                decrypted_bytes = candidate_bytes
+                                break
+                        except Exception:
+                            continue
+                        finally:
+                            out_buf.close()
+                finally:
+                    ole = getattr(ms_file, "ole", None)
+                    if ole is not None:
+                        with contextlib.suppress(Exception):
+                            ole.close()
+
+    if decrypted_bytes:
+        _ = path_write_file(decrypted_name, decrypted_bytes)
+        retlist.append((decrypted_name.encode(), platform))
+    elif HAS_SFLOCK:
+        for pw in passwords:
+            with contextlib.suppress(Exception):
+                ofile = OfficeFile(sfFile.from_path(filename))
+                d = ofile.decrypt(pw)
+                # TODO: add decryption verification checks
+                if hasattr(d, "contents") and d.contents and "Encrypted" not in (d.magic or ""):
+                    _ = path_write_file(decrypted_name, d.contents)
+                    retlist.append((decrypted_name.encode(), platform))
+                    break
 
     if not retlist:
         retlist.append((filename, platform))
@@ -515,17 +579,29 @@ def demux_sample(
 
     # --- 3. Handle Password-Protected Office Files ---
     is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and not any(x in magic for x in MS_EXCLUDE)
-    if is_office and use_sflock:
+    if is_office:
         password = options2passwd(options)
-        if use_sflock and password:
-            retlist = demux_office(filename, password, platform)
-            return retlist, error_list
-        # elif use_sflock:
-        #    retlist = demux_office(filename, "", platform)
-        #    return retlist, error_list
-        else:
-            log.error("Detected password protected office file, but no sflock is installed. Magic: %s, Password:%s", magic, str(password))
-            return [], [{os.path.basename(filename).decode(errors='ignore'): f"Detected password protected office file, but no sflock is installed. Magic: {magic}. Password: {password}"}]
+        if password or _is_encrypted_office(filename, magic):
+            if use_sflock and (HAS_MSOFFCRYPTO or HAS_SFLOCK):
+                retlist = demux_office(filename, password, platform)
+                return retlist, error_list
+            if use_sflock:
+                log.error(
+                    "Detected password protected office file, but no sflock is installed. Magic: %s, Password:%s",
+                    magic,
+                    str(password),
+                )
+                return [], [
+                    {
+                        os.path.basename(filename).decode(errors="ignore"): (
+                            f"Detected password protected office file, but no sflock is installed. Magic: {magic}. Password: {password}"
+                        )
+                    }
+                ]
+        valid_file, error = _prepare_file(filename, options)
+        if valid_file:
+            return [(valid_file, platform)], []
+        return [], [{os.path.basename(filename).decode(errors="ignore"): error}]
 
     # --- 4. Skip Extraction for specific types ---
     ignored_signatures = [

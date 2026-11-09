@@ -23,6 +23,7 @@ from lib.cuckoo.common.integrations.file_extra_info import (
     PDF,
     PortableExecutable,
     WindowsScriptFile,
+    _is_office_target,
     detect_it_easy_info,
     magika_info,
     parse_msi,
@@ -196,9 +197,7 @@ def _run_read_only_static_enrichment(file_info: dict, file_path: str, task_id: s
                     if dotnet_strings:
                         file_info["dotnet_strings"] = dotnet_strings
 
-    elif (HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integrations_conf.general.office) or fname.endswith(
-        (".doc", ".ppt", ".xls", ".pub")
-    ):
+    elif HAVE_OLETOOLS and integrations_conf.general.office and _is_office_target(file_path, file_info, package):
         if "office" not in file_info:
             with suppress(Exception):
                 file_info["office"] = Office(file_path, task_id, file_info.get("sha256", ""), options_dict).run()

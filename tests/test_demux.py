@@ -197,3 +197,135 @@ class TestDemux:
         if os.path.exists(path):
             os.remove(path)
 
+    def test_is_encrypted_office_magic_and_msoffcrypto(self, tmp_path, monkeypatch):
+        sample = tmp_path / "doc.bin"
+        sample.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64)
+
+        assert demux._is_encrypted_office(str(sample).encode(), "CDFV2 Encrypted") is True
+        assert demux._is_encrypted_office(str(sample).encode(), "Composite Document File (Encrypted)") is True
+
+        ole_handle = SimpleNamespace(closed=False)
+        ole_handle.close = lambda: setattr(ole_handle, "closed", True)
+
+        class FakeOfficeFile:
+            def __init__(self, fp):
+                self.ole = ole_handle
+
+            def is_encrypted(self):
+                return True
+
+        monkeypatch.setattr(demux, "HAS_MSOFFCRYPTO", True)
+        monkeypatch.setattr(demux, "msoffcrypto", SimpleNamespace(OfficeFile=FakeOfficeFile))
+
+        assert demux._is_encrypted_office(str(sample).encode(), "Composite Document File V2 Document") is True
+        assert ole_handle.closed is True
+
+    def test_demux_office_password_candidates_without_verify_password(self, tmp_path, monkeypatch):
+        sample = tmp_path / "secret.doc"
+        sample.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32)
+        attempted_passwords = []
+        ole_handle = SimpleNamespace(closed=False)
+        ole_handle.close = lambda: setattr(ole_handle, "closed", True)
+
+        class FakeDoc97File:
+            def __init__(self, fp):
+                self.ole = ole_handle
+                self._pw = None
+
+            def is_encrypted(self):
+                return True
+
+            def load_key(self, password=None):
+                attempted_passwords.append(password)
+                self._pw = password
+
+            def decrypt(self, out_buf):
+                if self._pw != "VelvetSweatshop":
+                    raise ValueError("wrong password")
+                out_buf.write(b"decrypted-doc-bytes")
+
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
+        monkeypatch.setattr(demux, "HAS_MSOFFCRYPTO", True)
+        monkeypatch.setattr(demux, "HAS_SFLOCK", False)
+        monkeypatch.setattr(demux, "msoffcrypto", SimpleNamespace(OfficeFile=FakeDoc97File))
+
+        res = demux.demux_office(str(sample).encode(), "custompw", "windows")
+        assert attempted_passwords == ["custompw", "VelvetSweatshop"]
+        assert ole_handle.closed is True
+        assert len(res) == 1
+        out_path, plat = res[0]
+        assert plat == "windows"
+        assert os.path.basename(out_path) == b"secret.doc"
+        assert open(out_path, "rb").read() == b"decrypted-doc-bytes"
+
+        # Empty user password must try defaults in order ["VelvetSweatshop", "infected", ""]
+        attempted_passwords.clear()
+        res_empty = demux.demux_office(str(sample).encode(), "", "windows")
+        assert attempted_passwords == ["VelvetSweatshop"]
+        assert len(res_empty) == 1
+
+    def test_demux_office_sflock_fallback_and_missing_decryptor_error(self, tmp_path, monkeypatch):
+        sample = tmp_path / "encrypted.docx"
+        sample.write_bytes(b"encrypted-data")
+
+        class FakeSflockOffice:
+            def __init__(self, sf_obj):
+                self.sf_obj = sf_obj
+
+            def decrypt(self, password):
+                if password == "infected":
+                    return SimpleNamespace(contents=b"plain-docx-bytes", magic="Microsoft Word 2007+")
+                return SimpleNamespace(contents=b"", magic="CDFV2 Encrypted")
+
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
+        monkeypatch.setattr(demux, "HAS_MSOFFCRYPTO", False)
+        monkeypatch.setattr(demux, "HAS_SFLOCK", True)
+        monkeypatch.setattr(demux, "OfficeFile", FakeSflockOffice, raising=False)
+        monkeypatch.setattr(demux, "sfFile", SimpleNamespace(from_path=lambda p: p), raising=False)
+
+        res = demux.demux_office(str(sample).encode(), "", "windows")
+        assert len(res) == 1
+        assert open(res[0][0], "rb").read() == b"plain-docx-bytes"
+
+        monkeypatch.setattr(demux, "HAS_SFLOCK", False)
+        with pytest.raises(demux.CuckooDemuxError):
+            demux.demux_office(str(sample).encode(), "", "windows")
+
+    def test_demux_sample_unencrypted_and_encrypted_office(self, tmp_path, monkeypatch):
+        sample = tmp_path / "plain.docx"
+        sample.write_bytes(b"PK\x03\x04plain-office-content")
+
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "Microsoft Word 2007+")
+        sflock_called = []
+        monkeypatch.setattr(demux, "demux_sflock", lambda *a, **k: sflock_called.append(True) or ([], "", []))
+
+        # Unencrypted Office passes directly even with HAS_MSOFFCRYPTO=False and HAS_SFLOCK=False
+        monkeypatch.setattr(demux, "HAS_MSOFFCRYPTO", False)
+        monkeypatch.setattr(demux, "HAS_SFLOCK", False)
+        demuxed, errors = demux.demux_sample(str(sample).encode(), package=None, options="", use_sflock=True, platform="windows")
+        assert demuxed == [(str(sample).encode(), "windows")]
+        assert errors == []
+        assert sflock_called == []
+
+        # Encrypted Office with use_sflock=True and no decryptor returns error
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "CDFV2 Encrypted")
+        demuxed, errors = demux.demux_sample(str(sample).encode(), package=None, options="", use_sflock=True)
+        assert demuxed == []
+        assert errors
+
+        # Encrypted Office with use_sflock=True and decryptor delegates to demux_office
+        monkeypatch.setattr(demux, "HAS_MSOFFCRYPTO", True)
+        monkeypatch.setattr(
+            demux,
+            "demux_office",
+            lambda fn, pw, plat: [(b"/tmp/decrypted.docx", plat)],
+        )
+        demuxed, errors = demux.demux_sample(str(sample).encode(), package=None, options="password=infected", use_sflock=True, platform="windows")
+        assert demuxed == [(b"/tmp/decrypted.docx", "windows")]
+        assert errors == []
+
+        # Encrypted Office with use_sflock=False falls back to _prepare_file
+        demuxed, errors = demux.demux_sample(str(sample).encode(), package=None, options="password=infected", use_sflock=False, platform="windows")
+        assert demuxed == [(str(sample).encode(), "windows")]
+        assert errors == []
+

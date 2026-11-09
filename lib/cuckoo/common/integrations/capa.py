@@ -38,10 +38,10 @@ if integrations_conf.flare_capa.enabled and (not HAVE_MALCAT_CAPA or integration
         from packaging import version
 
         # if version.parse(python_version()) >= version.parse("3.10.0"):
-        capa_compatible_version = "9"
+        capa_compatible_versions = {"9", "10"}
 
         # ToDo use major?
-        if version.parse(capa_version).base_version.split(".")[0] != capa_compatible_version:
+        if version.parse(capa_version).base_version.split(".")[0] not in capa_compatible_versions:
             print("FLARE-CAPA missed or incompatible version. Run: poetry install")
         else:
             import capa.capabilities.common

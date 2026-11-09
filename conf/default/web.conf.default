@@ -330,3 +330,14 @@ enabled = no
 [hunt]
 # Proactively discover new emerging campaigns by grouping undetected analyses by shared indicators
 enabled = no
+
+[static_preview]
+# Automatically run static analysis and config extraction on the submission status page
+# while waiting for dynamic VM execution to finish.
+enabled = no
+# When enabled = no, show an on-demand button on the status page so users can still
+# trigger static analysis preview manually if they change their mind.
+on_demand = yes
+# Allow users to stop dynamic VM execution early from the status page and finalize
+# the report with static analysis results.
+allow_stop = yes

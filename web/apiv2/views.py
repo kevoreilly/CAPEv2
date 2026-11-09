@@ -61,6 +61,7 @@ from lib.cuckoo.common.web_utils import (
     process_new_task_files,
     search_term_map,
     statistics,
+    stop_analysis_task,
     validate_task,
 )
 
@@ -1184,24 +1185,31 @@ def tasks_status(request, task_id):
     if request.method == "GET":
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
-    elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
-        guest = getattr(task, "guest", None)
-        if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
-            resp = {"error": True, "error_value": "Task is not running"}
-            return Response(resp)
-        machine = db.view_machine(guest.name)
-        if machine and machine.status == "running":
-            try:
-                guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
-                complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
-                if machine.platform == "windows":
-                    dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
-                elif machine.platform == "linux":
-                    dest_folder = f"{guest_env['environ'].get('TMP', '/tmp')}/{complete_folder}"
-                r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
-                resp = {"error": r.status_code == 200, "data": r.text}
-            except requests.exceptions.ConnectionError as e:
-                log.error(e)
+    elif request.method == "POST":
+        requested_status = request.data.get("status", "")
+        static_preview_cfg = getattr(web_conf, "static_preview", None)
+        web_allow_stop = bool(static_preview_cfg.get("allow_stop", True)) if (static_preview_cfg and hasattr(static_preview_cfg, "get")) else True
+        if requested_status == "stop" and (apiconf.user_stop.enabled or web_allow_stop):
+            resp = stop_analysis_task(task_id, mode="stop")
+        elif requested_status == "finish" and apiconf.user_stop.enabled:
+            guest = getattr(task, "guest", None)
+            if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
+                resp = {"error": True, "error_value": "Task is not running"}
+                return Response(resp)
+            machine = db.view_machine(guest.name)
+            if machine and machine.status == "running":
+                try:
+                    guest_env = requests.get(f"http://{machine.ip}:8000/environ").json()
+                    complete_folder = hashlib.md5(f"cape-{task_id}".encode()).hexdigest()
+                    if machine.platform == "windows":
+                        dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
+                    elif machine.platform == "linux":
+                        dest_folder = f"{guest_env['environ'].get('TMP', '/tmp')}/{complete_folder}"
+                    r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
+                    resp = {"error": r.status_code != 200, "data": r.text}
+                except requests.exceptions.ConnectionError as e:
+                    log.error(e)
+                    resp = {"error": True, "error_value": str(e)}
     return Response(resp)
 
 

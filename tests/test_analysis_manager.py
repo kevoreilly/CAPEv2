@@ -1179,4 +1179,25 @@ class TestAnalysisManager:
         assert mock_stop_machine.call_count == 1
         assert mock_gm.stop.call_count == 1
 
+    def test_stopped_by_user_skips_full_memory_dump(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        from lib.cuckoo.core.guest import GuestManager
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.cfg.cuckoo.memory_dump = True
+        mocker.patch.object(analysis_man, "build_options", return_value={"id": task.id})
+        mocker.patch.object(GuestManager, "start_analysis")
+        mocker.patch.object(GuestManager, "wait_for_completion")
+        mocker.patch.object(GuestManager, "set_status_in_db")
+        mocker.patch.object(GuestManager, "get_status_from_db", side_effect=["starting", "stopping"])
+        mock_dump_mem = mocker.patch.object(machinery_manager.machinery, "dump_memory")
+
+        analysis_man.run_analysis_on_guest()
+        assert analysis_man.stopped_by_user is True
+
+        analysis_man.dump_machine_memory()
+        mock_dump_mem.assert_not_called()
+
+
 

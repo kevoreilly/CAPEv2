@@ -77,17 +77,18 @@ enabled = yes
 binary = data/procyon.jar
 timeout = 60
 
-# sudo apt install de4dot
+# https://github.com/GDATAAdvancedAnalytics/de4dotEx/releases (replaces legacy de4dot and NETReactorSlayer; handles .NET Reactor 6.9+/7.x CVM)
 [de4dot_deobfuscate]
 enabled = yes
-binary = /usr/bin/de4dot
+binary = /usr/local/bin/de4dot
 extra_args =
 timeout = 60
 
+# Deprecated: disabled by default because de4dotEx handles .NET Reactor (including 6.9+/7.x CVM) under [de4dot_deobfuscate]
 # https://github.com/otavepto/NETReactorSlayer/releases
 [eziriz_deobfuscate]
-enabled = yes
-binary = data/NETReactorSlayer.CLI
+enabled = no
+binary =
 extra_args = --no-pause True
 timeout = 60
 

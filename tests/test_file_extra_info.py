@@ -639,3 +639,350 @@ def test_extractor_ctx_uses_cape_external_dir_by_default(tmp_path, monkeypatch):
         assert os.path.dirname(ctx["tempdir"]) == str(explicit_dir)
         assert os.path.basename(ctx["tempdir"]).startswith("e_")
 
+
+@pytest.mark.parametrize(
+    ("filename", "die_list"),
+    [
+        ("plain.exe", ["Microsoft Visual C#", "UPX"]),
+        ("already_Slayed.exe", [".NET Reactor(6.x)[-]"]),
+        ("a" * 57 + "_Slayed", [".NET Reactor(6.x)[-]"]),
+    ],
+)
+def test_eziriz_deobfuscate_skip_guards(tmp_path, monkeypatch, filename, die_list):
+    sample = tmp_path / filename
+    sample.write_bytes(b"MZ-synthetic-sample")
+    called = []
+    monkeypatch.setattr(file_extra_info, "run_tool", lambda *a, **k: called.append((a, k)))
+
+    res = file_extra_info.eziriz_deobfuscate(str(sample), data_dictionary={"die": die_list})
+    assert res["result"] is None
+    assert called == []
+
+
+@pytest.mark.parametrize("conf_obj", [None, {}, {"binary": ""}, {"binary": "   "}, {"binary": None}])
+def test_eziriz_deobfuscate_empty_or_missing_binary_config(tmp_path, monkeypatch, caplog, conf_obj):
+    import logging
+
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(b"MZ-synthetic-sample")
+    called = []
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tmp_path / "tools"))
+    monkeypatch.setattr(file_extra_info.integration_conf, "eziriz_deobfuscate", conf_obj)
+    monkeypatch.setattr(file_extra_info, "run_tool", lambda *a, **k: called.append((a, k)))
+
+    with caplog.at_level(logging.WARNING, logger=file_extra_info.__name__):
+        res = file_extra_info.eziriz_deobfuscate(str(sample), data_dictionary={"die": [".NET Reactor(6.x)[-]"]})
+
+    assert res["result"] is None
+    assert called == []
+    assert any("eziriz_deobfuscate.binary is not defined" in r.message for r in caplog.records)
+
+
+@pytest.mark.parametrize(
+    ("filename", "conf_binary", "conf_extra_args", "expected_args_prefix", "slayed_out_name"),
+    [
+        (
+            "sample.exe",
+            "data/NETReactorSlayer.CLI",
+            "",
+            ["--no-pause", "True"],
+            "sample_Slayed.exe",
+        ),
+        (
+            "a" * 64,
+            "/opt/tools/NETReactorSlayer.CLI",
+            "--no-pause=False --dont-rename",
+            ["--no-pause=False", "--dont-rename"],
+            ("a" * 64) + "_Slayed",
+        ),
+    ],
+)
+def test_eziriz_deobfuscate_stages_isolated_workdir_and_moves_slayed(
+    tmp_path,
+    monkeypatch,
+    filename,
+    conf_binary,
+    conf_extra_args,
+    expected_args_prefix,
+    slayed_out_name,
+):
+    import os
+    import subprocess
+
+    cuckoo_root = tmp_path / "cape"
+    rel_tool = cuckoo_root / "data" / "NETReactorSlayer.CLI"
+    rel_tool.parent.mkdir(parents=True)
+    rel_tool.write_bytes(b"fake-tool")
+
+    sample_dir = tmp_path / "binaries"
+    sample_dir.mkdir()
+    sample = sample_dir / filename
+    sample.write_bytes(b"MZ-obfuscated-input")
+
+    tools_dir = tmp_path / "tools"
+    monkeypatch.setattr(file_extra_info, "CUCKOO_ROOT", str(cuckoo_root))
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tools_dir))
+    monkeypatch.setattr(
+        file_extra_info.integration_conf,
+        "eziriz_deobfuscate",
+        {"binary": conf_binary, "extra_args": conf_extra_args},
+    )
+
+    expected_binary = os.path.join(str(cuckoo_root), conf_binary)
+    orig_exists = os.path.exists
+    orig_access = os.access
+    monkeypatch.setattr(file_extra_info, "path_exists", lambda p: True if p == expected_binary else orig_exists(p))
+    monkeypatch.setattr(os, "access", lambda p, mode: True if p == expected_binary else orig_access(p, mode))
+
+    seen_calls = []
+
+    def fake_run_tool(cmd, **kwargs):
+        seen_calls.append((list(cmd), dict(kwargs)))
+        staged = pathlib.Path(cmd[-1])
+        assert staged.parent.name == "_work"
+        assert staged.read_bytes() == b"MZ-obfuscated-input"
+        (staged.parent / "PEImage.tmp").write_bytes(b"temp-image")
+        (staged.parent / slayed_out_name).write_bytes(b"MZ-deobfuscated-output")
+        return "Slayed\n"
+
+    monkeypatch.setattr(file_extra_info, "run_tool", fake_run_tool)
+
+    res = file_extra_info.eziriz_deobfuscate(str(sample), data_dictionary={"die": [".NET Reactor(6.9)[-]"]})
+    result = res["result"]
+    assert result is not None
+    assert result["tool_name"] == "eziriz"
+    assert result["extracted_files"] == [filename]
+
+    assert len(seen_calls) == 1
+    cmd, kwargs = seen_calls[0]
+    assert cmd[0] == expected_binary
+    assert cmd[1:-1] == expected_args_prefix
+    assert cmd[-1].endswith(os.path.join("_work", filename))
+    assert kwargs["universal_newlines"] is True
+    assert kwargs["stdin"] == subprocess.DEVNULL
+    assert kwargs["stderr"] == subprocess.STDOUT
+
+    tempdir = pathlib.Path(result["tempdir"])
+    assert (tempdir / filename).read_bytes() == b"MZ-deobfuscated-output"
+    assert not (tempdir / "_work").exists()
+    assert list(sample_dir.iterdir()) == [sample]
+
+
+def test_eziriz_deobfuscate_collects_dumped_assemblies_and_handles_backslashes(tmp_path, monkeypatch):
+    sample = tmp_path / "sample.dll"
+    sample.write_bytes(b"MZ-input-dll")
+    tools_dir = tmp_path / "tools"
+    fake_bin = tmp_path / "NETReactorSlayer.CLI"
+    fake_bin.write_bytes(b"fake-tool")
+    fake_bin.chmod(0o755)
+
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tools_dir))
+    monkeypatch.setattr(
+        file_extra_info.integration_conf,
+        "eziriz_deobfuscate",
+        {"binary": str(fake_bin), "extra_args": ""},
+    )
+
+    def fake_run_tool(cmd, **kwargs):
+        staged = pathlib.Path(cmd[-1])
+        work_dir = staged.parent
+        tempdir = work_dir.parent
+        (work_dir / "PEImage.tmp").write_bytes(b"temp")
+        (work_dir / "sample_Slayed.dll").write_bytes(b"MZ-slayed")
+        (work_dir / "costura_lib.dll").write_bytes(b"MZ-costura")
+        # Simulate Linux literal-backslash filenames created by String.Concat(SourceDir, "\\", name)
+        (tempdir / "_work\\PEImage.tmp").write_bytes(b"stray-temp")
+        (tempdir / "_work\\embedded.dll").write_bytes(b"MZ-embedded")
+        (tempdir / "_work\\sample.dll").write_bytes(b"MZ-colliding-embedded")
+        return "2 Embedded assemblies dumped\n"
+
+    monkeypatch.setattr(file_extra_info, "run_tool", fake_run_tool)
+
+    res = file_extra_info.eziriz_deobfuscate(str(sample), data_dictionary={"die": [".NET Reactor(6.8)[-]"]})
+    result = res["result"]
+    assert result is not None
+    assert sorted(result["extracted_files"]) == [
+        "costura_lib.dll",
+        "embedded.dll",
+        "sample (1).dll",
+        "sample.dll",
+    ]
+    tempdir = pathlib.Path(result["tempdir"])
+    assert (tempdir / "sample.dll").read_bytes() == b"MZ-slayed"
+    assert (tempdir / "sample (1).dll").read_bytes() == b"MZ-colliding-embedded"
+    assert (tempdir / "costura_lib.dll").read_bytes() == b"MZ-costura"
+    assert (tempdir / "embedded.dll").read_bytes() == b"MZ-embedded"
+    assert not (tempdir / "_work").exists()
+    assert not any("\\" in p.name or "PEImage.tmp" in p.name for p in tempdir.iterdir())
+
+
+@pytest.mark.parametrize("raise_exc", [False, True])
+def test_eziriz_deobfuscate_empty_output_debug_log_and_error_cleanup(tmp_path, monkeypatch, caplog, raise_exc):
+    import logging
+
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(b"MZ-input")
+    tools_dir = tmp_path / "tools"
+    fake_bin = tmp_path / "NETReactorSlayer.CLI"
+    fake_bin.write_bytes(b"fake-tool")
+    fake_bin.chmod(0o755)
+
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tools_dir))
+    monkeypatch.setattr(
+        file_extra_info.integration_conf,
+        "eziriz_deobfuscate",
+        {"binary": str(fake_bin), "extra_args": ""},
+    )
+
+    def fake_run_tool(cmd, **kwargs):
+        staged = pathlib.Path(cmd[-1])
+        (staged.parent / "PEImage.tmp").write_bytes(b"temp")
+        if raise_exc:
+            raise OSError("simulated execution failure")
+        return "Unhandled error during deobfuscation\n"
+
+    monkeypatch.setattr(file_extra_info, "run_tool", fake_run_tool)
+
+    with caplog.at_level(logging.DEBUG, logger=file_extra_info.__name__):
+        res = file_extra_info.eziriz_deobfuscate(str(sample), data_dictionary={"die": [".NET Reactor(6.9)[-]"]})
+
+    result = res["result"]
+    assert result is not None
+    assert "extracted_files" not in result
+    assert not (pathlib.Path(result["tempdir"]) / "_work").exists()
+    if raise_exc:
+        assert any("Exception was raised while attempting to use eziriz" in r.message for r in caplog.records)
+    else:
+        assert any("eziriz_deobfuscate produced no output files" in r.message for r in caplog.records)
+
+
+def test_de4dot_deobfuscate_skips_non_mono(tmp_path, monkeypatch):
+    sample = tmp_path / "native.exe"
+    sample.write_bytes(b"MZ-native")
+    called = []
+    monkeypatch.setattr(file_extra_info, "run_tool", lambda *a, **k: called.append((a, k)))
+
+    res = file_extra_info.de4dot_deobfuscate(str(sample), filetype="PE32 executable (GUI) Intel 80386, for MS Windows")
+    assert res["result"] is None
+    assert called == []
+
+
+@pytest.mark.parametrize("conf_obj", [None, {}, {"binary": ""}, {"binary": "   "}, {"binary": None}])
+def test_de4dot_deobfuscate_empty_or_missing_binary_config(tmp_path, monkeypatch, caplog, conf_obj):
+    import logging
+
+    sample = tmp_path / "dotnet.exe"
+    sample.write_bytes(b"MZ-dotnet")
+    called = []
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tmp_path / "tools"))
+    monkeypatch.setattr(file_extra_info.integration_conf, "de4dot_deobfuscate", conf_obj)
+    monkeypatch.setattr(file_extra_info, "run_tool", lambda *a, **k: called.append((a, k)))
+
+    with caplog.at_level(logging.WARNING, logger=file_extra_info.__name__):
+        res = file_extra_info.de4dot_deobfuscate(str(sample), filetype="PE32 executable (GUI) Intel 80386 Mono/.Net assembly")
+
+    assert res["result"] is None
+    assert called == []
+    assert any("de4dot_deobfuscate.binary is not defined" in r.message for r in caplog.records)
+
+
+@pytest.mark.parametrize(
+    ("conf_binary", "is_relative"),
+    [
+        ("data/de4dotEx/de4dot", True),
+        ("/usr/local/bin/de4dot", False),
+    ],
+)
+def test_de4dot_deobfuscate_paths_args_and_embedded_collection(tmp_path, monkeypatch, conf_binary, is_relative):
+    import os
+    import subprocess
+
+    cuckoo_root = tmp_path / "cape"
+    cuckoo_root.mkdir()
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(b"MZ-mono")
+    tools_dir = tmp_path / "tools"
+
+    expected_binary = os.path.join(str(cuckoo_root), conf_binary) if is_relative else conf_binary
+    orig_exists = os.path.exists
+    orig_access = os.access
+    monkeypatch.setattr(file_extra_info, "CUCKOO_ROOT", str(cuckoo_root))
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tools_dir))
+    monkeypatch.setattr(
+        file_extra_info.integration_conf,
+        "de4dot_deobfuscate",
+        {"binary": conf_binary, "extra_args": "--dont-rename"},
+    )
+    monkeypatch.setattr(file_extra_info, "path_exists", lambda p: True if p == expected_binary else orig_exists(p))
+    monkeypatch.setattr(os, "access", lambda p, mode: True if p == expected_binary else orig_access(p, mode))
+
+    seen_calls = []
+
+    def fake_run_tool(cmd, **kwargs):
+        seen_calls.append((list(cmd), dict(kwargs)))
+        out_path = pathlib.Path(cmd[cmd.index("-o") + 1])
+        out_path.write_bytes(b"MZ-deobfuscated")
+        (out_path.parent / "embedded.dll").write_bytes(b"MZ-embedded")
+        return "Detected .NET Reactor >= 7.0\n"
+
+    monkeypatch.setattr(file_extra_info, "run_tool", fake_run_tool)
+
+    res = file_extra_info.de4dot_deobfuscate(
+        str(sample),
+        filetype="PE32 executable (GUI) Intel 80386 Mono/.Net assembly",
+    )
+    result = res["result"]
+    assert result is not None
+    assert result["tool_name"] == "de4dot"
+    assert sorted(result["extracted_files"]) == ["embedded.dll", "sample.exe"]
+
+    assert len(seen_calls) == 1
+    cmd, kwargs = seen_calls[0]
+    assert cmd[:-4] == [expected_binary, "--dont-rename"]
+    assert cmd[-4:-1] == ["-f", str(sample), "-o"]
+    assert kwargs["universal_newlines"] is True
+    assert kwargs["stdin"] == subprocess.DEVNULL
+    assert kwargs["stderr"] == subprocess.STDOUT
+
+
+def test_de4dot_deobfuscate_empty_output_debug_log(tmp_path, monkeypatch, caplog):
+    import logging
+
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(b"MZ-mono")
+    fake_bin = tmp_path / "de4dot"
+    fake_bin.write_bytes(b"fake-bin")
+    fake_bin.chmod(0o755)
+
+    monkeypatch.setattr(file_extra_info, "tools_folder", str(tmp_path / "tools"))
+    monkeypatch.setattr(
+        file_extra_info.integration_conf,
+        "de4dot_deobfuscate",
+        {"binary": str(fake_bin), "extra_args": ""},
+    )
+    monkeypatch.setattr(file_extra_info, "run_tool", lambda *a, **k: "ERROR: failed to load\n")
+
+    with caplog.at_level(logging.DEBUG, logger=file_extra_info.__name__):
+        res = file_extra_info.de4dot_deobfuscate(
+            str(sample),
+            filetype="PE32 executable (GUI) Intel 80386 Mono/.Net assembly",
+        )
+
+    result = res["result"]
+    assert result is not None
+    assert "extracted_files" not in result
+    assert any("de4dot_deobfuscate produced no output files" in r.message for r in caplog.records)
+
+
+def test_integrations_default_conf_de4dotex_defaults():
+    import configparser
+
+    conf_path = pathlib.Path(__file__).resolve().parents[1] / "conf" / "default" / "integrations.conf.default"
+    parser = configparser.ConfigParser(interpolation=None)
+    parser.read(conf_path, encoding="utf-8")
+
+    assert parser.get("de4dot_deobfuscate", "enabled") == "yes"
+    assert parser.get("de4dot_deobfuscate", "binary") == "/usr/local/bin/de4dot"
+    assert parser.get("eziriz_deobfuscate", "enabled") == "no"
+    assert parser.get("eziriz_deobfuscate", "binary") == ""
+

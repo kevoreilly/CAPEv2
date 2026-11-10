@@ -1146,19 +1146,20 @@ function dependencies() {
 
     sudo apt-get install -y locate && sudo updatedb # used by install_libvirt
 
-    # de4dot selfextraction
-    sudo apt-get install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
-    de4dot_package_name="de4dot_3.1.41592.3405-2_all.deb"
-    # if not exist download package
-    if [ ! -f $de4dot_package_name ]; then
-        wget http://archive.ubuntu.com/ubuntu/pool/universe/d/de4dot/$de4dot_package_name
-    fi
-    if [ -f $de4dot_package_name ]; then
-        sudo dpkg -i $de4dot_package_name
-        sudo rm $de4dot_package_name
+    # de4dotEx selfextraction
+    de4dot_package_name="de4dotEx-3.12.0-x64.deb"
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then
+        if [ ! -f "$de4dot_package_name" ]; then
+            wget "https://github.com/GDATAAdvancedAnalytics/de4dotEx/releases/download/3.12.0/$de4dot_package_name"
+        fi
+        if [ -f "$de4dot_package_name" ]; then
+            sudo apt-get install -y "./$de4dot_package_name"
+            rm -f "$de4dot_package_name"
+        else
+            echo "[-] de4dotEx package not found"
+        fi
     else
-        echo "[-] de4dot package not found"
-        return
+        echo "[-] Skipping de4dotEx package: unsupported architecture $(dpkg --print-architecture)"
     fi
 
     # re2

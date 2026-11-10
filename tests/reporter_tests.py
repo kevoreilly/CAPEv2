@@ -456,3 +456,42 @@ def test_gcs_refetch_banned_uses_cape_external_and_unlinks_always(db, tmp_path, 
         gcp_mod.gcs_refetch_banned("1d", samples_bucket="test-samples")
     assert list(ext_dir.iterdir()) == []
 
+
+def test_bingraph_reporter_processes_cape_payloads_once_without_mutating_defaults(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import modules.reporting.bingraph as bingraph_mod
+
+    target_file = tmp_path / "target.bin"
+    target_file.write_bytes(b"MZ" + b"\x00" * 64)
+    dropped_file = tmp_path / "dropped.bin"
+    dropped_file.write_bytes(b"\x90" * 64)
+    payload_file = tmp_path / "payload.bin"
+    payload_file.write_bytes(b"\xcc" * 64)
+
+    calls = []
+    orig_args = dict(bingraph_mod.bingraph_args_dict)
+
+    monkeypatch.setattr(bingraph_mod, "HAVE_BINGRAPH", True)
+    monkeypatch.setattr(
+        bingraph_mod,
+        "reporting_conf",
+        SimpleNamespace(bingraph=SimpleNamespace(enabled=True, on_demand=False)),
+    )
+    monkeypatch.setattr(bingraph_mod, "bingraph_gen", lambda args_dict: calls.append(dict(args_dict)), raising=False)
+
+    reporter = bingraph_mod.BinGraph()
+    reporter.analysis_path = str(tmp_path)
+    reporter.file_path = str(target_file)
+
+    results = {
+        "target": {"file": {"sha256": "1" * 64}},
+        "dropped": [{"sha256": "2" * 64, "size": 64, "type": "data", "path": str(dropped_file)}],
+        "procdump": [],
+        "CAPE": {"payloads": [{"sha256": "3" * 64, "size": 64, "type": "PE32 executable", "path": str(payload_file)}]},
+    }
+
+    reporter.run(results)
+
+    assert [c["prefix"] for c in calls] == ["1" * 64, "2" * 64, "3" * 64]
+    assert bingraph_mod.bingraph_args_dict == orig_args
+

@@ -65,52 +65,39 @@ class BinGraph(Report):
             if not path_exists(bingraph_path):
                 path_mkdir(bingraph_path)
             try:
-                if not os.listdir(bingraph_path) and results.get("target", {}).get("file", {}).get("sha256", False):
-                    bingraph_args_dict.update(
-                        {"prefix": results["target"]["file"]["sha256"], "files": [self.file_path], "save_dir": bingraph_path}
-                    )
+                target_sha256 = results.get("target", {}).get("file", {}).get("sha256", False)
+                if not os.listdir(bingraph_path) and target_sha256 and path_exists(self.file_path):
                     try:
-                        bingraph_gen(bingraph_args_dict)
+                        bingraph_gen(
+                            {
+                                **bingraph_args_dict,
+                                "prefix": target_sha256,
+                                "files": [self.file_path],
+                                "save_dir": bingraph_path,
+                            }
+                        )
                     except Exception as e:
                         log.warning("Can't generate bingraph for %s: %s", self.file_path, e)
             except Exception as e:
                 log.info(e)
 
+            blocks = []
             for key in ("dropped", "procdump"):
-                for block in results.get(key, []) or []:
-                    if (
-                        block.get("size", 0) != 0
-                        and block.get("type", "") not in excluded_filetypes
-                        and not path_exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
-                    ):
-                        path = ""
-                        if block.get("file", False):
-                            path = block["file"]
-                        elif block.get("path", False):
-                            path = block["path"]
-                        if not path:
-                            continue
-                        bingraph_args_dict.update({"prefix": block["sha256"], "files": [path], "save_dir": bingraph_path})
-                        try:
-                            bingraph_gen(bingraph_args_dict)
-                        except Exception as e:
-                            log.warning("Can't generate report for %s: %s", path, e)
+                blocks.extend(results.get(key, []) or [])
+            blocks.extend(results.get("CAPE", {}).get("payloads") or [])
 
-                for block in results.get("CAPE", {}).get("payloads") or []:
-                    if (
-                        block.get("size", 0) != 0
-                        and block.get("type", "") not in excluded_filetypes
-                        and not path_exists(os.path.join(bingraph_path, f"{block['sha256']}-ent.svg"))
-                    ):
-                        path = ""
-                        if block.get("file", False):
-                            path = block["file"]
-                        elif block.get("path", False):
-                            path = block["path"]
-                        if not path:
-                            continue
-                        bingraph_args_dict.update({"prefix": block["sha256"], "files": [path], "save_dir": bingraph_path})
-                        try:
-                            bingraph_gen(bingraph_args_dict)
-                        except Exception as e:
-                            log.warning("Can't generate report for %s: %s", path, e)
+            for block in blocks:
+                sha256 = block.get("sha256")
+                if (
+                    sha256
+                    and block.get("size", 0) != 0
+                    and block.get("type", "") not in excluded_filetypes
+                    and not path_exists(os.path.join(bingraph_path, f"{sha256}-ent.svg"))
+                ):
+                    path = block.get("file") or block.get("path") or ""
+                    if not path or not path_exists(path):
+                        continue
+                    try:
+                        bingraph_gen({**bingraph_args_dict, "prefix": sha256, "files": [path], "save_dir": bingraph_path})
+                    except Exception as e:
+                        log.warning("Can't generate report for %s: %s", path, e)

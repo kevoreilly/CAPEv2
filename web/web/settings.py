@@ -523,7 +523,14 @@ from lib.cuckoo.core.database import init_database
 
 init_database()
 
-# Prevent Django's auto-reloader from watching/reloading when files inside workers/ folder change
+# Prevent Django's and Werkzeug's auto-reloader from scanning/watching files inside workers/ folder
+RUNSERVER_PLUS_EXCLUDE_PATTERNS = [*globals().get("RUNSERVER_PLUS_EXCLUDE_PATTERNS", []), "*/workers/*"]
+
+with suppress(ImportError):
+    from werkzeug import _reloader
+
+    _reloader._ignore_common_dirs.add("workers")
+
 from django.dispatch import receiver
 from django.utils.autoreload import file_changed
 

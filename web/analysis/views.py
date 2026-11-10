@@ -152,16 +152,13 @@ if processing_cfg.virustotal.on_demand:
 
     HAVE_VIRUSTOTAL = True
 
-if reporting_cfg.bingraph.on_demand:
-    try:
-        from binGraph.binGraph import generate_graphs as bingraph_gen
+try:
+    from binGraph.binGraph import generate_graphs as bingraph_gen
 
-        from modules.reporting.bingraph import bingraph_args_dict
+    from modules.reporting.bingraph import bingraph_args_dict
 
-        HAVE_BINGRAPH = True
-    except ImportError:
-        HAVE_BINGRAPH = False
-else:
+    HAVE_BINGRAPH = True
+except ImportError:
     HAVE_BINGRAPH = False
 
 HAVE_FLOSS = False

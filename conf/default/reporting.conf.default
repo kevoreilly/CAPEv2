@@ -14,13 +14,12 @@ start_sid = 1000000
 [mitre]
 enabled = no
 
-# https://github.com/geekscrapy/binGraph
-# requires -> apt-get install python-tk
+# https://github.com/CAPESandbox/binGraph
 [bingraph]
 enabled = yes
 on_demand = yes
 binary = yes
-# geenrate bingraphs for cape/procdumps
+# generate bingraphs for cape/procdumps
 cape = yes
 procdump = yes
 

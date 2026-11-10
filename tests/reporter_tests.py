@@ -495,3 +495,16 @@ def test_bingraph_reporter_processes_cape_payloads_once_without_mutating_default
     assert [c["prefix"] for c in calls] == ["1" * 64, "2" * 64, "3" * 64]
     assert bingraph_mod.bingraph_args_dict == orig_args
 
+    calls.clear()
+    procdump_file = tmp_path / "procdump.bin"
+    procdump_file.write_bytes(b"\xaa" * 64)
+    results["procdump"] = [{"sha256": "4" * 64, "size": 64, "type": "PE32 executable", "path": str(procdump_file)}]
+    monkeypatch.setattr(
+        bingraph_mod,
+        "reporting_conf",
+        SimpleNamespace(bingraph=SimpleNamespace(enabled=True, on_demand=False, binary=False, procdump=False, cape=False)),
+    )
+    reporter.run(results)
+    assert [c["prefix"] for c in calls] == ["2" * 64]
+
+

@@ -4,7 +4,7 @@
 # Those deps adds big value to specific tasks, but we can't satisfy all use cases. So end user MUST make it work by himself.
 ImageHash
 deepdiff
-git+https://github.com/CAPESandbox/binGraph # requires sudo apt install libgraphviz-dev
+https://github.com/CAPESandbox/binGraph/archive/refs/tags/4.0.tar.gz
 git+https://github.com/CAPESandbox/httpreplay
 pyasyncore
 git+https://github.com/CAPESandbox/socks5man

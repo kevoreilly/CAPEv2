@@ -4173,13 +4173,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             if not path_exists(bingraph_path):
                 path_mkdir(bingraph_path)
             try:
-                bingraph_args_dict.update({"prefix": sha256, "files": [path], "save_dir": bingraph_path})
-                try:
-                    bingraph_gen(bingraph_args_dict)
-                except Exception as e:
-                    print(f"Can't generate bingraph for {sha256}: {e}")
+                bingraph_gen({**bingraph_args_dict, "prefix": sha256, "files": [path], "save_dir": bingraph_path})
             except Exception as e:
-                print("Bingraph on demand error:", e)
+                print(f"Can't generate bingraph for {sha256}: {e}")
 
         elif service == "floss" and HAVE_FLOSS:
             package = get_task_package(task_id)

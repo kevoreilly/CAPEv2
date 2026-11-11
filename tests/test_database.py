@@ -247,6 +247,46 @@ class TestDatabaseEngine:
             task = db.session.get(Task, task_ids[0])
             assert task.platform == detected_platform
 
+    def test_demuxed_archive_with_linux_static_uses_extracted_file(
+        self,
+        db: _Database,
+        storage: StorageLayout,
+        monkeypatch,
+    ):
+        archive_path = pathlib.Path(storage.tmpdir) / "sample_linux.zip"
+        archive_path.write_bytes(b"PK\x03\x04archive-placeholder")
+        extracted_path = pathlib.Path(storage.tmpdir) / "extracted_elf"
+        extracted_path.write_bytes(b"\x7fELF\x02\x01\x01\x00" + b"\x00" * 56)
+
+        def fake_demux(target_path, *_args, **_kwargs):
+            target_bytes = target_path if isinstance(target_path, bytes) else target_path.encode()
+            if target_bytes == str(archive_path).encode():
+                return [(str(extracted_path).encode(), "linux")], []
+            if os.path.exists(target_bytes):
+                return [(target_bytes, "linux")], []
+            # Mirrors demux_sample fallback when target file no longer exists on disk
+            return [(target_bytes, "")], []
+
+        monkeypatch.setattr(tasking, "demux_sample", fake_demux)
+        monkeypatch.setattr(tasking, "LINUX_STATIC", True)
+        monkeypatch.setattr(tasking.conf.cuckoo, "delete_archive", True)
+
+        with db.session.begin():
+            task_ids, details = db.demux_sample_and_add_to_db(
+                file_path=str(archive_path).encode(),
+            )
+
+        assert details == {}
+        assert len(task_ids) == 1
+        assert not archive_path.exists()
+
+        with db.session.begin():
+            task = db.session.get(Task, task_ids[0])
+            assert task.category == "static"
+            assert task.platform == "linux"
+            assert task.target == str(extracted_path)
+            assert task.association is not None
+
     @pytest.mark.parametrize(
         "detected_platform,expected_labels",
         (

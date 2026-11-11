@@ -531,12 +531,13 @@ class TasksMixIn:
             # ToDo we lose package here and send APKs to windows
             if platform in ("linux", "darwin") and LINUX_STATIC:
                 task_ids += self.add_static(
-                    file_path=file_path,
+                    file_path=file,
                     priority=priority,
                     tlp=tlp,
                     user_id=user_id,
                     options=options,
                     package=package,
+                    platform=platform,
                     parent_sample=parent_sample,
                     attributes=attributes,
                 )
@@ -552,7 +553,7 @@ class TasksMixIn:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, parent_sample=parent_sample, attributes=attributes,
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, platform=platform, parent_sample=parent_sample, attributes=attributes,
                     )
 
             if not config and not only_extraction:
@@ -681,14 +682,14 @@ class TasksMixIn:
         parent_sample=None,
         attributes=None,
     ):
-        extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
+        extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
 
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
 
         # ToDo callback maybe or inside of the self.add
-        if extracted_files and ((file_path, platform) not in extracted_files and (file_path, "") not in extracted_files):
+        if extracted_files and not any(file_path == path for path, _ in extracted_files):
             if not parent_sample:
                 parent_sample = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:

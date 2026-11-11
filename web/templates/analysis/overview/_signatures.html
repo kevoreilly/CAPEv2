@@ -14,8 +14,8 @@
                     <a href="#signature_collapse_{{signature.name}}" class="list-group-item list-group-item-action py-1 text-dark
                         {% if signature.severity >= 3 %}list-group-item-danger{% elif signature.severity == 2 %}list-group-item-warning{% elif signature.severity == 1 %}list-group-item-success{% else %}list-group-item-info{% endif %}"
                         data-bs-toggle="collapse" aria-expanded="false" aria-controls="signature_collapse_{{signature.name}}">
-                                        <div class="d-flex w-50 justify-content-between">
-                                            <div class="mb-1 text-dark">
+                                        <div class="d-flex w-100">
+                                            <div class="mb-1 text-dark w-100">
                                                 {% if signature.severity <= 1 %}
                                                     <i class="fas fa-info-circle me-2 text-dark"></i>
                                                 {% elif signature.severity == 2 %}
@@ -25,7 +25,6 @@
                                                 {% endif %}
                                                 {{signature.description}}
                                             </div>
-                                            <small class="text-dark"><i class="fas fa-chevron-down float-end text-white-50 ms-1"></i></small>
                                         </div>
                                     </a>
                                     <div class="collapse" id="signature_collapse_{{signature.name}}">

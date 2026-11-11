@@ -273,3 +273,35 @@ class TestHuntViews(SimpleTestCase):
         self.assertNotIn("PE Import Hashes", html_content)
         self.assertNotIn("Shared HTTP Request URIs", html_content)
         self.assertNotIn("Shared Signatures", html_content)
+
+    @patch("analysis.views.perform_search", return_value=None)
+    def test_search_zipall_does_not_crash_on_empty_or_substring_term(self, _mock_search):
+        """Ensure search template does not raise NoReverseMatch when ZIPPED_DOWNLOAD_ALL is enabled
+        and term_only is empty, a substring ('type'), or value_only contains regex characters."""
+        orig_zipped = getattr(settings, "ZIPPED_DOWNLOAD_ALL", False)
+        try:
+            settings.ZIPPED_DOWNLOAD_ALL = True
+            # Unprefixed query with leading '(' leaves term_only=""
+            resp = self.client.get("/analysis/search/", {"search": "(" + "a" * 64})
+            self.assertEqual(resp.status_code, 200)
+            html = resp.content.decode()
+            self.assertNotIn("Download All Matches", html)
+            self.assertNotIn("Note: Hash searches match all generated files", html)
+
+            # Substring term 'type' must not match 'capetype'
+            resp_type = self.client.get("/analysis/search/", {"search": "type:PE32 executable"})
+            self.assertEqual(resp_type.status_code, 200)
+            self.assertNotIn("Download All Matches", resp_type.content.decode())
+
+            # Valid 'capeyara' with word characters renders the zipall download link
+            resp_yara = self.client.get("/analysis/search/", {"search": "capeyara:TestRule_1"})
+            self.assertEqual(resp_yara.status_code, 200)
+            self.assertIn("/file/capeyarazipall/1/TestRule_1/", resp_yara.content.decode())
+
+            # Regex characters in 'capeyara' value degrade gracefully without NoReverseMatch
+            resp_regex = self.client.get("/analysis/search/", {"search": "capeyara:(RuleA|RuleB)"})
+            self.assertEqual(resp_regex.status_code, 200)
+            self.assertNotIn("Download All Matches", resp_regex.content.decode())
+        finally:
+            settings.ZIPPED_DOWNLOAD_ALL = orig_zipped
+

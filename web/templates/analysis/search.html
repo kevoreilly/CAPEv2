@@ -121,11 +121,16 @@
 <div class="row mb-3">
     <div class="col-12 text-white-50 text-center">
         <h3>Results for term: <span class="text-danger font-weight-bold">{{term}}</span></h3>
-        {% if term_only in 'md5,sha1,sha256' %}
+        {% if term_only == 'md5' or term_only == 'sha1' or term_only == 'sha256' %}
             <p class="text-muted mt-1">Note: Hash searches match all generated files inside analysis. Use <code>target_sha256:</code> for initial file matches.</p>
         {% endif %}
-        {% if settings.ZIPPED_DOWNLOAD_ALL and term_only in 'capetype,capeyara' %}
-            <a href="{% url 'file' term_only|add:'zipall' '1' value_only %}" class="btn btn-sm btn-outline-warning mt-2" data-bs-toggle="tooltip" title="Download password-protected archive with all matching files."><i class="fas fa-file-archive me-1"></i> Download All Matches</a>
+        {% if settings.ZIPPED_DOWNLOAD_ALL and value_only %}
+            {% if term_only == 'capetype' or term_only == 'capeyara' %}
+                {% url 'file' term_only|add:'zipall' '1' value_only as zipall_url %}
+                {% if zipall_url %}
+                    <a href="{{ zipall_url }}" class="btn btn-sm btn-outline-warning mt-2" data-bs-toggle="tooltip" title="Download password-protected archive with all matching files."><i class="fas fa-file-archive me-1"></i> Download All Matches</a>
+                {% endif %}
+            {% endif %}
         {% endif %}
     </div>
 </div>

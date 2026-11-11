@@ -29,13 +29,14 @@ Output (results["threatintelligence"]):
     }
 """
 
+import ipaddress
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.integrations.threatintelligence.base import (
-    IND_DOMAIN, IND_HASH, IND_IP, IND_URL, _as_bool, looks_like_malpedia_id,
-    normalize_domain, squash_name,
+    IND_DOMAIN, IND_HASH, IND_IP, IND_URL, _as_bool, ioc_host_part,
+    looks_like_malpedia_id, normalize_domain, squash_name,
 )
 from lib.cuckoo.common.integrations.threatintelligence.cache import IntelCache
 from lib.cuckoo.common.integrations.threatintelligence.config import load_config
@@ -46,25 +47,47 @@ from lib.cuckoo.common.integrations.threatintelligence.registry import (
 
 log = logging.getLogger(__name__)
 
+_NON_ROUTABLE_NETS = (
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("224.0.0.0/4"),
+    ipaddress.ip_network("240.0.0.0/4"),
+    ipaddress.ip_network("::/128"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("ff00::/8"),
+)
+
 
 def _looks_like_ip(value):
     """Cheap check: is this host an IP literal (so it's not a domain)?"""
     if not value:
         return False
     v = str(value).strip().strip("[]")
-    if ":" in v and "." not in v:
-        return True  # IPv6
-    parts = v.split(".")
-    return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+    try:
+        ipaddress.ip_address(v)
+        return True
+    except ValueError:
+        return False
 
 
 def _is_private_ip(value):
-    if not _looks_like_ip(value):
+    if not value:
         return False
     v = str(value).strip().strip("[]")
-    if v in ("0.0.0.0", "127.0.0.1", "::1", "::"):
-        return True
-    return v.startswith(("10.", "127.", "192.168.", "169.254."))
+    try:
+        addr = ipaddress.ip_address(v)
+    except ValueError:
+        return False
+    if getattr(addr, "ipv4_mapped", None) is not None:
+        addr = addr.ipv4_mapped
+    return any(addr in net for net in _NON_ROUTABLE_NETS)
 
 
 class ThreatIntelligence(Processing):
@@ -128,7 +151,7 @@ class ThreatIntelligence(Processing):
         # Promote indicator hits to CAPE detections (after _gather_family_hints
         # so indicator hits are not mislabelled with 'cape_detection' provenance).
         # Appends a detection entry (via add_family_detection) without overriding
-        # the headline malfamily. Enabled by default.
+        # the headline malfamily. Off by default.
         promoted = []
         if by_indicator and self._should_promote_detections(options):
             promoted = self._promote_detections(by_indicator, options, families=families)
@@ -217,8 +240,10 @@ class ThreatIntelligence(Processing):
                             domains.add(normalize_domain(data))
             for h_key in ("http", "http_ex", "https_ex"):
                 for h in network.get(h_key) or []:
-                    if isinstance(h, dict) and h.get("host") and not _looks_like_ip(h["host"]):
-                        domains.add(normalize_domain(h["host"]))
+                    if isinstance(h, dict) and h.get("host"):
+                        host_only = ioc_host_part(h["host"])
+                        if host_only and not _looks_like_ip(host_only):
+                            domains.add(normalize_domain(host_only))
             for host in network.get("hosts") or []:
                 if isinstance(host, dict) and host.get("hostname"):
                     domains.add(normalize_domain(host["hostname"]))
@@ -262,11 +287,23 @@ class ThreatIntelligence(Processing):
         by_indicator = {}
         for (_p, indicator, _it, _pt), match_dicts in zip(tasks, results_list):
             if match_dicts:
-                by_indicator.setdefault(indicator, []).extend(match_dicts)
+                filtered = [
+                    it for it in match_dicts
+                    if not (
+                        self._is_generic_family(it.get("malware"))
+                        and self._is_generic_family(it.get("malware_printable"))
+                    )
+                ]
+                if filtered:
+                    by_indicator.setdefault(indicator, []).extend(filtered)
         for indicator, items in list(by_indicator.items()):
             # Suppress shared/abused-infrastructure over-matches (a single
             # indicator attributed to many families) as likely false tags.
-            families = {it.get("malware") or it.get("tag") for it in items}
+            families = {
+                it.get("malware") or it.get("tag")
+                for it in items
+                if not self._is_generic_family(it.get("malware"))
+            }
             if self.max_families_per_indicator and len(families) > self.max_families_per_indicator:
                 log.info("ThreatIntelligence: suppressing %s -> %d families "
                          "(likely shared/abused host, not asserting tags)",
@@ -287,8 +324,9 @@ class ThreatIntelligence(Processing):
         for items in by_indicator.values():
             for it in items:
                 fam_id = it.get("malware")
-                if fam_id:
-                    discovered.append((fam_id, it.get("malware_printable"),
+                printable = it.get("malware_printable")
+                if fam_id and not self._is_generic_family(fam_id) and not self._is_generic_family(printable or fam_id):
+                    discovered.append((fam_id, printable,
                                        it.get("source"), it.get("indicator_type")))
         return by_indicator, discovered
 
@@ -360,9 +398,11 @@ class ThreatIntelligence(Processing):
     def _annotate_urls(self, network, by_indicator):
         for h in network.get("http") or []:
             if isinstance(h, dict):
+                host_only = ioc_host_part(h.get("host"))
                 hits = (
                     by_indicator.get(str(h.get("uri") or "").strip())
-                    or by_indicator.get(normalize_domain(h.get("host")))
+                    or by_indicator.get(normalize_domain(host_only))
+                    or by_indicator.get(host_only)
                 )
                 if hits:
                     h["threatintel"] = hits
@@ -371,9 +411,11 @@ class ThreatIntelligence(Processing):
                 if isinstance(h, dict):
                     proto = h.get("protocol") or ("https" if h_key == "https_ex" else "http")
                     full_url = f"{proto}://{h.get('host', '')}{h.get('uri', '')}".strip()
+                    host_only = ioc_host_part(h.get("host"))
                     hits = (
                         by_indicator.get(full_url)
-                        or by_indicator.get(normalize_domain(h.get("host")))
+                        or by_indicator.get(normalize_domain(host_only))
+                        or by_indicator.get(host_only)
                         or by_indicator.get(str(h.get("dst") or "").strip())
                     )
                     if hits:
@@ -407,7 +449,7 @@ class ThreatIntelligence(Processing):
             return squash_name(base_part)
 
         def add(query, is_id, source):
-            if not query:
+            if not query or self._is_generic_family(query):
                 return
             key = hint_key(query, is_id)
             if not key:
@@ -441,10 +483,12 @@ class ThreatIntelligence(Processing):
         # Families surfaced by indicator hits, tagged with WHERE seen, e.g.
         # threatfox_domain / threatfox_ip_address / threatfox_url.
         for fam_id, printable, source, indicator_type in discovered_families:
+            if self._is_generic_family(fam_id) and self._is_generic_family(printable):
+                continue
             prov = self._indicator_provenance(source or "threatfox", indicator_type)
-            if looks_like_malpedia_id(fam_id):
+            if looks_like_malpedia_id(fam_id) and not self._is_generic_family(fam_id):
                 add(fam_id, True, prov)
-            elif printable:
+            elif printable and not self._is_generic_family(printable):
                 add(printable, False, prov)
 
         return list(hints.values())
@@ -461,27 +505,27 @@ class ThreatIntelligence(Processing):
     _GENERIC_FAMILY_NAMES = {"unknown", "unknown malware", "unidentified", "n/a", "none", "generic"}
 
     def _should_promote_detections(self, options) -> bool:
-        if not _as_bool(options.get("promote_to_detection", True)):
-            return False
+        ti_promote = _as_bool(options.get("promote_to_detection", False))
+        det_ti = False
         try:
             from lib.cuckoo.common.config import Config
             det_cfg = Config("processing").detections
             if not _as_bool(det_cfg.get("enabled", True)):
                 return False
-            if not _as_bool(det_cfg.get("threatintelligence", True)):
-                return False
+            det_ti = _as_bool(det_cfg.get("threatintelligence", False))
         except Exception:
             pass
-        return True
+        return ti_promote or det_ti
 
     @classmethod
     def _is_generic_family(cls, name: str) -> bool:
         if not name:
             return True
-        low = name.strip().lower()
+        low = str(name).strip().lower()
         if low in cls._GENERIC_FAMILY_NAMES or low.endswith(".unknown"):
             return True
-        return False
+        base = low.split(".", 1)[-1].replace("_", " ").strip()
+        return base in cls._GENERIC_FAMILY_NAMES
 
     def _promote_detections(self, by_indicator, options, families=None):
         """Append CAPE detections for indicator hits (never sets malfamily).

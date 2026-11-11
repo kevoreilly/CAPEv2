@@ -119,7 +119,7 @@ class TestDeduplication:
 
 
 class TestThreatIntelligence:
-    def test_promote_detections_by_default_and_annotate_dns_answers(self):
+    def test_promote_detections_opt_in_and_annotate_dns_answers(self):
         from lib.cuckoo.common.integrations.threatintelligence.base import (
             FamilyCard,
             IND_DOMAIN,
@@ -127,7 +127,20 @@ class TestThreatIntelligence:
             IntelMatch,
             ProviderResult,
         )
-        from modules.processing.threatintelligence import ThreatIntelligence
+        from modules.processing.threatintelligence import ThreatIntelligence, _is_private_ip
+
+        assert _is_private_ip("10.0.0.1")
+        assert _is_private_ip("172.16.0.1")
+        assert _is_private_ip("172.31.255.254")
+        assert not _is_private_ip("172.32.0.1")
+        assert _is_private_ip("192.168.1.1")
+        assert _is_private_ip("100.64.0.1")
+        assert _is_private_ip("fe80::1")
+        assert _is_private_ip("fd00::1")
+        assert not _is_private_ip("198.51.100.42")
+
+        looked_up_indicators = []
+        enriched_queries = []
 
         class FakeIndicatorProvider:
             name = "threatfox"
@@ -137,6 +150,7 @@ class TestThreatIntelligence:
                 return it in self.supported_indicators
 
             def lookup(self, indicator, indicator_type, ports=None):
+                looked_up_indicators.append((indicator, indicator_type))
                 res = ProviderResult(status="ok")
                 if indicator == "c2.example.org":
                     res.matches = [
@@ -186,6 +200,7 @@ class TestThreatIntelligence:
             name = "malpedia"
 
             def enrich(self, query, is_id=False, provenance=None):
+                enriched_queries.append(query)
                 return FamilyCard(
                     source="malpedia",
                     family_id=query if is_id else f"win.{query}",
@@ -194,26 +209,33 @@ class TestThreatIntelligence:
                     provenance=provenance,
                 )
 
-        ti = ThreatIntelligence()
-        ti.results = {
-            "network": {
-                "hosts": [{"ip": "198.51.100.42", "ports": [443]}],
-                "domains": [{"domain": "dga.example.net", "ip": "198.51.100.42"}],
-                "dns": [
-                    {
-                        "request": "c2.example.org",
-                        "answers": [{"type": "A", "data": "203.0.113.5"}],
-                    },
-                    {
-                        "request": "dga.example.net",
-                        "answers": [{"type": "A", "data": "198.51.100.42"}],
-                    },
-                ],
-                "http_ex": [
-                    {"protocol": "https", "host": "c2.example.org", "uri": "/gate.php", "dst": "203.0.113.5"}
-                ],
+        def make_results():
+            return {
+                "network": {
+                    "hosts": [
+                        {"ip": "198.51.100.42", "ports": [443]},
+                        {"ip": "172.18.0.2", "ports": [80]},
+                    ],
+                    "domains": [{"domain": "dga.example.net", "ip": "198.51.100.42"}],
+                    "dns": [
+                        {
+                            "request": "c2.example.org",
+                            "answers": [{"type": "A", "data": "203.0.113.5"}],
+                        },
+                        {
+                            "request": "dga.example.net",
+                            "answers": [{"type": "A", "data": "198.51.100.42"}],
+                        },
+                    ],
+                    "http_ex": [
+                        {"protocol": "https", "host": "c2.example.org:8443", "uri": "/gate.php", "dst": "203.0.113.5"}
+                    ],
+                }
             }
-        }
+
+        # 1) Default: promote_to_detection is off (no detections added), unknown noise is dropped.
+        ti_default = ThreatIntelligence()
+        ti_default.results = make_results()
 
         fake_cfg = MagicMock()
         fake_cfg.globals = {"cache": False, "concurrent_lookups": False}
@@ -231,25 +253,51 @@ class TestThreatIntelligence:
             ),
             patch("modules.processing.threatintelligence.get_enabled_actor_providers", return_value=[]),
         ):
-            out = ti.run()
+            out_default = ti_default.run()
 
-        # Both Lumma Stealer (payload_delivery, confidence 75) and Cobalt Strike (botnet_cc, 100)
-        # should promote to results["detections"], while "Unknown malware" is filtered out.
-        det_families = [d["family"] for d in ti.results.get("detections", [])]
+        assert not ti_default.results.get("detections")
+        assert ("172.18.0.2", IND_IP) not in looked_up_indicators
+        assert ("c2.example.org", IND_DOMAIN) in looked_up_indicators
+        assert ("c2.example.org:8443", IND_DOMAIN) not in looked_up_indicators
+        # "win.unknown" / "Unknown malware" must be completely ignored as noise.
+        assert "win.unknown" not in enriched_queries
+        assert all(m.get("malware") != "win.unknown" for m in out_default["indicators"]["by_indicator"]["198.51.100.42"])
+        assert all(f.get("family_id") != "win.unknown" for f in out_default["families"])
+
+        # DNS request, DNS answer IP, post-analysis lookup IP, and http_ex (with host:port) are annotated.
+        dns_rows = ti_default.results["network"]["dns"]
+        assert dns_rows[0].get("threatintel")
+        assert dns_rows[1]["answers"][0].get("threatintel")
+        assert dns_rows[1].get("lookup_threatintel")
+        assert ti_default.results["network"]["http_ex"][0].get("threatintel")
+
+        # 2) Opt-in: when promote_to_detection is enabled, qualified hits promote while unknown is ignored.
+        ti_promote = ThreatIntelligence()
+        ti_promote.results = make_results()
+        fake_cfg.globals = {"cache": False, "concurrent_lookups": False, "promote_to_detection": True}
+
+        with (
+            patch("modules.processing.threatintelligence.load_config", return_value=fake_cfg),
+            patch(
+                "modules.processing.threatintelligence.get_enabled_indicator_providers",
+                return_value=[FakeIndicatorProvider()],
+            ),
+            patch(
+                "modules.processing.threatintelligence.get_enabled_family_providers",
+                return_value=[FakeFamilyProvider()],
+            ),
+            patch("modules.processing.threatintelligence.get_enabled_actor_providers", return_value=[]),
+        ):
+            out_promote = ti_promote.run()
+
+        det_families = [d["family"] for d in ti_promote.results.get("detections", [])]
         assert "Lumma Stealer" in det_families
         assert "Cobalt Strike" in det_families
         assert "Unknown malware" not in det_families
 
         # Provenance on family cards must reflect ThreatFox, not self-polluted cape_detection.
-        for fam_card in out["families"]:
+        for fam_card in out_promote["families"]:
             assert "cape_detection" not in fam_card["provenance"]
-
-        # DNS request and DNS answer IP and post-analysis lookup IP and http_ex should be annotated.
-        dns_rows = ti.results["network"]["dns"]
-        assert dns_rows[0].get("threatintel")
-        assert dns_rows[1]["answers"][0].get("threatintel")
-        assert dns_rows[1].get("lookup_threatintel")
-        assert ti.results["network"]["http_ex"][0].get("threatintel")
 
     def test_service_icons_and_template_contracts(self):
         from pathlib import Path
@@ -264,6 +312,9 @@ class TestThreatIntelligence:
         assert "https://www.virustotal.com/gui/domain/example.com/detection" in vt_html
         assert "<svg" in vt_html
         assert "ext-svc-vt" in vt_html
+
+        et_html = str(ext_lookup("et", "ET MALWARE Win32/Lumma & Beacon #1"))
+        assert "https://threatintel.proofpoint.com/search?q=ET+MALWARE+Win32%2FLumma+%26+Beacon+%231" in et_html
 
         badges_html = str(
             threatintel_badges(

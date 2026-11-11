@@ -7,6 +7,7 @@ except ImportError:
     import re
 
 from collections import OrderedDict
+from urllib.parse import quote, quote_plus
 from uuid import NAMESPACE_DNS, uuid3
 
 from django.template.defaultfilters import register
@@ -380,19 +381,19 @@ def ext_lookup(service: str, target, kind: str = "ip", label: str = "", title: s
         return ""
     if key == "vt":
         if kind == "domain":
-            url = f"https://www.virustotal.com/gui/domain/{t}/detection"
+            url = f"https://www.virustotal.com/gui/domain/{quote(t, safe='')}/detection"
         elif kind == "file":
-            url = f"https://www.virustotal.com/gui/file/{t}/"
+            url = f"https://www.virustotal.com/gui/file/{quote(t, safe='')}/"
         else:
-            url = f"https://www.virustotal.com/gui/ip-address/{t}/detection"
+            url = f"https://www.virustotal.com/gui/ip-address/{quote(t, safe=':')}/detection"
     elif key == "et":
-        url = f"https://threatintel.proofpoint.com/search?q={t}"
+        url = f"https://threatintel.proofpoint.com/search?q={quote_plus(t)}"
     elif key == "pt":
-        url = f"https://www.passivetotal.org/passive/{t}"
+        url = f"https://www.passivetotal.org/passive/{quote(t, safe=':')}"
     elif key == "mwdb":
-        url = f"https://mwdb.cert.pl/file/{t}"
+        url = f"https://mwdb.cert.pl/file/{quote(t, safe='')}"
     elif key == "bazaar":
-        url = f"https://bazaar.abuse.ch/sample/{t}/"
+        url = f"https://bazaar.abuse.ch/sample/{quote(t, safe='')}/"
     elif key == "mlch":
         url = t
     else:

@@ -60,8 +60,9 @@ max_families_per_indicator = 5
 # Append a CAPE detection for indicator hits. This does NOT set the headline
 # malfamily (it only adds a detection entry), so infrastructure attribution
 # never overrides CAPE's own classification. The report card enriches
-# regardless of these settings.
-promote_to_detection = yes
+# regardless of these settings. Can also be enabled via
+# [detections] threatintelligence = yes in processing.conf.
+promote_to_detection = no
 # Promote only C2 (botnet_cc) hits when yes; when no, payload_delivery and
 # payload (hash) indicator hits also promote to detections.
 promote_c2_only = no

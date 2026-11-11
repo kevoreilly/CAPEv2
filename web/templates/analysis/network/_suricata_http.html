@@ -1,3 +1,4 @@
+{% load analysis_tags %}
 <section id="suri_http">
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
@@ -27,67 +28,39 @@
                         <td>{{http.timestamp}}</td>
                         {% if settings.NETWORK_PROC_MAP %}<td>{% if http.process_name %}<span class="badge bg-warning text-dark" title="PID: {{http.process_id}}">{{http.process_name}} ({{http.process_id}})</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>{% endif %}
                         <td>{{http.srcip}}
-                            <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{http.srcip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{http.srcip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if http.moloch_src_ip_url %}
-                            <a href={{http.moloch_src_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" http.srcip "ip" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" http.srcip %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" http.srcip %}{% endif %}
+                            {% if http.moloch_src_ip_url %}{% ext_lookup "mlch" http.moloch_src_ip_url %}{% endif %}
                         </td>
                         <td>{{http.srcport}}
-                            {% if http.moloch_src_port_url %}
-                            <a href={{http.moloch_src_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if http.moloch_src_port_url %}{% ext_lookup "mlch" http.moloch_src_port_url %}{% endif %}
                         </td>
                         <td>{{http.dstip}}
-                           <a href="https://www.virustotal.com/en/ip-address/{{http.dstip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{http.dstip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{http.dstip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if http.moloch_dst_ip_url %}
-                            <a href={{http.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" http.dstip "ip" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" http.dstip %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" http.dstip %}{% endif %}
+                            {% if http.moloch_dst_ip_url %}{% ext_lookup "mlch" http.moloch_dst_ip_url %}{% endif %}
                         </td>
                         <td>{{http.dstport}}
-                            {% if http.moloch_dst_port_url %}
-                            <a href={{http.moloch_dst_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if http.moloch_dst_port_url %}{% ext_lookup "mlch" http.moloch_dst_port_url %}{% endif %}
                         </td>
                         <td>{{http.http_method}}
-                            {% if http.moloch_http_method_url %}
-                            <a href={{http.moloch_http_method_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if http.moloch_http_method_url %}{% ext_lookup "mlch" http.moloch_http_method_url %}{% endif %}
                         </td>
                         <td>{{http.status}}</td>
                         <td>{{http.hostname}}
-                            <a href="https://www.virustotal.com/en/domain/{{http.hostname}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{http.hostname}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{http.hostname}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if http.moloch_http_host_url %}
-                            <a href={{http.moloch_http_host_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" http.hostname "domain" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" http.hostname %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" http.hostname %}{% endif %}
+                            {% if http.moloch_http_host_url %}{% ext_lookup "mlch" http.moloch_http_host_url %}{% endif %}
                         </td>
                         <td>{{http.uri}}
-                            {% if http.moloch_http_uri_url %}
-                            <a href={{http.moloch_http_uri_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if http.moloch_http_uri_url %}{% ext_lookup "mlch" http.moloch_http_uri_url %}{% endif %}
                         </td>
                         <td>{{http.contenttype}}</td>
                         <td>{{http.ua}}
-                            {% if http.moloch_http_ua_url %}
-                            <a href={{http.moloch_http_ua_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if http.moloch_http_ua_url %}{% ext_lookup "mlch" http.moloch_http_ua_url %}{% endif %}
                         </td>
                         <td>{{http.referrer}}</td>
                         <td>{{http.length}}</td>

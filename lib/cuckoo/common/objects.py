@@ -359,10 +359,15 @@ class File:
 
             if file_type is None:
                 try:
-                    p = subprocess.Popen(
-                        ["file", "-b", "-L", "--mime-type", self.file_path], universal_newlines=True, stdout=subprocess.PIPE
+                    proc = subprocess.run(
+                        ["file", "-b", "-L", "--mime-type", self.file_path],
+                        universal_newlines=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        check=False,
+                        timeout=30,
                     )
-                    file_type = p.stdout.read().strip()
+                    file_type = proc.stdout.strip()
                 except Exception as e:
                     log.exception(e)
 
@@ -666,7 +671,7 @@ class File:
                     )
                     return []
 
-            if HAVE_YARA_X:
+            if HAVE_YARA_X and not (HAVE_YARA and isinstance(rules, yara.Rules)):
                 # Built here, on the scanning thread, and deliberately not cached
                 # anywhere that outlives the scan -- see init_yara().
                 yara_results = yara_x.Scanner(rules).scan_file(self.file_path)

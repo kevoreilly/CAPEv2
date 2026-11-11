@@ -2490,3 +2490,107 @@ def test_gcp_pubsub_service_sanitizes_prefix_and_cleans_temp_files(monkeypatch, 
     assert existing_bin.read_bytes() == b"existing-sample"
 
 
+def test_gcp_pubsub_service_client_lifecycle_nofile_and_systemd_limit(monkeypatch, tmp_path):
+    import resource
+    import sys
+
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    import utils.gcp_pubsub_service as pubsub_mod
+    import utils.submit as submit_mod
+
+    # 1. systemd unit sets LimitNOFILE=100000
+    unit_file = Path(__file__).resolve().parents[1] / "systemd" / "cape-pubsub.service"
+    assert "LimitNOFILE=100000" in unit_file.read_text(encoding="utf-8")
+
+    # 2. _ensure_open_file_limit raises soft limit without exceeding hard limit
+    set_calls = []
+    monkeypatch.setattr(resource, "getrlimit", lambda _r: (1024, 65536))
+    monkeypatch.setattr(resource, "setrlimit", lambda r, vals: set_calls.append((r, vals)))
+    pubsub_mod._ensure_open_file_limit(100000)
+    assert set_calls == [(resource.RLIMIT_NOFILE, (65536, 65536))]
+
+    # 3. __init__ creates subscriber & storage_client once, and _init_clients() rotates only storage_client
+    sub_created = []
+    storage_created = []
+    storage_closed = []
+
+    class FakeSubscriber:
+        def subscription_path(self, proj, sub):
+            return f"projects/{proj}/subscriptions/{sub}"
+
+        def close(self):
+            raise AssertionError("Active subscriber must not be closed during storage retry")
+
+    class FakeStorage:
+        def __init__(self, idx):
+            self.idx = idx
+
+        def close(self):
+            storage_closed.append(self.idx)
+
+    fake_pubsub_v1 = types.SimpleNamespace(
+        SubscriberClient=lambda *a, **kw: sub_created.append(1) or FakeSubscriber()
+    )
+    fake_storage = types.SimpleNamespace(
+        Client=lambda *a, **kw: storage_created.append(len(storage_created) + 1) or FakeStorage(len(storage_created))
+    )
+    fake_google = types.ModuleType("google")
+    fake_cloud = types.ModuleType("google.cloud")
+    fake_cloud.pubsub_v1 = fake_pubsub_v1
+    fake_cloud.storage = fake_storage
+    fake_google.cloud = fake_cloud
+    monkeypatch.setitem(sys.modules, "google", fake_google)
+    monkeypatch.setitem(sys.modules, "google.cloud", fake_cloud)
+    monkeypatch.setitem(sys.modules, "google.cloud.pubsub_v1", fake_pubsub_v1)
+    monkeypatch.setitem(sys.modules, "google.cloud.storage", fake_storage)
+
+    import lib.cuckoo.common.gcp as gcp_mod
+
+    monkeypatch.setattr(
+        gcp_mod,
+        "gcp_cfg",
+        types.SimpleNamespace(
+            gcp={"project": "test-project", "auth_by": "vm"},
+            samples_pubsub={"subscription_id": "test-sub", "samples_bucket": "test-bucket"},
+        ),
+    )
+    monkeypatch.setattr(pubsub_mod, "init_database", lambda: None)
+    monkeypatch.setattr(pubsub_mod, "Database", lambda: types.SimpleNamespace(session=types.SimpleNamespace(remove=lambda: None)))
+    monkeypatch.setattr(pubsub_mod, "get_cape_external_dir", lambda tmppath=None: str(tmp_path))
+
+    svc = pubsub_mod.GCPPubSubService()
+    assert len(sub_created) == 1
+    assert len(storage_created) == 1
+    orig_sub = svc.subscriber
+
+    svc._init_clients()
+    assert len(sub_created) == 1
+    assert svc.subscriber is orig_sub
+    assert len(storage_created) == 2
+    assert storage_closed == [1]
+
+    # 4. submit_file removes empty upload_* staging dir when no tasks are created
+    src_sample = tmp_path / "input.bin"
+    src_sample.write_bytes(b"data")
+    upload_dir = tmp_path / "cuckoo-tmp" / "upload_abc123"
+    upload_dir.mkdir(parents=True)
+    staged_file = upload_dir / "input.bin"
+
+    def _fake_store_temp(data, name):
+        staged_file.write_bytes(data)
+        return str(staged_file).encode()
+
+    fake_db = types.SimpleNamespace(
+        session=types.SimpleNamespace(begin=lambda: contextlib.nullcontext()),
+        demux_sample_and_add_to_db=lambda **_kw: ([], {"errors": [{"junk_filter": "skipped"}]}),
+    )
+    import contextlib
+
+    monkeypatch.setattr(submit_mod, "store_temp_file", _fake_store_temp)
+    tids, details = submit_mod.submit_file(db=fake_db, file_path=str(src_sample), quiet=True)
+    assert tids == []
+    assert not staged_file.exists()
+    assert not upload_dir.exists()
+
+
+

@@ -2086,3 +2086,33 @@ class TestDatabaseEngine:
         assert db.get_guac_session("tok-2") is None
         assert not db.session().in_transaction()
 
+    def test_identify_submission_package_closes_sflock_file(self, db: _Database, tmp_path, monkeypatch):
+        from types import SimpleNamespace
+        import lib.cuckoo.core.data.tasking as tasking_mod
+
+        sample_path = tmp_path / "sample.bin"
+        sample_path.write_bytes(b"MZ\x90\x00")
+        closed = []
+
+        def _fake_from_path(_p):
+            return SimpleNamespace(close=lambda: closed.append(True))
+
+        monkeypatch.setattr(tasking_mod.SflockFile, "from_path", _fake_from_path)
+        monkeypatch.setattr(tasking_mod, "sflock_identify", lambda _sf, check_shellcode=True: "exe")
+
+        pkg, ident, generic_demux = db.identify_submission_package(str(sample_path).encode(), "")
+        assert pkg == "exe"
+        assert ident == "exe"
+        assert generic_demux is False
+        assert closed == [True]
+
+        def _boom_ident(_sf, check_shellcode=True):
+            raise RuntimeError("ident failed")
+
+        monkeypatch.setattr(tasking_mod, "sflock_identify", _boom_ident)
+        pkg2, ident2, _ = db.identify_submission_package(str(sample_path).encode(), "")
+        assert pkg2 == "generic"
+        assert ident2 == "generic"
+        assert closed == [True, True]
+
+

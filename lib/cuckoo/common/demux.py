@@ -7,7 +7,9 @@ import io
 import re
 import logging
 import os
+import tarfile
 import tempfile
+import zipfile
 from typing import Any, Dict, List, Tuple, Optional
 
 from lib.cuckoo.common.config import Config
@@ -274,6 +276,444 @@ def _is_encrypted_office(filename: bytes, magic: str) -> bool:
     return False
 
 
+def _close_sflock_file(sf_obj: Any) -> None:
+    if sf_obj is None:
+        return
+    close_fn = getattr(sf_obj, "close", None)
+    if callable(close_fn):
+        with contextlib.suppress(Exception):
+            close_fn()
+        return
+    stack = [sf_obj]
+    seen = set()
+    while stack:
+        node = stack.pop()
+        if node is None or id(node) in seen:
+            continue
+        seen.add(id(node))
+        stream = getattr(node, "_stream", None)
+        if stream is not None and callable(getattr(stream, "close", None)):
+            with contextlib.suppress(Exception):
+                stream.close()
+        children = getattr(node, "children", None)
+        if children:
+            stack.extend(children)
+
+
+def _is_apk_archive(filename: bytes) -> bool:
+    path_str = filename.decode("utf-8", errors="surrogateescape") if isinstance(filename, bytes) else filename
+    if path_str.lower().endswith(".apk"):
+        return True
+    try:
+        if not zipfile.is_zipfile(path_str):
+            return False
+        with zipfile.ZipFile(path_str, "r") as zf:
+            names = set(zf.namelist())
+        return "AndroidManifest.xml" in names and (
+            "classes.dex" in names or any(n.startswith("classes") and n.endswith(".dex") for n in names)
+        )
+    except Exception:
+        return False
+
+
+_GOMOD_PATH_RE = re.compile(r"(?:^|/)[a-z0-9._-]+@v\d+\.\d+\.\d+(?:[-+][a-z0-9._-]+)?/", re.IGNORECASE)
+_MAX_ZIP_SCAN_ENTRIES = 10000
+_MAX_TAR_SCAN_ENTRIES = 500
+_MAX_TAR_SCAN_BYTES = 16 * 1024 * 1024
+
+SOURCE_VCS_DIRS = {
+    ".git",
+    ".github",
+    ".gitlab",
+    ".hg",
+    ".svn",
+    ".circleci",
+    ".devcontainer",
+    ".husky",
+}
+
+SOURCE_VCS_FILES = {
+    ".gitignore",
+    ".gitattributes",
+    ".gitmodules",
+    ".gitlab-ci.yml",
+    ".travis.yml",
+    ".clang-format",
+    ".editorconfig",
+    ".flake8",
+    ".golangci.yml",
+    ".golangci.yaml",
+    ".prettierrc",
+    ".eslintrc",
+    ".eslintrc.js",
+    ".eslintrc.json",
+}
+
+SOURCE_MANIFEST_NAMES = {
+    "go.mod",
+    "go.sum",
+    "go.work",
+    "cargo.toml",
+    "cargo.lock",
+    "cmakelists.txt",
+    "makefile",
+    "gnumakefile",
+    "makefile.am",
+    "makefile.in",
+    "configure.ac",
+    "meson.build",
+    "meson_options.txt",
+    "build.bazel",
+    "workspace",
+    "workspace.bazel",
+    "conanfile.py",
+    "conanfile.txt",
+    "vcpkg.json",
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "pkg-info",
+    "pipfile",
+    "pipfile.lock",
+    "poetry.lock",
+    "uv.lock",
+    "tox.ini",
+    "manifest.in",
+    "package.json",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "tsconfig.json",
+    "deno.json",
+    "bun.lockb",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "gradlew",
+    "build.sbt",
+    "gemfile",
+    "gemfile.lock",
+    "rakefile",
+    "composer.json",
+    "composer.lock",
+    "package.swift",
+    "pubspec.yaml",
+    "mix.exs",
+    "rebar.config",
+    "build.zig",
+    "build.zig.zon",
+    "dune-project",
+}
+
+SOURCE_MANIFEST_EXTENSIONS = {
+    ".csproj",
+    ".fsproj",
+    ".vbproj",
+    ".sln",
+    ".vcxproj",
+    ".gemspec",
+    ".podspec",
+    ".cabal",
+    ".nimble",
+    ".rockspec",
+}
+
+SOURCE_CODE_EXTENSIONS = {
+    ".go",
+    ".rs",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".h",
+    ".hh",
+    ".hpp",
+    ".hxx",
+    ".inl",
+    ".java",
+    ".kt",
+    ".kts",
+    ".scala",
+    ".groovy",
+    ".clj",
+    ".cljs",
+    ".cs",
+    ".fs",
+    ".fsx",
+    ".swift",
+    ".m",
+    ".mm",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".vue",
+    ".svelte",
+    ".py",
+    ".pyi",
+    ".pyx",
+    ".pxd",
+    ".rb",
+    ".erb",
+    ".php",
+    ".phtml",
+    ".lua",
+    ".r",
+    ".jl",
+    ".dart",
+    ".zig",
+    ".nim",
+    ".cr",
+    ".d",
+    ".ada",
+    ".adb",
+    ".ads",
+    ".ex",
+    ".exs",
+    ".erl",
+    ".hrl",
+    ".hs",
+    ".lhs",
+    ".ml",
+    ".mli",
+    ".elm",
+    ".v",
+    ".sv",
+    ".svh",
+    ".vhd",
+    ".vhdl",
+    ".proto",
+    ".thrift",
+    ".graphql",
+    ".gql",
+    ".cmake",
+    ".gradle",
+    ".bzl",
+    ".nix",
+    ".s",
+    ".asm",
+}
+
+SOURCE_SCRIPT_EXTENSIONS = {
+    ".js",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".pl",
+    ".pm",
+}
+
+ARCHIVE_EXEC_PAYLOAD_EXTENSIONS = {
+    ".exe",
+    ".dll",
+    ".sys",
+    ".scr",
+    ".cpl",
+    ".ocx",
+    ".msi",
+    ".msp",
+    ".msix",
+    ".msixbundle",
+    ".lnk",
+    ".hta",
+    ".vbs",
+    ".vbe",
+    ".jse",
+    ".wsf",
+    ".wsh",
+    ".ps1",
+    ".psm1",
+    ".bat",
+    ".cmd",
+    ".reg",
+    ".sct",
+    ".xll",
+    ".appref-ms",
+    ".pif",
+    ".chm",
+    ".one",
+    ".jar",
+    ".apk",
+    ".dex",
+    ".elf",
+    ".so",
+    ".dylib",
+    ".dmg",
+    ".pkg",
+    ".iso",
+    ".img",
+    ".vhd",
+    ".vhdx",
+    ".udf",
+}
+
+
+def _normalize_archive_member(entry: Any) -> str:
+    if not entry:
+        return ""
+    text = entry.decode("utf-8", errors="replace") if isinstance(entry, bytes) else str(entry)
+    text = text.replace("\\", "/").strip()
+    while text.startswith("./") or text.startswith("/"):
+        text = text[2:] if text.startswith("./") else text[1:]
+    if not text or text.endswith("/"):
+        return ""
+    parts = [p for p in text.split("/") if p and p != "."]
+    if not parts or parts[0] == "__MACOSX" or parts[-1].startswith("._"):
+        return ""
+    return "/".join(parts)
+
+
+def _is_source_code_tree(member_paths: List[Any]) -> bool:
+    files = []
+    for raw in member_paths:
+        norm = _normalize_archive_member(raw)
+        if norm:
+            files.append(norm)
+    total_files = len(files)
+    if total_files == 0:
+        return False
+
+    has_gomod_prefix = False
+    has_vcs_meta = False
+    has_manifest = False
+    unambiguous_src_count = 0
+    script_src_count = 0
+    exec_payload_count = 0
+
+    for rel in files:
+        rel_lower = rel.lower()
+        if not has_gomod_prefix and _GOMOD_PATH_RE.search(rel_lower):
+            has_gomod_prefix = True
+
+        parts_lower = rel_lower.split("/")
+        base = parts_lower[-1]
+        _, ext = os.path.splitext(base)
+
+        if any(seg in SOURCE_VCS_DIRS for seg in parts_lower[:-1]) or base in SOURCE_VCS_FILES:
+            has_vcs_meta = True
+
+        if (
+            base in SOURCE_MANIFEST_NAMES
+            or ext in SOURCE_MANIFEST_EXTENSIONS
+            or rel_lower.endswith((".dist-info/metadata", ".dist-info/wheel", ".egg-info/pkg-info"))
+        ):
+            has_manifest = True
+
+        if ext in ARCHIVE_EXEC_PAYLOAD_EXTENSIONS:
+            exec_payload_count += 1
+        elif ext in SOURCE_CODE_EXTENSIONS:
+            unambiguous_src_count += 1
+        elif ext in SOURCE_SCRIPT_EXTENSIONS:
+            script_src_count += 1
+
+    if exec_payload_count > 0:
+        if unambiguous_src_count < 5 or exec_payload_count * 5 > unambiguous_src_count:
+            return False
+
+    total_src = unambiguous_src_count + script_src_count
+    if has_gomod_prefix and (total_src >= 1 or has_manifest):
+        return True
+    if (has_manifest or has_vcs_meta) and total_files >= 2 and total_src >= 1:
+        return True
+    if total_files >= 2 and unambiguous_src_count >= 2 and (unambiguous_src_count / total_files) >= 0.4:
+        return True
+    return False
+
+
+def _is_source_code_archive(filename: bytes) -> bool:
+    path_str = filename.decode("utf-8", errors="surrogateescape") if isinstance(filename, bytes) else filename
+    try:
+        with open(path_str, "rb") as fh:
+            head = fh.read(512)
+    except OSError:
+        return False
+
+    if len(head) < 4 or head[:2] == b"MZ":
+        return False
+
+    try:
+        if head[:4] in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"):
+            with zipfile.ZipFile(path_str, "r") as zf:
+                infolist = zf.infolist()
+                if len(infolist) > _MAX_ZIP_SCAN_ENTRIES:
+                    return False
+                members = [info.filename for info in infolist if not info.is_dir()]
+            return _is_source_code_tree(members)
+
+        tar_mode = None
+        if head[:2] == b"\x1f\x8b":
+            tar_mode = "r:gz"
+        elif head[:3] == b"BZh":
+            tar_mode = "r:bz2"
+        elif head[:6] == b"\xfd7zXZ\x00":
+            tar_mode = "r:xz"
+        elif len(head) >= 262 and head[257:262] == b"ustar":
+            tar_mode = "r:"
+
+        if tar_mode is not None:
+            members = []
+            scanned_bytes = 0
+            with tarfile.open(path_str, tar_mode) as tf:
+                while True:
+                    ti = tf.next()
+                    if ti is None:
+                        break
+                    if ti.isfile():
+                        members.append(ti.name)
+                        scanned_bytes += max(int(getattr(ti, "size", 0) or 0), 0)
+                        if len(members) > _MAX_TAR_SCAN_ENTRIES or scanned_bytes > _MAX_TAR_SCAN_BYTES:
+                            return False
+            return _is_source_code_tree(members)
+    except Exception:
+        return False
+
+    return False
+
+
+def _collect_unpacked_relpaths(unpacked: Any) -> List[Any]:
+    if unpacked is None:
+        return []
+    paths: List[Any] = []
+    top_fps = getattr(unpacked, "filepaths", None) or []
+    for fp in top_fps:
+        if fp:
+            paths.append(fp)
+    for child in getattr(unpacked, "children", None) or []:
+        sub_children = getattr(child, "children", None) or []
+        if sub_children:
+            for sub in sub_children:
+                rel = getattr(sub, "relapath", None) or getattr(sub, "filename", None)
+                if rel:
+                    paths.append(rel)
+        elif not top_fps:
+            rel = getattr(child, "relapath", None) or getattr(child, "filename", None)
+            if rel:
+                paths.append(rel)
+    return paths
+
+
+def _cleanup_sflock_temp(filepath: bytes) -> None:
+    if not filepath:
+        return
+    try:
+        path_str = filepath.decode("utf-8", errors="surrogateescape") if isinstance(filepath, bytes) else filepath
+        sflock_root = os.path.realpath(os.path.join(tmp_path, "cuckoo-sflock"))
+        real_file = os.path.realpath(path_str)
+        if os.path.commonpath([sflock_root, real_file]) != sflock_root or real_file == sflock_root:
+            return
+        if os.path.isfile(real_file):
+            os.unlink(real_file)
+        parent_dir = os.path.dirname(real_file)
+        if parent_dir != sflock_root:
+            with contextlib.suppress(OSError):
+                os.rmdir(parent_dir)
+    except Exception:
+        pass
+
+
 def demux_office(filename: bytes, password: str, platform: str) -> List[bytes]:
     retlist = []
     target_path = os.path.join(tmp_path, "cuckoo-tmp/msoffice-crypt-tmp")
@@ -319,14 +759,21 @@ def demux_office(filename: bytes, password: str, platform: str) -> List[bytes]:
         retlist.append((decrypted_name.encode(), platform))
     elif HAS_SFLOCK:
         for pw in passwords:
+            sf_obj = None
+            d = None
             with contextlib.suppress(Exception):
-                ofile = OfficeFile(sfFile.from_path(filename))
-                d = ofile.decrypt(pw)
-                # TODO: add decryption verification checks
-                if hasattr(d, "contents") and d.contents and "Encrypted" not in (d.magic or ""):
-                    _ = path_write_file(decrypted_name, d.contents)
-                    retlist.append((decrypted_name.encode(), platform))
-                    break
+                try:
+                    sf_obj = sfFile.from_path(filename)
+                    ofile = OfficeFile(sf_obj)
+                    d = ofile.decrypt(pw)
+                    # TODO: add decryption verification checks
+                    if hasattr(d, "contents") and d.contents and "Encrypted" not in (d.magic or ""):
+                        _ = path_write_file(decrypted_name, d.contents)
+                        retlist.append((decrypted_name.encode(), platform))
+                        break
+                finally:
+                    _close_sflock_file(d)
+                    _close_sflock_file(sf_obj)
 
     if not retlist:
         retlist.append((filename, platform))
@@ -388,6 +835,7 @@ def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, s
 
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
+    contents = child.contents
     if (
         ignore_junk_filter
         or ext in demux_extensions_list
@@ -395,18 +843,20 @@ def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, s
         or is_valid_type(child.magic)
         or (not ext and is_valid_type(child.magic))
         # msix
-        or all([pattern in child.contents for pattern in (b"Registry.dat", b"AppxManifest.xml")])
+        or (contents and all([pattern in contents for pattern in (b"Registry.dat", b"AppxManifest.xml")]))
     ):
-        target_path = os.path.join(tmp_path, "cuckoo-sflock")
-        if not path_exists(target_path):
-            path_mkdir(target_path)
-        tmp_dir = tempfile.mkdtemp(dir=target_path)
-        try:
-            if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode())).encode()
-                _ = path_write_file(path_to_extract, child.contents)
-        except Exception as e:
-            log.exception(e)
+        if contents:
+            target_path = os.path.join(tmp_path, "cuckoo-sflock")
+            if not path_exists(target_path):
+                path_mkdir(target_path)
+            tmp_dir = tempfile.mkdtemp(dir=target_path)
+            try:
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode(errors="replace"))).encode()
+                _ = path_write_file(path_to_extract, contents)
+            except Exception as e:
+                log.exception(e)
+                with contextlib.suppress(OSError):
+                    os.rmdir(tmp_dir)
     return path_to_extract, child.platform, child.magic or "", child.filesize
 
 
@@ -421,6 +871,7 @@ def demux_sflock(
         return retlist, "", submit_opts
 
     ignore_junk = option_enabled(options, "ignore_junk_filter")
+    unpacked = None
 
     # ToDo need to introduce error msgs here
     try:
@@ -431,6 +882,12 @@ def demux_sflock(
         # Before unpacking, ensure the file actually exists and is not empty to avoid IncorrectUsageException
         if not path_exists(filename) or os.path.getsize(filename) == 0:
             return [(filename, platform, magic_type, file_size)], "file not found or empty", []
+
+        if _is_apk_archive(filename):
+            return retlist, "blacklisted package", submit_opts
+
+        if not ignore_junk and _is_source_code_archive(filename):
+            return retlist, "", submit_opts
 
         password = options2passwd(options) or "infected"
         try:
@@ -446,6 +903,8 @@ def demux_sflock(
             return [(filename, platform, magic_type, file_size)], "", []
         if unpacked.package in blacklist_extensions:
             return retlist, "blacklisted package", submit_opts
+        if not ignore_junk and _is_source_code_tree(_collect_unpacked_relpaths(unpacked)):
+            return retlist, "", submit_opts
 
         if unpacked.filepaths:
             # CASE 1: Archive contains multiple files
@@ -506,6 +965,8 @@ def demux_sflock(
                     retlist.append(tmp_child)
     except Exception as e:
         log.exception(e)
+    finally:
+        _close_sflock_file(unpacked)
     return list(filter(None, retlist)), "", submit_opts
 
 
@@ -654,8 +1115,10 @@ def demux_sample(
         return retlist, error_list
 
     # --- 6. Process Extracted Files ---
-    for block in extracted_files:
+    for idx, block in enumerate(extracted_files):
         if len(retlist) >= demux_files_limit:
+            for rem in extracted_files[idx:]:
+                _cleanup_sflock_temp(rem[0])
             break
 
         ex_filename, ex_platform, ex_magic, ex_size = block
@@ -664,6 +1127,7 @@ def demux_sample(
         # Platform check (Linux)
         if ex_platform == "linux" and not linux_enabled and "Python" not in ex_magic:
             error_list.append({f_basename_str: "Linux processing is disabled"})
+            _cleanup_sflock_temp(ex_filename)
             continue
 
         # Validate size and trim if necessary
@@ -671,8 +1135,11 @@ def demux_sample(
         valid_file, error = _prepare_file(ex_filename, options, size=ex_size)
 
         if valid_file:
+            if valid_file != ex_filename:
+                _cleanup_sflock_temp(ex_filename)
             retlist.append((valid_file, ex_platform))
         else:
             error_list.append({f_basename_str: error})
+            _cleanup_sflock_temp(ex_filename)
 
     return retlist, error_list

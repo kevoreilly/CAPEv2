@@ -255,19 +255,38 @@ class TestFiles:
         assert file.get_type() in expected
         assert bool(file.pe) == is_pe
 
-    def test_get_yara(self, hello_file, yara_compiled):
-        # Save/restore the class-level yara_rules: this test replaces it with a single custom
-        # category, and without restoring it it leaks into later tests. Combined with the
-        # init_yara() idempotency guard that would make a downstream File.init_yara() a no-op,
-        # the leak made tests/test_yara.py::test_get_yaras find no "CAPE" rules and fail.
-        saved_rules = File.yara_rules
-        File.yara_rules = {"hello": yara_compiled}
-        try:
-            assert hello_file["file"].get_yara(category="hello") == [
-                {"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": ["hello"]}
-            ]
-        finally:
-            File.yara_rules = saved_rules
+    def test_get_yara(self, hello_file, yara_compiled, monkeypatch):
+        # Save/restore the class-level yara_rules and yara_initialized: this test replaces
+        # yara_rules with a single custom category, and without restoring it it leaks into
+        # later tests. Combined with the init_yara() idempotency guard that would make a
+        # downstream File.init_yara() a no-op, the leak made tests/test_yara.py::test_get_yaras
+        # find no "CAPE" rules and fail.
+        import lib.cuckoo.common.objects as objects_mod
+
+        expected = [{"meta": {}, "addresses": {"a": 0}, "name": "hello", "strings": ["hello"]}]
+        monkeypatch.setattr(File, "yara_initialized", True)
+        monkeypatch.setattr(File, "yara_rules", {"hello": yara_compiled})
+        assert hello_file["file"].get_yara(category="hello") == expected
+
+        # Even when HAVE_YARA_X is True, a yara-python Rules object in File.yara_rules
+        # must dispatch to rules.match() rather than failing in yara_x.Scanner(rules).
+        monkeypatch.setattr(objects_mod, "HAVE_YARA_X", True)
+        assert hello_file["file"].get_yara(category="hello") == expected
+
+        if objects_mod.yara_x is not None:
+            yara_x_compiled = objects_mod.yara_x.compile(
+                """
+                rule hello
+                {
+                    strings:
+                        $a = "hello"
+                    condition:
+                        $a
+                }
+                """
+            )
+            monkeypatch.setattr(File, "yara_rules", {"hello": yara_x_compiled})
+            assert hello_file["file"].get_yara(category="hello") == expected
 
     @pytest.mark.skip(reason="TODO - init yara was removed from objects.py it was init in too many not related parts")
     def test_get_yara_no_categories(self, test_files):

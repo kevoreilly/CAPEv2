@@ -13,6 +13,7 @@ Environment=PYTHONPATH=.
 # Environment=GCP_SUBSCRIPTION_ID=my-subscription
 ExecStart=/usr/bin/python3 utils/gcp_pubsub_service.py
 Restart=always
+LimitNOFILE=100000
 
 [Install]
 WantedBy=multi-user.target

@@ -1,4 +1,5 @@
 {% load key_tags %}
+{% load analysis_tags %}
 
 <div id="file-info-{{file.sha256}}" class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
@@ -150,9 +151,9 @@
                 <td class="text-monospace">
                     {{file.sha256}}
                     <span class="ms-2">
-                        <a href="https://www.virustotal.com/gui/file/{{file.sha256}}/" class="badge bg-danger" target="_blank">VT</a>
-                        <a href="https://mwdb.cert.pl/file/{{file.sha256}}" class="badge bg-warning" target="_blank">MWDB</a>
-                        <a href="https://bazaar.abuse.ch/sample/{{file.sha256}}/" class="badge bg-info" target="_blank">Bazaar</a>
+                        {% ext_lookup "vt" file.sha256 "file" label="VT" %}
+                        {% ext_lookup "mwdb" file.sha256 label="MWDB" %}
+                        {% ext_lookup "bazaar" file.sha256 label="Bazaar" %}
                     </span>
                 </td>
             </tr>

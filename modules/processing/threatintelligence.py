@@ -29,13 +29,14 @@ Output (results["threatintelligence"]):
     }
 """
 
+import ipaddress
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.integrations.threatintelligence.base import (
-    IND_DOMAIN, IND_HASH, IND_IP, IND_URL, _as_bool, looks_like_malpedia_id,
-    normalize_domain, squash_name,
+    IND_DOMAIN, IND_HASH, IND_IP, IND_URL, _as_bool, ioc_host_part,
+    looks_like_malpedia_id, normalize_domain, squash_name,
 )
 from lib.cuckoo.common.integrations.threatintelligence.cache import IntelCache
 from lib.cuckoo.common.integrations.threatintelligence.config import load_config
@@ -46,16 +47,47 @@ from lib.cuckoo.common.integrations.threatintelligence.registry import (
 
 log = logging.getLogger(__name__)
 
+_NON_ROUTABLE_NETS = (
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("224.0.0.0/4"),
+    ipaddress.ip_network("240.0.0.0/4"),
+    ipaddress.ip_network("::/128"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("ff00::/8"),
+)
+
 
 def _looks_like_ip(value):
     """Cheap check: is this host an IP literal (so it's not a domain)?"""
     if not value:
         return False
     v = str(value).strip().strip("[]")
-    if ":" in v and "." not in v:
-        return True  # IPv6
-    parts = v.split(".")
-    return len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+    try:
+        ipaddress.ip_address(v)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_private_ip(value):
+    if not value:
+        return False
+    v = str(value).strip().strip("[]")
+    try:
+        addr = ipaddress.ip_address(v)
+    except ValueError:
+        return False
+    if getattr(addr, "ipv4_mapped", None) is not None:
+        addr = addr.ipv4_mapped
+    return any(addr in net for net in _NON_ROUTABLE_NETS)
 
 
 class ThreatIntelligence(Processing):
@@ -110,20 +142,19 @@ class ThreatIntelligence(Processing):
             by_indicator, discovered_families = self._indicator_phase(
                 indicator_providers, lookups)
 
-        # Optionally promote indicator hits to CAPE detections. This APPENDS a
-        # detection entry (via add_family_detection) and never sets the
-        # headline malfamily, so ThreatFox infrastructure attribution does not
-        # override CAPE's own classification. Off by default; C2-only by
-        # default when enabled.
-        promoted = []
-        if by_indicator and _as_bool(options.get("promote_to_detection", False)):
-            promoted = self._promote_detections(by_indicator, options)
-
         families = []
         if family_providers:
             from_threatfox = _as_bool(config.section("malpedia").get("from_threatfox", True))
             hints = self._gather_family_hints(discovered_families if from_threatfox else [])
             families = self._family_phase(family_providers, hints)
+
+        # Promote indicator hits to CAPE detections (after _gather_family_hints
+        # so indicator hits are not mislabelled with 'cape_detection' provenance).
+        # Appends a detection entry (via add_family_detection) without overriding
+        # the headline malfamily. Off by default.
+        promoted = []
+        if by_indicator and self._should_promote_detections(options):
+            promoted = self._promote_detections(by_indicator, options, families=families)
 
         # Actor phase (gated): only when master toggle on AND an actor engine
         # is enabled. Hints are the actors that the matched families are
@@ -167,14 +198,31 @@ class ThreatIntelligence(Processing):
             for host in network.get("hosts") or []:
                 if isinstance(host, dict) and host.get("ip"):
                     ip = str(host["ip"]).strip()
-                    ip_ports.setdefault(ip, set()).update(host.get("ports") or [])
+                    if not _is_private_ip(ip):
+                        ip_ports.setdefault(ip, set()).update(host.get("ports") or [])
             # Accurate ip:port construction: ports actually contacted in the
             # capture (TCP/UDP destinations). These drive precise ip:port
             # matching when match_ports_only is enabled.
             for proto in ("tcp", "udp"):
                 for conn in network.get(proto) or []:
                     if isinstance(conn, dict) and conn.get("dst") and conn.get("dport"):
-                        ip_ports.setdefault(str(conn["dst"]).strip(), set()).add(conn["dport"])
+                        dst_ip = str(conn["dst"]).strip()
+                        if not _is_private_ip(dst_ip):
+                            ip_ports.setdefault(dst_ip, set()).add(conn["dport"])
+            # Also include resolved IPs from DNS answers and domain records so
+            # DNS responses pointing at known malicious IPs are annotated.
+            for d in network.get("domains") or []:
+                if isinstance(d, dict) and d.get("ip"):
+                    dip = str(d["ip"]).strip()
+                    if _looks_like_ip(dip) and not _is_private_ip(dip):
+                        ip_ports.setdefault(dip, set())
+            for req in network.get("dns") or []:
+                if isinstance(req, dict):
+                    for ans in req.get("answers") or []:
+                        if isinstance(ans, dict) and ans.get("type") in ("A", "AAAA") and ans.get("data"):
+                            aip = str(ans["data"]).strip()
+                            if _looks_like_ip(aip) and not _is_private_ip(aip):
+                                ip_ports.setdefault(aip, set())
         if lookups[IND_DOMAIN]:
             # Gather domains from EVERY network surface so nothing contacted is
             # skipped: resolved domains, DNS requests + answers, HTTP Host
@@ -190,9 +238,12 @@ class ThreatIntelligence(Processing):
                         data = ans.get("data") if isinstance(ans, dict) else None
                         if data and (ans.get("type") in ("CNAME", "NS", "PTR")):
                             domains.add(normalize_domain(data))
-            for h in network.get("http") or []:
-                if isinstance(h, dict) and h.get("host") and not _looks_like_ip(h["host"]):
-                    domains.add(normalize_domain(h["host"]))
+            for h_key in ("http", "http_ex", "https_ex"):
+                for h in network.get(h_key) or []:
+                    if isinstance(h, dict) and h.get("host"):
+                        host_only = ioc_host_part(h["host"])
+                        if host_only and not _looks_like_ip(host_only):
+                            domains.add(normalize_domain(host_only))
             for host in network.get("hosts") or []:
                 if isinstance(host, dict) and host.get("hostname"):
                     domains.add(normalize_domain(host["hostname"]))
@@ -205,6 +256,11 @@ class ThreatIntelligence(Processing):
             for h in network.get("http") or []:
                 if isinstance(h, dict) and h.get("uri"):
                     urls.add(str(h["uri"]).strip())
+            for h_key in ("http_ex", "https_ex"):
+                for h in network.get(h_key) or []:
+                    if isinstance(h, dict) and h.get("host") and h.get("uri"):
+                        proto = h.get("protocol") or ("https" if h_key == "https_ex" else "http")
+                        urls.add(f"{proto}://{h['host']}{h['uri']}".strip())
         domains.discard("")
         urls.discard("")
 
@@ -231,11 +287,23 @@ class ThreatIntelligence(Processing):
         by_indicator = {}
         for (_p, indicator, _it, _pt), match_dicts in zip(tasks, results_list):
             if match_dicts:
-                by_indicator.setdefault(indicator, []).extend(match_dicts)
+                filtered = [
+                    it for it in match_dicts
+                    if not (
+                        self._is_generic_family(it.get("malware"))
+                        and self._is_generic_family(it.get("malware_printable"))
+                    )
+                ]
+                if filtered:
+                    by_indicator.setdefault(indicator, []).extend(filtered)
         for indicator, items in list(by_indicator.items()):
             # Suppress shared/abused-infrastructure over-matches (a single
             # indicator attributed to many families) as likely false tags.
-            families = {it.get("malware") or it.get("tag") for it in items}
+            families = {
+                it.get("malware") or it.get("tag")
+                for it in items
+                if not self._is_generic_family(it.get("malware"))
+            }
             if self.max_families_per_indicator and len(families) > self.max_families_per_indicator:
                 log.info("ThreatIntelligence: suppressing %s -> %d families "
                          "(likely shared/abused host, not asserting tags)",
@@ -256,8 +324,9 @@ class ThreatIntelligence(Processing):
         for items in by_indicator.values():
             for it in items:
                 fam_id = it.get("malware")
-                if fam_id:
-                    discovered.append((fam_id, it.get("malware_printable"),
+                printable = it.get("malware_printable")
+                if fam_id and not self._is_generic_family(fam_id) and not self._is_generic_family(printable or fam_id):
+                    discovered.append((fam_id, printable,
                                        it.get("source"), it.get("indicator_type")))
         return by_indicator, discovered
 
@@ -296,23 +365,61 @@ class ThreatIntelligence(Processing):
                     host["threatintel"] = hits
 
     def _annotate_domains(self, network, by_indicator):
-        for req in network.get("dns") or []:
-            if isinstance(req, dict):
-                hits = by_indicator.get(normalize_domain(req.get("request")))
-                if hits:
-                    req["threatintel"] = hits
+        domain_ip_map = {}
         for d in network.get("domains") or []:
             if isinstance(d, dict):
-                hits = by_indicator.get(normalize_domain(d.get("domain")))
+                dom_norm = normalize_domain(d.get("domain"))
+                hits = by_indicator.get(dom_norm)
                 if hits:
                     d["threatintel"] = hits
+                if d.get("ip"):
+                    dip = str(d["ip"]).strip()
+                    if dom_norm and dip:
+                        domain_ip_map[dom_norm] = dip
+                    ip_hits = by_indicator.get(dip)
+                    if ip_hits:
+                        d["ip_threatintel"] = ip_hits
+        for req in network.get("dns") or []:
+            if isinstance(req, dict):
+                req_norm = normalize_domain(req.get("request"))
+                hits = by_indicator.get(req_norm)
+                if hits:
+                    req["threatintel"] = hits
+                lookup_ip = domain_ip_map.get(req_norm)
+                if lookup_ip and by_indicator.get(lookup_ip):
+                    req["lookup_threatintel"] = by_indicator[lookup_ip]
+                for ans in req.get("answers") or []:
+                    if isinstance(ans, dict) and ans.get("data") and ans.get("type") != "NXDOMAIN":
+                        raw_ans = str(ans["data"]).strip()
+                        ans_hits = by_indicator.get(raw_ans) or by_indicator.get(normalize_domain(raw_ans))
+                        if ans_hits:
+                            ans["threatintel"] = ans_hits
 
     def _annotate_urls(self, network, by_indicator):
         for h in network.get("http") or []:
             if isinstance(h, dict):
-                hits = by_indicator.get(str(h.get("uri") or "").strip())
+                host_only = ioc_host_part(h.get("host"))
+                hits = (
+                    by_indicator.get(str(h.get("uri") or "").strip())
+                    or by_indicator.get(normalize_domain(host_only))
+                    or by_indicator.get(host_only)
+                )
                 if hits:
                     h["threatintel"] = hits
+        for h_key in ("http_ex", "https_ex"):
+            for h in network.get(h_key) or []:
+                if isinstance(h, dict):
+                    proto = h.get("protocol") or ("https" if h_key == "https_ex" else "http")
+                    full_url = f"{proto}://{h.get('host', '')}{h.get('uri', '')}".strip()
+                    host_only = ioc_host_part(h.get("host"))
+                    hits = (
+                        by_indicator.get(full_url)
+                        or by_indicator.get(normalize_domain(host_only))
+                        or by_indicator.get(host_only)
+                        or by_indicator.get(str(h.get("dst") or "").strip())
+                    )
+                    if hits:
+                        h["threatintel"] = hits
 
     def _sample_sha256(self):
         target = self.results.get("target") or {}
@@ -342,7 +449,7 @@ class ThreatIntelligence(Processing):
             return squash_name(base_part)
 
         def add(query, is_id, source):
-            if not query:
+            if not query or self._is_generic_family(query):
                 return
             key = hint_key(query, is_id)
             if not key:
@@ -376,10 +483,12 @@ class ThreatIntelligence(Processing):
         # Families surfaced by indicator hits, tagged with WHERE seen, e.g.
         # threatfox_domain / threatfox_ip_address / threatfox_url.
         for fam_id, printable, source, indicator_type in discovered_families:
+            if self._is_generic_family(fam_id) and self._is_generic_family(printable):
+                continue
             prov = self._indicator_provenance(source or "threatfox", indicator_type)
-            if looks_like_malpedia_id(fam_id):
+            if looks_like_malpedia_id(fam_id) and not self._is_generic_family(fam_id):
                 add(fam_id, True, prov)
-            elif printable:
+            elif printable and not self._is_generic_family(printable):
                 add(printable, False, prov)
 
         return list(hints.values())
@@ -391,16 +500,41 @@ class ThreatIntelligence(Processing):
         return f"{source}_{label}" if label else source
 
     # ThreatFox threat_types considered "C2" (command-and-control). Only these
-    # promote when promote_c2_only is set.
-    _C2_THREAT_TYPES = {"botnet_cc"}
+    # (plus direct sample hash matches) promote when promote_c2_only is set.
+    _C2_THREAT_TYPES = {"botnet_cc", "payload"}
+    _GENERIC_FAMILY_NAMES = {"unknown", "unknown malware", "unidentified", "n/a", "none", "generic"}
 
-    def _promote_detections(self, by_indicator, options):
+    def _should_promote_detections(self, options) -> bool:
+        ti_promote = _as_bool(options.get("promote_to_detection", False))
+        det_ti = False
+        try:
+            from lib.cuckoo.common.config import Config
+            det_cfg = Config("processing").detections
+            if not _as_bool(det_cfg.get("enabled", True)):
+                return False
+            det_ti = _as_bool(det_cfg.get("threatintelligence", False))
+        except Exception:
+            pass
+        return ti_promote or det_ti
+
+    @classmethod
+    def _is_generic_family(cls, name: str) -> bool:
+        if not name:
+            return True
+        low = str(name).strip().lower()
+        if low in cls._GENERIC_FAMILY_NAMES or low.endswith(".unknown"):
+            return True
+        base = low.split(".", 1)[-1].replace("_", " ").strip()
+        return base in cls._GENERIC_FAMILY_NAMES
+
+    def _promote_detections(self, by_indicator, options, families=None):
         """Append CAPE detections for indicator hits (never sets malfamily).
 
-        With promote_c2_only (default), only C2 (botnet_cc) hits promote;
-        other threat types still enrich the TI card but are not promoted. The
-        family is added via add_family_detection, which appends to
-        results["detections"] without touching the headline malfamily.
+        With promote_c2_only (default False), only C2 (botnet_cc) and direct
+        hash (payload) hits promote; when False, payload_delivery and other
+        qualified indicator hits also promote. The family is added via
+        add_family_detection, which appends to results["detections"] without
+        touching the headline malfamily.
         """
         try:
             from lib.cuckoo.common.utils import add_family_detection
@@ -408,28 +542,38 @@ class ThreatIntelligence(Processing):
             log.warning("ThreatIntelligence: add_family_detection unavailable; cannot promote.")
             return []
 
-        c2_only = _as_bool(options.get("promote_c2_only", True))
-        min_conf = int(options.get("promote_minimum_confidence", 100) or 0)
+        c2_only = _as_bool(options.get("promote_c2_only", False))
+        min_conf = int(options.get("promote_minimum_confidence", 50) or 0)
+
+        card_names = {}
+        for card in families or []:
+            if isinstance(card, dict) and card.get("family_id") and card.get("common_name"):
+                card_names[card["family_id"].strip().lower()] = card["common_name"].strip()
 
         promoted, seen = [], set()
         for indicator, items in by_indicator.items():
             for it in items:
                 threat_type = (it.get("threat_type") or "").strip().lower()
-                if c2_only and threat_type not in self._C2_THREAT_TYPES:
+                ind_type = it.get("indicator_type")
+                if c2_only and threat_type not in self._C2_THREAT_TYPES and ind_type != IND_HASH:
                     continue
                 conf = it.get("confidence_level")
                 if min_conf and (conf is None or conf < min_conf):
                     continue
-                family = it.get("malware_printable") or it.get("malware")
-                if not family:
+                raw_id = (it.get("malware") or "").strip().lower()
+                family = card_names.get(raw_id) or it.get("malware_printable") or it.get("malware")
+                if not family or self._is_generic_family(family) or self._is_generic_family(raw_id):
                     continue
-                key = (family, indicator)
+                key = (family.lower(), indicator)
                 if key in seen:
                     continue
                 seen.add(key)
+                source_name = (it.get("source") or "ThreatFox").capitalize()
+                if source_name.lower() == "threatfox":
+                    source_name = "ThreatFox"
                 add_family_detection(
                     self.results, family, "ThreatIntelligence",
-                    f"ThreatFox {threat_type or 'indicator'}: {indicator}")
+                    f"{source_name} {threat_type or 'indicator'}: {indicator}")
                 promoted.append({"family": family, "indicator": indicator,
                                  "threat_type": threat_type, "confidence_level": conf})
         if promoted:

@@ -1327,20 +1327,37 @@
             }
         }
 
+        function resetSubmitButton() {
+            const btn = document.getElementById('submit-btn');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-microscope me-2"></i>Analyze';
+            }
+        }
+
+        function restoreSubmissionFormState() {
+            resetSubmitButton();
+            const hashTab = window.location.hash;
+            const restoredTabId = hashTab || ('#' + ($('#active_tab').val() || $('#submissionTabs a.nav-link.active').attr('href') || 'file').replace(/^#/, ''));
+            const targetTab = $(`#submissionTabs a[href="${restoredTabId}"]`);
+            if (targetTab.length && !targetTab.hasClass('active')) {
+                targetTab.tab('show');
+            }
+            syncActiveSubmissionTab(restoredTabId);
+        }
+
         // Tab visibility & active input gating
         $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
             var tabId = $(e.target).attr('href');
             syncActiveSubmissionTab(tabId);
         });
 
-        // Activate tab from URL hash if present (e.g., /submit/#url)
-        if (window.location.hash) {
-            const targetTab = $(`#submissionTabs a[href="${window.location.hash}"]`);
-            if (targetTab.length) {
-                targetTab.tab('show');
-                syncActiveSubmissionTab(window.location.hash);
-            }
-        }
+        restoreSubmissionFormState();
+
+        // Reset submit button and tab state when navigating back (bfcache / history restore)
+        window.addEventListener('pageshow', function () {
+            restoreSubmissionFormState();
+        });
 
         // File dropzone drag-and-drop & paste support
         const dropzone = document.getElementById('file-dropzone');
@@ -1394,9 +1411,13 @@
         });
 
         // Double-submit protection & loading spinner
-        $('#submission-form').on('submit', function () {
+        $('#submission-form').on('submit', function (e) {
             const btn = document.getElementById('submit-btn');
-            if (btn && !btn.disabled) {
+            if (btn) {
+                if (btn.disabled) {
+                    e.preventDefault();
+                    return false;
+                }
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Submitting...';
             }

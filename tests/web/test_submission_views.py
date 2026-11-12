@@ -324,6 +324,8 @@ class TestSubmissionViews(SimpleTestCase):
         self.assertIn('id="selected-files-list"', body)
         self.assertIn('id="precheck-existent-tasks"', body)
         self.assertIn('id="submit-btn"', body)
+        self.assertIn("function resetSubmitButton()", body)
+        self.assertIn("window.addEventListener('pageshow'", body)
 
     def test_resolve_submission_target_honors_active_tab(self):
         from django.core.files.uploadedfile import SimpleUploadedFile

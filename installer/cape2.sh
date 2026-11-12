@@ -133,7 +133,7 @@ librenms_megaraid_enable=0
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
 # Must match libvirt version!
-LIB_VERSION=11.9.0
+LIB_VERSION=12.9.0
 DIE_VERSION="3.10"
 TOR_SOCKET_TIMEOUT="60"
 CAPE_ROOT="${CAPE_ROOT:-/opt/CAPEv2}"

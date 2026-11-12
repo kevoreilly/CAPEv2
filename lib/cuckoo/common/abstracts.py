@@ -4,6 +4,10 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import datetime
+try:
+    import grp
+except ImportError:
+    grp = None
 import io
 import logging
 import os
@@ -613,8 +617,21 @@ class LibVirtMachinery(Machinery):
         try:
             # create the memory dump file ourselves first so it doesn't end up root/root 0600
             # it'll still be owned by root, so we can't delete it, but at least we can read it
-            fd = open(path, "w")
-            fd.close()
+            # Set 0o660 and libvirt group so non-root qemu_user (libvirt-qemu:libvirt) can write the dump.
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o660)
+            try:
+                os.fchmod(fd, 0o660)
+                if grp is not None:
+                    for group_name in ("libvirt", "libvirtd"):
+                        try:
+                            gid = grp.getgrnam(group_name).gr_gid
+                        except KeyError:
+                            continue
+                        with suppress(OSError):
+                            os.fchown(fd, -1, gid)
+                        break
+            finally:
+                os.close(fd)
             vm = conn.lookupByName(label)
             vm.coreDump(path, flags=libvirt.VIR_DUMP_MEMORY_ONLY)
         except libvirt.libvirtError as e:

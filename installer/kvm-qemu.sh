@@ -54,15 +54,33 @@ Huge thanks to:
 # Recompile: iasl -tc dsdt.dsl
 
 # if you want all arches support in QEMU, just set QTARGETS to empty
-QTARGETS="--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux-user"
+QTARGETS="--target-list=i386-softmmu,x86_64-softmmu"
 
 
 #https://www.qemu.org/download/#source or https://download.qemu.org/
-qemu_version=9.2.2
+qemu_version=11.1.3
 # libvirt - https://libvirt.org/sources/
 # changelog - https://libvirt.org/news.html
-libvirt_version=11.1.0
-seabios_version=1.16.3
+libvirt_version=12.9.0
+seabios_version=1.17.0
+libvmi_version=0.14.0
+# Official upstream release signing PGP fingerprints
+QEMU_GPG_KEY="CEACC9E15534EBABB82D3FA03353C9CEF108B584"
+LIBVIRT_GPG_KEY="453B65310595562855471199CA68BE8010084C9C"
+# Optional SHA256 overrides (enforced fail-closed when set)
+QEMU_SHA256="${QEMU_SHA256:-}"
+LIBVIRT_SHA256="${LIBVIRT_SHA256:-}"
+SEABIOS_SHA256="${SEABIOS_SHA256:-}"
+LIBVMI_SHA256="${LIBVMI_SHA256:-}"
+# Non-root QEMU execution and Polkit/AppArmor scoping defaults
+QEMU_USER="${QEMU_USER:-libvirt-qemu}"
+QEMU_GROUP="${QEMU_GROUP:-libvirt}"
+CAPE_USER="${CAPE_USER:-cape}"
+CAPE_STORAGE_DIR="${CAPE_STORAGE_DIR:-/opt/CAPEv2/storage}"
+ENABLE_SPICE="${ENABLE_SPICE:-0}"
+HOSTONLY_DNS_FORWARD="${HOSTONLY_DNS_FORWARD:-0}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BUILD_DIR=""
 # virt-manager - https://github.com/virt-manager/virt-manager/releases
 # autofilled
 OS=""
@@ -72,8 +90,6 @@ MAINTAINER=""
 VM_NETWORK_RANGE="192.168.1"
 DNS_PRIMARY="8.8.8.8"
 DNS_SECONDARY="8.8.4.4"
-
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 
 #replace all occurances of CPU's in qemu with our fake one
 cpuid="Intel(R) Core(TM) i3-4130 CPU"
@@ -148,40 +164,121 @@ BOCHS_SEABIOS_BLOCK_REPLACER='<WOOT>'
 # 0 = don't mask it
 MASK_APT_DAILY_UPGRADE=1
 
-# if a config file is present, read it in
-if [ -f "./kvm-config.sh" ]; then
-        . ./kvm-config.sh
-fi
-
-if [ "$MASK_APT_DAILY_UPGRADE" -ge 1 ]; then
-	systemctl mask apt-daily-upgrade.timer
-fi
+function _load_kvm_config() {
+    # if a config file is present, read it in
+    local cfg_path="${SCRIPT_DIR}/kvm-config.sh"
+    if [ -f "$cfg_path" ]; then
+        local cfg_owner cfg_perm
+        cfg_owner=$(stat -c '%u' "$cfg_path")
+        cfg_perm=$(stat -c '%a' "$cfg_path")
+        if [ "$cfg_owner" != "0" ] || [ $(( 8#$cfg_perm & 8#022 )) -ne 0 ]; then
+            echo "[-] Refusing to source $cfg_path: must be owned by root (uid 0) and not group/world-writable (found uid=$cfg_owner mode=$cfg_perm)"
+            exit 1
+        fi
+        # shellcheck source=/dev/null
+        . "$cfg_path"
+    fi
+}
 
 # ToDO add to see if cpu supports VTx
 # egrep '(vmx|svm)' --color=always /proc/cpuinfo
 #* If your CPU is Intel, you need activate in __BIOS__ VT-x
 #    * (last letter can change, you can activate [TxT ](https://software.intel.com/en-us/blogs/2012/09/25/how-to-enable-an-intel-trusted-execution-technology-capable-server) too, and any other feature, but VT-* is very important)
 
-which aptitude 2>/dev/null
-if [ $? -eq 1 ]; then
-    sudo apt-get update 2>/dev/null
-    sudo apt-get install aptitude -y 2>/dev/null
-fi
+function _cleanup_build_dir() {
+    if [ -n "${BUILD_DIR:-}" ] && [ -d "$BUILD_DIR" ]; then
+        rm -rf "$BUILD_DIR"
+    fi
+}
 
-which pip3 2>/dev/null
-if [ $? -eq 1 ]; then
-    sudo python3-pip -y 2>/dev/null
-fi
+function _bootstrap_host() {
+    _load_kvm_config
+
+    if [ "$OS" = "Linux" ]; then
+        systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
+        if [ "$MASK_APT_DAILY_UPGRADE" -ge 1 ]; then
+            systemctl mask apt-daily-upgrade.timer
+        fi
+
+        if ! command -v aptitude >/dev/null 2>&1; then
+            apt-get update 2>/dev/null
+            apt-get install aptitude -y 2>/dev/null
+        fi
+
+        if ! command -v pip3 >/dev/null 2>&1; then
+            apt-get update 2>/dev/null
+            apt-get install python3-pip -y 2>/dev/null
+        fi
+    fi
+
+    BUILD_DIR=$(mktemp -d /var/tmp/cape-kvm-build.XXXXXX)
+    chmod 0700 "$BUILD_DIR"
+    trap _cleanup_build_dir EXIT
+}
+
+function _verify_sha256() {
+    local file_path="$1"
+    local expected_sha256="$2"
+    if [ -z "$expected_sha256" ]; then
+        return 0
+    fi
+    local actual_sha256
+    actual_sha256=$(sha256sum "$file_path" | awk '{print $1}')
+    if [ "$actual_sha256" != "$expected_sha256" ]; then
+        echo "[-] SHA256 mismatch for $file_path: expected $expected_sha256, got $actual_sha256"
+        rm -f "$file_path"
+        exit 1
+    fi
+    echo "[+] Verified SHA256 for $file_path"
+}
+
+function _verify_gpg_sig() {
+    local archive_path="$1"
+    local sig_path="$2"
+    local fingerprint="$3"
+    local gnupg_home="${BUILD_DIR}/gnupg"
+    mkdir -p -m 0700 "$gnupg_home"
+    if ! gpg --homedir "$gnupg_home" --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$fingerprint" >/dev/null 2>&1 \
+        && ! gpg --homedir "$gnupg_home" --batch --keyserver hkps://keys.openpgp.org --recv-keys "$fingerprint" >/dev/null 2>&1; then
+        echo "[-] Failed to import release signing key $fingerprint for $archive_path"
+        exit 1
+    fi
+    if ! gpg --homedir "$gnupg_home" --batch --verify "$sig_path" "$archive_path"; then
+        echo "[-] GPG signature verification failed for $archive_path"
+        rm -f "$archive_path" "$sig_path"
+        exit 1
+    fi
+    echo "[+] Verified GPG signature for $archive_path"
+}
+
+function _set_conf_kv() {
+    local conf_file="$1"
+    local key="$2"
+    local value="$3"
+    if [ ! -f "$conf_file" ]; then
+        return 0
+    fi
+    if grep -q -E "^[[:space:]]*${key}[[:space:]]*=" "$conf_file"; then
+        sed -i -E "s|^[[:space:]]*${key}[[:space:]]*=.*|${key} = ${value}|" "$conf_file"
+    elif grep -q -E "^[[:space:]]*#[[:space:]]*${key}[[:space:]]*=" "$conf_file"; then
+        sed -i -E "0,/^[[:space:]]*#[[:space:]]*${key}[[:space:]]*=.*/s|^[[:space:]]*#[[:space:]]*${key}[[:space:]]*=.*|${key} = ${value}|" "$conf_file"
+    else
+        printf '\n%s = %s\n' "$key" "$value" >> "$conf_file"
+    fi
+}
 
 
 NC='\033[0m'
 RED='\033[0;31m'
-echo -e "${RED}[!] ONLY for UBUNTU 24.04${NC}"
-echo -e "${RED}\t[!] NEVER install packages from apt-get that installed by this script${NC}"
-echo -e "${RED}\t[!] NEVER use 'make install' - it poison system and no easy way to upgrade/uninstall/cleanup, use dpkg-deb${NC}"
-echo -e "${RED}\t[!] NEVER run 'python setup.py install' DO USE 'pip install .' the same as apt-get poisoning/upgrading${NC}\n"
-echo -e "${RED}\t[!] NEVER FORCE system upgrade (apt install -f), it will ignore blacklist and mess with packages installed by apt-get and this scritp!${NC}\n"
-echo -e "${RED}\t[!] NEVER! When upgrading ubuntu release, first uninstall qemu and libvirt, then upgrade and then install again! As is the same as force and bypasses apt mark-hold${NC}\n"
+function _print_banner() {
+    echo -e "${RED}[!] ONLY for UBUNTU 24.04${NC}"
+    echo -e "${RED}\t[!] NEVER install packages from apt-get that installed by this script${NC}"
+    echo -e "${RED}\t[!] NEVER use 'make install' - it poison system and no easy way to upgrade/uninstall/cleanup, use dpkg-deb${NC}"
+    echo -e "${RED}\t[!] NEVER run 'python setup.py install' DO USE 'pip install .' the same as apt-get poisoning/upgrading${NC}\n"
+    echo -e "${RED}\t[!] NEVER FORCE system upgrade (apt install -f), it will ignore blacklist and mess with packages installed by apt-get and this scritp!${NC}\n"
+    echo -e "${RED}\t[!] NEVER! When upgrading ubuntu release, first uninstall qemu and libvirt, then upgrade and then install again! As is the same as force and bypasses apt mark-hold${NC}\n"
+}
 
 function usage() {
 cat << EndOfHelp
@@ -206,7 +303,6 @@ cat << EndOfHelp
         Replace_qemu - only fix antivms in QEMU source
         Replace_seabios <path> - only fix antivms in SeaBios source
         Issues - will give you error - solution list
-        noip - Install No-ip deamon and enable on boot
         SysRQ - enable SysRQ - https://sites.google.com/site/syscookbook/rhel/rhel-sysrq-key
 
     Tips:
@@ -251,30 +347,28 @@ function _enable_tcp_bbr() {
     # grep 'CONFIG_TCP_CONG_BBR' /boot/config-$(uname -r)
     # grep 'CONFIG_NET_SCH_FQ' /boot/config-$(uname -r)
     # egrep 'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ' /boot/config-$(uname -r)
-    if ! grep -q -E '^net.core.default_qdisc=fq' /etc/sysctl.conf; then
-        echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-        echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
-    fi
-
     modprobe br_netfilter
-    echo "br_netfilter" >> /etc/modules
-    {
-        echo "net.bridge.bridge-nf-call-arptables = 0";
-        echo "net.bridge.bridge-nf-call-ip6tables = 0";
-        echo "net.bridge.bridge-nf-call-iptables = 0";
-        echo "net.core.rmem_max = 16777216";
-        echo "net.core.wmem_max = 16777216";
-        echo "net.ipv4.tcp_rmem = 4096 87380 16777216";
-        echo "net.ipv4.tcp_wmem = 4096 65536 16777216";
-        echo "net.ipv4.tcp_syncookies = 0" ;
-        echo "net.ipv4.tcp_mem = 50576   64768   98152" ;
-        echo "net.core.netdev_max_backlog = 2500" ;
-        echo "vm.swappiness = 1" ;
-        echo "vm.dirty_ratio = 15";
-    } >> /etc/sysctl.conf
-    sudo sysctl -p
+    mkdir -p /etc/modules-load.d
+    echo "br_netfilter" > /etc/modules-load.d/cape-kvm.conf
 
-    sudo sysctl --system
+    mkdir -p /etc/sysctl.d
+    cat > /etc/sysctl.d/60-cape-kvm.conf << 'EOF'
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.bridge.bridge-nf-call-arptables = 0
+net.bridge.bridge-nf-call-ip6tables = 0
+net.bridge.bridge-nf-call-iptables = 0
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_mem = 50576 64768 98152
+net.core.netdev_max_backlog = 2500
+vm.swappiness = 1
+vm.dirty_ratio = 15
+EOF
+    sysctl --system
 }
 
 function install_apparmor() {
@@ -303,34 +397,38 @@ function install_libvmi() {
     # The -s switch is a shorthand for -gdb tcp::1234
 
     # LibVMI
-    cd /tmp || return
+    cd "$BUILD_DIR" || return
 
-    if [ ! -d "libvmi" ]; then
+    if [ ! -d "libvmi-${libvmi_version}" ]; then
         # git clone https://github.com/libvmi/libvmi.git
-        wget -q https://github.com/libvmi/libvmi/archive/refs/tags/v0.14.0.zip -O libvmi-v0.14.0.zip
-        unzip libvmi-v0.14.0.zip
+        wget --https-only -q "https://github.com/libvmi/libvmi/archive/refs/tags/v${libvmi_version}.zip" -O "libvmi-v${libvmi_version}.zip"
+        _verify_sha256 "libvmi-v${libvmi_version}.zip" "$LIBVMI_SHA256"
+        unzip "libvmi-v${libvmi_version}.zip"
         echo "[+] Cloned LibVMI repo"
     fi
-    mkdir -p /tmp/libvmi_builded/DEBIAN
-    echo -e "Package: libvmi\nVersion: 1.0-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: libvmi" > /tmp/libvmi_builded/DEBIAN/control
-    cd "libvmi-0.14.0" || return
+    mkdir -p "${BUILD_DIR}/libvmi_builded/DEBIAN"
+    echo -e "Package: libvmi\nVersion: ${libvmi_version}-0\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: libvmi" > "${BUILD_DIR}/libvmi_builded/DEBIAN/control"
+    cd "libvmi-${libvmi_version}" || return
 
     # install deps
     aptitude install -f -y cmake flex bison libglib2.0-dev libjson-c-dev libyajl-dev doxygen
     # other deps
     aptitude install -f -y pkg-config
-    mkdir build
+    mkdir -p build
     cd build || return
     cmake -DENABLE_XEN=OFF -DENABLE_KVM=ON -DENABLE_XENSTORE=OFF -DENABLE_BAREFLANK=OFF ..
 
-    make -j"$(nproc)" install DESTDIR=/tmp/libvmi_builded
-    dpkg-deb --build --root-owner-group /tmp/libvmi_builded
-    apt-get -y -o Dpkg::Options::="--force-overwrite" install /tmp/libvmi_builded.deb
+    make -j"$(nproc)" install DESTDIR="${BUILD_DIR}/libvmi_builded"
+    dpkg-deb --build --root-owner-group "${BUILD_DIR}/libvmi_builded"
+    apt-get -y -o Dpkg::Options::="--force-overwrite" install "${BUILD_DIR}/libvmi_builded.deb"
 
     /sbin/ldconfig
 
     # LibVMI Python
-    cd /tmp || return
+    cd "$BUILD_DIR" || return
+
+    # install deps
+    aptitude install -f -y python3-pkgconfig python3-cffi python3-future
 
     if [ ! -d "python" ]; then
         # actual
@@ -341,24 +439,23 @@ function install_libvmi() {
         PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install libvmi
         echo "[+] Cloned LibVMI Python repo"
     fi
-    cd "libvmi-python" || return
-
-    # install deps
-    aptitude install -f -y python3-pkgconfig python3-cffi python3-future
-    #pip3 install .
-    python3 setup.py build
-    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install .
+    if [ -d "libvmi-python" ]; then
+        cd "libvmi-python" || return
+        #pip3 install .
+        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install .
+    fi
 
     # Rekall
-    cd /tmp || return
+    cd "$BUILD_DIR" || return
 
     if [ ! -d "rekall" ]; then
         git clone https://github.com/google/rekall.git
         echo "[+] Cloned Rekall repo"
     fi
 
-    virtualenv /tmp/MyEnv
-    source /tmp/MyEnv/bin/activate
+    virtualenv /opt/rekall-venv
+    # shellcheck source=/dev/null
+    source /opt/rekall-venv/bin/activate
     pip3 install --upgrade testresources setuptools pip wheel
     pip3 install capstone
     pip3 install --editable rekall/rekall-lib
@@ -417,6 +514,133 @@ function install_pyvmidbg() {
     # r2 -d gdb://127.0.0.1:5000 -b 64
 }
 
+function _configure_libvirt_polkit_and_apparmor() {
+    local sock_group="$1"
+
+    # Configure modular daemon Unix sockets and Polkit access control explicitly
+    local daemon_conf
+    for daemon_conf in \
+        /etc/libvirt/virtqemud.conf \
+        /etc/libvirt/virtnetworkd.conf \
+        /etc/libvirt/virtstoraged.conf \
+        /etc/libvirt/libvirtd.conf; do
+        if [ -f "$daemon_conf" ]; then
+            _set_conf_kv "$daemon_conf" "unix_sock_group" "\"${sock_group}\""
+            _set_conf_kv "$daemon_conf" "unix_sock_ro_perms" '"0770"'
+            _set_conf_kv "$daemon_conf" "unix_sock_rw_perms" '"0770"'
+            _set_conf_kv "$daemon_conf" "auth_unix_ro" '"polkit"'
+            _set_conf_kv "$daemon_conf" "auth_unix_rw" '"polkit"'
+        fi
+    done
+
+    for daemon_conf in /etc/libvirt/virtqemud.conf /etc/libvirt/libvirtd.conf; do
+        if [ -f "$daemon_conf" ]; then
+            _set_conf_kv "$daemon_conf" "access_drivers" '[ "polkit" ]'
+        fi
+    done
+
+    # Enforce 0660 group socket ownership at the systemd socket layer as defense-in-depth
+    local sock_unit
+    for sock_unit in virtqemud.socket virtqemud-ro.socket virtnetworkd.socket virtstoraged.socket; do
+        mkdir -p "/etc/systemd/system/${sock_unit}.d"
+        cat > "/etc/systemd/system/${sock_unit}.d/override.conf" << EOF
+[Socket]
+SocketGroup=${sock_group}
+SocketMode=0660
+EOF
+    done
+
+    # Install fine-grained Polkit rules: restrict CAPE service user to runtime VM lifecycle,
+    # snapshot, screenshot, VNC graphics, and memory-dump APIs (blocking domain.write / host disk attach).
+    install -d -m 0755 /etc/polkit-1/rules.d
+    cat > /etc/polkit-1/rules.d/50-cape-libvirt.rules << EOF
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.libvirt.unix.manage" || action.id == "org.libvirt.unix.monitor") {
+        if (subject.user == "${CAPE_USER}" ||
+            subject.isInGroup("libvirt") ||
+            subject.isInGroup("libvirtd") ||
+            subject.isInGroup("sudo")) {
+            return polkit.Result.YES;
+        }
+    }
+
+    if (action.id.indexOf("org.libvirt.api.") === 0) {
+        if (subject.user == "${CAPE_USER}") {
+            var allowed = [
+                "org.libvirt.api.connect.getattr",
+                "org.libvirt.api.connect.read",
+                "org.libvirt.api.connect.search-domains",
+                "org.libvirt.api.domain.getattr",
+                "org.libvirt.api.domain.read",
+                "org.libvirt.api.domain.start",
+                "org.libvirt.api.domain.stop",
+                "org.libvirt.api.domain.reset",
+                "org.libvirt.api.domain.save",
+                "org.libvirt.api.domain.hibernate",
+                "org.libvirt.api.domain.snapshot",
+                "org.libvirt.api.domain.screenshot",
+                "org.libvirt.api.domain.core-dump",
+                "org.libvirt.api.domain.open-graphics"
+            ];
+            if (allowed.indexOf(action.id) !== -1) {
+                return polkit.Result.YES;
+            }
+            return polkit.Result.NO;
+        }
+
+        if (subject.isInGroup("libvirt") ||
+            subject.isInGroup("libvirtd") ||
+            subject.isInGroup("sudo")) {
+            return polkit.Result.YES;
+        }
+    }
+});
+EOF
+    chmod 0644 /etc/polkit-1/rules.d/50-cape-libvirt.rules
+    chown root:root /etc/polkit-1/rules.d/50-cape-libvirt.rules
+
+    # Configure non-root QEMU execution, AppArmor enforcement, and seccomp sandboxing
+    _set_conf_kv /etc/libvirt/qemu.conf "security_driver" '"apparmor"'
+    _set_conf_kv /etc/libvirt/qemu.conf "user" "\"${QEMU_USER}\""
+    _set_conf_kv /etc/libvirt/qemu.conf "group" "\"${QEMU_GROUP}\""
+    _set_conf_kv /etc/libvirt/qemu.conf "dynamic_ownership" "1"
+    _set_conf_kv /etc/libvirt/qemu.conf "remember_owner" "1"
+    _set_conf_kv /etc/libvirt/qemu.conf "seccomp_sandbox" "1"
+
+    # Allow non-root QEMU under AppArmor to write CAPEv2 guest memory dumps without disabling enforcement
+    install -d -m 0755 /etc/apparmor.d/local/abstractions
+    local aa_local="/etc/apparmor.d/local/abstractions/libvirt-qemu"
+    touch "$aa_local"
+    local dump_rule="${CAPE_STORAGE_DIR}/analyses/*/memory.dmp rwk,"
+    if ! grep -qxF "$dump_rule" "$aa_local" 2>/dev/null; then
+        echo "$dump_rule" >> "$aa_local"
+    fi
+    if [ -f /etc/apparmor.d/abstractions/libvirt-qemu ] \
+        && ! grep -q "local/abstractions/libvirt-qemu" /etc/apparmor.d/abstractions/libvirt-qemu; then
+        echo "  include if exists <local/abstractions/libvirt-qemu>" >> /etc/apparmor.d/abstractions/libvirt-qemu
+    fi
+
+    local aa_profile
+    for aa_profile in \
+        /etc/apparmor.d/usr.sbin.virtqemud \
+        /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper \
+        /etc/apparmor.d/usr.libexec.virt-aa-helper; do
+        if [ -f "$aa_profile" ]; then
+            apparmor_parser -r "$aa_profile" 2>/dev/null || true
+            if command -v aa-enforce >/dev/null 2>&1; then
+                aa-enforce "$aa_profile" 2>/dev/null || true
+            fi
+        fi
+    done
+}
+
+function _enable_modular_libvirt_services() {
+    systemctl daemon-reload
+    systemctl disable --now libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket 2>/dev/null || true
+    systemctl enable virtlogd.socket virtlockd.socket virtqemud.socket virtqemud-ro.socket virtnetworkd.socket virtstoraged.socket
+    systemctl restart virtlogd.socket virtlockd.socket virtqemud.socket virtqemud-ro.socket virtnetworkd.socket virtstoraged.socket
+}
+
 function install_libvirt() {
     # http://ask.xmodulo.com/compile-virt-manager-debian-ubuntu.html
     #rm -r /usr/local/lib/python2.7/dist-packages/libvirt*
@@ -465,14 +689,15 @@ EOH
     echo "[+] Checking/deleting old versions of Libvirt"
     apt-get purge libvirt0 libvirt-bin libvirt-$libvirt_version 2>/dev/null
     dpkg -l|grep "libvirt-[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
-    apt-get install meson plocate libxml2-utils gnutls-bin  gnutls-dev libxml2-dev bash-completion libreadline-dev numactl libnuma-dev python3-docutils flex libjson-c-dev pylint pycodestyle -y
+    apt-get install meson plocate libxml2-utils gnutls-bin  gnutls-dev libxml2-dev bash-completion libreadline-dev numactl libnuma-dev python3-docutils flex libjson-c-dev pylint pycodestyle polkitd -y
     # Remove old links
     updatedb
     temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
     libvirt_so_path="${temp_libvirt_so_path%/*}/"
 
     if [[ -n "$libvirt_so_path" ]]; then
-        for so_path in $(ls "${libvirt_so_path}"libvirt*.so.0);  do
+        for so_path in "${libvirt_so_path}"libvirt*.so.0; do
+            [ -e "$so_path" ] || continue
             dest_path=/lib/$(uname -m)-linux-gnu/$(basename "$so_path")
             if [ -f "$dest_path" ]; then
                 rm "$dest_path"
@@ -480,21 +705,38 @@ EOH
         done
     fi
 
-    cd /tmp || return
-    if [ -f  libvirt-$libvirt_version.tar.xz ]; then
-        rm -r libvirt-$libvirt_version
-    else
-        wget -q https://libvirt.org/sources/libvirt-$libvirt_version.tar.xz
-        wget -q https://libvirt.org/sources/libvirt-$libvirt_version.tar.xz.asc
-        gpg --verify "libvirt-$libvirt_version.tar.xz.asc"
+    cd "$BUILD_DIR" || return
+    if [ -d "libvirt-$libvirt_version" ]; then
+        rm -rf "libvirt-$libvirt_version"
     fi
-    tar xf libvirt-$libvirt_version.tar.xz
-    cd libvirt-$libvirt_version || return
+    if ! wget --https-only -q "https://download.libvirt.org/libvirt-$libvirt_version.tar.xz"; then
+        wget --https-only -q "https://libvirt.org/sources/libvirt-$libvirt_version.tar.xz"
+    fi
+    if ! wget --https-only -q "https://download.libvirt.org/libvirt-$libvirt_version.tar.xz.asc"; then
+        wget --https-only -q "https://libvirt.org/sources/libvirt-$libvirt_version.tar.xz.asc"
+    fi
+    if [ ! -f "libvirt-$libvirt_version.tar.xz" ] || [ ! -f "libvirt-$libvirt_version.tar.xz.asc" ]; then
+        echo "[-] Failed to download libvirt-$libvirt_version source or signature"
+        exit 1
+    fi
+    _verify_sha256 "libvirt-$libvirt_version.tar.xz" "$LIBVIRT_SHA256"
+    _verify_gpg_sig "libvirt-$libvirt_version.tar.xz" "libvirt-$libvirt_version.tar.xz.asc" "$LIBVIRT_GPG_KEY"
+    tar xf "libvirt-$libvirt_version.tar.xz"
+    cd "libvirt-$libvirt_version" || return
+    local export_path=""
     if [ "$OS" = "Linux" ]; then
-        aptitude install -f plocate iptables python3-dev unzip numad libglib2.0-dev libsdl1.2-dev lvm2 python3-pip ebtables libosinfo-1.0-dev libnl-3-dev libnl-route-3-dev libyajl-dev xsltproc libdevmapper-dev libpciaccess-dev dnsmasq dmidecode librbd-dev libtirpc-dev -y 2>/dev/null
+        aptitude install -f plocate iptables python3-dev unzip numad libglib2.0-dev libsdl1.2-dev lvm2 python3-pip ebtables libosinfo-1.0-dev libnl-3-dev libnl-route-3-dev libyajl-dev xsltproc libdevmapper-dev libpciaccess-dev dnsmasq dmidecode libtirpc-dev -y 2>/dev/null
 
         # see https://github.com/doomedraven/Tools/issues/100
         install_apparmor
+
+        # Ensure libvirt, kvm, and unprivileged QEMU user exist prior to meson setup
+        getent group "$QEMU_GROUP" >/dev/null || groupadd "$QEMU_GROUP"
+        getent group kvm >/dev/null || groupadd --system kvm
+        if ! id "$QEMU_USER" >/dev/null 2>&1; then
+            useradd --system --home-dir /var/lib/libvirt --no-create-home --shell /usr/sbin/nologin -g "$QEMU_GROUP" "$QEMU_USER"
+        fi
+        usermod -a -G kvm "$QEMU_USER"
 
         PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install ipaddr ninja meson flake8 -U
         # --prefix=/usr --localstatedir=/var --sysconfdir=/etc
@@ -502,105 +744,80 @@ EOH
         #git remote add doomedraven https://github.com/libvirt/libvirt
         # To see whole config sudo meson configure
         # true now is enabled
-        cd /tmp/libvirt-$libvirt_version || return
-        sudo meson setup build -D system=true -D driver_remote=enabled -D driver_qemu=enabled -D driver_libvirtd=enabled -D qemu_group=libvirt -D qemu_user=root -D secdriver_apparmor=enabled -D apparmor_profiles=enabled -D bash_completion=auto
+        cd "${BUILD_DIR}/libvirt-$libvirt_version" || return
+        local multiarch_libdir
+        multiarch_libdir="lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+        meson setup build \
+            -D system=true \
+            -D libdir="$multiarch_libdir" \
+            -D driver_remote=enabled \
+            -D driver_qemu=enabled \
+            -D driver_libvirtd=disabled \
+            -D qemu_group="$QEMU_GROUP" \
+            -D qemu_user="$QEMU_USER" \
+            -D apparmor=enabled \
+            -D secdriver_apparmor=enabled \
+            -D apparmor_profiles=enabled \
+            -D polkit=enabled \
+            -D bash_completion=auto
 
-        sudo ninja -C build
-        sudo ninja -C build install
-        if  [ $? -ne 0 ]; then
-            echo "${RED}Failed. Read the instalation log for details${NC}"
+        if ! ninja -C build || ! ninja -C build install; then
+            echo -e "${RED}Failed. Read the instalation log for details${NC}"
             exit 1
         fi
 
         cd ..
-
+        ldconfig
         updatedb
         # ToDo fix bad destiny on some systems, example, first arg should be destiny to link not source
         # /usr/lib/x86_64-linux-gnu/libvirt-qemu.so.0 -> /usr/lib64/libvirt-qemu.so
-        temp_libvirt_so_path=$(locate libvirt-qemu.so |grep -v "docker"| head -n1 | awk '{print $1;}')
-        temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
-        libvirt_so_path="${temp_libvirt_so_path%/*}/"
-        if [[ $libvirt_so_path == "/usr/lib/x86_64-linux-gnu/" ]]; then
-            temp_libvirt_so_path=$(locate libvirt-qemu.so |grep -v "docker"| tail -1 | awk '{print $1;}')
-            libvirt_so_path="${temp_libvirt_so_path%/*}/"
+        # #ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
+        # 24.10.2024 Observed problem with ln -sf, but works just fine with cp
+        export_path="/usr/${multiarch_libdir}/pkgconfig"
+        if [ ! -f "${export_path}/libvirt.pc" ]; then
+            temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
+            export_path="${temp_export_path%/*}"
         fi
-        export_path="${temp_export_path%/*}/"
-        export PKG_CONFIG_PATH=$export_path
-
-        if [[ -n "$libvirt_so_path" ]]; then
-            # #ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
-            # 24.10.2024 Observed problem with ln -sf, but works just fine with cp
-            for so_path in $(ls "${libvirt_so_path}"libvirt*.so.0); do echo $so_path; cp "$so_path" /lib/$(uname -m)-linux-gnu/$(basename "$so_path"); done
-            ldconfig
-        else
-            echo "${RED}[!] Problem to create symlink, unknown libvirt_so_path path${NC}"
-            exit 1
-        fi
+        export PKG_CONFIG_PATH="${export_path}${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
     fi
 
     # https://wiki.archlinux.org/index.php/Libvirt#Using_polkit
-    if [ -f /etc/libvirt/libvirtd.conf ]; then
-        path="/etc/libvirt/libvirtd.conf"
-    elif [ -f /usr/local/etc/libvirt/libvirtd.conf ]; then
-        path="/usr/local/etc/libvirt/libvirtd.conf"
-    fi
-
-    sed -i 's/#unix_sock_group/unix_sock_group/g' /etc/libvirt/*.conf
-    sed -i 's/#unix_sock_ro_perms = "0777"/unix_sock_ro_perms = "0770"/g' /etc/libvirt/*.conf
-    sed -i 's/#unix_sock_rw_perms = "0770"/unix_sock_rw_perms = "0770"/g' /etc/libvirt/*.conf
-    sed -i 's/#auth_unix_ro = "none"/auth_unix_ro = "none"/g' /etc/libvirt/*.conf
-    sed -i 's/#auth_unix_rw = "none"/auth_unix_rw = "none"/g' /etc/libvirt/*.conf
-    sed -i 's/#auth_unix_ro = "polkit"/auth_unix_ro = "none"/g' /etc/libvirt/*.conf
-    sed -i 's/#auth_unix_rw = "polkit"/auth_unix_rw = "none"/g' /etc/libvirt/*.conf
-
     #echo "[+] Setting AppArmor for libvirt/kvm/qemu"
-    sed -i 's/#security_driver = "selinux"/security_driver = "apparmor"/g' /etc/libvirt/qemu.conf
     # https://gitlab.com/apparmor/apparmor/wikis/Libvirt
-    FILES=(
-        /etc/apparmor.d/usr.sbin.libvirtd
-        /usr/sbin/libvirtd
-        /usr/libexec/virt-aa-helper
-    )
-    for file in "${FILES[@]}"; do
-        if [ -f "$file" ]; then
-            sudo aa-complain "$file"
-        fi
-    done
 
-    cd /tmp || return
-
-    if [ ! -f v$libvirt_version.zip ]; then
-        wget -q https://github.com/libvirt/libvirt-python/archive/v$libvirt_version.zip
-    fi
-    if [ -d "libvirt-python-$libvirt_version" ]; then
-        rm -r "libvirt-python-$libvirt_version"
-    fi
-    unzip v$libvirt_version.zip
-    cd "libvirt-python-$libvirt_version" || return
-    python3 setup.py build
-    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install .
-
-    cd ..
+    cd "$BUILD_DIR" || return
     # Remove the $libvirt_version directory to permission errors when runing
     # cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/poetry_libvirt_installer.sh later
-    rm -r libvirt-python-$libvirt_version
+    if ! PKG_CONFIG_PATH="$export_path" PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install "libvirt-python==${libvirt_version}"; then
+        wget --https-only -q "https://github.com/libvirt/libvirt-python/archive/refs/tags/v${libvirt_version}.zip" -O "v${libvirt_version}.zip"
+        unzip "v${libvirt_version}.zip"
+        cd "libvirt-python-${libvirt_version}" || return
+        PKG_CONFIG_PATH="$export_path" PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install .
+        cd "$BUILD_DIR" || return
+        rm -rf "libvirt-python-${libvirt_version}"
+    fi
 
     if [ "$OS" = "Linux" ]; then
         # https://github.com/libvirt/libvirt/commit/e94979e901517af9fdde358d7b7c92cc055dd50c
         groupname=""
-        if grep -q -E '^libvirtd:' /etc/group; then
-            groupname="libvirtd"
-        elif grep -q -E '^libvirt:' /etc/group; then
+        if grep -q -E '^libvirt:' /etc/group; then
             groupname="libvirt"
+        elif grep -q -E '^libvirtd:' /etc/group; then
+            groupname="libvirtd"
         else
             # create group if missed
             groupname="libvirt"
             groupadd libvirt
         fi
-        usermod -G $groupname -a "$(whoami)"
+        usermod -G "$groupname" -a "$(whoami)"
         if [[ -n "$username" ]]; then
-            usermod -G $groupname -a "$username"
+            usermod -G "$groupname" -a "$username"
         fi
+        if id "$CAPE_USER" >/dev/null 2>&1; then
+            usermod -G "$groupname" -a "$CAPE_USER"
+        fi
+
+        _configure_libvirt_polkit_and_apparmor "$groupname"
 
         # check links
         # sudo ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
@@ -608,11 +825,10 @@ EOH
 
         # On Ubuntu 24.04 it introduces /etc/libvirt/network.conf
         if [ -f /etc/libvirt/network.conf ]; then
-            sed -i 's/#firewall_backend = "nftables"/firewall_backend = "iptables"/g' /etc/libvirt/network.conf
+            _set_conf_kv /etc/libvirt/network.conf "firewall_backend" '"iptables"'
         fi
 
-        systemctl enable virtqemud.service virtnetworkd.service virtstoraged.service virtqemud.socket libvirtd.service
-        systemctl start libvirtd.service
+        _enable_modular_libvirt_services
         echo "[+] You should logout and login "
     fi
 
@@ -672,7 +888,7 @@ function install_virt_manager() {
     PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install tqdm requests six urllib3 ipaddr ipaddress idna dbus-python certifi lxml cryptography pyOpenSSL chardet asn1crypto pycairo PySocks PyGObject pylint pytest
 
     # not available in 22.04
-    if [ $(lsb_release -sc) != "jammy" ]; then
+    if [ "$(lsb_release -sc)" != "jammy" ]; then
         aptitude -f install python-enum34 libxenstore3.0 libnetcf1 libcroco3 libappindicator3-1 python-enum34-doc -y
     fi
 
@@ -684,11 +900,11 @@ function install_virt_manager() {
     export_path="${temp_export_path%/*}/"
     export PKG_CONFIG_PATH=$export_path
 
-    cd /tmp || return
+    cd "$BUILD_DIR" || return
     if [ ! -d "libvirt-glib" ]; then
         git clone https://gitlab.com/libvirt/libvirt-glib.git
     fi
-    cd libvirt-glib
+    cd libvirt-glib || return
     meson setup builddir
     meson compile -C builddir
     sudo ninja -C builddir install
@@ -700,6 +916,7 @@ function install_virt_manager() {
     cp builddir/libvirt-glib/LibvirtGLib-1.0.typelib /usr/lib/girepository-1.0/
     /sbin/ldconfig
 
+    cd "$BUILD_DIR" || return
     if [ ! -d "virt-manager" ]; then
         git clone https://github.com/virt-manager/virt-manager.git
         echo "[+] Cloned Virt Manager repo"
@@ -717,8 +934,7 @@ function install_virt_manager() {
     fi
 
     sudo glib-compile-schemas --strict /usr/share/glib-2.0/schemas/
-    systemctl enable virtstoraged.service && systemctl start virtstoraged.service
-    systemctl enable libvirtd.service && systemctl start libvirtd.service
+    _enable_modular_libvirt_services
 
     # i440FX-Issue Win7: Unable to complete install: 'XML error: The PCI controller with index='0' must be model='pci-root' for this machine type, but model='pcie-root' was found instead'
     # Workaround: Edit Overiew in XML view and delete all controller entries with type="pci"
@@ -737,25 +953,28 @@ function install_kvm_linux() {
     aptitude install -f gcc make gnutls-bin -y
     install_libvirt
 
-    systemctl enable libvirtd.service virtlogd.socket
-    systemctl restart libvirtd.service virtlogd.socket
+    _enable_modular_libvirt_services
 
     kvm-ok
 
-    if ! grep -q -E '^net.bridge.bridge-nf-call-ip6tables' /etc/sysctl.conf; then
-        cat >> /etc/sysctl.conf << EOF
+    mkdir -p /etc/sysctl.d
+    cat > /etc/sysctl.d/60-cape-kvm-bridge.conf << 'EOF'
 net.bridge.bridge-nf-call-ip6tables = 0
 net.bridge.bridge-nf-call-iptables = 0
 net.bridge.bridge-nf-call-arptables = 0
 EOF
-    fi
+    sysctl --system
+
     # Ubuntu 18.04:
     # /dev/kvm permissions always changed to root after reboot
     # "chown root:libvirt /dev/kvm" doesnt help
-    addgroup kvm
+    getent group kvm >/dev/null || addgroup kvm
     usermod -a -G kvm "$(whoami)"
     if [[ -n "$username" ]]; then
         usermod -a -G kvm "$username"
+    fi
+    if id "$QEMU_USER" >/dev/null 2>&1; then
+        usermod -a -G kvm "$QEMU_USER"
     fi
     chgrp kvm /dev/kvm
     if [ ! -f /etc/udev/rules.d/50-qemu-kvm.rules ]; then
@@ -849,24 +1068,25 @@ function replace_seabios_clues_public() {
 }
 
 function install_qemu() {
-    cd /tmp || return
+    cd "$BUILD_DIR" || return
 
     echo '[+] Cleaning QEMU old install if exists'
     rm -r /usr/share/qemu >/dev/null 2>&1
     dpkg -r ubuntu-vm-builder python-vm-builder >/dev/null 2>&1
-    dpkg -l |grep qemu |cut -d " " -f 3|xargs dpkg --purge --force-all >/dev/null 2>&1
+    dpkg -l |grep qemu |cut -d " " -f 3|xargs -r dpkg --purge --force-all >/dev/null 2>&1
 
     echo '[+] Downloading QEMU source code'
-    if [ ! -f qemu-$qemu_version.tar.xz ]; then
-        wget -q "https://download.qemu.org/qemu-$qemu_version.tar.xz"
-        wget -q "https://download.qemu.org/qemu-$qemu_version.tar.xz.sig"
-        gpg --verify "qemu-$qemu_version.tar.xz.sig"
+    if [ ! -f "qemu-$qemu_version.tar.xz" ]; then
+        wget --https-only -q "https://download.qemu.org/qemu-$qemu_version.tar.xz"
+        wget --https-only -q "https://download.qemu.org/qemu-$qemu_version.tar.xz.sig"
     fi
 
-    if [ ! -f qemu-$qemu_version.tar.xz ]; then
+    if [ ! -f "qemu-$qemu_version.tar.xz" ] || [ ! -f "qemu-$qemu_version.tar.xz.sig" ]; then
         echo "[-] Download qemu-$qemu_version failed"
-        exit
+        exit 1
     fi
+    _verify_sha256 "qemu-$qemu_version.tar.xz" "$QEMU_SHA256"
+    _verify_gpg_sig "qemu-$qemu_version.tar.xz" "qemu-$qemu_version.tar.xz.sig" "$QEMU_GPG_KEY"
 
     if ! tar xf "qemu-$qemu_version.tar.xz" ; then
         echo "[-] Failed to extract, check if download was correct"
@@ -878,10 +1098,12 @@ function install_qemu() {
         aptitude install -f software-properties-common -y
         add-apt-repository universe -y
         apt-get update 2>/dev/null
-        aptitude install -f python3-pip ninja-build libssh2-1-dev vde2 liblzo2-dev libghc-gtk3-dev libsnappy-dev libbz2-dev libxml2-dev google-perftools libgoogle-perftools-dev libvde-dev python3-sphinx-rtd-theme -y
-        aptitude install -f debhelper libusb-1.0-0-dev libxen-dev uuid-dev xfslibs-dev libjpeg-dev libusbredirparser-dev device-tree-compiler texinfo libbluetooth-dev libbrlapi-dev libcap-ng-dev libcurl4-gnutls-dev libfdt-dev gnutls-dev libiscsi-dev libncurses5-dev libnuma-dev libcacard-dev librados-dev librbd-dev libsasl2-dev libseccomp-dev libspice-server-dev libaio-dev libcap-dev libattr1-dev libpixman-1-dev libgtk2.0-bin  libxml2-utils systemtap-sdt-dev uml-utilities libcapstone-dev -y
+        aptitude install -f python3-pip ninja-build liblzo2-dev libsnappy-dev libbz2-dev libxml2-dev google-perftools libgoogle-perftools-dev python3-sphinx-rtd-theme perl -y
+        aptitude install -f debhelper libusb-1.0-0-dev uuid-dev xfslibs-dev libjpeg-dev device-tree-compiler texinfo libcap-ng-dev libfdt-dev gnutls-dev libncurses5-dev libnuma-dev libsasl2-dev libseccomp-dev libaio-dev libcap-dev libattr1-dev libpixman-1-dev libxml2-utils systemtap-sdt-dev uml-utilities libcapstone-dev -y
+        if [ "$ENABLE_SPICE" -eq 1 ]; then
+            aptitude install -f libspice-server-dev -y
+        fi
         # qemu docs required
-        PERL_MM_USE_DEFAULT=1 perl -MCPAN -e install "Perl/perl-podlators"
         PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install sphinx ninja
     fi
     # WOOT
@@ -895,67 +1117,110 @@ function install_qemu() {
             replace_qemu_clues_public
         fi
 
-        cd qemu-$qemu_version/roms/ || exit 1
+        cd "qemu-$qemu_version/roms/" || exit 1
         echo '[+] Making bios.bin ...'
-        sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' ./config.seabios-microvm
-        sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' ./config.seabios-128k
-        sed -i 's/PYTHON=python/PYTHON=python3/g' seabios/Makefile
-        PIP_BREAK_SYSTEM_PACKAGES=1 make bios
-        if [ $? -eq 0 ]; then
+        _sed_aux 's/CONFIG_XEN=y/CONFIG_XEN=n/g' ./config.seabios-microvm 'CONFIG_XEN was not updated in config.seabios-microvm'
+        _sed_aux 's/CONFIG_XEN=y/CONFIG_XEN=n/g' ./config.seabios-128k 'CONFIG_XEN was not updated in config.seabios-128k'
+        _sed_aux 's/PYTHON=python/PYTHON=python3/g' seabios/Makefile 'PYTHON was not updated in seabios/Makefile'
+        if PIP_BREAK_SYSTEM_PACKAGES=1 make bios; then
             echo '[+] Completed '
         else
-            echo '[-] Failed $?'
+            echo "[-] Failed $?"
         fi
 
         echo '[+] Making vgabios bins...'
-        PIP_BREAK_SYSTEM_PACKAGES=1 make vgabios
-        if [ $? -eq 0 ]; then
+        if PIP_BREAK_SYSTEM_PACKAGES=1 make vgabios; then
             echo '[+] Completed '
         else
-            echo '[-] Failed $?'
+            echo "[-] Failed $?"
         fi
 
-        cd -
+        cd - || exit 1
 
         # ToDo reintroduce it?
         #if [ $fail -eq 0 ]; then
             echo '[+] Starting compile it'
-            cd qemu-$qemu_version || return
+            cd "qemu-$qemu_version" || return
+            local spice_flag="--disable-spice"
+            if [ "$ENABLE_SPICE" -eq 1 ]; then
+                spice_flag="--enable-spice"
+            fi
             # add in future --enable-netmap https://sgros-students.blogspot.com/2016/05/installing-and-testing-netmap.html
             # remove --target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux-user  if you want all targets
-                ./configure $QTARGETS --prefix=/usr --libexecdir=/usr/lib/qemu --localstatedir=/var --bindir=/usr/bin/ --enable-gnutls --enable-docs --enable-gtk --enable-vnc --enable-vnc-sasl --enable-curl --enable-kvm  --enable-linux-aio --enable-cap-ng --enable-vhost-net --enable-vhost-crypto --enable-spice --enable-usb-redir --enable-lzo --enable-snappy --enable-bzip2 --enable-coroutine-pool --enable-replication --enable-tools
+                # shellcheck disable=SC2086
+                ./configure $QTARGETS \
+                    --prefix=/usr \
+                    --libexecdir=/usr/lib/qemu \
+                    --localstatedir=/var \
+                    --bindir=/usr/bin/ \
+                    --enable-gnutls \
+                    --enable-docs \
+                    --enable-vnc \
+                    --enable-vnc-sasl \
+                    --enable-kvm \
+                    --enable-linux-aio \
+                    --enable-cap-ng \
+                    --enable-seccomp \
+                    --enable-vhost-net \
+                    --enable-lzo \
+                    --enable-snappy \
+                    --enable-bzip2 \
+                    --enable-coroutine-pool \
+                    --enable-tools \
+                    --disable-gtk \
+                    --disable-sdl \
+                    --disable-usb-redir \
+                    --disable-curl \
+                    --disable-libssh \
+                    --disable-libiscsi \
+                    --disable-rbd \
+                    --disable-xen \
+                    --disable-smartcard \
+                    --disable-brlapi \
+                    --disable-vde \
+                    --disable-replication \
+                    --disable-vhost-crypto \
+                    "$spice_flag"
                 #  --enable-capstone
-            if  [ $? -eq 0 ]; then
+            if [ $? -eq 0 ]; then
                 echo '[+] Starting Install it'
                 if [ -f /usr/share/qemu/qemu_logo_no_text.svg ]; then
                     rm /usr/share/qemu/qemu_logo_no_text.svg
                 fi
-                mkdir -p /tmp/qemu-"$qemu_version"_builded/DEBIAN
-                echo -e "Package: qemu\nVersion: $qemu_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom antivm qemu" > /tmp/qemu-"$qemu_version"_builded/DEBIAN/control
-                make -j"$(nproc)" install DESTDIR=/tmp/qemu-"$qemu_version"_builded
+                local qemu_pkg_dir="${BUILD_DIR}/qemu-${qemu_version}_builded"
+                mkdir -p "${qemu_pkg_dir}/DEBIAN"
+                echo -e "Package: qemu\nVersion: $qemu_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: Custom antivm qemu" > "${qemu_pkg_dir}/DEBIAN/control"
+                make -j"$(nproc)" install DESTDIR="$qemu_pkg_dir"
+                local install_rc=0
                 if [ "$OS" = "Linux" ]; then
-                    dpkg-deb --build --root-owner-group /tmp/qemu-"$qemu_version"_builded
-                    apt-get -y -o Dpkg::Options::="--force-overwrite" install /tmp/qemu-"$qemu_version"_builded.deb
+                    dpkg-deb --build --root-owner-group "$qemu_pkg_dir"
+                    apt-get -y -o Dpkg::Options::="--force-overwrite" install "${qemu_pkg_dir}.deb"
+                    install_rc=$?
                 elif [ "$OS" = "Darwin" ]; then
                     make -j"$(nproc)" install
+                    install_rc=$?
                 fi
                 # hack for libvirt/virt-manager
-                if [ ! -L /usr/bin/qemu-system-x86_64-spice ]; then
-                    ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
-                fi
-                if [ ! -L /usr/bin/kvm-spice ]; then
-                    ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm-spice
+                if [ "$ENABLE_SPICE" -eq 1 ]; then
+                    if [ ! -L /usr/bin/qemu-system-x86_64-spice ]; then
+                        ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
+                    fi
+                    if [ ! -L /usr/bin/kvm-spice ]; then
+                        ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm-spice
+                    fi
                 fi
                 if [ ! -L /usr/bin/kvm ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm
                 fi
-                if  [ $? -eq 0 ]; then
+                if [ $install_rc -eq 0 ]; then
                     echo '[+] Patched, compiled and installed'
                 else
                     echo '[-] Install failed'
+                    exit 1
                 fi
             else
                 echo '[-] Compilling failed'
+                exit 1
             fi
         #else
         #    echo '[-] Check previous output'
@@ -965,22 +1230,27 @@ function install_qemu() {
     #else
     #    echo '[-] Download QEMU source was not possible'
     #fi
-    if [ "$OS" = "linux" ]; then
-        dpkg --get-selections | grep "qemu" | xargs apt-mark hold
-        dpkg --get-selections | grep "libvirt" | xargs apt-mark hold
+    if [ "$OS" = "Linux" ]; then
+        dpkg --get-selections | awk '/qemu/ {print $1}' | xargs -r apt-mark hold
+        dpkg --get-selections | awk '/libvirt/ {print $1}' | xargs -r apt-mark hold
         # apt-mark unhold qemu libvirt
     fi
 
 }
 
 function install_seabios() {
-    cd /tmp || return
+    cd "$BUILD_DIR" || return
     echo '[+] Installing SeaBios dependencies'
     aptitude install -f git acpica-tools -y
     if [ ! -f "seabios_${seabios_version}.tar.gz" ]; then
-        rm "seabios_${seabios_version}"
-        wget https://github.com/coreboot/seabios/archive/refs/tags/rel-${seabios_version}.tar.gz -O "seabios_${seabios_version}.tar.gz"
+        rm -rf "seabios-rel-${seabios_version}"
+        wget --https-only -q "https://github.com/coreboot/seabios/archive/refs/tags/rel-${seabios_version}.tar.gz" -O "seabios_${seabios_version}.tar.gz"
     fi
+    if [ ! -f "seabios_${seabios_version}.tar.gz" ]; then
+        echo "[-] Download seabios_${seabios_version}.tar.gz failed"
+        exit 1
+    fi
+    _verify_sha256 "seabios_${seabios_version}.tar.gz" "$SEABIOS_SHA256"
 
     if tar xf "seabios_${seabios_version}.tar.gz"; then
         cd "seabios-rel-${seabios_version}" || return
@@ -992,8 +1262,8 @@ function install_seabios() {
         # make help
         # make menuconfig -> BIOS tables -> disable Include default ACPI DSDT
         # get rid of this hack
-        sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config
-        sed -i 's/PYTHON=python/PYTHON=python3/g' Makefile
+        _sed_aux 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config 'CONFIG_XEN was not updated in .config'
+        _sed_aux 's/PYTHON=python/PYTHON=python3/g' Makefile 'PYTHON was not updated in Makefile'
         # PIP_BREAK_SYSTEM_PACKAGES=1 make -j"$(nproc)" 2>/dev/null
         # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
         # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
@@ -1014,8 +1284,8 @@ function install_seabios() {
             )
             for file in "${FILES[@]}"; do
                 cp -vf out/bios.bin "$file"
-                SHA256_BIOS_TMP=$(shasum -a 256 $file|awk '{print $1}')
-                if [[ $SHA256_BIOS_TMP != $SHA256_BIOS ]]; then
+                SHA256_BIOS_TMP=$(shasum -a 256 "$file"|awk '{print $1}')
+                if [[ $SHA256_BIOS_TMP != "$SHA256_BIOS" ]]; then
                     echo "[-] BIOS hashes doesn't match: $SHA256_BIOS - $SHA256_BIOS_TMP"
                     bios=0
                 else
@@ -1043,9 +1313,9 @@ function install_seabios() {
 }
 
 function enable_sysrq(){
-    if ! grep -q -E '^kernel.sysrq=1' /etc/sysctl.conf; then
-        echo "kernel.sysrq=1" >> /etc/sysctl.conf
-    fi
+    mkdir -p /etc/sysctl.d
+    echo "kernel.sysrq = 176" > /etc/sysctl.d/60-cape-sysrq.conf
+    sysctl --system
 }
 
 function issues(){
@@ -1197,31 +1467,38 @@ function cloning() {
         exit 1
     fi
 
-    which virt-manager 2>/dev/null
-    if [ $? -eq 1 ]; then
+    if ! command -v virt-manager >/dev/null 2>&1; then
         echo "You need to install virt-manager. Run sudo $0 virtmanager"
         exit 1
     fi
 
-    virsh net-list --all|grep hostonly
-    if [ $? -eq 1 ]; then
-        cat > /tmp/hostonly.xml << EOF
+    local net_base="${6:-$VM_NETWORK_RANGE}"
+    local hostonly_xml="${BUILD_DIR}/hostonly.xml"
+    local dns_block=""
+    local route_block=""
+    if [ "$HOSTONLY_DNS_FORWARD" -eq 1 ]; then
+        dns_block="  <dns>
+    <forwarder addr='${DNS_PRIMARY}'/>
+    <forwarder addr='${DNS_SECONDARY}'/>
+  </dns>"
+        route_block="  <route address='0.0.0.0' prefix='24' gateway='${net_base}.1'/>"
+    fi
+
+    if ! virsh net-list --all | grep -q hostonly; then
+        cat > "$hostonly_xml" << EOF
 <network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'>
   <name>hostonly</name>
   <uuid>9385b182-075b-429e-a089-4b05374e87c2</uuid>
   <bridge name='virbr1' stp='on' delay='0'/>
   <mac address='12:22:34:44:56:66'/>
   <domain name='hostonly'/>
-  <dns>
-    <forwarder addr='${DNS_PRIMARY}'/>
-    <forwarder addr='${DNS_SECONDARY}'/>
-  </dns>
-  <ip address='${VM_NETWORK_RANGE}.1' netmask='255.255.255.0'>
+${dns_block}
+  <ip address='${net_base}.1' netmask='255.255.255.0'>
     <dhcp>
-      <range start='${VM_NETWORK_RANGE}.2' end='${VM_NETWORK_RANGE}.254'/>
+      <range start='${net_base}.2' end='${net_base}.254'/>
     </dhcp>
   </ip>
-  <route address='0.0.0.0' prefix='24' gateway='${VM_NETWORK_RANGE}.1'/>
+${route_block}
   <dnsmasq:options>
     <!--set netbios-over-TCP/IP nameserver(s) aka WINS server(s)-->
     <dnsmasq:option value='dhcp-option=44,0.0.0.0'/>
@@ -1239,11 +1516,25 @@ function cloning() {
 </network>
 EOF
 
-    virsh net-define /tmp/hostonly.xml
-    virsh net-autostart hostonly
-    virsh net-start hostonly
+        virsh net-define "$hostonly_xml"
+        virsh net-autostart hostonly
+        virsh net-start hostonly
     fi
+
+    local ip_offset=0
+    if [ "$3" -eq 0 ]; then
+        ip_offset=2
+    elif [ "$3" -eq 1 ]; then
+        ip_offset=1
+    fi
+
     for i in $(seq "$3" "$4"); do
+        local vm_octet=$(( i + ip_offset ))
+        if [ "$vm_octet" -lt 2 ] || [ "$vm_octet" -gt 254 ]; then
+            echo "[-] Computed DHCP host octet ${vm_octet} out of valid range (2..254)"
+            exit 1
+        fi
+        local vm_ip="${net_base}.${vm_octet}"
         worked=1
         # bad macaddress can be generated
         while [ $worked -eq 1 ]; do
@@ -1259,13 +1550,13 @@ EOF
                     fi
                 fi
                 #2>/dev/null
-                virsh net-update hostonly add-last ip-dhcp-host "<host mac='${macaddr}' name='${1}_${i}' ip='${VM_NETWORK_RANGE}.${i}'/>" --live --config
+                virsh net-update hostonly add-last ip-dhcp-host "<host mac='${macaddr}' name='${1}_${i}' ip='${vm_ip}'/>" --live --config
                 sed -i "s|<domain type='kvm'>|<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>|g" "$5/$1_$i.xml"
                 virsh define "$5/$1_$i.xml"
                 worked=0
             fi
         done
-        echo "<host mac='$macaddr' name='$1_$i' ip='$6.$((i+1))'/>"
+        echo "<host mac='$macaddr' name='$1_$i' ip='$vm_ip'/>"
     done
 
     echo "[+] Enjoy"
@@ -1273,10 +1564,10 @@ EOF
 
 
 # Doesn't work ${$1,,}
-COMMAND=$(echo "$1"|tr "[:upper:]" "[:lower:]")
+COMMAND=$(echo "${1:-}"|tr "[:upper:]" "[:lower:]")
 
 case $COMMAND in
-    '-h')
+    '-h'|'--help'|'help'|'')
         usage
         exit 0;;
     'issues')
@@ -1302,6 +1593,8 @@ fi
 OS="$(uname -s)"
 MAINTAINER="$(whoami)"_"$(hostname)"
 ARCH="$(dpkg --print-architecture)"
+_print_banner
+_bootstrap_host
 # add-apt-repository universe
 # apt-get update && apt-get upgrade
 #make
@@ -1319,11 +1612,10 @@ case "$COMMAND" in
     # install_virt_manager
     # check if all features enabled
     virt-host-validate qemu
-    systemctl daemon-reload
-    systemctl restart libvirtd libvirt-guests.service
+    _enable_modular_libvirt_services
+    systemctl restart libvirt-guests.service 2>/dev/null || true
     _enable_tcp_bbr
     grub_iommu
-    enable_sysrq
     # check if is desktop, install virt-manager, ignore on server edition
     if dpkg -l |grep -q "ii  ubuntu-desktop"; then
         install_virt_manager
@@ -1356,19 +1648,6 @@ case "$COMMAND" in
     install_virt_manager;;
 'clone')
     cloning "$2" "$3" "$4" "$5" "$6" "$7" "$8";;
-'noip')
-    if [ "$OS" = "Linux" ]; then
-        cd /tmp || return
-        if [ ! -f noip-duc-linux.tar.gz ]; then
-            wget -q http://www.no-ip.com/client/linux/noip-duc-linux.tar.gz
-        fi
-        tar xf noip-duc-linux.tar.gz
-        rm noip-duc-linux.tar.gz
-        cd "noip-*" || return
-        make install
-        crontab -l | { cat; echo "@reboot sleep 10 && /usr/local/bin/noip2 -c /usr/local/etc/no-ip2.conf"; } | crontab -
-    fi
-    ;;
 'replace_seabios')
     if [ ! -d "$2" ]; then
         echo "[-] Pass the path to SeaBios folder"

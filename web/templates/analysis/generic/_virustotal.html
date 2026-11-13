@@ -5,12 +5,12 @@
             <i class="fas fa-shield-virus me-2 text-danger"></i> VirusTotal
             <small class="text-white-50 ms-2">({{file.virustotal.positives}}/{{file.virustotal.total}}){% if file.virustotal.detection %} - {{file.virustotal.detection}}{% endif %}</small>
         </h5>
-        <button class="btn btn-sm btn-outline-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#virustotal_binary" aria-expanded="false">
+        <button class="btn btn-sm btn-outline-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#virustotal_binary_{{file.sha256}}" aria-expanded="false" aria-controls="virustotal_binary_{{file.sha256}}">
             <i class="fas fa-chevron-down float-end text-white-50 ms-1"></i>
         </button>
     </div>
 
-    <div class="collapse" id="virustotal_binary">
+    <div class="collapse" id="virustotal_binary_{{file.sha256}}">
         <div class="card-body">
             {% if file.virustotal.resource %}
                 <div class="mb-3 text-end">

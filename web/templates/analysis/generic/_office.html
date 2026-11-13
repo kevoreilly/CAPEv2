@@ -1,4 +1,4 @@
-<section id="static_analysis_office" class="mb-4">
+<section id="static_analysis_office_{{file.sha256}}" class="mb-4">
     {% load key_tags %}
     {% if file.office %}
     <div class="card bg-dark border-secondary">
@@ -69,17 +69,17 @@
                 {% if file.office.Macro.Analysis %}
                 <div class="mb-4">
                     <h6 class="text-white border-bottom pb-2 mb-3">Macro Analysis (Signatures)</h6>
-                    <div class="accordion" id="macroSignaturesAccordion">
+                    <div class="accordion" id="macroSignaturesAccordion_{{file.sha256}}">
                         {% for detection in file.office.Macro.Analysis %}
                         <div class="card bg-dark border-bottom border-secondary rounded-0">
-                            <div class="card-header p-0" id="headingMacroSig{{forloop.counter}}">
+                            <div class="card-header p-0" id="headingMacroSig_{{file.sha256}}_{{forloop.counter}}">
                                 <h2 class="mb-0">
-                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_sig_{{detection|slugify}}" aria-expanded="false" aria-controls="macro_sig_{{detection|slugify}}">
+                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_sig_{{file.sha256}}_{{forloop.counter}}" aria-expanded="false" aria-controls="macro_sig_{{file.sha256}}_{{forloop.counter}}">
                                         <i class="fas fa-exclamation-triangle me-2 text-warning"></i> {{detection}}
                                     </button>
                                 </h2>
                             </div>
-                            <div id="macro_sig_{{detection|slugify}}" class="collapse" aria-labelledby="headingMacroSig{{forloop.counter}}" data-bs-parent="#macroSignaturesAccordion">
+                            <div id="macro_sig_{{file.sha256}}_{{forloop.counter}}" class="collapse" aria-labelledby="headingMacroSig_{{file.sha256}}_{{forloop.counter}}" data-bs-parent="#macroSignaturesAccordion_{{file.sha256}}">
                                 <div class="card-body bg-dark text-white">
                                     <div class="table-responsive">
                                         <table class="table table-dark table-sm table-striped mb-0">
@@ -110,18 +110,18 @@
                 {% if file.office.Macro.Code and not file.office.XLMMacroDeobfuscator %}
                 <div class="mb-4">
                     <h6 class="text-white border-bottom pb-2 mb-3">Extracted Macros</h6>
-                    <div class="accordion" id="macroCodeAccordion">
+                    <div class="accordion" id="macroCodeAccordion_{{file.sha256}}">
                     {% for macrodata in file.office.Macro.Code %}
                         {% for name, code in file.office.Macro.Code|getkey:macrodata %}
                         <div class="card bg-dark border-bottom border-secondary rounded-0">
-                            <div class="card-header p-0" id="headingMacroCode{{forloop.parentloop.counter0}}-{{forloop.counter0}}">
+                            <div class="card-header p-0" id="headingMacroCode_{{file.sha256}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}">
                                 <h2 class="mb-0">
-                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" aria-expanded="false">
+                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_code_{{file.sha256}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" aria-expanded="false" aria-controls="macro_code_{{file.sha256}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}">
                                         <i class="fas fa-code me-2 text-info"></i> {{name}}
                                     </button>
                                 </h2>
                             </div>
-                            <div id="macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" class="collapse" data-bs-parent="#macroCodeAccordion">
+                            <div id="macro_code_{{file.sha256}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" class="collapse" aria-labelledby="headingMacroCode_{{file.sha256}}_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" data-bs-parent="#macroCodeAccordion_{{file.sha256}}">
                                 <div class="card-body bg-dark text-white">
                                     <pre class="mb-0 text-light small" style="max-height: 400px; overflow-y: auto;">{{code}}</pre>
                                 </div>

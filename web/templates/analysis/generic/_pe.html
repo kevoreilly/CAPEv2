@@ -1,4 +1,4 @@
-<section id="static_analysis_pe" class="mb-4">
+<section id="static_analysis_pe_{{file.sha256}}" class="mb-4">
     {% load key_tags %}
     {% if file.pe %}
     <div class="card bg-dark border-secondary">
@@ -21,6 +21,18 @@
                     <div class="text-white text-break">{{file.pe.entrypoint}}</div>
                 </div>
                 {% endif %}
+                {% if file.pe.ep_bytes %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">EP Bytes</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.ep_bytes}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.machine_type %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Machine Type</small>
+                    <div class="text-white text-break">{{file.pe.machine_type}}</div>
+                </div>
+                {% endif %}
                 {% if file.pe.osversion %}
                 <div class="col-md-3 mb-2">
                     <small class="text-white-50 text-uppercase fw-bold">Min OS</small>
@@ -33,6 +45,18 @@
                     <div class="text-white">{{file.pe.timestamp}}</div>
                 </div>
                 {% endif %}
+                {% if file.pe.reported_checksum %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Checksum</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.reported_checksum}}{% if file.pe.actual_checksum %} (actual: {{file.pe.actual_checksum}}){% endif %}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.exported_dll_name %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">DLL Name</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.exported_dll_name}}</div>
+                </div>
+                {% endif %}
                 {% if file.pe.imphash %}
                 <div class="col-md-3 mb-2">
                     <small class="text-white-50 text-uppercase fw-bold">Import Hash</small>
@@ -43,6 +67,12 @@
                 <div class="col-md-3 mb-2">
                     <small class="text-white-50 text-uppercase fw-bold">Icon Hash</small>
                     <div class="text-white text-break font-monospace small">{{file.pe.icon_hash}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.overlay %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Overlay</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.overlay.offset}} (size: {{file.pe.overlay.size}})</div>
                 </div>
                 {% endif %}
                 {% if file.pe.pdbpath %}
@@ -64,16 +94,16 @@
             </div>
             {% endif %}
 
-            <div class="accordion" id="peDetailsAccordion">
+            <div class="accordion" id="peDetailsAccordion_{{file.sha256}}">
 
                 {% if file.pe.versioninfo %}
                 <div class="accordion-item bg-dark border-secondary">
-                    <h2 class="accordion-header" id="headingVersion">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVersion" aria-expanded="false" aria-controls="collapseVersion">
+                    <h2 class="accordion-header" id="headingVersion_{{file.sha256}}">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVersion_{{file.sha256}}" aria-expanded="false" aria-controls="collapseVersion_{{file.sha256}}">
                             Version Info
                         </button>
                     </h2>
-                    <div id="collapseVersion" class="accordion-collapse collapse" aria-labelledby="headingVersion" data-bs-parent="#peDetailsAccordion">
+                    <div id="collapseVersion_{{file.sha256}}" class="accordion-collapse collapse" aria-labelledby="headingVersion_{{file.sha256}}" data-bs-parent="#peDetailsAccordion_{{file.sha256}}">
                         <div class="accordion-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-dark table-striped table-sm mb-0">
@@ -94,12 +124,12 @@
 
                 {% if file.pe.sections %}
                 <div class="accordion-item bg-dark border-secondary">
-                    <h2 class="accordion-header" id="headingSections">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSections" aria-expanded="false" aria-controls="collapseSections">
+                    <h2 class="accordion-header" id="headingSections_{{file.sha256}}">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSections_{{file.sha256}}" aria-expanded="false" aria-controls="collapseSections_{{file.sha256}}">
                             Sections
                         </button>
                     </h2>
-                    <div id="collapseSections" class="accordion-collapse collapse" aria-labelledby="headingSections" data-bs-parent="#peDetailsAccordion">
+                    <div id="collapseSections_{{file.sha256}}" class="accordion-collapse collapse" aria-labelledby="headingSections_{{file.sha256}}" data-bs-parent="#peDetailsAccordion_{{file.sha256}}">
                         <div class="accordion-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-dark table-striped table-sm mb-0">
@@ -136,12 +166,12 @@
 
                 {% if file.pe.resources %}
                 <div class="accordion-item bg-dark border-secondary">
-                    <h2 class="accordion-header" id="headingResources">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResources" aria-expanded="false" aria-controls="collapseResources">
+                    <h2 class="accordion-header" id="headingResources_{{file.sha256}}">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResources_{{file.sha256}}" aria-expanded="false" aria-controls="collapseResources_{{file.sha256}}">
                             Resources
                         </button>
                     </h2>
-                    <div id="collapseResources" class="accordion-collapse collapse" aria-labelledby="headingResources" data-bs-parent="#peDetailsAccordion">
+                    <div id="collapseResources_{{file.sha256}}" class="accordion-collapse collapse" aria-labelledby="headingResources_{{file.sha256}}" data-bs-parent="#peDetailsAccordion_{{file.sha256}}">
                         <div class="accordion-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-dark table-striped table-sm mb-0">
@@ -176,22 +206,22 @@
 
                 {% if file.pe.imports %}
                 <div class="accordion-item bg-dark border-secondary">
-                    <h2 class="accordion-header" id="headingImports">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImports" aria-expanded="false" aria-controls="collapseImports">
+                    <h2 class="accordion-header" id="headingImports_{{file.sha256}}">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImports_{{file.sha256}}" aria-expanded="false" aria-controls="collapseImports_{{file.sha256}}">
                             Imports
                         </button>
                     </h2>
-                    <div id="collapseImports" class="accordion-collapse collapse" aria-labelledby="headingImports" data-bs-parent="#peDetailsAccordion">
+                    <div id="collapseImports_{{file.sha256}}" class="accordion-collapse collapse" aria-labelledby="headingImports_{{file.sha256}}" data-bs-parent="#peDetailsAccordion_{{file.sha256}}">
                         <div class="accordion-body p-2">
-                            <div class="accordion accordion-flush" id="peImportsSubAccordion">
+                            <div class="accordion accordion-flush" id="peImportsSubAccordion_{{file.sha256}}">
                             {% for dll, library in file.pe.imports.items %}
                                 <div class="accordion-item bg-dark border-bottom border-secondary">
-                                    <h2 class="accordion-header" id="headingImport{{forloop.counter}}">
-                                        <button class="accordion-button collapsed bg-dark text-light shadow-none py-2" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{dll|slugify}}" aria-expanded="false">
+                                    <h2 class="accordion-header" id="headingImport_{{file.sha256}}_{{forloop.counter}}">
+                                        <button class="accordion-button collapsed bg-dark text-light shadow-none py-2" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{file.sha256}}_{{forloop.counter}}" aria-expanded="false" aria-controls="import_{{file.sha256}}_{{forloop.counter}}">
                                             <i class="fas fa-code-branch me-2 text-warning"></i> {{dll}}
                                         </button>
                                     </h2>
-                                    <div id="import_{{dll|slugify}}" class="accordion-collapse collapse" data-bs-parent="#peImportsSubAccordion">
+                                    <div id="import_{{file.sha256}}_{{forloop.counter}}" class="accordion-collapse collapse" aria-labelledby="headingImport_{{file.sha256}}_{{forloop.counter}}" data-bs-parent="#peImportsSubAccordion_{{file.sha256}}">
                                         <div class="accordion-body p-0">
                                             <table class="table table-dark table-striped table-sm mb-0">
                                                 <thead>
@@ -221,12 +251,12 @@
 
                 {% if file.pe.exports %}
                 <div class="accordion-item bg-dark border-secondary">
-                    <h2 class="accordion-header" id="headingExports">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExports" aria-expanded="false" aria-controls="collapseExports">
+                    <h2 class="accordion-header" id="headingExports_{{file.sha256}}">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExports_{{file.sha256}}" aria-expanded="false" aria-controls="collapseExports_{{file.sha256}}">
                             Exports
                         </button>
                     </h2>
-                    <div id="collapseExports" class="accordion-collapse collapse" aria-labelledby="headingExports" data-bs-parent="#peDetailsAccordion">
+                    <div id="collapseExports_{{file.sha256}}" class="accordion-collapse collapse" aria-labelledby="headingExports_{{file.sha256}}" data-bs-parent="#peDetailsAccordion_{{file.sha256}}">
                         <div class="accordion-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-dark table-striped table-sm mb-0">
@@ -255,12 +285,12 @@
 
                 {% if file.pe.digital_signers %}
                 <div class="accordion-item bg-dark border-secondary">
-                    <h2 class="accordion-header" id="headingSigners">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSigners" aria-expanded="false" aria-controls="collapseSigners">
+                    <h2 class="accordion-header" id="headingSigners_{{file.sha256}}">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSigners_{{file.sha256}}" aria-expanded="false" aria-controls="collapseSigners_{{file.sha256}}">
                             Digital Signers
                         </button>
                     </h2>
-                    <div id="collapseSigners" class="accordion-collapse collapse" aria-labelledby="headingSigners" data-bs-parent="#peDetailsAccordion">
+                    <div id="collapseSigners_{{file.sha256}}" class="accordion-collapse collapse" aria-labelledby="headingSigners_{{file.sha256}}" data-bs-parent="#peDetailsAccordion_{{file.sha256}}">
                         <div class="accordion-body">
                             {% for cert in file.pe.digital_signers %}
                             <div class="table-responsive mb-3">

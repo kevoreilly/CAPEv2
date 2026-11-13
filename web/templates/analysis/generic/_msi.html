@@ -1,5 +1,5 @@
 {% load key_tags %}
-<section id="msi_info">
+<section id="msi_info_{{file.sha256}}">
     {% if file.msi %}
 
     {% if file.msi.metadata %}
@@ -29,7 +29,7 @@
         <div class="card-header"> {# panel-heading -> card-header #}
             <h4 class="card-title mb-0">Custom Actions ({{ file.msi.rows|length }})</h4> {# panel-title -> card-title mb-0 #}
         </div>
-        <div id="msi_information" class="card-body p-0"> {# Added card-body p-0 #}
+        <div id="msi_information_{{file.sha256}}" class="card-body p-0"> {# Added card-body p-0 #}
             <table class="table table-bordered table-dark mb-0" style="table-layout: fixed;"> {# mb-0 to remove bottom margin #}
                 <thead>
                     <tr>

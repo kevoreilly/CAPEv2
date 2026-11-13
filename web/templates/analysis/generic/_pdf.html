@@ -1,4 +1,4 @@
-<section id="static_analysis_pdf" class="mb-4">
+<section id="static_analysis_pdf_{{file.sha256}}" class="mb-4">
     {% load pdf_tags %}
     {% load key_tags %}
     {% if file.pdf %}
@@ -118,17 +118,17 @@
             {% if file.pdf.JSStreams %}
             <div class="mb-4">
                 <h6 class="text-white border-bottom pb-2 mb-3">Javascript Streams</h6>
-                <div class="accordion" id="jsStreamsAccordion">
+                <div class="accordion" id="jsStreamsAccordion_{{file.sha256}}">
                 {% for obj in file.pdf.JSStreams %}
                     <div class="card bg-dark border-bottom border-secondary rounded-0">
-                        <div class="card-header p-0" id="headingJSStream{{forloop.counter}}">
+                        <div class="card-header p-0" id="headingJSStream_{{file.sha256}}_{{forloop.counter}}">
                             <h2 class="mb-0">
-                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#JSStream_{{obj|getkey:'Object ID'}}" aria-expanded="false">
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#JSStream_{{file.sha256}}_{{forloop.counter}}" aria-expanded="false" aria-controls="JSStream_{{file.sha256}}_{{forloop.counter}}">
                                     <i class="fab fa-js me-2 text-warning"></i> Object ID: {{obj|getkey:"Object ID"}}
                                 </button>
                             </h2>
                         </div>
-                        <div id="JSStream_{{obj|getkey:'Object ID'}}" class="collapse" data-bs-parent="#jsStreamsAccordion">
+                        <div id="JSStream_{{file.sha256}}_{{forloop.counter}}" class="collapse" aria-labelledby="headingJSStream_{{file.sha256}}_{{forloop.counter}}" data-bs-parent="#jsStreamsAccordion_{{file.sha256}}">
                             <div class="card-body bg-dark text-white">
                                 <p class="mb-1"><strong>Size:</strong> {{obj.Size}} bytes</p>
                                 <p class="mb-2"><strong>Offset:</strong> {{obj.Offset}}</p>

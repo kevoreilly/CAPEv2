@@ -83,6 +83,28 @@ def test_get_yaras():
     ]
 
 
+def test_bumblebee_yara_str_proximity():
+    if not HAVE_YARA:
+        return
+
+    rule_path = pathlib.Path(__file__).resolve().parents[1] / "data" / "yara" / "CAPE" / "BumbleBee.yar"
+    rules = yara.compile(filepath=str(rule_path))
+
+    # Unrelated "bumblebee" and "/gate" substrings far apart in a PE must not trigger BumbleBee (#3334)
+    benign_pe = (
+        b"MZ"
+        + b"\x00" * 64
+        + b"spotify.bumblebee.trackcontentfilter.v1"
+        + b"\x00" * 256
+        + b"%s/v1/gateway/message"
+    )
+    assert [m.rule for m in rules.match(data=benign_pe)] == []
+
+    # Contiguous Boost.Asio .rdata C2 strings ("/gate\x00\x00\x00bumblebee\x00") in early BumbleBee payloads must match
+    payload_pe = b"MZ" + b"\x00" * 64 + b"context\x00engine\x00\x00/gate\x00\x00\x00bumblebee\x00"
+    assert [m.rule for m in rules.match(data=payload_pe)] == ["BumbleBee"]
+
+
 """
 def test_yara_moduels():
     if not HAVE_YARA:

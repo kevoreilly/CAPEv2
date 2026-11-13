@@ -3,14 +3,28 @@
 {% if analysis.signatures %}
 <section id="signatures" class="mb-4">
     <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary">
+        <div class="card-header border-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
             <h5 class="mb-0 text-white"><i class="fas fa-file-signature me-2 text-warning"></i> Signatures</h5>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Filter signatures by severity">
+                <button type="button" class="btn btn-outline-light active" data-severity-filter="all">
+                    All <span class="badge bg-secondary ms-1" data-severity-count="all">{{ analysis.signatures|length }}</span>
+                </button>
+                <button type="button" class="btn btn-outline-danger" data-severity-filter="3">
+                    <i class="fas fa-biohazard me-1"></i>High <span class="badge bg-secondary ms-1" data-severity-count="3">0</span>
+                </button>
+                <button type="button" class="btn btn-outline-warning" data-severity-filter="2">
+                    <i class="fas fa-exclamation-triangle me-1"></i>Medium <span class="badge bg-secondary ms-1" data-severity-count="2">0</span>
+                </button>
+                <button type="button" class="btn btn-outline-success" data-severity-filter="1">
+                    <i class="fas fa-info-circle me-1"></i>Low <span class="badge bg-secondary ms-1" data-severity-count="1">0</span>
+                </button>
+            </div>
         </div>
         <div class="card-body">
             {% if analysis.signatures %}
-                                <div class="list-group">
+                                <div class="list-group" id="signatures-list">
                                 {% for signature in analysis.signatures %}
-                                    <div>
+                                    <div class="signature-item" data-severity="{% if signature.severity >= 3 %}3{% elif signature.severity == 2 %}2{% else %}1{% endif %}">
                     <a href="#signature_collapse_{{signature.name}}" class="list-group-item list-group-item-action py-1 text-dark
                         {% if signature.severity >= 3 %}list-group-item-danger{% elif signature.severity == 2 %}list-group-item-warning{% elif signature.severity == 1 %}list-group-item-success{% else %}list-group-item-info{% endif %}"
                         data-bs-toggle="collapse" aria-expanded="false" aria-controls="signature_collapse_{{signature.name}}">
@@ -104,6 +118,45 @@
                                     </div>
                 {% endfor %}
                 </div>
+                <div id="signatures-filter-empty" class="p-3 text-center text-white-50 d-none">
+                    <p class="mb-0">No signatures match the selected severity.</p>
+                </div>
+                <script type="text/javascript">
+                    (function() {
+                        var section = document.getElementById("signatures");
+                        if (!section) return;
+                        var items = section.querySelectorAll(".signature-item");
+                        var counts = {"1": 0, "2": 0, "3": 0, "all": items.length};
+                        items.forEach(function(item) {
+                            var sev = item.getAttribute("data-severity");
+                            if (counts.hasOwnProperty(sev)) {
+                                counts[sev] += 1;
+                            }
+                        });
+                        ["all", "3", "2", "1"].forEach(function(key) {
+                            var badge = section.querySelector('[data-severity-count="' + key + '"]');
+                            if (badge) badge.textContent = counts[key];
+                        });
+                        var buttons = section.querySelectorAll("[data-severity-filter]");
+                        var emptyNotice = document.getElementById("signatures-filter-empty");
+                        buttons.forEach(function(btn) {
+                            btn.addEventListener("click", function() {
+                                var filter = btn.getAttribute("data-severity-filter");
+                                buttons.forEach(function(b) { b.classList.remove("active"); });
+                                btn.classList.add("active");
+                                var visible = 0;
+                                items.forEach(function(item) {
+                                    var matches = (filter === "all" || item.getAttribute("data-severity") === filter);
+                                    item.classList.toggle("d-none", !matches);
+                                    if (matches) visible += 1;
+                                });
+                                if (emptyNotice) {
+                                    emptyNotice.classList.toggle("d-none", visible > 0);
+                                }
+                            });
+                        });
+                    })();
+                </script>
             {% else %}
                 <div class="p-3 text-center text-white-50">
                     <i class="fas fa-check-circle fa-2x mb-2"></i>

@@ -1026,6 +1026,32 @@ class TestStaticPreview(SimpleTestCase):
             self.assertIn(f'id="capeYaraAccordion_{sha}"', html)
             self.assertIn(f'id="virustotal_binary_{sha}"', html)
 
+    def test_overview_signatures_template_renders_severity_filters(self):
+        from django.template.loader import render_to_string
+
+        html = render_to_string(
+            "analysis/overview/_signatures.html",
+            {
+                "analysis": {
+                    "info": {"id": 101},
+                    "signatures": [
+                        {"name": "sig_low", "description": "Low severity behavior", "severity": 1, "data": [{"k": "v"}]},
+                        {"name": "sig_med", "description": "Medium severity behavior", "severity": 2, "data": [{"k": "v"}]},
+                        {"name": "sig_high", "description": "High severity behavior", "severity": 4, "data": [{"k": "v"}]},
+                    ],
+                },
+            },
+        )
+        self.assertIn('data-severity-filter="all"', html)
+        self.assertIn('data-severity-filter="3"', html)
+        self.assertIn('data-severity-filter="2"', html)
+        self.assertIn('data-severity-filter="1"', html)
+        self.assertIn('class="signature-item" data-severity="1"', html)
+        self.assertIn('class="signature-item" data-severity="2"', html)
+        self.assertIn('class="signature-item" data-severity="3"', html)
+        self.assertIn('id="signatures-filter-empty"', html)
+
+
 
 
 

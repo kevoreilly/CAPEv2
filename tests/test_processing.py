@@ -4,7 +4,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 from lib.cuckoo.common.objects import File
-from modules.processing.CAPE import CAPE
+from modules.processing.CAPE import CAPE, extract_dump_triggers
 from modules.processing.deduplication import reindex_screenshots
 
 
@@ -116,3 +116,38 @@ class TestDeduplication:
         os_rename.assert_any_call("shots/bar.jpg", "shots/0000.jpg")
         os_rename.assert_any_call("shots/baz.jpg", "shots/0001.jpg")
         os_rename.assert_any_call("shots/foo.jpg", "shots/0002.jpg")
+
+
+class TestDumpTriggers:
+    def test_extract_dump_triggers_from_logs(self, tmp_path, cape_processor):
+        log_file = tmp_path / "analysis.log"
+        log_file.write_text(
+            "Dump-on-API: VirtualProtect call detected in thread 1200, main_caller_retaddr 0x00401100.\n"
+            "DumpMemory: Payload successfully created: C:\\Users\\admin\\AppData\\Local\\Temp\\CAPE\\1200_111 (size 4096 bytes)\n"
+            "Dump-on-API: Dumped memory region at 0x00400000 due to VirtualProtect call.\n"
+            "Breakpoint 0 at 0x00402000 hit in thread 1200\n"
+            "DumpMemory: Payload successfully created: C:\\Users\\admin\\AppData\\Local\\Temp\\CAPE\\1200_222 (size 8192 bytes)\n"
+            "ActionDispatcher: Dumped region at 0x00500000.\n",
+            encoding="utf-8",
+        )
+        triggers = extract_dump_triggers(
+            str(log_file),
+            str(tmp_path),
+            "dump-on-api=VirtualProtect,bp0=0x402000,action0=dump",
+        )
+        assert triggers["by_guest_path"]["1200_111"] == "dump-on-api=VirtualProtect"
+        assert triggers["by_address"]["0x400000"] == "dump-on-api=VirtualProtect"
+        assert triggers["by_guest_path"]["1200_222"] == "bp0=0x402000 (0x00402000) -> action0=dump"
+        assert triggers["by_address"]["0x500000"] == "bp0=0x402000 (0x00402000) -> action0=dump"
+
+        cape_processor._dump_triggers = triggers
+        cape_processor.options = MagicMock(replace_patterns=False)
+        file_info = {"type": "PE32 executable (GUI) Intel 80386"}
+        metadata = {
+            "metadata": "8;?C:\\sample.exe;?C:\\sample.exe;?0x00400000;?",
+            "filepath": "C:\\Users\\admin\\AppData\\Local\\Temp\\CAPE\\1200_111",
+            "pids": [1200],
+        }
+        cape_processor._metadata_processing(metadata, file_info, True)
+        assert file_info.get("dump_trigger") == "dump-on-api=VirtualProtect"
+

@@ -1026,6 +1026,27 @@ class TestStaticPreview(SimpleTestCase):
             self.assertIn(f'id="capeYaraAccordion_{sha}"', html)
             self.assertIn(f'id="virustotal_binary_{sha}"', html)
 
+    def test_cape_version_and_last_update_in_footer_and_constants(self):
+        import tempfile
+        from django.template.loader import render_to_string
+        from lib.cuckoo.common.constants import CAPE_LAST_UPDATE, CUCKOO_VERSION, get_cape_last_update
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.assertEqual(get_cape_last_update(tmpdir), "")
+            with open(os.path.join(tmpdir, "changelog.md"), "w", encoding="utf-8") as f:
+                f.write("### [04.11.2026]\n* Features\n")
+            self.assertEqual(get_cape_last_update(tmpdir), "04.11.2026")
+
+        self.assertTrue(CUCKOO_VERSION)
+        self.assertTrue(CAPE_LAST_UPDATE)
+        footer_html = render_to_string(
+            "footer.html",
+            {"settings": {"CAPE_VERSION": CUCKOO_VERSION, "CAPE_LAST_UPDATE": "04.11.2026"}},
+        )
+        self.assertIn(f"v{CUCKOO_VERSION}", footer_html)
+        self.assertIn("(04.11.2026)", footer_html)
+
+
 
 
 

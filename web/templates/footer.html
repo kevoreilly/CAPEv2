@@ -2,7 +2,7 @@
     <div class="container-fluid">
         <div class="row align-items-center">
             <div class="col-md-4 text-center text-md-left mb-2 mb-md-0">
-                <small>Powered by <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-light font-weight-bold">CAPE Sandbox</a></small>
+                <small>Powered by <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-light font-weight-bold">CAPE Sandbox</a>{% if settings.CAPE_VERSION %} v{{ settings.CAPE_VERSION }}{% endif %}{% if settings.CAPE_LAST_UPDATE %} <span class="text-white-50">({{ settings.CAPE_LAST_UPDATE }})</span>{% endif %}</small>
             </div>
             <div class="col-md-4 text-center mb-2 mb-md-0">
                 <a href="#" class="text-white-50 text-decoration-none"><i class="fas fa-chevron-up me-1"></i> Back to top</a>

@@ -44,6 +44,10 @@ class VMware(Machinery):
         # Base checks.
         super(VMware, self)._initialize_check()
 
+        # Set initial status for all machines.
+        for machine in self.machines():
+            self.set_status(machine.label, "poweroff")
+
     def _check_vmx(self, vmx_path):
         """Checks whether a vmx file exists and is valid.
         @param vmx_path: path to vmx file

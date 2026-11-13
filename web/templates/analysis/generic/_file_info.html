@@ -459,7 +459,7 @@
 
             {% if file.selfextract %}
                 {% for name, details in file.selfextract.items %}
-                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#selfextract_{{name}}">Extract: {{name}}</a>
+                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#selfextract_{{file.sha256}}_{{name|slugify}}">Extract: {{name}}</a>
                 {% endfor %}
             {% endif %}
         </div>
@@ -595,7 +595,7 @@
 
         {% if file.selfextract %}
             {% for name, details in file.selfextract.items %}
-                <div class="collapse mb-3" id="selfextract_{{name}}">
+                <div class="collapse mb-3" id="selfextract_{{file.sha256}}_{{name|slugify}}">
                     <div class="card bg-dark border-secondary">
                         <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
                         <div class="card-body">

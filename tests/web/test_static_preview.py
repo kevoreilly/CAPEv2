@@ -821,6 +821,212 @@ class TestStaticPreview(SimpleTestCase):
         self.assertFalse(mw_mod._is_submission_post(post_req, status_view))
         self.assertIsNone(make_mw(owner).process_view(post_req, status_view, (), {"task_id": 42}))
 
+    def test_multi_file_generic_templates_unique_dom_ids_and_pe_fields(self):
+        """Rendering multiple files via analysis/CAPE/index.html produces unique DOM IDs and renders all PE header fields."""
+        from collections import Counter
+        import re
+        from django.template.loader import render_to_string
+
+        sha_one = "aa" * 32
+        sha_two = "bb" * 32
+
+        def make_file(sha256, name, headerless_paged=False):
+            pe_data = {
+                "imagebase": "0x00400000",
+                "entrypoint": "0x00431c90",
+                "ep_bytes": "55 8b ec 6a ff 68 88 18",
+                "machine_type": "0x014c (IMAGE_FILE_MACHINE_I386)",
+                "subsystem": "0x0002 (IMAGE_SUBSYSTEM_WINDOWS_GUI)",
+                "osversion": "4.0",
+                "timestamp": "1970-01-01 00:00:00",
+                "reported_checksum": "0x00000000",
+                "actual_checksum": "0x000eddd2",
+                "imphash": "" if headerless_paged else "11223344556677889900aabbccddeeff",
+                "icon": None,
+                "icon_fuzzy": None,
+                "icon_dhash": None,
+                "exported_dll_name": None if headerless_paged else "sample.dll",
+                "overlay": None if headerless_paged else {"offset": "0x000e7200", "size": "0x00000400"},
+                "sections": [
+                    {
+                        "name": ".text",
+                        "raw_address": "0x00001000",
+                        "virtual_address": "0x00001000",
+                        "virtual_size": "0x00048000",
+                        "size_of_data": "0x00048000",
+                        "characteristics": "IMAGE_SCN_CNT_CODE|IMAGE_SCN_MEM_EXECUTE|IMAGE_SCN_MEM_READ",
+                        "characteristics_raw": "0x60000020",
+                        "entropy": "6.51",
+                    }
+                ],
+                "resources": []
+                if headerless_paged
+                else [
+                    {
+                        "name": "RT_MANIFEST",
+                        "offset": "0x00049000",
+                        "size": "0x00000200",
+                        "language": "LANG_ENGLISH",
+                        "sublanguage": "SUBLANG_ENGLISH_US",
+                        "filetype": "XML 1.0 document text",
+                        "entropy": "4.12",
+                    }
+                ],
+                "versioninfo": []
+                if headerless_paged
+                else [{"name": "FileDescription", "value": "Test Binary"}],
+                "imports": {}
+                if headerless_paged
+                else {
+                    "KERNEL32": {
+                        "dll": "KERNEL32.dll",
+                        "imports": [{"address": "0x00401000", "name": "VirtualAlloc"}],
+                    }
+                },
+                "exports": []
+                if headerless_paged
+                else [{"ordinal": 1, "address": "0x00402000", "name": "ExportedFunc"}],
+                "digital_signers": []
+                if headerless_paged
+                else [
+                    {
+                        "md5_fingerprint": "11" * 16,
+                        "sha1_fingerprint": "22" * 20,
+                        "sha256_fingerprint": "33" * 32,
+                        "serial_number": "01",
+                        "common_name": "Test Signer",
+                        "country_name": "US",
+                        "locality_name": "TestCity",
+                        "organization_name": "TestOrg",
+                        "organizational_unit_name": "TestUnit",
+                        "email_address": "test@example.com",
+                        "not_before": "2026-01-01",
+                        "not_after": "2027-01-01",
+                        "extensions": {"authorityKeyIdentifier": "keyid:00"},
+                    }
+                ],
+                "guest_signers": {},
+            }
+            return {
+                "sha256": sha256,
+                "md5": sha256[:32],
+                "sha1": sha256[:40],
+                "sha512": sha256 * 2,
+                "crc32": "DEADBEEF",
+                "name": name,
+                "size": 946688,
+                "type": "PE32 executable (GUI) Intel 80386, for MS Windows, 4 sections",
+                "pe": pe_data,
+                "yara": [
+                    {
+                        "name": "RuleOne",
+                        "meta": {"description": "Test YARA rule"},
+                        "strings": ["0x100 $s1: test"],
+                    }
+                ],
+                "cape_yara": [
+                    {
+                        "name": "FamilyRule",
+                        "meta": {"cape_type": "Test Payload", "description": "CAPE YARA rule"},
+                        "strings": ["0x200 $c1: payload"],
+                    }
+                ],
+                "virustotal": {
+                    "summary": {"detection_ratio": "12/72", "permalink": "https://www.virustotal.com/gui/file/" + sha256},
+                    "scans": {"EngineA": {"detected": True, "result": "Win32.Test"}},
+                },
+                "selfextract": {
+                    "UnpackerTool": {
+                        "extracted_files": [
+                            {
+                                "name": "inner.bin",
+                                "size": 1024,
+                                "type": "data",
+                                "crc32": "12345678",
+                                "md5": "44" * 16,
+                                "sha1": "55" * 20,
+                                "sha256": hashlib.sha256(sha256.encode()).hexdigest(),
+                                "sha512": "77" * 64,
+                            }
+                        ]
+                    }
+                },
+                "dotnet": {"typerefs": [{"assembly": "mscorlib", "name": "System.Object"}]},
+                "floss": {" static_strings": ["floss_str"]},
+                "java": {"decompiled": "class Test {}"},
+                "lnk": {"flags": ["HasLinkTargetIDList"], "header": {"guid": "00"}},
+                "msi": {"SummaryInfo": {"Title": "Test MSI"}},
+                "rdp": {"full address": {"type": "s", "value": "192.0.2.10"}},
+                "office": {
+                    "XLMMacroDeobfuscator": ["CELL:A1"],
+                    "Macro": {
+                        "Info": {"Analysis": {"Suspicious": [("AutoOpen", "Runs on open")]}},
+                        "Code": {"Doc1": [("Module1.bas", "Sub AutoOpen()\nEnd Sub")]},
+                    },
+                },
+                "pdf": {"JSStreams": [{"Name": "Obj 1", "Orig": "app.alert(1);"}]},
+            }
+
+        file_one = make_file(sha_one, "full_pe.exe", headerless_paged=False)
+        file_two = make_file(sha_two, "paged_pe.bin", headerless_paged=True)
+
+        html = render_to_string(
+            "analysis/CAPE/index.html",
+            {
+                "CAPE": {"payloads": [file_one, file_two]},
+                "tab_name": "CAPE",
+                "analysis": {
+                    "info": {"id": 42, "package": "exe", "category": "file"},
+                    "target": {"file": {"sha256": "ff" * 32}},
+                    "CAPE": {"payloads": [file_one, file_two]},
+                },
+                "id": 42,
+                "config": {
+                    "pe": True,
+                    "yara_detail": True,
+                    "dotnet": True,
+                    "floss": True,
+                    "java": True,
+                    "lnk": True,
+                    "msi": True,
+                    "rdp": True,
+                    "xlsdeobf": True,
+                    "vba2graph": False,
+                    "bingraph": False,
+                },
+                "on_demand": {},
+                "graphs": {
+                    "bingraph": {"enabled": False, "content": {}},
+                    "vba2graph": {"enabled": False, "content": {}},
+                },
+            },
+        )
+
+        # 1. Every DOM id attribute across multiple rendered files must be unique
+        ids = re.findall(r'\bid="([^"]+)"', html)
+        duplicates = {k: v for k, v in Counter(ids).items() if v > 1}
+        self.assertEqual(duplicates, {}, f"Duplicate DOM IDs found across multi-file render: {duplicates}")
+
+        # 2. Every Bootstrap collapse/accordion target and parent selector must reference an existing ID in the document
+        id_set = set(ids)
+        for attr in ("data-bs-target", "data-bs-parent"):
+            for ref in re.findall(rf'\b{attr}="#([^"]+)"', html):
+                self.assertIn(ref, id_set, f"{attr}=#{ref} does not match any element id in rendered HTML")
+
+        # 3. Verify newly surfaced PE header fields and per-SHA256 accordion IDs for both standard and paged PE files
+        self.assertIn("0x014c (IMAGE_FILE_MACHINE_I386)", html)
+        self.assertIn("55 8b ec 6a ff 68 88 18", html)
+        self.assertIn("0x00000000 (actual: 0x000eddd2)", html)
+        self.assertIn("sample.dll", html)
+        self.assertIn("0x000e7200 (size: 0x00000400)", html)
+        for sha in (sha_one, sha_two):
+            self.assertIn(f'id="peDetailsAccordion_{sha}"', html)
+            self.assertIn(f'id="collapseSections_{sha}"', html)
+            self.assertIn(f'id="yaraAccordion_{sha}"', html)
+            self.assertIn(f'id="capeYaraAccordion_{sha}"', html)
+            self.assertIn(f'id="virustotal_binary_{sha}"', html)
+
+
 
 
 

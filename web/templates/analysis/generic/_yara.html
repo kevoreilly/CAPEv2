@@ -1,4 +1,4 @@
-<section id="static_analysis_yara" class="mb-4">
+<section id="static_analysis_yara_{{file.sha256}}" class="mb-4">
     {% load key_tags %}
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
@@ -6,18 +6,18 @@
         </div>
         <div class="card-body p-0">
             {% if file.yara %}
-                <div class="accordion" id="yaraAccordion">
+                <div class="accordion" id="yaraAccordion_{{file.sha256}}">
                 {% for hit in file.yara %}
                     <div class="card bg-dark border-bottom border-secondary rounded-0">
-                        <div class="card-header p-0" id="headingYara{{forloop.counter}}">
+                        <div class="card-header p-0" id="headingYara_{{file.sha256}}_{{forloop.counter}}">
                             <h2 class="mb-0">
-                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yara_{{hit.name}}" aria-expanded="false" aria-controls="yara_{{hit.name}}">
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yara_{{file.sha256}}_{{forloop.counter}}" aria-expanded="false" aria-controls="yara_{{file.sha256}}_{{forloop.counter}}">
                                     <i class="fas fa-search me-2 text-info"></i> {{hit.name}}
                                     <i class="fas fa-chevron-down float-end ms-2 text-white-50"></i>
                                 </button>
                             </h2>
                         </div>
-                        <div id="yara_{{hit.name}}" class="collapse" aria-labelledby="headingYara{{forloop.counter}}" data-bs-parent="#yaraAccordion">
+                        <div id="yara_{{file.sha256}}_{{forloop.counter}}" class="collapse" aria-labelledby="headingYara_{{file.sha256}}_{{forloop.counter}}" data-bs-parent="#yaraAccordion_{{file.sha256}}">
                             <div class="card-body bg-dark text-white">
                                 <div class="table-responsive">
                                     <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">

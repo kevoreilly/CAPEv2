@@ -1026,6 +1026,58 @@ class TestStaticPreview(SimpleTestCase):
             self.assertIn(f'id="capeYaraAccordion_{sha}"', html)
             self.assertIn(f'id="virustotal_binary_{sha}"', html)
 
+    def test_cape_payloads_template_bumps_detected_dumps_to_top(self):
+        from django.template.loader import render_to_string
+
+        sha_clean_large = "11" * 32
+        sha_detected_small = "22" * 32
+        clean_large = {
+            "name": "clean_large.bin",
+            "size": 900000,
+            "crc32": "11111111",
+            "md5": "1" * 32,
+            "sha1": "1" * 40,
+            "sha256": sha_clean_large,
+            "sha512": "1" * 128,
+            "type": "data",
+            "yara": [],
+            "cape_yara": [],
+        }
+        detected_small = {
+            "name": "detected_small.bin",
+            "size": 1024,
+            "crc32": "22222222",
+            "md5": "2" * 32,
+            "sha1": "2" * 40,
+            "sha256": sha_detected_small,
+            "sha512": "2" * 128,
+            "type": "PE32 executable",
+            "yara": [],
+            "cape_yara": [{"name": "DetectedFamily", "meta": {"cape_type": "DetectedFamily Payload"}, "strings": [], "addresses": {}}],
+        }
+
+        html = render_to_string(
+            "analysis/CAPE/index.html",
+            {
+                "CAPE": {"payloads": [clean_large, detected_small]},
+                "tab_name": "CAPE",
+                "analysis": {
+                    "info": {"id": 42, "package": "exe", "category": "file"},
+                    "target": {"file": {"sha256": "ff" * 32}},
+                    "CAPE": {"payloads": [clean_large, detected_small]},
+                },
+                "id": 42,
+                "config": {},
+                "on_demand": {},
+                "graphs": {
+                    "bingraph": {"enabled": False, "content": {}},
+                    "vba2graph": {"enabled": False, "content": {}},
+                },
+            },
+        )
+        self.assertLess(html.index(sha_detected_small), html.index(sha_clean_large))
+
+
 
 
 

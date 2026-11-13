@@ -23,7 +23,13 @@ from contextlib import suppress
 from pathlib import Path
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
+from lib.cuckoo.common.cape_utils import (
+    cape_name_from_yara,
+    is_duplicated_binary,
+    pe_map,
+    sort_dumps_by_detection,
+    static_config_parsers,
+)
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.integrations.shellcode_utils import (
@@ -619,6 +625,11 @@ class CAPE(Processing):
                     path, append, meta, category="CAPE", duplicated=duplicated
                 ),
             )
+        if self.cape.get("payloads"):
+            self.cape["payloads"] = sort_dumps_by_detection(self.cape["payloads"])
+        for category_key in ("procdump", "dropped"):
+            if self.results.get(category_key):
+                self.results[category_key] = sort_dumps_by_detection(self.results[category_key])
         return self.cape
 
     def update_cape_configs(self, cape_name, config, file_obj):

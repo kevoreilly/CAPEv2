@@ -5,6 +5,7 @@ invoked for real: mocking its JSON output only proves that the mock matches the 
 """
 
 import base64
+import gzip
 import os
 import shutil
 import ssl
@@ -468,5 +469,279 @@ class TestPcap2Tshark:
             "zzz-clear": "Cleartext body\r\n",
             "tls-exfil": "Secret TLS body\r\n",
         }
+
+    @pytest.mark.skipif(not shutil.which("openssl"), reason="openssl is not installed")
+    def test_https_tls12_and_pcapng_dsb_decryption(self, tmp_path):
+        """HTTPS over TLS 1.2 is decrypted into https_ex via tlsdump.log or embedded pcapng DSB."""
+        cert_file = str(tmp_path / "cert.pem")
+        key_file = str(tmp_path / "key.pem")
+        keylog_file = str(tmp_path / "sslkeys.log")
+        pcap_path = str(tmp_path / "https.pcap")
+        subprocess.check_call(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-keyout",
+                key_file,
+                "-out",
+                cert_file,
+                "-days",
+                "1",
+                "-nodes",
+                "-subj",
+                "/CN=secure.example.test",
+            ],
+            stderr=subprocess.DEVNULL,
+        )
+
+        srv_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        srv_ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        srv_ctx.load_cert_chain(cert_file, key_file)
+
+        cli_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        cli_ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+        cli_ctx.check_hostname = False
+        cli_ctx.verify_mode = ssl.CERT_NONE
+        cli_ctx.keylog_filename = keylog_file
+
+        c_in, c_out = ssl.MemoryBIO(), ssl.MemoryBIO()
+        s_in, s_out = ssl.MemoryBIO(), ssl.MemoryBIO()
+        cli_ssl = cli_ctx.wrap_bio(c_in, c_out, server_side=False, server_hostname="secure.example.test")
+        srv_ssl = srv_ctx.wrap_bio(s_in, s_out, server_side=True)
+
+        frames = []
+        cseq = sseq = 1
+
+        def flush_bios():
+            nonlocal cseq, sseq
+            while True:
+                progressed = False
+                d = c_out.read()
+                if d:
+                    frames.append(_frame(CLIENT_IP, SERVER_IP, 54000, 443, cseq, sseq, d))
+                    cseq += len(d)
+                    s_in.write(d)
+                    progressed = True
+                d = s_out.read()
+                if d:
+                    frames.append(_frame(SERVER_IP, CLIENT_IP, 443, 54000, sseq, cseq, d))
+                    sseq += len(d)
+                    c_in.write(d)
+                    progressed = True
+                if not progressed:
+                    break
+
+        for _ in range(10):
+            for obj in (cli_ssl, srv_ssl):
+                try:
+                    obj.do_handshake()
+                except ssl.SSLWantReadError:
+                    pass
+                flush_bios()
+
+        req_bytes = (
+            b"POST /gate HTTP/1.1\r\n"
+            b"Host: secure.example.test\r\n"
+            b"User-Agent: test-agent/1.0\r\n"
+            b"Content-Length: " + str(len(POST_BODY)).encode() + b"\r\n\r\n" + POST_BODY
+        )
+        resp_bytes = (
+            b"HTTP/1.1 200 OK\r\n"
+            b"Server: nginx\r\n"
+            b"Content-Type: application/octet-stream\r\n"
+            b"Content-Length: " + str(len(RESPONSE_BODY)).encode() + b"\r\n\r\n" + RESPONSE_BODY
+        )
+
+        cli_ssl.write(req_bytes)
+        flush_bios()
+        srv_ssl.read(65536)
+
+        srv_ssl.write(resp_bytes)
+        flush_bios()
+        cli_ssl.read(65536)
+
+        _write_pcap(pcap_path, frames)
+
+        # Convert NSS keylog line into CAPE tlsdump.log format to test _write_keylog parsing
+        tlsdump_file = tmp_path / "tlsdump.log"
+        with open(keylog_file) as kf:
+            _, crand, msecret = next(
+                line.split() for line in kf.read().splitlines() if line.startswith("CLIENT_RANDOM")
+            )
+        tlsdump_file.write_text(
+            f"client_random: {crand}, server_random: {'aa' * 32}, master_secret: {msecret}\n"
+        )
+
+        net1 = tmp_path / "net_tlsdump"
+        res1 = Pcap2(pcap_path, {}, str(net1), keylog_files=[str(tlsdump_file)]).run()
+        assert len(res1["https_ex"]) == 1
+        flow = res1["https_ex"][0]
+        assert (flow["protocol"], flow["method"], flow["host"], flow["uri"], flow["status"]) == (
+            "https",
+            "POST",
+            "secure.example.test",
+            "/gate",
+            200,
+        )
+        assert (net1 / flow["req"]["sha256"]).read_bytes() == POST_BODY
+        assert (net1 / flow["resp"]["sha256"]).read_bytes() == RESPONSE_BODY
+
+        if shutil.which("editcap"):
+            pcapng_path = str(tmp_path / "https_dsb.pcapng")
+            subprocess.check_call(["editcap", "--inject-secrets", f"tls,{keylog_file}", pcap_path, pcapng_path])
+            net2 = tmp_path / "net_dsb"
+            res2 = Pcap2(pcapng_path, {}, str(net2)).run()
+            assert len(res2["https_ex"]) == 1
+            flow2 = res2["https_ex"][0]
+            assert (flow2["protocol"], flow2["method"], flow2["host"], flow2["uri"], flow2["status"]) == (
+                "https",
+                "POST",
+                "secure.example.test",
+                "/gate",
+                200,
+            )
+            assert (net2 / flow2["req"]["sha256"]).read_bytes() == POST_BODY
+            assert (net2 / flow2["resp"]["sha256"]).read_bytes() == RESPONSE_BODY
+
+    @pytest.mark.skipif(not shutil.which("openssl"), reason="openssl is not installed")
+    def test_https_tls13_and_http2_decryption(self, tmp_path):
+        """HTTP/2 over TLS 1.3 (ALPN h2) with TLS 1.3 secrets in tlsdump.log is decrypted into https_ex."""
+        cert_file = str(tmp_path / "cert.pem")
+        key_file = str(tmp_path / "key.pem")
+        keylog_file = str(tmp_path / "tlsdump.log")
+        pcap_path = str(tmp_path / "h2_tls13.pcap")
+        subprocess.check_call(
+            [
+                "openssl",
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-keyout",
+                key_file,
+                "-out",
+                cert_file,
+                "-days",
+                "1",
+                "-nodes",
+                "-subj",
+                "/CN=h2.example.test",
+            ],
+            stderr=subprocess.DEVNULL,
+        )
+
+        srv_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        srv_ctx.minimum_version = ssl.TLSVersion.TLSv1_3
+        srv_ctx.load_cert_chain(cert_file, key_file)
+        srv_ctx.set_alpn_protocols(["h2"])
+
+        cli_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        cli_ctx.minimum_version = ssl.TLSVersion.TLSv1_3
+        cli_ctx.check_hostname = False
+        cli_ctx.verify_mode = ssl.CERT_NONE
+        cli_ctx.set_alpn_protocols(["h2"])
+        cli_ctx.keylog_filename = keylog_file
+
+        c_in, c_out = ssl.MemoryBIO(), ssl.MemoryBIO()
+        s_in, s_out = ssl.MemoryBIO(), ssl.MemoryBIO()
+        cli_ssl = cli_ctx.wrap_bio(c_in, c_out, server_side=False, server_hostname="h2.example.test")
+        srv_ssl = srv_ctx.wrap_bio(s_in, s_out, server_side=True)
+
+        frames = []
+        cseq = sseq = 1
+
+        def flush_bios():
+            nonlocal cseq, sseq
+            while True:
+                progressed = False
+                d = c_out.read()
+                if d:
+                    frames.append(_frame(CLIENT_IP, SERVER_IP, 54001, 443, cseq, sseq, d))
+                    cseq += len(d)
+                    s_in.write(d)
+                    progressed = True
+                d = s_out.read()
+                if d:
+                    frames.append(_frame(SERVER_IP, CLIENT_IP, 443, 54001, sseq, cseq, d))
+                    sseq += len(d)
+                    c_in.write(d)
+                    progressed = True
+                if not progressed:
+                    break
+
+        for _ in range(10):
+            for obj in (cli_ssl, srv_ssl):
+                try:
+                    obj.do_handshake()
+                except ssl.SSLWantReadError:
+                    pass
+                flush_bios()
+
+        def h2_frame(ftype: int, flags: int, stream_id: int, payload: bytes = b"") -> bytes:
+            length = len(payload)
+            return (
+                bytes([(length >> 16) & 0xFF, (length >> 8) & 0xFF, length & 0xFF, ftype, flags])
+                + struct.pack("!I", stream_id)
+                + payload
+            )
+
+        def hpack_lit(name: bytes, val: bytes) -> bytes:
+            return b"\x00" + bytes([len(name)]) + name + bytes([len(val)]) + val
+
+        req_hdrs = (
+            hpack_lit(b":method", b"POST")
+            + hpack_lit(b":scheme", b"https")
+            + hpack_lit(b":authority", b"h2.example.test")
+            + hpack_lit(b":path", b"/v2/gate")
+            + hpack_lit(b"user-agent", b"h2-agent/2.0")
+        )
+        cli_ssl.write(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n" + h2_frame(4, 0, 0) + h2_frame(1, 0x04, 1, req_hdrs))
+        flush_bios()
+        srv_ssl.read(65536)
+
+        cli_ssl.write(h2_frame(0, 0x00, 1, b"part1-"))
+        flush_bios()
+        srv_ssl.read(65536)
+
+        cli_ssl.write(h2_frame(0, 0x01, 1, b"part2"))
+        flush_bios()
+        srv_ssl.read(65536)
+
+        resp_hdrs = (
+            hpack_lit(b":status", b"200")
+            + hpack_lit(b"server", b"h2srv")
+            + hpack_lit(b"content-encoding", b"gzip")
+        )
+        gz_resp = gzip.compress(b"decrypted-http2-response")
+        srv_ssl.write(
+            h2_frame(4, 0, 0)
+            + h2_frame(4, 0x01, 0)
+            + h2_frame(1, 0x04, 1, resp_hdrs)
+            + h2_frame(0, 0x01, 1, gz_resp)
+        )
+        flush_bios()
+        cli_ssl.read(65536)
+
+        _write_pcap(pcap_path, frames)
+        net_dir = tmp_path / "net_h2"
+        results = Pcap2(pcap_path, {}, str(net_dir), keylog_files=[keylog_file]).run()
+
+        assert len(results["https_ex"]) == 1
+        flow = results["https_ex"][0]
+        assert (flow["protocol"], flow["method"], flow["host"], flow["uri"], flow["status"]) == (
+            "https",
+            "POST",
+            "h2.example.test",
+            "/v2/gate",
+            200,
+        )
+        assert flow["request"] == b"POST /v2/gate HTTP/2\r\nHost: h2.example.test\r\nuser-agent: h2-agent/2.0\r\n"
+        assert flow["response"].startswith(b"HTTP/2 200\r\n")
+        assert (net_dir / flow["req"]["sha256"]).read_bytes() == b"part1-part2"
+        assert (net_dir / flow["resp"]["sha256"]).read_bytes() == b"decrypted-http2-response"
+
 
 

@@ -34,6 +34,7 @@ import dns.resolver
 from dns.reversename import from_address
 
 import utils.profiling as profiling
+from utils.tls import parse_tlsdump_line
 from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
@@ -988,6 +989,14 @@ class Pcap2:
         "http.response.phrase",
         "http.response.line",
         "http.file_data",
+        "http2.streamid",
+        "http2.type",
+        "http2.length",
+        "http2.flags.end_stream",
+        "http2.header.count",
+        "http2.header.name",
+        "http2.header.value",
+        "http2.data.data",
         "smtp.command_line",
         "smtp.response",
         "smtp.auth.username",
@@ -1073,12 +1082,21 @@ class Pcap2:
     def _write_keylog(self) -> str | None:
         """Serialise the dynamic-analysis TLS secrets into an NSS key log for tshark."""
         lines = []
+        seen = set()
+
+        def _add_line(entry: str):
+            if entry not in seen:
+                seen.add(entry)
+                lines.append(entry)
+
         if self.tlsmaster:
             for (client_random, _server_random), master_secret in self.tlsmaster.items():
                 try:
                     client_hex = binascii.hexlify(client_random).decode()
                     master_hex = binascii.hexlify(master_secret).decode()
-                    lines.append(f"CLIENT_RANDOM {client_hex} {master_hex}\n")
+                    if set(master_hex) == {"0"}:
+                        continue
+                    _add_line(f"CLIENT_RANDOM {client_hex} {master_hex}\n")
                 except Exception as e:
                     log.debug("Skipping invalid tlsmaster entry: %s", e)
 
@@ -1091,7 +1109,11 @@ class Pcap2:
                         line = raw_line.strip()
                         if not line or line.startswith("#") or line.endswith("0" * 96):
                             continue
-                        lines.append(f"{line}\n")
+                        parsed = parse_tlsdump_line(line)
+                        if parsed:
+                            _add_line(f"{parsed}\n")
+                        elif not line.lower().startswith("client_random:"):
+                            _add_line(f"{line}\n")
             except OSError as e:
                 log.debug("Failed to read keylog file %s: %s", key_file, e)
 
@@ -1205,7 +1227,8 @@ class Pcap2:
 
     @staticmethod
     def _build_response_header(version: str, code: str, phrase: str, header_lines: list[str]) -> bytes:
-        lines = [f"{version or 'HTTP/1.1'} {code} {phrase}\r\n".replace("  ", " ")] if code else []
+        status_line = f"{version or 'HTTP/1.1'} {code} {phrase}".rstrip() if code else ""
+        lines = [f"{status_line}\r\n".replace("  ", " ")] if status_line else []
         lines.extend(header_lines)
         return "".join(lines).encode("latin-1", errors="replace")
 
@@ -1458,6 +1481,211 @@ class Pcap2:
         # still traffic worth reporting.
         for req in pending_requests:
             self._finalize_http(req, None, results)
+
+    def _emit_http2_stream(self, st: dict, results: dict):
+        req_st = st.get("req")
+        resp_st = st.get("resp")
+        if not req_st and not resp_st:
+            return
+
+        if req_st:
+            req_body = (
+                req_st["body_reassembled"]
+                if req_st["body_reassembled"] is not None
+                else b"".join(req_st["body_chunks"])
+            )
+            req = {
+                "src": req_st["src"],
+                "sport": req_st["sport"],
+                "dst": req_st["dst"],
+                "dport": req_st["dport"],
+                "method": req_st["method"],
+                "host": req_st["host"],
+                "uri": req_st["uri"],
+                "request": self._build_request_header(
+                    req_st["method"], req_st["uri"], "HTTP/2", req_st["hdr_lines"]
+                ),
+                "body": req_body,
+                "secure": req_st["secure"],
+                "first_seen": req_st["first_seen"],
+            }
+        else:
+            req = {
+                "src": resp_st["dst"],
+                "sport": resp_st["dport"],
+                "dst": resp_st["src"],
+                "dport": resp_st["sport"],
+                "method": "UNKNOWN",
+                "host": resp_st["src"],
+                "uri": "",
+                "request": b"",
+                "body": b"",
+                "secure": resp_st["secure"],
+                "first_seen": resp_st["first_seen"],
+            }
+
+        if resp_st:
+            resp_body = (
+                resp_st["body_reassembled"]
+                if resp_st["body_reassembled"] is not None
+                else b"".join(resp_st["body_chunks"])
+            )
+            resp_header = self._build_response_header(
+                "HTTP/2", resp_st["status_str"], "", resp_st["hdr_lines"]
+            )
+            self._finalize_http(
+                req,
+                resp_st["layers"],
+                results,
+                status=resp_st["status"],
+                response_header=resp_header,
+                resp_body=resp_body,
+            )
+        else:
+            self._finalize_http(req, None, results)
+
+    def _process_http2_stream(self, layers_list, results):
+        streams: OrderedDict[str, dict] = OrderedDict()
+
+        for layers in layers_list:
+            srcip = self._first(layers, "ip.src") or self._first(layers, "ipv6.src")
+            dstip = self._first(layers, "ip.dst") or self._first(layers, "ipv6.dst")
+            if not srcip or not dstip:
+                continue
+
+            sport = self._int(self._first(layers, "tcp.srcport"))
+            dport = self._int(self._first(layers, "tcp.dstport"))
+            is_secure = bool(self._first(layers, "tls.record.content_type"))
+
+            ts = self._first(layers, "frame.time_epoch")
+            try:
+                ts = float(ts) if ts else None
+            except ValueError:
+                log.warning("Failed to parse timestamp '%s' as float in HTTP/2 stream", ts)
+                ts = None
+
+            stream_ids = self._all(layers, "http2.streamid")
+            frame_types = self._all(layers, "http2.type")
+            frame_lengths = [self._int(length) for length in self._all(layers, "http2.length")]
+            end_streams = self._all(layers, "http2.flags.end_stream")
+            header_counts = [self._int(c) for c in self._all(layers, "http2.header.count")]
+            header_names = self._all(layers, "http2.header.name")
+            header_values = self._all(layers, "http2.header.value")
+            data_chunks = self._all_bytes(layers, "http2.data.data")
+
+            end_stream_idx = 0
+            hdr_count_idx = 0
+            hdr_kv_idx = 0
+            data_idx = 0
+
+            for frame_idx, (sid, ftype) in enumerate(zip(stream_ids, frame_types)):
+                frame_len = frame_lengths[frame_idx] if frame_idx < len(frame_lengths) else 0
+                end_stream = False
+                if ftype in ("0", "1") and end_stream_idx < len(end_streams):
+                    end_stream = str(end_streams[end_stream_idx]).lower() in ("true", "1")
+                    end_stream_idx += 1
+
+                if ftype in ("1", "5", "9"):
+                    if hdr_count_idx < len(header_counts):
+                        cnt = header_counts[hdr_count_idx]
+                        hdr_count_idx += 1
+                    else:
+                        cnt = len(header_names) - hdr_kv_idx
+                    pairs = list(
+                        zip(
+                            header_names[hdr_kv_idx : hdr_kv_idx + cnt],
+                            header_values[hdr_kv_idx : hdr_kv_idx + cnt],
+                        )
+                    )
+                    hdr_kv_idx += cnt
+
+                    if sid == "0" or ftype == "5" or not pairs:
+                        continue
+
+                    pseudo = {k: v for k, v in pairs if k.startswith(":")}
+                    regular = [(k, v) for k, v in pairs if not k.startswith(":")]
+
+                    if ":method" in pseudo:
+                        if sid in streams and ("req" in streams[sid] or "resp" in streams[sid]):
+                            self._emit_http2_stream(streams.pop(sid), results)
+                        method = pseudo.get(":method") or "GET"
+                        uri = pseudo.get(":path") or "/"
+                        authority = pseudo.get(":authority") or ""
+                        hdr_lines = []
+                        if authority and not any(k.lower() == "host" for k, _ in regular):
+                            hdr_lines.append(f"Host: {authority}\r\n")
+                        hdr_lines.extend(f"{k}: {v}\r\n" for k, v in regular)
+                        host = (
+                            authority
+                            or next((v for k, v in regular if k.lower() == "host"), "")
+                            or dstip
+                        )
+                        streams.setdefault(sid, {})["req"] = {
+                            "src": srcip,
+                            "sport": sport,
+                            "dst": dstip,
+                            "dport": dport,
+                            "method": method,
+                            "host": host,
+                            "uri": uri,
+                            "hdr_lines": hdr_lines,
+                            "body_chunks": [],
+                            "body_reassembled": None,
+                            "secure": is_secure,
+                            "first_seen": ts,
+                        }
+                    elif ":status" in pseudo:
+                        status_str = pseudo.get(":status") or "0"
+                        status = self._int(status_str)
+                        if 100 <= status < 200 and status != 101:
+                            continue
+                        hdr_lines = [f"{k}: {v}\r\n" for k, v in regular]
+                        streams.setdefault(sid, {})["resp"] = {
+                            "src": srcip,
+                            "sport": sport,
+                            "dst": dstip,
+                            "dport": dport,
+                            "status": status,
+                            "status_str": status_str,
+                            "hdr_lines": hdr_lines,
+                            "body_chunks": [],
+                            "body_reassembled": None,
+                            "secure": is_secure,
+                            "first_seen": ts,
+                            "layers": layers,
+                        }
+                    elif sid in streams:
+                        target = streams[sid].get("resp") or streams[sid].get("req")
+                        if target is not None:
+                            target["hdr_lines"].extend(f"{k}: {v}\r\n" for k, v in regular)
+
+                elif ftype == "0":
+                    st = streams.get(sid)
+                    target = None
+                    if st:
+                        req_st = st.get("req")
+                        resp_st = st.get("resp")
+                        if req_st and (srcip, sport) == (req_st["src"], req_st["sport"]):
+                            target = req_st
+                        elif resp_st and (srcip, sport) == (resp_st["src"], resp_st["sport"]):
+                            target = resp_st
+                        else:
+                            target = resp_st or req_st
+
+                    expects_data = frame_len > 0 or (
+                        end_stream and target is not None and bool(target["body_chunks"])
+                    )
+                    if expects_data and data_idx < len(data_chunks):
+                        chunk = data_chunks[data_idx]
+                        data_idx += 1
+                        if target is not None:
+                            if end_stream:
+                                target["body_reassembled"] = chunk
+                            else:
+                                target["body_chunks"].append(chunk)
+
+        for st in streams.values():
+            self._emit_http2_stream(st, results)
 
     # ------------------------------------------------------------------ SMTP
 
@@ -1774,11 +2002,12 @@ class Pcap2:
         keylog_path = self._write_keylog()
         try:
             http_streams = defaultdict(list)
+            http2_streams = defaultdict(list)
             smtp_streams = defaultdict(list)
             smtp_with_data = set()
             smtp_encrypted = set()
 
-            for layers in self._iter_packets("http or smtp", self.METADATA_FIELDS, keylog_path):
+            for layers in self._iter_packets("http or http2 or smtp", self.METADATA_FIELDS, keylog_path):
                 stream_id = self._first(layers, "tcp.stream")
                 if stream_id is None:
                     continue
@@ -1786,6 +2015,10 @@ class Pcap2:
                 is_http = any(
                     self._first(layers, field)
                     for field in ("http.request.method", "http.response.code", "http.file_data")
+                )
+                is_http2 = any(
+                    self._first(layers, field)
+                    for field in ("http2.header.name", "http2.data.data")
                 )
                 is_smtp = any(
                     self._all(layers, field) for field in ("smtp.command_line", "smtp.response")
@@ -1803,7 +2036,9 @@ class Pcap2:
 
                 if is_http:
                     http_streams[stream_id].append(layers)
-                elif is_smtp:
+                if is_http2:
+                    http2_streams[stream_id].append(layers)
+                elif not is_http and is_smtp:
                     smtp_streams[stream_id].append(layers)
                     if self._first(layers, "tls.record.content_type"):
                         smtp_encrypted.add(stream_id)
@@ -1813,6 +2048,9 @@ class Pcap2:
 
             for layers_list in http_streams.values():
                 self._process_http_stream(layers_list, results)
+
+            for layers_list in http2_streams.values():
+                self._process_http2_stream(layers_list, results)
 
             bodies: dict[str, list[bytes]] = defaultdict(list)
             cleartext_with_data = smtp_with_data - smtp_encrypted
@@ -2434,6 +2672,7 @@ class NetworkAnalysis(Processing):
     def get_keylog_files(self) -> list[str]:
         """Return paths to existing NSS key log files collected during analysis."""
         candidates = (
+            os.path.join(self.analysis_path, "tlsdump", "tlsdump.log"),
             os.path.join(self.analysis_path, "aux", "sslkeylogfile", "sslkeys.log"),
             os.path.join(self.analysis_path, "sslproxy", "master_keys.log"),
         )
@@ -2652,8 +2891,14 @@ def next_connection_packets(piter, linktype=1):
 
 
 def packets_for_stream(fobj, offset):
-    """Open a PCAP, seek to a packet offset, then get all packets belonging to the same connection"""
-    pcap = dpkt.pcap.Reader(fobj)
+    """Open a PCAP or PCAPNG, seek to a packet offset, then get all packets belonging to the same connection"""
+    pos = fobj.tell()
+    magic = fobj.read(4)
+    fobj.seek(pos)
+    if len(magic) == 4 and int.from_bytes(magic, byteorder="little") == 0x0A0D0D0A:
+        pcap = dpkt.pcapng.Reader(fobj)
+    else:
+        pcap = dpkt.pcap.Reader(fobj)
     pcapiter = iter(pcap)
     ts, raw = next(pcapiter)
 

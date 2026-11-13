@@ -39,6 +39,38 @@ class TLS12KeyLog:
         return f"{self.LOG_LABEL} {self.client_random} {self.master_secret}"
 
 
+SSLKEYLOG_LINE_RE = re.compile(
+    r"^\s*(?P<label>"
+    r"CLIENT_RANDOM|"
+    r"CLIENT_EARLY_TRAFFIC_SECRET|"
+    r"CLIENT_HANDSHAKE_TRAFFIC_SECRET|"
+    r"SERVER_HANDSHAKE_TRAFFIC_SECRET|"
+    r"CLIENT_TRAFFIC_SECRET_0|"
+    r"SERVER_TRAFFIC_SECRET_0|"
+    r"EARLY_EXPORTER_SECRET|"
+    r"EXPORTER_SECRET"
+    r")\s+(?P<client_random>[0-9a-fA-F]{64})\s+(?P<secret>[0-9a-fA-F]+)\s*$"
+)
+
+
+def parse_tlsdump_line(line: str) -> str | None:
+    """Parse a single line from tlsdump.log or an NSS keylog file into SSLKEYLOGFILE format."""
+    tlslog = TLS12KeyLog.from_cape_log(line)
+    if tlslog:
+        if set(tlslog.master_secret) == {"0"}:
+            return None
+        return str(tlslog)
+
+    match = SSLKEYLOG_LINE_RE.match(line)
+    if match:
+        secret = match.group("secret")
+        if set(secret) == {"0"}:
+            return None
+        return f"{match.group('label')} {match.group('client_random')} {secret}"
+
+    return None
+
+
 def tlslog_to_sslkeylogfile(tls_log_path, sslkeylogfile_path):
     """Convert Cape's TLS log file (tlsdump.log) into a format that is
     readable by WireShark (SSLKEYLOGFILE).
@@ -56,6 +88,6 @@ def tlslog_to_sslkeylogfile(tls_log_path, sslkeylogfile_path):
     # order mark.
     with open(tls_log_path, "r") as ifile, open(sslkeylogfile_path, "w+", encoding="utf-8") as ofile:
         for line in ifile:
-            tlslog = TLS12KeyLog.from_cape_log(line)
-            if tlslog:
-                ofile.write(f"{tlslog}\n")
+            parsed = parse_tlsdump_line(line)
+            if parsed:
+                ofile.write(f"{parsed}\n")

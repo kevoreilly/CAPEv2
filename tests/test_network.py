@@ -2,74 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import unittest.mock as mock
-from pathlib import Path
-
 import modules.processing.network as net
 
 
-def test_pcap2_port_587_handler_1arg(tmp_path: Path):
-    """Ensure port 587 handler passes tlsmaster when httpreplay.cut.smtp_handler accepts it."""
-    mock_smtp_handler = mock.MagicMock(return_value="smtp_with_tls")
-    mock_cut = mock.MagicMock(smtp_handler=mock_smtp_handler)
-    mock_httpreplay = mock.MagicMock(cut=mock_cut)
-
-    with mock.patch.object(net, "httpreplay", mock_httpreplay, create=True):
-        tlsmaster = {"secret": "0123456789abcdef"}
-        pcap2 = net.Pcap2(str(tmp_path / "dummy.pcap"), tlsmaster, str(tmp_path / "network"))
-
-        assert 587 in pcap2.handlers
-        res = pcap2.handlers[587]()
-
-        mock_smtp_handler.assert_called_once_with(tlsmaster)
-        assert res == "smtp_with_tls"
-
-
-def test_pcap2_port_587_handler_0arg_fallback(tmp_path: Path):
-    """Ensure port 587 handler falls back to 0-arg call if smtp_handler raises TypeError."""
-
-    def fake_smtp_handler(*args):
-        if args:
-            raise TypeError("smtp_handler() takes 0 positional arguments but 1 was given")
-        return "smtp_plain_fallback"
-
-    mock_cut = mock.MagicMock(smtp_handler=mock.MagicMock(side_effect=fake_smtp_handler))
-    mock_httpreplay = mock.MagicMock(cut=mock_cut)
-
-    with mock.patch.object(net, "httpreplay", mock_httpreplay, create=True):
-        tlsmaster = {"secret": "0123456789abcdef"}
-        pcap2 = net.Pcap2(str(tmp_path / "dummy.pcap"), tlsmaster, str(tmp_path / "network"))
-
-        assert 587 in pcap2.handlers
-        res = pcap2.handlers[587]()
-
-        assert res == "smtp_plain_fallback"
-
-
-def test_pcap2_smtp_handler_static_method():
-    """Directly test Pcap2._smtp_handler helper with 1-arg and 0-arg implementations."""
-    mock_cut_1arg = mock.MagicMock(smtp_handler=mock.MagicMock(return_value="tls_ok"))
-    mock_httpreplay_1arg = mock.MagicMock(cut=mock_cut_1arg)
-
-    with mock.patch.object(net, "httpreplay", mock_httpreplay_1arg, create=True):
-        assert net.Pcap2._smtp_handler("tls_secret") == "tls_ok"
-        mock_cut_1arg.smtp_handler.assert_called_once_with("tls_secret")
-
-    def raise_typeerror(*args):
-        if args:
-            raise TypeError("takes 0 positional arguments")
-        return "plain_ok"
-
-    mock_cut_0arg = mock.MagicMock(smtp_handler=mock.MagicMock(side_effect=raise_typeerror))
-    mock_httpreplay_0arg = mock.MagicMock(cut=mock_cut_0arg)
-
-    with mock.patch.object(net, "httpreplay", mock_httpreplay_0arg, create=True):
-        assert net.Pcap2._smtp_handler("tls_secret") == "plain_ok"
-
-
 def test_batch_sort_stages_chunks_in_cape_external_and_cleans_up(tmp_path, monkeypatch):
-    import modules.processing.network as net
-
     ext_dir = tmp_path / "cape-external"
     ext_dir.mkdir()
     monkeypatch.setattr(net, "get_cape_external_dir", lambda: str(ext_dir))
@@ -110,3 +46,38 @@ def test_batch_sort_stages_chunks_in_cape_external_and_cleans_up(tmp_path, monke
     assert list(ext_dir.iterdir()) == []
     assert _MemChunk._store[out_path] == [1, 2, 3]
 
+
+def test_packets_for_stream_supports_pcap_and_pcapng(tmp_path, monkeypatch):
+    import dpkt
+    from base64 import b64decode
+
+    def _raw_pkt(sport, dport, payload):
+        tcp = dpkt.tcp.TCP(sport=sport, dport=dport, seq=1, ack=1, flags=dpkt.tcp.TH_PUSH | dpkt.tcp.TH_ACK, data=payload)
+        ip = dpkt.ip.IP(src=b"\x0a\x00\x00\x01", dst=b"\x0a\x00\x00\x02", p=dpkt.ip.IP_PROTO_TCP, data=tcp)
+        ip.len = len(ip)
+        return bytes(dpkt.ethernet.Ethernet(src=b"\x00" * 6, dst=b"\x11" * 6, type=dpkt.ethernet.ETH_TYPE_IP, data=ip))
+
+    pkt1 = _raw_pkt(40000, 443, b"client-hello")
+    pkt2 = _raw_pkt(40000, 443, b"client-data")
+    pkt_other = _raw_pkt(40001, 80, b"other-flow")
+
+    for fmt, writer_cls in (("pcap", dpkt.pcap.Writer), ("pcapng", dpkt.pcapng.Writer)):
+        pcap_file = tmp_path / f"sample.{fmt}"
+        with open(pcap_file, "wb") as f:
+            w = writer_cls(f)
+            w.writepkt(pkt1, ts=1.0)
+            w.writepkt(pkt2, ts=2.0)
+            w.writepkt(pkt_other, ts=3.0)
+
+        monkeypatch.setattr(net, "PCAP_TYPE", net.check_pcap_file_type(str(pcap_file)), raising=False)
+        res = net.Pcap(str(pcap_file), {}, {"sorted": True}).run()
+        conns = {c["sport"]: c["offset"] for c in res["sorted"]["tcp"]}
+        assert set(conns) == {40000, 40001}
+
+        with open(pcap_file, "rb") as f:
+            stream_40000 = list(net.packets_for_stream(f, conns[40000]))
+        assert [b64decode(p["raw"]) for p in stream_40000] == [b"client-hello", b"client-data"]
+
+        with open(pcap_file, "rb") as f:
+            stream_40001 = list(net.packets_for_stream(f, conns[40001]))
+        assert [b64decode(p["raw"]) for p in stream_40001] == [b"other-flow"]

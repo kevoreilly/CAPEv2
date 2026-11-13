@@ -691,7 +691,7 @@ class RunSignatures:
             # Iterate calls and tell interested signatures about them.
             evented_set = set(self.evented_list)
             always = frozenset(evented_set.intersection(self.call_always))
-            for process in results.get("behavior", {}).get("processes", []):
+            for proc in self.results.get("behavior", {}).get("processes", []):
                 process_name = proc["process_name"]
                 process_id = proc["process_id"]
                 calls = proc.get("calls", [])
@@ -860,7 +860,7 @@ class RunReporting:
             del results["pefiles"]
 
         # remove unwanted/duplicate information from reporting
-        for process in results["behavior"]["processes"]:
+        for process in results.get("behavior", {}).get("processes", []):
             # Reprocessing and Behavior set from json file. This is a per-process
             # condition, so skip this process rather than abandoning the loop and
             # leaving the remaining ParseProcessLog instances unconverted.

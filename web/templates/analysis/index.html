@@ -61,9 +61,44 @@
         {% endif %}
 
         <div class="card bg-dark shadow-sm border-secondary">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+            <div class="card-header border-secondary bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-white-50"></i> Recent Files</h5>
-                <span class="badge bg-dark">{{files|length}} items</span>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#bulkReportDownloadCollapse" aria-expanded="false" aria-controls="bulkReportDownloadCollapse">
+                        <i class="fas fa-file-archive me-1"></i> Bulk Download Reports
+                    </button>
+                    <span class="badge bg-dark">{{files|length}} items</span>
+                </div>
+            </div>
+            <div class="collapse border-bottom border-secondary bg-dark px-3 py-2" id="bulkReportDownloadCollapse">
+                <form method="get" action="{% url 'tasks_reports_bulk' %}" class="row g-2 align-items-end">
+                    <div class="col-sm-4">
+                        <label for="bulk-task-ids" class="form-label small text-white-50 mb-1">Task ID Range / List</label>
+                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="bulk-task-ids" name="task_ids" placeholder="e.g. 1000-2000 or 101,102,105" required>
+                    </div>
+                    <div class="col-sm-3">
+                        <label for="bulk-report-format" class="form-label small text-white-50 mb-1">Report Type</label>
+                        <select class="form-select form-select-sm bg-dark text-white border-secondary" id="bulk-report-format" name="report_format">
+                            <option value="json" selected>JSON (report.json)</option>
+                            <option value="litereport">Lite JSON (lite.json)</option>
+                            <option value="html">HTML (report.html)</option>
+                            <option value="htmlsummary">HTML Summary (summary-report.html)</option>
+                            <option value="pdf">PDF (report.pdf)</option>
+                            <option value="maec5">MAEC 5.0 JSON</option>
+                            <option value="maec">MAEC 4.1 XML</option>
+                            <option value="metadata">Metadata XML</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-3">
+                        <label for="bulk-package" class="form-label small text-white-50 mb-1">Package (optional)</label>
+                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="bulk-package" name="package" placeholder="e.g. exe, dll, doc">
+                    </div>
+                    <div class="col-sm-2">
+                        <button type="submit" class="btn btn-sm btn-info w-100">
+                            <i class="fas fa-download me-1"></i> Download ZIP
+                        </button>
+                    </div>
+                </form>
             </div>
             {% if files %}
             <div class="table-responsive">

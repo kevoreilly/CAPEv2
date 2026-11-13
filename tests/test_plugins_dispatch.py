@@ -6,7 +6,7 @@ import pytest
 
 from lib.cuckoo.common.abstracts import Signature
 from lib.cuckoo.core import plugins as plugins_module
-from lib.cuckoo.core.plugins import RunSignatures
+from lib.cuckoo.core.plugins import RunReporting, RunSignatures
 
 APIS = ("gethostbyname", "send", "NtCreateFile", "RegSetValueExA", "explode")
 CATEGORIES = ("network", "filesystem", "registry", "misc")
@@ -227,3 +227,16 @@ def test_evented_signature_matching_in_on_call_records_ttps_and_mbcs(monkeypatch
 
     assert engine.ttps == [{"ttp": "T1071", "signature": "match_in_on_call"}]
     assert engine.mbcs == {"match_in_on_call": {"OB0004": ["B0030"]}}
+
+
+def test_run_signatures_and_reporting_handle_missing_behavior_processes(monkeypatch):
+    results_empty_behavior = {"statistics": {"signatures": []}, "behavior": {}}
+    engine = _engine(monkeypatch, results=results_empty_behavior)
+    engine.run()
+    assert results_empty_behavior["signatures"] == []
+
+    reporting_empty_behavior = RunReporting(task={"id": 1}, results={"behavior": {}})
+    assert reporting_empty_behavior.results == {"behavior": {}}
+
+    reporting_no_behavior = RunReporting(task={"id": 1}, results={})
+    assert reporting_no_behavior.results == {}

@@ -358,8 +358,22 @@ class TestDemux:
 
         monkeypatch.setattr(demux.File, "get_type", lambda self: "Zip archive data, at least v2.0 to extract")
         demuxed, errors = demux.demux_sample(str(apk_blob).encode(), package="", options="", use_sflock=True)
-        assert demuxed == [(str(apk_blob).encode(), "")]
+        assert demuxed == []
         assert errors == [{"extensionless_apk": "blacklisted package"}]
+        assert unpack_calls == []
+
+        # V1-signed APK whose libmagic string matches "Java archive data (JAR)" must not bypass APK check at Step 4
+        signed_apk = tmp_path / "signed_v1_sample"
+        with zipfile.ZipFile(signed_apk, "w") as zf:
+            zf.writestr("META-INF/MANIFEST.MF", b"Manifest-Version: 1.0\n")
+            zf.writestr("AndroidManifest.xml", b"<manifest/>")
+            zf.writestr("classes.dex", b"dex\n035\x00")
+        monkeypatch.setattr(demux.File, "get_type", lambda self: "Java archive data (JAR)")
+        demuxed_signed, errors_signed = demux.demux_sample(
+            str(signed_apk).encode(), package="", options="", use_sflock=True
+        )
+        assert demuxed_signed == []
+        assert errors_signed == [{"signed_v1_sample": "blacklisted package"}]
         assert unpack_calls == []
 
     def test_demux_sflock_closes_unpacked_and_cleans_discarded_children(self, tmp_path, monkeypatch):
@@ -563,6 +577,19 @@ class TestDemux:
         )
         demux.demux_sflock(str(gomod_zip).encode(), options="ignore_junk_filter=1")
         assert len(unpack_calls) == 1
+
+        # 6. Non-regular tar entry exceeding _MAX_TAR_SCAN_BYTES aborts scan early
+        oversized_nonfile_tar = tmp_path / "oversized_nonfile.tar"
+        with tarfile.open(oversized_nonfile_tar, "w") as tf:
+            ti = tarfile.TarInfo(name="repo/dir_entry")
+            ti.type = tarfile.DIRTYPE
+            ti.size = 0
+            tf.addfile(ti)
+            ti_file = tarfile.TarInfo(name="repo/go.mod")
+            ti_file.size = 24
+            tf.addfile(ti_file, io.BytesIO(b"module example.com/demo\n"))
+        monkeypatch.setattr(demux, "_MAX_TAR_SCAN_ENTRIES", 1)
+        assert demux._is_source_code_archive(str(oversized_nonfile_tar).encode()) is False
 
 
 

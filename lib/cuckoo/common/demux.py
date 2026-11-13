@@ -655,17 +655,19 @@ def _is_source_code_archive(filename: bytes) -> bool:
 
         if tar_mode is not None:
             members = []
+            scanned_entries = 0
             scanned_bytes = 0
             with tarfile.open(path_str, tar_mode) as tf:
                 while True:
                     ti = tf.next()
                     if ti is None:
                         break
+                    scanned_entries += 1
+                    scanned_bytes += max(int(getattr(ti, "size", 0) or 0), 0)
+                    if scanned_entries > _MAX_TAR_SCAN_ENTRIES or scanned_bytes > _MAX_TAR_SCAN_BYTES:
+                        return False
                     if ti.isfile():
                         members.append(ti.name)
-                        scanned_bytes += max(int(getattr(ti, "size", 0) or 0), 0)
-                        if len(members) > _MAX_TAR_SCAN_ENTRIES or scanned_bytes > _MAX_TAR_SCAN_BYTES:
-                            return False
             return _is_source_code_tree(members)
     except Exception:
         return False
@@ -1075,8 +1077,8 @@ def demux_sample(
     if hasattr(File, "LINUX_TYPES"):
         ignored_signatures.extend(File.LINUX_TYPES)
 
-    # If magic matches an ignored type, treat as regular file and skip sflock
-    if any(sig in magic for sig in ignored_signatures):
+    # If magic matches an ignored type (and is not an APK archive), treat as regular file and skip sflock
+    if any(sig in magic for sig in ignored_signatures) and not _is_apk_archive(filename):
         valid_file, error = _prepare_file(filename, options)
         if valid_file:
             return [(valid_file, platform)], []
@@ -1103,6 +1105,8 @@ def demux_sample(
     if not extracted_files:
         if sflock_error:
             error_list.append({os.path.basename(filename).decode(errors='ignore'): sflock_error})
+            if sflock_error == "blacklisted package":
+                return [], error_list
 
         # Fallback: submit the original file
         valid_file, error = _prepare_file(filename, options)

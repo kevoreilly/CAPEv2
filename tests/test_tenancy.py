@@ -2569,6 +2569,17 @@ def test_gcp_pubsub_service_client_lifecycle_nofile_and_systemd_limit(monkeypatc
     assert len(storage_created) == 2
     assert storage_closed == [1]
 
+    # When an active download is in flight, _init_clients() defers closing old_storage
+    svc._active_downloads = 1
+    svc._init_clients()
+    assert len(storage_created) == 3
+    assert storage_closed == [1]
+    assert len(svc._retired_storage_clients) == 1
+    svc._active_downloads = 0
+    svc._init_clients()
+    assert len(storage_created) == 4
+    assert storage_closed == [1, 3]
+
     # 4. submit_file removes empty upload_* staging dir when no tasks are created
     src_sample = tmp_path / "input.bin"
     src_sample.write_bytes(b"data")
@@ -2591,6 +2602,32 @@ def test_gcp_pubsub_service_client_lifecycle_nofile_and_systemd_limit(monkeypatc
     assert tids == []
     assert not staged_file.exists()
     assert not upload_dir.exists()
+
+    # 5. process_message ACKs blacklisted package and disabled Linux platform skips
+    acks = []
+    nacks = []
+    monkeypatch.setattr("utils.gcp_pubsub_service.CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        pubsub_mod,
+        "download_from_gcs",
+        lambda uri, path, **_kw: Path(path).write_bytes(b"PK\x03\x04") or True,
+    )
+    for idx, skip_err in enumerate(
+        (
+            [{"app.apk": "blacklisted package"}],
+            [{"elf_bin": "Linux processing is disabled"}],
+        )
+    ):
+        monkeypatch.setattr(pubsub_mod, "submit_file", lambda **_kw: ([], {"errors": skip_err}))
+        msg = types.SimpleNamespace(
+            message_id=f"msg-skip-{idx}",
+            data=json.dumps({"sample_hash": f"{idx:064x}", "gcs_uri": f"gs://test-bucket/{idx:064x}"}).encode(),
+            ack=lambda i=idx: acks.append(i),
+            nack=lambda i=idx: nacks.append(i),
+        )
+        svc.process_message(msg)
+    assert acks == [0, 1]
+    assert nacks == []
 
 
 

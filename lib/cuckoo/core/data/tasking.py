@@ -10,7 +10,7 @@ from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.utils import bytes2str, get_options
-from lib.cuckoo.common.demux import _close_sflock_file, demux_sample
+from lib.cuckoo.common.demux import _close_sflock_file, _is_apk_archive, demux_sample
 from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from .samples import Sample, SampleAssociation
@@ -369,17 +369,20 @@ class TasksMixIn:
         identified_package = False
 
         if not requested_package:
-            sf_file = SflockFile.from_path(file)
-            try:
-                identified_package = sflock_identify(
-                    sf_file,
-                    check_shellcode=check_shellcode,
-                )
-            except Exception as e:
-                log.error("Failed to identify submission with SFlock: %s", e)
-                identified_package = "generic"
-            finally:
-                _close_sflock_file(sf_file)
+            if _is_apk_archive(file):
+                identified_package = "apk"
+            else:
+                sf_file = SflockFile.from_path(file)
+                try:
+                    identified_package = sflock_identify(
+                        sf_file,
+                        check_shellcode=check_shellcode,
+                    )
+                except Exception as e:
+                    log.error("Failed to identify submission with SFlock: %s", e)
+                    identified_package = "generic"
+                finally:
+                    _close_sflock_file(sf_file)
 
         if identified_package and identified_package in sandbox_packages:
             if identified_package in ("iso", "udf", "vhd"):

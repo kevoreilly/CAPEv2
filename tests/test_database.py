@@ -2115,4 +2115,23 @@ class TestDatabaseEngine:
         assert ident2 == "generic"
         assert closed == [True, True]
 
+        # V1-signed extensionless APK is identified as "apk" (package="") without misclassifying as "jar"
+        import zipfile
+
+        signed_apk = tmp_path / "signed_apk_sample"
+        with zipfile.ZipFile(signed_apk, "w") as zf:
+            zf.writestr("META-INF/MANIFEST.MF", b"Manifest-Version: 1.0\n")
+            zf.writestr("AndroidManifest.xml", b"<manifest/>")
+            zf.writestr("classes.dex", b"dex\n035\x00")
+        pkg_apk, ident_apk, generic_apk = db.identify_submission_package(str(signed_apk).encode(), "")
+        assert pkg_apk == ""
+        assert ident_apk == "apk"
+        assert generic_apk is True
+        assert closed == [True, True]
+
+        with db.session.begin():
+            tids_apk, details_apk = db.demux_sample_and_add_to_db(file_path=str(signed_apk).encode())
+        assert tids_apk == []
+        assert details_apk == {"errors": [{"signed_apk_sample": "blacklisted package"}]}
+
 

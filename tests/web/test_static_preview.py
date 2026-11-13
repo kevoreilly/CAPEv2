@@ -1026,6 +1026,49 @@ class TestStaticPreview(SimpleTestCase):
             self.assertIn(f'id="capeYaraAccordion_{sha}"', html)
             self.assertIn(f'id="virustotal_binary_{sha}"', html)
 
+    def test_file_info_renders_dump_trigger_when_present(self):
+        from django.template.loader import render_to_string
+
+        sha = "33" * 32
+        file_entry = {
+            "name": "dumped_payload.bin",
+            "size": 4096,
+            "crc32": "33333333",
+            "md5": "3" * 32,
+            "sha1": "3" * 40,
+            "sha256": sha,
+            "sha512": "3" * 128,
+            "type": "PE32 executable",
+            "cape_type": "Unpacked PE Image: 32-bit executable",
+            "cape_type_code": 8,
+            "virtual_address": "0x00400000",
+            "dump_trigger": "dump-on-api=VirtualProtect",
+            "yara": [],
+            "cape_yara": [],
+        }
+        html = render_to_string(
+            "analysis/CAPE/index.html",
+            {
+                "CAPE": {"payloads": [file_entry]},
+                "tab_name": "CAPE",
+                "analysis": {
+                    "info": {"id": 42, "package": "exe", "category": "file"},
+                    "target": {"file": {"sha256": "ff" * 32}},
+                    "CAPE": {"payloads": [file_entry]},
+                },
+                "id": 42,
+                "config": {},
+                "on_demand": {},
+                "graphs": {
+                    "bingraph": {"enabled": False, "content": {}},
+                    "vba2graph": {"enabled": False, "content": {}},
+                },
+            },
+        )
+        self.assertIn("Dump Trigger", html)
+        self.assertIn("<code>dump-on-api=VirtualProtect</code>", html)
+
+
 
 
 

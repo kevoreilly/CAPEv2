@@ -98,6 +98,12 @@
                     <td>{{file.virtual_address}}</td>
                 </tr>
             {% endif %}
+            {% if file.dump_trigger %}
+                <tr>
+                    <th class="text-end text-info" style="width: 15%;">Dump Trigger</th>
+                    <td><code>{{file.dump_trigger}}</code></td>
+                </tr>
+            {% endif %}
             {% if file.cape_type_code == 5 %}
                 <tr>
                     <th class="text-end text-info" style="width: 15%;">Section Handle</th>

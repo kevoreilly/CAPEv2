@@ -9,7 +9,7 @@ import os
 import sys
 import tempfile
 import warnings
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from logging import handlers
 from typing import Any, Dict, Optional, Tuple
 
@@ -85,12 +85,30 @@ class GCPServiceLogger(logging.LoggerAdapter):
             kwargs["extra"] = extra
         return msg, kwargs
 
+def _ensure_open_file_limit(target_soft: int = 100000) -> None:
+    try:
+        import resource
+
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        desired = target_soft if hard == resource.RLIM_INFINITY else min(target_soft, hard)
+        if soft < desired:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (desired, hard))
+            log.info("Raised RLIMIT_NOFILE soft limit from %d to %d (hard=%s)", soft, desired, hard)
+    except Exception as e:
+        log.debug("Unable to adjust RLIMIT_NOFILE: %s", e)
+
+
 class GCPPubSubService:
     def __init__(self):
         import threading
         from lib.cuckoo.common.gcp import gcp_cfg
+
+        _ensure_open_file_limit()
         self.processing_ids = set()
         self.ids_lock = threading.Lock()
+        self.client_lock = threading.Lock()
+        self._active_downloads = 0
+        self._retired_storage_clients: list[Any] = []
         self.project_id = gcp_cfg.gcp.get("project")
         self.subscription_id = os.getenv("GCP_SUBSCRIPTION_ID") or (gcp_cfg.samples_pubsub.get("subscription_id") if hasattr(gcp_cfg, "samples_pubsub") else None)
         self.samples_bucket = (gcp_cfg.samples_pubsub.get("samples_bucket", "sandbox-samples-unique") if hasattr(gcp_cfg, "samples_pubsub") else "sandbox-samples-unique")
@@ -115,27 +133,9 @@ class GCPPubSubService:
 
         try:
             from google.cloud import pubsub_v1
-            from google.cloud import storage
+
             self.pubsub_v1 = pubsub_v1
-
-            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
-            service_account_path = gcp_cfg.gcp.get("service_account_path")
-
-            if auth_by == "json" and service_account_path:
-                if not os.path.isabs(service_account_path):
-                    from lib.cuckoo.common.constants import CUCKOO_ROOT
-                    service_account_path = os.path.join(CUCKOO_ROOT, service_account_path)
-                if os.path.exists(service_account_path):
-                    self.subscriber = pubsub_v1.SubscriberClient.from_service_account_json(service_account_path)
-                    self.storage_client = storage.Client.from_service_account_json(service_account_path)
-                else:
-                    log.error("GCP service account file not found: %s", service_account_path)
-                    sys.exit(1)
-            else:
-                self.subscriber = pubsub_v1.SubscriberClient()
-                self.storage_client = storage.Client(project=self.project_id)
-
-            self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
+            self._init_clients(strict=True)
         except ImportError:
             log.error("GCP Pub/Sub dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-pubsub google-cloud-storage`")
             sys.exit(1)
@@ -146,8 +146,6 @@ class GCPPubSubService:
         init_database()
         self.db = Database()
 
-        self._init_clients()
-
         self.cuckoo_cfg = Config()
         try:
             self.tmp_path = get_cape_external_dir(tmppath=self.cuckoo_cfg.cuckoo.get("tmppath"))
@@ -155,32 +153,60 @@ class GCPPubSubService:
             log.error("Failed to create temporary directory: %s", e)
             sys.exit(1)
 
-    def _init_clients(self):
+    @staticmethod
+    def _close_client(client: Any) -> None:
+        close_fn = getattr(client, "close", None)
+        if callable(close_fn):
+            with suppress(Exception):
+                close_fn()
+
+    def _init_clients(self, strict: bool = False):
         """(Re)initialize Google Cloud clients."""
         from lib.cuckoo.common.gcp import gcp_cfg
         from google.cloud import pubsub_v1
         from google.cloud import storage
 
-        auth_by = gcp_cfg.gcp.get("auth_by", "vm")
-        service_account_path = gcp_cfg.gcp.get("service_account_path")
+        lock = getattr(self, "client_lock", None)
+        with lock if lock is not None else nullcontext():
+            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+            service_account_path = gcp_cfg.gcp.get("service_account_path")
+            has_subscriber = getattr(self, "subscriber", None) is not None
+            old_storage = getattr(self, "storage_client", None)
 
-        if auth_by == "json" and service_account_path:
-            if not os.path.isabs(service_account_path):
-                from lib.cuckoo.common.constants import CUCKOO_ROOT
-                service_account_path = os.path.join(CUCKOO_ROOT, service_account_path)
-            if os.path.exists(service_account_path):
-                self.subscriber = pubsub_v1.SubscriberClient.from_service_account_json(service_account_path)
-                self.storage_client = storage.Client.from_service_account_json(service_account_path)
+            sa_resolved = None
+            if auth_by == "json" and service_account_path:
+                sa_resolved = service_account_path
+                if not os.path.isabs(sa_resolved):
+                    from lib.cuckoo.common.constants import CUCKOO_ROOT
+
+                    sa_resolved = os.path.join(CUCKOO_ROOT, sa_resolved)
+                if not os.path.exists(sa_resolved):
+                    log.error("GCP service account file not found: %s", sa_resolved)
+                    if strict:
+                        sys.exit(1)
+                    sa_resolved = None
+
+            if sa_resolved:
+                if not has_subscriber:
+                    self.subscriber = pubsub_v1.SubscriberClient.from_service_account_json(sa_resolved)
+                self.storage_client = storage.Client.from_service_account_json(sa_resolved)
             else:
-                log.error("GCP service account file not found: %s", service_account_path)
-                # Fallback to default credentials
-                self.subscriber = pubsub_v1.SubscriberClient()
+                if not has_subscriber:
+                    self.subscriber = pubsub_v1.SubscriberClient()
                 self.storage_client = storage.Client(project=self.project_id)
-        else:
-            self.subscriber = pubsub_v1.SubscriberClient()
-            self.storage_client = storage.Client(project=self.project_id)
 
-        self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
+            if not has_subscriber:
+                self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
+
+            if old_storage is not None and old_storage is not self.storage_client:
+                if getattr(self, "_active_downloads", 0) <= 0:
+                    self._close_client(old_storage)
+                else:
+                    retired = getattr(self, "_retired_storage_clients", None)
+                    if retired is None:
+                        retired = []
+                        self._retired_storage_clients = retired
+                    retired.append(old_storage)
 
     def process_message(self, message: Any):
         msg_id = message.message_id
@@ -272,8 +298,24 @@ class GCPPubSubService:
 
                         # Retry download once with fresh client if TransportError/SSL issues occur
                         success = False
+                        lock = getattr(self, "client_lock", None)
                         for attempt in range(2):
-                            if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
+                            with lock if lock is not None else nullcontext():
+                                client = self.storage_client
+                                self._active_downloads = getattr(self, "_active_downloads", 0) + 1
+                            try:
+                                dl_ok = download_from_gcs(gcs_uri, temp_path, logger=mlog, client=client)
+                            finally:
+                                to_close = []
+                                with lock if lock is not None else nullcontext():
+                                    self._active_downloads = max(getattr(self, "_active_downloads", 1) - 1, 0)
+                                    if self._active_downloads == 0 and getattr(self, "_retired_storage_clients", None):
+                                        to_close = list(self._retired_storage_clients)
+                                        self._retired_storage_clients.clear()
+                                for retired_client in to_close:
+                                    self._close_client(retired_client)
+
+                            if dl_ok:
                                 success = True
                                 break
                             else:
@@ -334,9 +376,15 @@ class GCPPubSubService:
                             )
                             message.ack()
                         elif extra_details.get("errors"):
-                            # Check if it was a duplicate, empty file, or junk
+                            # Check if it was a duplicate, empty file, junk, or blacklisted/disabled platform
                             error_str = str(extra_details["errors"])
-                            if "Duplicate" in error_str or "junk_filter" in error_str or "Empty file" in error_str:
+                            if (
+                                "Duplicate" in error_str
+                                or "junk_filter" in error_str
+                                or "Empty file" in error_str
+                                or "blacklisted package" in error_str
+                                or "Linux processing is disabled" in error_str
+                            ):
                                 mlog.info("Sample %s skipped: %s", sample_hash, error_str)
                                 message.ack()
                             else:

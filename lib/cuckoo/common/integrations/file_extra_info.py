@@ -1205,9 +1205,18 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
         tempdir = ctx["tempdir"]
         HAVE_SFLOCK = False
         if HAVE_SFLOCK and tool not in ("UnNSIS",):
-            unpacked = unpack(file.encode(), password=password)
-            for child in unpacked.children:
-                _ = path_write_file(os.path.join(tempdir, child.filename.decode()), child.contents)
+            unpacked = None
+            try:
+                unpacked = unpack(file.encode(), password=password)
+                for child in unpacked.children:
+                    _ = path_write_file(os.path.join(tempdir, child.filename.decode(errors="replace")), child.contents)
+            finally:
+                close_fn = getattr(unpacked, "close", None)
+                if callable(close_fn):
+                    try:
+                        close_fn()
+                    except Exception:
+                        pass
         else:
             sevenzip_args = [sevenzip_binary, "e", file, f"-o{tempdir}", "-y"]
             # Need this, otherwie NSIS fails

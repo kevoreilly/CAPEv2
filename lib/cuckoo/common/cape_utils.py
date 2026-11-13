@@ -422,3 +422,30 @@ def cape_name_from_yara(details: dict, pid: int, results: dict) -> str:
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
             return name
+
+
+def sort_dumps_by_detection(files: Iterable[Mapping]) -> list:
+    """Sort dumped or dropped file entries so items with detections appear first, then by size descending."""
+    if not isinstance(files, Iterable) or isinstance(files, (str, bytes, Mapping)):
+        return files
+
+    def _sort_key(item):
+        if not isinstance(item, Mapping):
+            return (False, False, False, False, False, 0)
+        vt = item.get("virustotal")
+        vt_positives = bool(vt.get("positives")) if isinstance(vt, Mapping) else False
+        try:
+            size = int(item.get("size") or 0)
+        except (TypeError, ValueError):
+            size = 0
+        return (
+            bool(item.get("cape_yara")),
+            bool(item.get("yara")),
+            bool(item.get("clamav")),
+            vt_positives,
+            bool(item.get("flare_capa")),
+            size,
+        )
+
+    return sorted(files, key=_sort_key, reverse=True)
+

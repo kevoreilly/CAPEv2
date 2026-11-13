@@ -3,6 +3,7 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from lib.cuckoo.common.cape_utils import sort_dumps_by_detection
 from lib.cuckoo.common.objects import File
 from modules.processing.CAPE import CAPE
 from modules.processing.deduplication import reindex_screenshots
@@ -116,3 +117,23 @@ class TestDeduplication:
         os_rename.assert_any_call("shots/bar.jpg", "shots/0000.jpg")
         os_rename.assert_any_call("shots/baz.jpg", "shots/0001.jpg")
         os_rename.assert_any_call("shots/foo.jpg", "shots/0002.jpg")
+
+
+class TestSortDumpsByDetection:
+    def test_sort_dumps_prioritizes_detections_then_size(self):
+        files = [
+            {"name": "large_clean.bin", "size": 500000, "cape_yara": [], "yara": []},
+            {"name": "small_yara.bin", "size": 1000, "cape_yara": [], "yara": [{"name": "GenericRule"}]},
+            {"name": "tiny_cape_yara.bin", "size": 500, "cape_yara": [{"name": "MalwareFamily"}], "yara": []},
+            {"name": "medium_clamav.bin", "size": 20000, "cape_yara": [], "yara": [], "clamav": ["Win.Trojan.Agent"]},
+            {"name": "small_clean.bin", "size": 2000, "cape_yara": [], "yara": []},
+        ]
+        sorted_files = sort_dumps_by_detection(files)
+        assert [f["name"] for f in sorted_files] == [
+            "tiny_cape_yara.bin",
+            "small_yara.bin",
+            "medium_clamav.bin",
+            "large_clean.bin",
+            "small_clean.bin",
+        ]
+

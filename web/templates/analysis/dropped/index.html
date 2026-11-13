@@ -10,7 +10,7 @@
         </div>
     {% endif %}
     
-    {% for file in dropped %}
+    {% for file in dropped|sort_dumps %}
         {% include "analysis/generic/_file_info.html" %}
     {% endfor %}
 {% else %}

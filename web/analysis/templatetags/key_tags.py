@@ -1,5 +1,7 @@
 from django import template
 
+from lib.cuckoo.common.cape_utils import sort_dumps_by_detection
+
 register = template.Library()
 
 
@@ -35,3 +37,9 @@ def parentfixup(value):
     if "name" not in value:
         value["name"] = value["sha256"]
     return value
+
+
+@register.filter(name="sort_dumps")
+def sort_dumps(value):
+    return sort_dumps_by_detection(value)
+

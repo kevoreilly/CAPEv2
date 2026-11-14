@@ -19,10 +19,6 @@ RUNNING_TESTS = "test" in sys.argv
 
 from django.core.exceptions import ImproperlyConfigured
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import CUCKOO_VERSION, get_cape_last_update
-
-CAPE_VERSION = CUCKOO_VERSION
-CAPE_LAST_UPDATE = get_cape_last_update()
 
 # In case we have VPNs enabled we need to initialize through the following
 # two methods as they verify the interaction with VPNs as well as gather
@@ -202,6 +198,7 @@ TEMPLATES = [
                 # Surfaces `may_manage_apikeys` for the API Keys link in the user dropdown.
                 "apikey.context_processors.apikey_access",
                 "guac.context_processors.guac_vnc_console",
+                "web.context_processors.cape_version",
             ],
             "loaders": [
                 "django.template.loaders.filesystem.Loader",
@@ -387,9 +384,7 @@ SETTINGS_EXPORT = [
     "REPROCESS_TASKS",
     "REPROCESS_FAILED_PROCESSING",
     "AUDIT_FRAMEWORK",
-    "HUNT_ENABLED",
-    "CAPE_VERSION",
-    "CAPE_LAST_UPDATE",
+    "HUNT_ENABLED"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

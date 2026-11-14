@@ -327,6 +327,10 @@ enabled = no
 # Show Authenticode certificate chain card on the analysis overview tab
 enabled = no
 
+[display_version]
+# Show CAPE version and running Git commit hash on the submission page and footer
+enabled = no
+
 [hunt]
 # Proactively discover new emerging campaigns by grouping undetected analyses by shared indicators
 enabled = no

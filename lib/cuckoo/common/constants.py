@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-import re
 
 _current_dir = os.path.abspath(os.path.dirname(__file__))
 CUCKOO_ROOT = os.path.normpath(os.path.join(_current_dir, "..", "..", ".."))
@@ -19,23 +18,3 @@ CUCKOO_GUEST_INIT = 0x001
 CUCKOO_GUEST_RUNNING = 0x002
 CUCKOO_GUEST_COMPLETED = 0x003
 CUCKOO_GUEST_FAILED = 0x004
-
-_CHANGELOG_DATE_RE = re.compile(r"^###\s*\[([^\]]+)\]", re.MULTILINE)
-
-
-def get_cape_last_update(cuckoo_root: str = CUCKOO_ROOT) -> str:
-    """Return the latest release/changelog date string from changelog.md, or empty string if unavailable."""
-    changelog_path = os.path.join(cuckoo_root, "changelog.md")
-    try:
-        with open(changelog_path, "r", encoding="utf-8", errors="ignore") as f:
-            head = f.read(2048)
-        match = _CHANGELOG_DATE_RE.search(head)
-        if match:
-            return match.group(1).strip()
-    except OSError:
-        pass
-    return ""
-
-
-CAPE_LAST_UPDATE = get_cape_last_update()
-

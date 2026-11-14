@@ -3,8 +3,13 @@
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card bg-dark shadow-sm border-secondary">
-            <div class="card-header border-secondary bg-transparent">
+            <div class="card-header border-secondary bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h4 class="mb-0 text-white"><i class="fas fa-upload me-2 text-primary"></i>Submit for Analysis</h4>
+                {% if display_cape_version and cape_version %}
+                <span class="badge bg-secondary text-light" title="CAPE v{{ cape_version }}{% if cape_commit %} ({{ cape_commit }}){% endif %}">
+                    v{{ cape_version }}{% if cape_commit %} &middot; <a href="https://github.com/kevoreilly/CAPEv2/commit/{{ cape_commit }}" target="_blank" rel="noopener noreferrer" class="text-light text-decoration-none">{{ cape_commit|slice:":7" }}</a>{% endif %}
+                </span>
+                {% endif %}
             </div>
             <div class="card-body">
                 <form id="submission-form" role="form" action="" method="post" enctype="multipart/form-data">

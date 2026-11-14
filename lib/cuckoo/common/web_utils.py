@@ -1876,21 +1876,88 @@ def process_new_dlnexec_task(url: str, route: str, options: str, custom: str):
     return path, response, ""
 
 
+_GIT_HASH_RE = re.compile(r"[0-9a-fA-F]{7,64}")
+
+
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
-def get_running_commit() -> str:
+def get_running_commit(cuckoo_root: str | Path = CUCKOO_ROOT) -> str:
     """
     Retrieves the current Git commit hash of the repository.
 
     This function reads the HEAD file in the .git directory to determine the
     current branch or commit reference, then reads the corresponding file to
-    get the commit hash.
+    get the commit hash. Supports standard `.git` directories, `.git` worktree
+    files (`gitdir:` / `commondir`), `packed-refs`, and detached `HEAD` states.
+
+    Args:
+        cuckoo_root (str | Path): Repository root containing `.git`.
 
     Returns:
-        str: The current Git commit hash as a string.
+        str: The current Git commit hash as a string, or empty string if unavailable.
     """
-    git_folder = Path(CUCKOO_ROOT, ".git")
-    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
-    return Path(git_folder, head_name).read_text().replace("\n", "")
+    try:
+        root = Path(cuckoo_root)
+        git_path = root / ".git"
+        if git_path.is_dir():
+            git_dir = git_path
+        elif git_path.is_file():
+            git_lines = git_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if not git_lines:
+                return ""
+            gitdir_line = git_lines[0].strip()
+            if not gitdir_line.startswith("gitdir:"):
+                return ""
+            raw_gitdir = gitdir_line.split(":", 1)[1].strip()
+            git_dir = Path(raw_gitdir)
+            if not git_dir.is_absolute():
+                git_dir = (root / git_dir).resolve()
+        else:
+            return ""
+
+        common_dir = git_dir
+        commondir_file = git_dir / "commondir"
+        if commondir_file.is_file():
+            raw_common = commondir_file.read_text(encoding="utf-8", errors="replace").strip()
+            if raw_common:
+                common_path = Path(raw_common)
+                common_dir = common_path if common_path.is_absolute() else (git_dir / common_path).resolve()
+
+        head_file = git_dir / "HEAD"
+        if not head_file.exists():
+            return ""
+        head_lines = head_file.read_text(encoding="utf-8", errors="replace").splitlines()
+        if not head_lines:
+            return ""
+        head_line = head_lines[0].strip()
+
+        if head_line.startswith("ref:"):
+            ref_name = head_line.split(":", 1)[1].strip()
+            if not ref_name:
+                return ""
+            search_dirs = (git_dir,) if common_dir == git_dir else (git_dir, common_dir)
+            for base_dir in search_dirs:
+                ref_file = base_dir / ref_name
+                if ref_file.is_file():
+                    commit = ref_file.read_text(encoding="utf-8", errors="replace").strip()
+                    if _GIT_HASH_RE.fullmatch(commit):
+                        return commit
+            packed_refs = common_dir / "packed-refs"
+            if packed_refs.is_file():
+                for line in packed_refs.read_text(encoding="utf-8", errors="replace").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or line.startswith("^"):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[1] == ref_name and _GIT_HASH_RE.fullmatch(parts[0]):
+                        return parts[0]
+            return ""
+
+        if _GIT_HASH_RE.fullmatch(head_line):
+            return head_line
+        return ""
+    except Exception as e:
+        log.debug("Failed to retrieve running git commit: %s", e)
+        return ""
 
 
 def init_static_analysis_storage(task, sha256: str = "") -> bool:

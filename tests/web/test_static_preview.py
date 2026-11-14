@@ -1026,6 +1026,94 @@ class TestStaticPreview(SimpleTestCase):
             self.assertIn(f'id="capeYaraAccordion_{sha}"', html)
             self.assertIn(f'id="virustotal_binary_{sha}"', html)
 
+    def test_display_cape_version_context_and_templates(self):
+        from django.template.loader import render_to_string
+        from django.test import RequestFactory
+        from lib.cuckoo.common.config import ConfigMeta
+        from lib.cuckoo.common.constants import CUCKOO_VERSION
+        from web import context_processors
+
+        rf = RequestFactory()
+        req = rf.get("/submit/")
+
+        # Disabled by default in web.conf.default; must not invoke get_running_commit().
+        with patch("web.context_processors.get_running_commit") as mock_commit:
+            ctx = context_processors.cape_version(req)
+            self.assertEqual(ctx, {"display_cape_version": False, "cape_version": "", "cape_commit": ""})
+            mock_commit.assert_not_called()
+
+        # Enable via web.conf override in custom_conf_path and verify context processor.
+        fake_sha = "1234567890abcdef1234567890abcdef12345678"
+        from lib.cuckoo.common import config as cuckoo_config
+
+        with open(os.path.join(cuckoo_config.CUSTOM_CONF_DIR, "web.conf"), "w", encoding="utf-8") as f:
+            f.write("[display_version]\nenabled = yes\n")
+        ConfigMeta.refresh()
+        try:
+            with patch("web.context_processors.get_running_commit", return_value=fake_sha):
+                ctx_enabled = context_processors.cape_version(req)
+                self.assertEqual(
+                    ctx_enabled,
+                    {
+                        "display_cape_version": True,
+                        "cape_version": CUCKOO_VERSION,
+                        "cape_commit": fake_sha,
+                    },
+                )
+        finally:
+            os.remove(os.path.join(cuckoo_config.CUSTOM_CONF_DIR, "web.conf"))
+            ConfigMeta.refresh()
+
+        # Template rendering: hidden when disabled.
+        footer_off = render_to_string(
+            "footer.html",
+            {"display_cape_version": False, "cape_version": CUCKOO_VERSION, "cape_commit": fake_sha},
+        )
+        self.assertNotIn(f"v{CUCKOO_VERSION}", footer_off)
+        self.assertNotIn(fake_sha[:7], footer_off)
+
+        submit_ctx = {"packages": [], "machines": [], "config": {}}
+        submit_off = render_to_string(
+            "submission/index.html",
+            {**submit_ctx, "display_cape_version": False, "cape_version": CUCKOO_VERSION, "cape_commit": fake_sha},
+        )
+        self.assertNotIn(f"v{CUCKOO_VERSION}", submit_off)
+        self.assertNotIn(fake_sha[:7], submit_off)
+
+        # Template rendering: shown with commit link when enabled and commit available.
+        expected_url = f"https://github.com/kevoreilly/CAPEv2/commit/{fake_sha}"
+        footer_on = render_to_string(
+            "footer.html",
+            {"display_cape_version": True, "cape_version": CUCKOO_VERSION, "cape_commit": fake_sha},
+        )
+        self.assertIn(f"v{CUCKOO_VERSION}", footer_on)
+        self.assertIn(fake_sha[:7], footer_on)
+        self.assertIn(expected_url, footer_on)
+
+        submit_on = render_to_string(
+            "submission/index.html",
+            {**submit_ctx, "display_cape_version": True, "cape_version": CUCKOO_VERSION, "cape_commit": fake_sha},
+        )
+        self.assertIn(f"v{CUCKOO_VERSION}", submit_on)
+        self.assertIn(fake_sha[:7], submit_on)
+        self.assertIn(expected_url, submit_on)
+
+        # Template rendering: clean version-only output when cape_commit is empty.
+        footer_no_commit = render_to_string(
+            "footer.html",
+            {"display_cape_version": True, "cape_version": CUCKOO_VERSION, "cape_commit": ""},
+        )
+        self.assertIn(f"v{CUCKOO_VERSION}", footer_no_commit)
+        self.assertNotIn("/commit/", footer_no_commit)
+
+        submit_no_commit = render_to_string(
+            "submission/index.html",
+            {**submit_ctx, "display_cape_version": True, "cape_version": CUCKOO_VERSION, "cape_commit": ""},
+        )
+        self.assertIn(f"v{CUCKOO_VERSION}", submit_no_commit)
+        self.assertNotIn("/commit/", submit_no_commit)
+
+
 
 
 

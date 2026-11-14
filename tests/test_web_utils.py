@@ -14,6 +14,7 @@ from lib.cuckoo.common.web_utils import (
     download_from_3rdparty,
     force_int,
     get_file_content,
+    get_running_commit,
     parse_request_arguments,
 )
 
@@ -506,6 +507,86 @@ def test_download_from_3rdparty_uses_cape_external_and_removes_empty_dir(tmp_pat
     assert ext_dir.is_dir()
     assert details["path"].startswith(str(ext_dir))
     assert list(ext_dir.iterdir()) == []
+
+
+def test_get_running_commit_real_repo():
+    commit = get_running_commit()
+    assert len(commit) == 40
+    assert all(c in "0123456789abcdef" for c in commit.lower())
+
+
+def test_get_running_commit_missing_git_returns_empty(tmp_path):
+    assert get_running_commit(tmp_path) == ""
+
+
+def test_get_running_commit_symbolic_loose_ref(tmp_path):
+    sha = "a" * 40
+    git_dir = tmp_path / ".git"
+    (git_dir / "refs" / "heads").mkdir(parents=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/master\n", encoding="utf-8")
+    (git_dir / "refs" / "heads" / "master").write_text(f"{sha}\n", encoding="utf-8")
+
+    assert get_running_commit(tmp_path) == sha
+
+
+def test_get_running_commit_detached_head(tmp_path):
+    sha = "b" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text(f"{sha}\n", encoding="utf-8")
+
+    assert get_running_commit(tmp_path) == sha
+
+
+def test_get_running_commit_packed_refs(tmp_path):
+    sha = "c" * 40
+    tag_sha = "d" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text("ref: refs/heads/feature\n", encoding="utf-8")
+    (git_dir / "packed-refs").write_text(
+        "# pack-refs with: peeled fully-peeled sorted\n"
+        f"{tag_sha} refs/tags/v2.5\n"
+        f"^{'e' * 40}\n"
+        f"{sha} refs/heads/feature\n",
+        encoding="utf-8",
+    )
+
+    assert get_running_commit(tmp_path) == sha
+
+
+def test_get_running_commit_worktree_gitfile_and_commondir(tmp_path):
+    sha = "f" * 40
+    main_git = tmp_path / "main_repo" / ".git"
+    worktree_git = main_git / "worktrees" / "wt1"
+    worktree_root = tmp_path / "wt1"
+    (main_git / "refs" / "heads").mkdir(parents=True)
+    worktree_git.mkdir(parents=True)
+    worktree_root.mkdir()
+
+    (main_git / "refs" / "heads" / "feat").write_text(f"{sha}\n", encoding="utf-8")
+    (worktree_git / "commondir").write_text("../..\n", encoding="utf-8")
+    (worktree_git / "HEAD").write_text("ref: refs/heads/feat\n", encoding="utf-8")
+    (worktree_root / ".git").write_text(f"gitdir: {worktree_git}\n", encoding="utf-8")
+
+    assert get_running_commit(worktree_root) == sha
+
+
+def test_get_running_commit_handles_head_read_exception(tmp_path):
+    git_dir = tmp_path / ".git"
+    (git_dir / "HEAD").mkdir(parents=True)
+
+    assert get_running_commit(tmp_path) == ""
+
+
+def test_get_running_commit_packed_refs_non_utf8_comment(tmp_path):
+    sha = "e" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text("ref: refs/heads/master\n", encoding="utf-8")
+    (git_dir / "packed-refs").write_bytes(b"# invalid utf8 \xff\xfe\n" + f"{sha} refs/heads/master\n".encode("ascii"))
+
+    assert get_running_commit(tmp_path) == sha
 
 
 if __name__ == "__main__":

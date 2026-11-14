@@ -620,3 +620,128 @@ def test_pipe_forwarder_socket_connect_error(monkeypatch):
     close_mock.assert_called_with(9999)
     assert forwarder.active.get(4321) is None
     assert 4321 not in forwarder.sockets
+
+
+def test_process_64bit_handle_checks_and_protected_injection(monkeypatch):
+    import ctypes
+    import os
+    from unittest.mock import MagicMock
+
+    if not hasattr(ctypes, "windll"):
+        monkeypatch.setattr(ctypes, "windll", MagicMock(), raising=False)
+    if not hasattr(ctypes, "WINFUNCTYPE"):
+        monkeypatch.setattr(ctypes, "WINFUNCTYPE", ctypes.CFUNCTYPE, raising=False)
+    if not hasattr(ctypes, "wintypes"):
+        wintypes_mock = MagicMock()
+        wintypes_mock.BOOL = ctypes.c_int
+        wintypes_mock.DWORD = ctypes.c_uint
+        wintypes_mock.HANDLE = ctypes.c_void_p
+        wintypes_mock.LPCSTR = ctypes.c_char_p
+        wintypes_mock.LPCWSTR = ctypes.c_wchar_p
+        wintypes_mock.LPVOID = ctypes.c_void_p
+        wintypes_mock.LPWSTR = ctypes.c_wchar_p
+        wintypes_mock.WORD = ctypes.c_ushort
+        monkeypatch.setattr(ctypes, "wintypes", wintypes_mock, raising=False)
+        monkeypatch.setitem(os.sys.modules, "ctypes.wintypes", wintypes_mock)
+
+    monkeypatch.setenv("SystemDrive", "C:")
+
+    import lib
+
+    analyzer_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../analyzer/windows"))
+    analyzer_lib = os.path.join(analyzer_root, "lib")
+    monkeypatch.syspath_prepend(analyzer_root)
+    if analyzer_lib not in lib.__path__:
+        lib.__path__.append(analyzer_lib)
+
+    import lib.common.defines as defines_mod
+
+    monkeypatch.setattr(defines_mod, "KERNEL32", MagicMock())
+    monkeypatch.setattr(defines_mod, "ADVAPI32", MagicMock())
+    monkeypatch.setattr(defines_mod, "NTDLL", MagicMock())
+    monkeypatch.setattr(defines_mod, "PSAPI", MagicMock())
+
+    import lib.api.process as process_mod
+
+    # 1. Verify is_64bit(), terminate(), and set_terminate_event() open the process when h_process is HANDLE(0).
+    p = process_mod.Process(pid=4242)
+    open_calls = []
+
+    def fake_open():
+        open_calls.append(p.pid)
+        p.h_process = 0xFFFFFFFF80001234
+        return True
+
+    monkeypatch.setattr(p, "open", fake_open)
+    monkeypatch.setattr(process_mod, "is_os_64bit", lambda: True)
+
+    def fake_is_wow64(h_proc, wow64_ptr):
+        assert h_proc == 0xFFFFFFFF80001234
+        wow64_ptr._obj.value = 0
+        return 1
+
+    monkeypatch.setattr(process_mod.KERNEL32, "IsWow64Process", fake_is_wow64)
+    assert p.is_64bit() is True
+    assert open_calls == [4242]
+
+    p2 = process_mod.Process(pid=4243)
+    monkeypatch.setattr(p2, "open", lambda: setattr(p2, "h_process", 0xFFFFFFFF80005678) or True)
+    monkeypatch.setattr(process_mod.KERNEL32, "TerminateProcess", lambda h, code: h == 0xFFFFFFFF80005678 and code == 1)
+    assert p2.terminate() is True
+
+    # 2. Verify Files.is_protected_filename covers python.exe and py.exe
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("win_analyzer_mod", os.path.join(analyzer_root, "analyzer.py"))
+    win_analyzer = importlib.util.module_from_spec(spec)
+    monkeypatch.setattr(process_mod.Process, "get_parent_pid", lambda self: 100)
+    spec.loader.exec_module(win_analyzer)
+
+    assert win_analyzer.Files.is_protected_filename("python.exe") is True
+    assert win_analyzer.Files.is_protected_filename("PY.EXE") is True
+    assert win_analyzer.Files.is_protected_filename("pyw.exe") is True
+
+    # 3. Verify _handle_process and _inject_process skip protected paths and protected filenames without leaking process_lock
+    win_analyzer.PROTECTED_PATH_LIST.clear()
+    win_analyzer.add_protected_path(b"C:\\analyzer\\")
+
+    fake_analyzer = MagicMock()
+    fake_analyzer.pid = 111
+    fake_analyzer.ppid = None
+    fake_analyzer.process_list = win_analyzer.ProcessList()
+    fake_analyzer.files = win_analyzer.Files()
+    fake_analyzer.config.category = "file"
+    fake_analyzer.NUM_INJECTED = 0
+    fake_analyzer.SERVICES_PID = None
+    fake_analyzer.process_lock = win_analyzer.Lock()
+
+    handler = win_analyzer.CommandPipeHandler(fake_analyzer)
+    assert len(handler._handle_getpids(b"")) == 4
+
+    injected = []
+
+    class _FakeProc:
+        def __init__(self, **kwargs):
+            self.pid = kwargs.get("pid")
+            self._filepath = "C:\\analyzer\\bin\\loader_x64.exe" if self.pid == 500 else "C:\\Python312\\python.exe"
+
+        def get_filepath(self):
+            return self._filepath
+
+        def is_64bit(self):
+            return True
+
+        def inject(self, *args, **kwargs):
+            injected.append(self.pid)
+            return True
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(win_analyzer, "Process", _FakeProc)
+    handler._handle_process(b"500,501")
+    handler._handle_process(b"600,601")
+    handler._inject_process(600, 601, 0)
+
+    assert injected == []
+    assert not fake_analyzer.process_lock.locked()

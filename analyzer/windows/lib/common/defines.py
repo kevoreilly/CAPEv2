@@ -375,3 +375,100 @@ class STARTUPINFOEXW(Structure):
         ("StartupInfo", STARTUPINFOW),
         ("lpAttributeList", LPVOID),
     ]
+
+
+# Explicit Win32 argtypes/restype declarations for 64-bit Python HANDLE/pointer safety.
+KERNEL32.CloseHandle.argtypes = [HANDLE]
+KERNEL32.CloseHandle.restype = BOOL
+KERNEL32.GetCurrentProcess.argtypes = []
+KERNEL32.GetCurrentProcess.restype = HANDLE
+KERNEL32.GetLastError.argtypes = []
+KERNEL32.GetLastError.restype = DWORD
+KERNEL32.OpenProcess.argtypes = [DWORD, BOOL, DWORD]
+KERNEL32.OpenProcess.restype = HANDLE
+KERNEL32.OpenThread.argtypes = [DWORD, BOOL, DWORD]
+KERNEL32.OpenThread.restype = HANDLE
+KERNEL32.GetExitCodeProcess.argtypes = [HANDLE, LPVOID]
+KERNEL32.GetExitCodeProcess.restype = BOOL
+KERNEL32.TerminateProcess.argtypes = [HANDLE, DWORD]
+KERNEL32.TerminateProcess.restype = BOOL
+KERNEL32.IsWow64Process.argtypes = [HANDLE, LPVOID]
+KERNEL32.IsWow64Process.restype = BOOL
+KERNEL32.WaitForSingleObject.argtypes = [HANDLE, DWORD]
+KERNEL32.WaitForSingleObject.restype = DWORD
+KERNEL32.ResumeThread.argtypes = [HANDLE]
+KERNEL32.ResumeThread.restype = DWORD
+KERNEL32.SetEvent.argtypes = [HANDLE]
+KERNEL32.SetEvent.restype = BOOL
+KERNEL32.OpenEventA.argtypes = [DWORD, BOOL, LPVOID]
+KERNEL32.OpenEventA.restype = HANDLE
+KERNEL32.OpenEventW.argtypes = [DWORD, BOOL, PWSTR]
+KERNEL32.OpenEventW.restype = HANDLE
+KERNEL32.CreateEventA.argtypes = [LPVOID, BOOL, BOOL, LPVOID]
+KERNEL32.CreateEventA.restype = HANDLE
+KERNEL32.CreateEventW.argtypes = [LPVOID, BOOL, BOOL, PWSTR]
+KERNEL32.CreateEventW.restype = HANDLE
+KERNEL32.CreateMutexA.argtypes = [LPVOID, BOOL, LPVOID]
+KERNEL32.CreateMutexA.restype = HANDLE
+KERNEL32.CreateNamedPipeA.argtypes = [LPVOID, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPVOID]
+KERNEL32.CreateNamedPipeA.restype = HANDLE
+KERNEL32.CreateNamedPipeW.argtypes = [PWSTR, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, LPVOID]
+KERNEL32.CreateNamedPipeW.restype = HANDLE
+KERNEL32.ConnectNamedPipe.argtypes = [HANDLE, LPVOID]
+KERNEL32.ConnectNamedPipe.restype = BOOL
+KERNEL32.DisconnectNamedPipe.argtypes = [HANDLE]
+KERNEL32.DisconnectNamedPipe.restype = BOOL
+KERNEL32.ReadFile.argtypes = [HANDLE, LPVOID, DWORD, LPVOID, LPVOID]
+KERNEL32.ReadFile.restype = BOOL
+KERNEL32.WriteFile.argtypes = [HANDLE, LPVOID, DWORD, LPVOID, LPVOID]
+KERNEL32.WriteFile.restype = BOOL
+KERNEL32.TransactNamedPipe.argtypes = [HANDLE, LPVOID, DWORD, LPVOID, DWORD, LPVOID, LPVOID]
+KERNEL32.TransactNamedPipe.restype = BOOL
+KERNEL32.CreateFileA.argtypes = [LPVOID, DWORD, DWORD, LPVOID, DWORD, DWORD, HANDLE]
+KERNEL32.CreateFileA.restype = HANDLE
+KERNEL32.CreateFileW.argtypes = [PWSTR, DWORD, DWORD, LPVOID, DWORD, DWORD, HANDLE]
+KERNEL32.CreateFileW.restype = HANDLE
+KERNEL32.CreateToolhelp32Snapshot.argtypes = [DWORD, DWORD]
+KERNEL32.CreateToolhelp32Snapshot.restype = HANDLE
+KERNEL32.Process32First.argtypes = [HANDLE, LPVOID]
+KERNEL32.Process32First.restype = BOOL
+KERNEL32.Process32Next.argtypes = [HANDLE, LPVOID]
+KERNEL32.Process32Next.restype = BOOL
+KERNEL32.DeviceIoControl.argtypes = [HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPVOID, LPVOID]
+KERNEL32.DeviceIoControl.restype = BOOL
+
+ADVAPI32.OpenSCManagerA.argtypes = [LPVOID, LPVOID, DWORD]
+ADVAPI32.OpenSCManagerA.restype = HANDLE
+ADVAPI32.OpenServiceA.argtypes = [HANDLE, LPVOID, DWORD]
+ADVAPI32.OpenServiceA.restype = HANDLE
+ADVAPI32.OpenServiceW.argtypes = [HANDLE, PWSTR, DWORD]
+ADVAPI32.OpenServiceW.restype = HANDLE
+ADVAPI32.CreateServiceA.argtypes = [
+    HANDLE, LPVOID, LPVOID, DWORD, DWORD, DWORD, DWORD, LPVOID, LPVOID, LPVOID, LPVOID, LPVOID, LPVOID
+]
+ADVAPI32.CreateServiceA.restype = HANDLE
+ADVAPI32.StartServiceA.argtypes = [HANDLE, DWORD, LPVOID]
+ADVAPI32.StartServiceA.restype = BOOL
+ADVAPI32.QueryServiceStatusEx.argtypes = [HANDLE, c_int, LPVOID, DWORD, LPVOID]
+ADVAPI32.QueryServiceStatusEx.restype = BOOL
+ADVAPI32.ControlService.argtypes = [HANDLE, DWORD, LPVOID]
+ADVAPI32.ControlService.restype = BOOL
+ADVAPI32.CloseServiceHandle.argtypes = [HANDLE]
+ADVAPI32.CloseServiceHandle.restype = BOOL
+ADVAPI32.InitializeSecurityDescriptor.argtypes = [LPVOID, DWORD]
+ADVAPI32.InitializeSecurityDescriptor.restype = BOOL
+ADVAPI32.SetSecurityDescriptorDacl.argtypes = [LPVOID, BOOL, LPVOID, BOOL]
+ADVAPI32.SetSecurityDescriptorDacl.restype = BOOL
+
+PSAPI.EnumProcesses.argtypes = [LPVOID, DWORD, LPVOID]
+PSAPI.EnumProcesses.restype = BOOL
+PSAPI.GetProcessImageFileNameA.argtypes = [HANDLE, LPVOID, DWORD]
+PSAPI.GetProcessImageFileNameA.restype = DWORD
+
+USER32.GetShellWindow.argtypes = []
+USER32.GetShellWindow.restype = HWND
+USER32.GetWindowThreadProcessId.argtypes = [HWND, LPVOID]
+USER32.GetWindowThreadProcessId.restype = DWORD
+
+SHELL32.IsUserAnAdmin.argtypes = []
+SHELL32.IsUserAnAdmin.restype = BOOL

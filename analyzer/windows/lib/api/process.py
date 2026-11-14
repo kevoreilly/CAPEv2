@@ -133,6 +133,32 @@ KERNEL32.OpenProcess.argtypes = [DWORD, BOOL, DWORD]
 KERNEL32.OpenProcess.restype = HANDLE
 KERNEL32.OpenThread.restype = HANDLE
 KERNEL32.OpenThread.argtypes = [DWORD, BOOL, DWORD]
+KERNEL32.GetExitCodeProcess.argtypes = [HANDLE, LPVOID]
+KERNEL32.GetExitCodeProcess.restype = BOOL
+KERNEL32.TerminateProcess.argtypes = [HANDLE, DWORD]
+KERNEL32.TerminateProcess.restype = BOOL
+KERNEL32.IsWow64Process.argtypes = [HANDLE, LPVOID]
+KERNEL32.IsWow64Process.restype = BOOL
+KERNEL32.WaitForSingleObject.argtypes = [HANDLE, DWORD]
+KERNEL32.WaitForSingleObject.restype = DWORD
+KERNEL32.ResumeThread.argtypes = [HANDLE]
+KERNEL32.ResumeThread.restype = DWORD
+KERNEL32.SetEvent.argtypes = [HANDLE]
+KERNEL32.SetEvent.restype = BOOL
+KERNEL32.OpenEventW.argtypes = [DWORD, BOOL, LPCWSTR]
+KERNEL32.OpenEventW.restype = HANDLE
+KERNEL32.CreateEventW.argtypes = [LPVOID, BOOL, BOOL, LPCWSTR]
+KERNEL32.CreateEventW.restype = HANDLE
+KERNEL32.CreateToolhelp32Snapshot.argtypes = [DWORD, DWORD]
+KERNEL32.CreateToolhelp32Snapshot.restype = HANDLE
+KERNEL32.Process32First.argtypes = [HANDLE, LPVOID]
+KERNEL32.Process32First.restype = BOOL
+KERNEL32.Process32Next.argtypes = [HANDLE, LPVOID]
+KERNEL32.Process32Next.restype = BOOL
+KERNEL32.DeviceIoControl.argtypes = [HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPVOID, LPVOID]
+KERNEL32.DeviceIoControl.restype = BOOL
+PSAPI.GetProcessImageFileNameA.argtypes = [HANDLE, LPVOID, DWORD]
+PSAPI.GetProcessImageFileNameA.restype = DWORD
 KERNEL32.UpdateProcThreadAttribute.argtypes = [LPVOID, DWORD, SIZE_T, LPVOID, SIZE_T, LPVOID, LPVOID]
 KERNEL32.UpdateProcThreadAttribute.restype = BOOL
 
@@ -215,9 +241,9 @@ class Process:
 
     def __del__(self):
         """Close open handles."""
-        if hasattr(self, "h_process") and self.h_process != KERNEL32.GetCurrentProcess():
+        if getattr(self, "h_process", None) and self.h_process != KERNEL32.GetCurrentProcess():
             KERNEL32.CloseHandle(self.h_process)
-        if hasattr(self, "h_thread") and self.h_thread != 0:
+        if getattr(self, "h_thread", None):
             KERNEL32.CloseHandle(self.h_thread)
 
     def fill_system_info(self):
@@ -329,7 +355,7 @@ class Process:
         if not n:
             log.debug("Failed getting image name for pid %d", self.pid)
             return ret
-        image_name = image_name_buf.value.decode()
+        image_name = image_name_buf.value.decode(errors="replace")
         return image_name.split("\\")[-1]
 
     def is_alive(self):
@@ -779,7 +805,7 @@ class Process:
 
     def set_terminate_event(self):
         """Sets the termination event for the process."""
-        if self.h_process == 0:
+        if not self.h_process:
             self.open()
 
         event_name = TERMINATE_EVENT + str(self.pid)
@@ -814,7 +840,7 @@ class Process:
         """Terminate process.
         @return: operation status.
         """
-        if self.h_process == 0:
+        if not self.h_process:
             self.open()
 
         if KERNEL32.TerminateProcess(self.h_process, 1):
@@ -828,7 +854,7 @@ class Process:
         """Determines if a process is 64bit.
         @return: True if 64bit, False if not
         """
-        if self.h_process == 0:
+        if not self.h_process:
             self.open()
 
         with contextlib.suppress(Exception):

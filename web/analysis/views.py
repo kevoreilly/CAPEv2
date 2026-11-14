@@ -46,7 +46,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, get_cape_external_dir, yara_detected
-from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
+from lib.cuckoo.common.web_utils import category_all_files, force_int, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
@@ -460,6 +460,13 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
     return new
 
 
+def _cfg_bool(val) -> bool:
+    """Convert config boolean values safely, handling strings like 'no' and '0'."""
+    if isinstance(val, str):
+        return val.strip().lower() in ("yes", "true", "on", "1")
+    return bool(val)
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, page=1):
@@ -667,6 +674,20 @@ def index(request, page=1):
     paging["pcaps_page_range"] = pcaps_pages
     paging["current_page"] = page
     analyses_files.sort(key=lambda x: x["id"], reverse=True)
+    taskreport_cfg = getattr(Config("api"), "taskreport", None) or {}
+    allow_dl = settings.ALLOW_DL_REPORTS_TO_ALL or bool(
+        hasattr(request.user, "userprofile") and request.user.userprofile.reports
+    )
+    bulk_dl_enabled = bool(
+        allow_dl
+        and _cfg_bool(taskreport_cfg.get("enabled", False))
+        and _cfg_bool(taskreport_cfg.get("bulk_download", False))
+    )
+    raw_bulk_max = taskreport_cfg.get("bulk_max_reports", 3)
+    bulk_dl_max = force_int(raw_bulk_max) if raw_bulk_max is not None else 3
+    if bulk_dl_max <= 0:
+        bulk_dl_max = 3
+
     return render(
         request,
         "analysis/index.html",
@@ -677,7 +698,7 @@ def index(request, page=1):
             "urls": analyses_urls,
             "pcaps": analyses_pcaps,
             "paging": paging,
-            "config": enabledconf,
+            "config": {**enabledconf, "bulk_download": bulk_dl_enabled, "bulk_max_reports": bulk_dl_max},
         },
     )
 

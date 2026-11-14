@@ -456,4 +456,164 @@ class TestEncryptedSampleDownload(SimpleTestCase):
             assert list(ext_dir.iterdir()) == []
 
 
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
+class TestBulkReportsDownload(SimpleTestCase):
+    def test_bulk_reports_disabled_by_default_and_when_toggle_off(self):
+        with patch("apiv2.views.settings.ALLOW_DL_REPORTS_TO_ALL", True):
+            resp_default = self.client.get("/apiv2/tasks/get/reports/bulk/10-12/json/")
+            assert resp_default.status_code == 200
+            assert resp_default.json() == {"error": True, "error_value": "Bulk Report Download API is Disabled"}
+
+            for raw_toggle in (False, "no", "0"):
+                with patch.dict("apiv2.views.apiconf.taskreport", {"enabled": True, "bulk_download": raw_toggle}):
+                    resp_off = self.client.get("/apiv2/tasks/get/reports/bulk/10-12/json/")
+                    assert resp_off.status_code == 200
+                    assert resp_off.json() == {"error": True, "error_value": "Bulk Report Download API is Disabled"}
+
+    def test_bulk_reports_download_by_sha256_and_package_filter(self):
+        from io import BytesIO
+        import tempfile
+        import zipfile
+
+        sha_one = "1" * 64
+        sha_two = "2" * 64
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            analyses_root = root / "storage" / "analyses"
+            for tid, payload in ((10, b'{"id": 10}'), (11, b'{"id": 11}'), (12, b'{"id": 12}')):
+                rdir = analyses_root / str(tid) / "reports"
+                rdir.mkdir(parents=True)
+                (rdir / "report.json").write_bytes(payload)
+
+            tasks_by_id = {
+                10: SimpleNamespace(id=10, package="exe", status=TASK_REPORTED, tlp=None, sample=SimpleNamespace(sha256=sha_one)),
+                11: SimpleNamespace(id=11, package="exe", status=TASK_REPORTED, tlp=None, sample=SimpleNamespace(sha256=sha_one)),
+                12: SimpleNamespace(id=12, package="dll", status=TASK_REPORTED, tlp=None, sample=SimpleNamespace(sha256=sha_two)),
+            }
+
+            with (
+                patch.dict("apiv2.views.apiconf.taskreport", {"enabled": True, "bulk_download": True}),
+                patch("apiv2.views.settings.ALLOW_DL_REPORTS_TO_ALL", True),
+                patch("apiv2.views.CUCKOO_ROOT", str(root)),
+                patch("apiv2.views.ANALYSIS_BASE_PATH", str(root / "storage")),
+                patch("apiv2.views.validate_task", side_effect=lambda tid: {"error": tid not in tasks_by_id, "tlp": None}),
+                patch("apiv2.views.db.view_task", side_effect=lambda tid, details=True: tasks_by_id.get(tid)),
+            ):
+                resp = self.client.get("/apiv2/tasks/get/reports/bulk/10-12/json/")
+                assert resp.status_code == 200
+                assert resp["Content-Type"] == "application/zip"
+                raw_zip = b"".join(resp.streaming_content)
+                assert int(resp["Content-Length"]) == len(raw_zip)
+                with zipfile.ZipFile(BytesIO(raw_zip), "r") as zf:
+                    names = sorted(zf.namelist())
+                    assert names == sorted([f"{sha_one}.json", f"{sha_one}_11.json", f"{sha_two}.json"])
+                    assert zf.read(f"{sha_one}.json") == b'{"id": 10}'
+                    assert zf.read(f"{sha_one}_11.json") == b'{"id": 11}'
+                    assert zf.read(f"{sha_two}.json") == b'{"id": 12}'
+
+                # Filter by package=dll
+                resp_dll = self.client.get("/apiv2/tasks/get/reports/bulk/?task_ids=10-12&report_format=json&package=dll")
+                assert resp_dll.status_code == 200
+                raw_zip_dll = b"".join(resp_dll.streaming_content)
+                with zipfile.ZipFile(BytesIO(raw_zip_dll), "r") as zf:
+                    assert zf.namelist() == [f"{sha_two}.json"]
+
+    def test_bulk_reports_rejects_excessive_range_and_invalid_format(self):
+        with (
+            patch.dict("apiv2.views.apiconf.taskreport", {"enabled": True, "bulk_download": True}),
+            patch("apiv2.views.settings.ALLOW_DL_REPORTS_TO_ALL", True),
+        ):
+            resp_range = self.client.get("/apiv2/tasks/get/reports/bulk/10-13/json/")
+            assert resp_range.status_code == 200
+            assert resp_range.json()["error"] is True
+            assert "maximum of 3 reports" in resp_range.json()["error_value"]
+
+            resp_fmt = self.client.get("/apiv2/tasks/get/reports/bulk/10-12/not_a_format/")
+            assert resp_fmt.status_code == 200
+            assert resp_fmt.json() == {"error": True, "error_value": "Invalid report format specified"}
+
+    def test_analysis_index_template_hides_and_shows_bulk_download_toolbar(self):
+        from django.template.loader import render_to_string
+
+        base_ctx = {
+            "title": "Recent Analysis",
+            "files": [],
+            "static": [],
+            "urls": [],
+            "pcaps": [],
+            "paging": {},
+        }
+
+        html_disabled = render_to_string(
+            "analysis/index.html",
+            {**base_ctx, "config": {"bulk_download": False, "bulk_max_reports": 3}},
+        )
+        assert "Bulk Download Reports" not in html_disabled
+        assert 'id="bulkReportDownloadCollapse"' not in html_disabled
+
+        html_enabled = render_to_string(
+            "analysis/index.html",
+            {**base_ctx, "config": {"bulk_download": True, "bulk_max_reports": 3}},
+        )
+        assert "Bulk Download Reports" in html_enabled
+        assert 'id="bulkReportDownloadCollapse"' in html_enabled
+        assert "(max 3)" in html_enabled
+
+    def test_analysis_index_view_bulk_download_flag_and_permissions(self):
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
+        import analysis.views as analysis_views
+
+        rf = RequestFactory()
+        anon_req = rf.get("/analysis/")
+        anon_req.user = AnonymousUser()
+
+        permitted_req = rf.get("/analysis/")
+        permitted_req.user = SimpleNamespace(is_authenticated=True, userprofile=SimpleNamespace(reports=True))
+
+        denied_req = rf.get("/analysis/")
+        denied_req.user = SimpleNamespace(is_authenticated=True, userprofile=SimpleNamespace(reports=False))
+
+        api_cfg_enabled = SimpleNamespace(taskreport={"enabled": "yes", "bulk_download": "yes", "bulk_max_reports": 5})
+        api_cfg_str_no = SimpleNamespace(taskreport={"enabled": "yes", "bulk_download": "no", "bulk_max_reports": 5})
+        api_cfg_str_zero = SimpleNamespace(taskreport={"enabled": "1", "bulk_download": "0", "bulk_max_reports": 5})
+
+        with (
+            patch.dict(analysis_views.enabledconf, {"mongodb": False, "url_analysis": False}),
+            patch.object(analysis_views, "es_as_db", False),
+            patch.object(analysis_views.db, "list_tasks", return_value=[]),
+            patch.object(analysis_views.db, "count_matching_tasks", return_value=0),
+            patch("analysis.views.render", side_effect=lambda req, tpl, ctx: ctx),
+        ):
+            # String "no" and "0" disable bulk_download even with ALLOW_DL_REPORTS_TO_ALL=True
+            for cfg in (api_cfg_str_no, api_cfg_str_zero):
+                with (
+                    patch("analysis.views.Config", return_value=cfg),
+                    patch("analysis.views.settings.ALLOW_DL_REPORTS_TO_ALL", True),
+                ):
+                    ctx = analysis_views.index(anon_req)
+                    assert ctx["config"]["bulk_download"] is False
+
+            # Enabled config + ALLOW_DL_REPORTS_TO_ALL=False hides for anon / unpermitted, shows for permitted
+            with (
+                patch("analysis.views.Config", return_value=api_cfg_enabled),
+                patch("analysis.views.settings.ALLOW_DL_REPORTS_TO_ALL", False),
+            ):
+                assert analysis_views.index(anon_req)["config"]["bulk_download"] is False
+                assert analysis_views.index(denied_req)["config"]["bulk_download"] is False
+                ctx_ok = analysis_views.index(permitted_req)
+                assert ctx_ok["config"]["bulk_download"] is True
+                assert ctx_ok["config"]["bulk_max_reports"] == 5
+
+            # Enabled config + ALLOW_DL_REPORTS_TO_ALL=True shows for everyone
+            with (
+                patch("analysis.views.Config", return_value=api_cfg_enabled),
+                patch("analysis.views.settings.ALLOW_DL_REPORTS_TO_ALL", True),
+            ):
+                ctx_all = analysis_views.index(anon_req)
+                assert ctx_all["config"]["bulk_download"] is True
+                assert ctx_all["config"]["bulk_max_reports"] == 5
+
+
+
 

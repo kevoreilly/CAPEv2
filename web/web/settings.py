@@ -386,16 +386,39 @@ SETTINGS_EXPORT = [
     "HUNT_ENABLED"
 ]
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-if web_cfg.registration.get("email_confirmation", False):
-    EMAIL_HOST = web_cfg.registration.get("email_host", False)
-    EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
-    EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
-    EMAIL_PORT = web_cfg.registration.get("email_port", 465)
-    EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
-    EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
-    SERVER_EMAIL = EMAIL_HOST_USER
-    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+import django
+
+if django.VERSION >= (6, 1):
+    _mailer_options = {"host": "localhost", "port": 25}
+    if web_cfg.registration.get("email_confirmation", False):
+        _email_user = web_cfg.registration.get("email_user", "") or ""
+        _mailer_options = {
+            "host": web_cfg.registration.get("email_host", "") or "localhost",
+            "username": _email_user,
+            "password": web_cfg.registration.get("email_password", "") or "",
+            "port": web_cfg.registration.get("email_port", 465),
+            "use_tls": bool(web_cfg.registration.get("use_tls", False)),
+            "use_ssl": bool(web_cfg.registration.get("use_ssl", False)),
+        }
+        SERVER_EMAIL = _email_user
+        DEFAULT_FROM_EMAIL = _email_user
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": _mailer_options,
+        }
+    }
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    if web_cfg.registration.get("email_confirmation", False):
+        EMAIL_HOST = web_cfg.registration.get("email_host", False)
+        EMAIL_HOST_USER = web_cfg.registration.get("email_user", False)
+        EMAIL_HOST_PASSWORD = web_cfg.registration.get("email_password", False)
+        EMAIL_PORT = web_cfg.registration.get("email_port", 465)
+        EMAIL_TLS_SSL = web_cfg.registration.get("use_tls", False)
+        EMAIL_USE_SSL = web_cfg.registration.get("use_ssl", False)
+        SERVER_EMAIL = EMAIL_HOST_USER
+        DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 SITE_ID = 1
 

@@ -158,6 +158,15 @@ pythonpath = [".", "web"]
 testpaths = ["tests", "agent"]
 norecursedirs = "tests/zip_compound"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:_pytest\\.python\\.CallSpec2 has been renamed to CallSpec:pytest.PytestRemovedIn10Warning",
+    "ignore::DeprecationWarning:oletools\\..*",
+    "ignore:The 'u' type code is deprecated:DeprecationWarning:pymsi\\..*",
+    "ignore:datetime\\.datetime\\.utcfromtimestamp\\(\\) is deprecated:DeprecationWarning:pytz\\..*",
+    "ignore:datetime\\.datetime\\.utcnow\\(\\) is deprecated:DeprecationWarning:httpretty\\..*",
+    "ignore:This process \\(pid=\\d+\\) is multi-threaded, use of fork\\(\\) may lead to deadlocks in the child:DeprecationWarning",
+]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -477,6 +477,9 @@ def free_space_monitor(
     else:
         raw_free_space = config.cuckoo.freespace
 
+    if not path or isinstance(path, bool):
+        path = CUCKOO_ROOT
+
     if isinstance(raw_free_space, bool):
         log.warning("Invalid non-numeric freespace setting %r; skipping disk space check", raw_free_space)
         return (False, 0) if return_value else None

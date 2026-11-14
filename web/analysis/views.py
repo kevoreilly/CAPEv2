@@ -4537,7 +4537,7 @@ def hunt(request):
     if days_back > 0:
         import datetime
         delta = datetime.timedelta(days=days_back)
-        start_date = (datetime.datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
+        start_date = (datetime.datetime.now(datetime.timezone.utc) - delta).strftime("%Y-%m-%d %H:%M:%S")
         match_query["info.started"] = {"$gte": start_date}
 
     # Dynamic multi-category aggregation

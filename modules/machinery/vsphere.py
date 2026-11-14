@@ -7,7 +7,7 @@ import random
 import re
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -320,7 +320,7 @@ class vSphere(Machinery):
     def _wait_task(self, task):
         """Wait for a task to complete with timeout"""
         limit = timedelta(seconds=int(cfg.timeouts.vm_state))
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc)
 
         while True:
             if task.info.state == "error":
@@ -329,7 +329,7 @@ class vSphere(Machinery):
             if task.info.state == "success":
                 break
 
-            if datetime.utcnow() - start > limit:
+            if datetime.now(timezone.utc) - start > limit:
                 raise CuckooMachineError("Task timed out")
 
             time.sleep(1)

@@ -112,7 +112,8 @@ def test_binaries_clean_before_deletes_older_and_keeps_newer(tmp_path, monkeypat
 
 
 def test_cuckoo_clean_before_mongo_filters_query_and_task_ids(db, tmp_path, mocker, monkeypatch):
-    from datetime import datetime, timedelta
+    from datetime import timedelta
+    from lib.cuckoo.core.data.db_common import _utcnow_naive
 
     monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
     mocker.patch.object(cleaners_utils, "db", db)
@@ -125,7 +126,7 @@ def test_cuckoo_clean_before_mongo_filters_query_and_task_ids(db, tmp_path, mock
         for tid in (t1, t2):
             task = db.view_task(tid)
             task.status = "reported"
-            task.added_on = datetime.utcnow() - timedelta(days=5)
+            task.added_on = _utcnow_naive() - timedelta(days=5)
 
     captured_queries = []
 

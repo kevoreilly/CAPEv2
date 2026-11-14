@@ -63,8 +63,10 @@ def dump_files():
     )
 
 
-def monitor_new_processes(parent_pid, interval=0.25):
+def monitor_new_processes(parent_pid, options=None, interval=0.25):
     """Continuously monitor for new child processes."""
+    procdump_val = str((options or {}).get("procdump", "1")).strip().lower()
+    do_procdump = procdump_val not in ("0", "false", "no", "off")
     known_processes = set(get_all_child_processes(parent_pid))
     while True:
         current_processes = set(get_all_child_processes(parent_pid))
@@ -72,7 +74,8 @@ def monitor_new_processes(parent_pid, interval=0.25):
 
         for pid in new_processes:
             log.info("New child process detected: %s", str(pid))
-            dump_memory(pid)
+            if do_procdump:
+                dump_memory(pid)
             add_pids(pid)  # Add the new process to PROCESS_LIST
 
         known_processes.update(new_processes)
@@ -322,7 +325,7 @@ class Analyzer:
             raise ValueError("No PID available to monitor.")
 
         # Start the monitoring thread before the analysis loop
-        monitor_thread = Thread(target=monitor_new_processes, args=(PID,), daemon=True)
+        monitor_thread = Thread(target=monitor_new_processes, args=(PID, self.options), daemon=True)
         monitor_thread.start()
 
         # Check in the options if the user toggled the timeout enforce. If so,

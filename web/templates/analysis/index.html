@@ -64,17 +64,20 @@
             <div class="card-header border-secondary bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-white-50"></i> Recent Files</h5>
                 <div class="d-flex align-items-center gap-2">
+                    {% if config.bulk_download %}
                     <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#bulkReportDownloadCollapse" aria-expanded="false" aria-controls="bulkReportDownloadCollapse">
                         <i class="fas fa-file-archive me-1"></i> Bulk Download Reports
                     </button>
+                    {% endif %}
                     <span class="badge bg-dark">{{files|length}} items</span>
                 </div>
             </div>
+            {% if config.bulk_download %}
             <div class="collapse border-bottom border-secondary bg-dark px-3 py-2" id="bulkReportDownloadCollapse">
                 <form method="get" action="{% url 'tasks_reports_bulk' %}" class="row g-2 align-items-end">
                     <div class="col-sm-4">
                         <label for="bulk-task-ids" class="form-label small text-white-50 mb-1">Task ID Range / List</label>
-                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="bulk-task-ids" name="task_ids" placeholder="e.g. 1000-2000 or 101,102,105" required>
+                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="bulk-task-ids" name="task_ids" placeholder="e.g. 101-103 or 101,102,105 (max {{ config.bulk_max_reports|default:3 }})" required>
                     </div>
                     <div class="col-sm-3">
                         <label for="bulk-report-format" class="form-label small text-white-50 mb-1">Report Type</label>
@@ -100,6 +103,7 @@
                     </div>
                 </form>
             </div>
+            {% endif %}
             {% if files %}
             <div class="table-responsive">
                 <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">

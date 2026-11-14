@@ -1426,8 +1426,8 @@ _BULK_REPORT_FORMATS = {
 }
 
 
-def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str = "", max_tasks: int = 500):
-    """Parse task ID ranges/lists and enforce max_tasks limit."""
+def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str = "", max_reports: int = 3):
+    """Parse task ID ranges/lists and enforce max_reports limit."""
     spec = (raw_task_ids or "").strip()
     if not spec and start_id and end_id:
         spec = f"{start_id.strip()}-{end_id.strip()}"
@@ -1451,8 +1451,8 @@ def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str
                 return None, "Invalid Task ID range specified"
             if start > end:
                 return None, "Start Task ID is bigger than End Task ID"
-            if (end - start + 1) + len(task_ids) > max_tasks:
-                return None, f"Requested range exceeds maximum of {max_tasks} tasks"
+            if (end - start + 1) + len(task_ids) > max_reports:
+                return None, f"Requested range exceeds maximum of {max_reports} reports"
             for tid in range(start, end + 1):
                 if tid not in seen:
                     seen.add(tid)
@@ -1462,8 +1462,8 @@ def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str
             if tid <= 0:
                 return None, "Invalid Task ID specified"
             if tid not in seen:
-                if len(task_ids) + 1 > max_tasks:
-                    return None, f"Requested range exceeds maximum of {max_tasks} tasks"
+                if len(task_ids) + 1 > max_reports:
+                    return None, f"Requested range exceeds maximum of {max_reports} reports"
                 seen.add(tid)
                 task_ids.append(tid)
 
@@ -1472,12 +1472,19 @@ def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str
     return task_ids, None
 
 
+def _cfg_bool(val) -> bool:
+    """Convert config boolean values safely, handling strings like 'no' and '0'."""
+    if isinstance(val, str):
+        return val.strip().lower() in ("yes", "true", "on", "1")
+    return bool(val)
+
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_reports_bulk(request, task_ids=None, report_format="json"):
     """Bulk download analysis reports as a ZIP archive with files named by sample SHA256."""
-    if not apiconf.taskreport.get("enabled"):
-        return Response({"error": True, "error_value": "Task Report API is Disabled"})
+    if not _cfg_bool(apiconf.taskreport.get("enabled")) or not _cfg_bool(apiconf.taskreport.get("bulk_download")):
+        return Response({"error": True, "error_value": "Bulk Report Download API is Disabled"})
 
     allow_dl = False
     if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
@@ -1495,13 +1502,16 @@ def tasks_reports_bulk(request, task_ids=None, report_format="json"):
 
     report_filename, ext = _BULK_REPORT_FORMATS[fmt]
     package_filter = (request.GET.get("package") or "").strip().lower()
-    max_tasks = force_int(apiconf.taskreport.get("bulk_max_tasks", 500)) or 500
+    raw_max = apiconf.taskreport.get("bulk_max_reports", 3)
+    max_reports = force_int(raw_max) if raw_max is not None else 3
+    if max_reports <= 0:
+        max_reports = 3
 
     parsed_ids, err = _parse_bulk_task_ids(
         raw_task_ids=task_ids or request.GET.get("task_ids", ""),
         start_id=request.GET.get("start_id", ""),
         end_id=request.GET.get("end_id", ""),
-        max_tasks=max_tasks,
+        max_reports=max_reports,
     )
     if err:
         return Response({"error": True, "error_value": err})
@@ -1547,14 +1557,14 @@ def tasks_reports_bulk(request, task_ids=None, report_format="json"):
         return Response({"error": True, "error_value": "No matching reports found for the specified criteria"})
 
     mem_zip = BytesIO()
-    with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED, False) as zf:
+    with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as zf:
         for report_path, arcname in matched_entries:
             zf.write(report_path, arcname)
 
+    archive_size = mem_zip.tell()
     mem_zip.seek(0)
-    archive_bytes = mem_zip.getvalue()
-    resp = StreamingHttpResponse(BytesIO(archive_bytes), content_type="application/zip")
-    resp["Content-Length"] = len(archive_bytes)
+    resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+    resp["Content-Length"] = archive_size
     resp["Content-Disposition"] = f"attachment; filename=reports_{fmt}.zip"
     return resp
 

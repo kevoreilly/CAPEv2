@@ -29,9 +29,6 @@ BUFSIZE = 512
 LOGBUFSIZE = 16384
 INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
 
-# Ensure WinAPI returns proper handle-sized values on 64-bit.
-KERNEL32.CreateNamedPipeW.restype = c_void_p
-
 
 class LogServerThread(Thread):
     """Cuckoo Log Server.
@@ -127,7 +124,7 @@ class LogServer:
             byref(sa),
         )
 
-        if h_pipe in (None, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
+        if not h_pipe or h_pipe in (INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
             log.warning("Unable to create log server pipe")
             return False
 

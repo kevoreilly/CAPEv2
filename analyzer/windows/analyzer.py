@@ -8,6 +8,7 @@ import hashlib
 import importlib
 import inspect
 import logging
+import ntpath
 import os
 import pkgutil
 import socket
@@ -162,7 +163,7 @@ def pids_from_image_names(suffixlist):
         if not n:
             # log.debug("psapi.GetProcessImageFileNameA failed for pid: %d", pid)
             continue
-        image_name_pystr = image_name.value.decode().lower()
+        image_name_pystr = image_name.value.decode(errors="replace").lower()
         # e.g., image name: "\device\harddiskvolume4\windows\system32\services.exe"
         if image_name_pystr.endswith(suffixlist):
             retpids.append(pid)
@@ -182,7 +183,7 @@ def _normalized_protected_path(path: Union[str, bytes]) -> bytes:
 
 def in_protected_path(path: Union[str, bytes]) -> bool:
     """Checks if a path is protected."""
-    if not path:
+    if not path or not isinstance(path, (str, bytes)):
         return False
     path = _normalized_protected_path(path)
     for protected_path in PROTECTED_PATH_LIST:
@@ -944,6 +945,8 @@ class Files:
         "python.exe",
         "pythonw.exe",
         "python3.exe",
+        "py.exe",
+        "pyw.exe",
         "perl.exe",
     ]
 
@@ -959,7 +962,7 @@ class Files:
     @classmethod
     def is_protected_filename(cls, file_name):
         """Return whether or not to inject into a process with this name."""
-        return file_name.lower() in cls.PROTECTED_NAMES
+        return isinstance(file_name, str) and file_name.lower() in cls.PROTECTED_NAMES
 
     def add_pid(self, filepath, pid, verbose=True):
         """Track a process identifier for this file."""
@@ -1166,8 +1169,9 @@ class CommandPipeHandler:
         process."""
         # return struct.pack("II", self.analyzer.pid, self.analyzer.ppid)
         hidepids = set()
-        hidepids.update(HIDE_PIDS)
-        hidepids.update([self.analyzer.pid, self.analyzer.ppid])
+        if HIDE_PIDS:
+            hidepids.update(HIDE_PIDS)
+        hidepids.update(pid for pid in (self.analyzer.pid, self.analyzer.ppid) if pid)
         return struct.pack("%dI" % len(hidepids), *hidepids)
 
     def _handle_kterminate(self, data):
@@ -1192,10 +1196,11 @@ class CommandPipeHandler:
         if process_id and process_id not in (self.analyzer.pid, self.analyzer.ppid, self.analyzer.process_list.pids):
             proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
             filepath = proc.get_filepath()
-            filename = os.path.basename(filepath)
-            if not in_protected_path(filename):
+            filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
+            if not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
                 self.analyzer.process_list.add_pid(process_id)
                 log.info("Announce process name : %s", filename)
+            proc.close()
         self.analyzer.process_lock.release()
 
     def _handle_kerror(self, error_msg):
@@ -1436,12 +1441,17 @@ class CommandPipeHandler:
             return
 
         # Open the process and inject the monitor
-        proc = Process(pid=process_id, thread_id=thread_id)
+        proc = Process(
+            options=self.analyzer.options,
+            config=self.analyzer.config,
+            pid=process_id,
+            thread_id=thread_id,
+        )
 
         filepath = proc.get_filepath()
-        filename = os.path.basename(filepath)
+        filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
 
-        if not self.analyzer.files.is_protected_filename(filename):
+        if not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
             # Add the new process ID to the list of monitored processes.
             self.analyzer.process_list.add_pid(process_id)
 
@@ -1451,6 +1461,9 @@ class CommandPipeHandler:
             proc.inject(interest=filepath, nosleepskip=True)
             self.analyzer.LASTINJECT_TIME = timeit.default_timer()
             log.info("Injected into process with pid %s and name %s", proc.pid, filename)
+        else:
+            self.analyzer.process_lock.release()
+        proc.close()
 
     def _handle_process(self, data):
         """Request for injection into a process."""
@@ -1486,12 +1499,12 @@ class CommandPipeHandler:
                     if filepath.lower() in self.analyzer.files.files:
                         self.analyzer.files.delete_file(filepath, process_id)
                     is_64bit = proc.is_64bit()
-                    filename = os.path.basename(filepath)
+                    filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
                     if self.analyzer.SERVICES_PID and process_id == self.analyzer.SERVICES_PID:
                         self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
-                    if not in_protected_path(filename):
+                    if not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
                         _ = proc.inject(interest)
                         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                         self.analyzer.NUM_INJECTED += 1

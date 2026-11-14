@@ -27,7 +27,7 @@ from email.message import EmailMessage
 from email.parser import BytesHeaderParser
 from email.policy import default as email_policy
 from io import BufferedIOBase, BytesIO, StringIO
-from threading import Lock
+from threading import Lock, local as thread_local
 from typing import Any, Dict, IO, Iterable, Optional, Tuple, Union
 from urllib.parse import parse_qs
 from zipfile import ZipFile
@@ -47,7 +47,7 @@ if sys.version_info[:2] < (3, 6):
 #if sys.maxsize > 2**32 and sys.platform == "win32":
 #    sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.24"
+AGENT_VERSION = "0.25"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -63,9 +63,17 @@ if sys.platform == "win32":
     AGENT_FEATURES.append("mutex")
     AGENT_FEATURES.append("browser_extension")
     MUTEX_TIMEOUT_MS = 500
-    from ctypes import WinError, windll
+    from ctypes import WinError, windll, wintypes
 
     kernel32 = windll.kernel32
+    kernel32.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel32.OpenMutexW.restype = wintypes.HANDLE
+    kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.ReleaseMutex.argtypes = [wintypes.HANDLE]
+    kernel32.ReleaseMutex.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
     SYNCHRONIZE = 0x100000
     ERROR_FILE_NOT_FOUND = 0x2
     WAIT_ABANDONED = 0x00000080
@@ -443,6 +451,12 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
+    def handle(self) -> None:
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            self.close_connection = True
+
     def _send_json_response(self, ret: "jsonify") -> None:
         try:
             ret.init()
@@ -450,7 +464,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             ret.headers(self)
             self.end_headers()
             self.wfile.write(ret.json().encode())
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
     def _parse_form_and_files(self) -> Tuple[Dict[str, str], Dict[str, IO[bytes]]]:
@@ -543,6 +557,12 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             request.files = {}
 
 
+class _AgentTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+    request_queue_size = 128
+
+
 class MiniHTTPServer:
     def __init__(self):
         self.handler = MiniHTTPRequestHandler
@@ -564,8 +584,7 @@ class MiniHTTPServer:
     ):
         self.handler.httpd = self
         request.environ["werkzeug.server.shutdown"] = self.shutdown
-        socketserver.ThreadingTCPServer.allow_reuse_address = True
-        self.s = socketserver.ThreadingTCPServer((str(host), port), self.handler)
+        self.s = _AgentTCPServer((str(host), port), self.handler)
 
         # tell anyone waiting that they're good to go
         if event:
@@ -597,31 +616,48 @@ class MiniHTTPServer:
         if not self.is_client_allowed(obj.path, request.method):
             return
 
-        for route, fn in self.routes[obj.command]:
-            if route.match(obj.path):
-                ret = fn()
-                break
-        else:
-            ret = json_error(404, message="Route not found")
+        request.in_handle = True
+        request.shutdown_requested = False
+        try:
+            for route, fn in self.routes[obj.command]:
+                if route.match(obj.path):
+                    ret = fn()
+                    break
+            else:
+                ret = json_error(404, message="Route not found")
 
-        ret.init()
-        obj.send_response(ret.status_code)
-        ret.headers(obj)
-        obj.end_headers()
+            try:
+                ret.init()
+                obj.send_response(ret.status_code)
+                ret.headers(obj)
+                obj.end_headers()
 
-        if isinstance(ret, jsonify):
-            obj.wfile.write(ret.json().encode())
-        elif isinstance(ret, send_file):
-            ret.write(obj, obj.wfile)
+                if isinstance(ret, jsonify):
+                    obj.wfile.write(ret.json().encode())
+                elif isinstance(ret, send_file):
+                    ret.write(obj, obj.wfile)
+                obj.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                pass
 
-        if hasattr(self, "s") and getattr(self.s, "_BaseServer__shutdown_request", False):
-            self.close_connection = True
+            if request.shutdown_requested or (
+                hasattr(self, "s") and getattr(self.s, "_BaseServer__shutdown_request", False)
+            ):
+                self.close_connection = True
+                obj.close_connection = True
+                if hasattr(self, "s"):
+                    setattr(self.s, "_BaseServer__shutdown_request", True)
+        finally:
+            request.in_handle = False
 
     def shutdown(self):
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):
-            setattr(self.s, "_BaseServer__shutdown_request", True)
+            if request.in_handle:
+                request.shutdown_requested = True
+            else:
+                setattr(self.s, "_BaseServer__shutdown_request", True)
         else:
             # When running unit tests in Windows, the system would hang here,
             # until this `exit(1)` was added.
@@ -714,15 +750,79 @@ class send_file:
             obj.send_header("Content-Length", self.length)
 
 
-class request:
-    form: dict = {}
-    files: dict = {}
-    client_ip = None
-    client_port = None
-    method = None
-    environ = {
-        "werkzeug.server.shutdown": lambda: app.shutdown(),
-    }
+class _RequestContext:
+    def __init__(self) -> None:
+        self._local = thread_local()
+        self.environ: Dict[str, Any] = {
+            "werkzeug.server.shutdown": lambda: app.shutdown(),
+        }
+
+    @property
+    def form(self) -> Dict[str, Any]:
+        val = getattr(self._local, "form", None)
+        if val is None:
+            val = {}
+            self._local.form = val
+        return val
+
+    @form.setter
+    def form(self, value: Dict[str, Any]) -> None:
+        self._local.form = value
+
+    @property
+    def files(self) -> Dict[str, Any]:
+        val = getattr(self._local, "files", None)
+        if val is None:
+            val = {}
+            self._local.files = val
+        return val
+
+    @files.setter
+    def files(self, value: Dict[str, Any]) -> None:
+        self._local.files = value
+
+    @property
+    def client_ip(self) -> Optional[str]:
+        return getattr(self._local, "client_ip", None)
+
+    @client_ip.setter
+    def client_ip(self, value: Optional[str]) -> None:
+        self._local.client_ip = value
+
+    @property
+    def client_port(self) -> Optional[int]:
+        return getattr(self._local, "client_port", None)
+
+    @client_port.setter
+    def client_port(self, value: Optional[int]) -> None:
+        self._local.client_port = value
+
+    @property
+    def method(self) -> Optional[str]:
+        return getattr(self._local, "method", None)
+
+    @method.setter
+    def method(self, value: Optional[str]) -> None:
+        self._local.method = value
+
+    @property
+    def in_handle(self) -> bool:
+        return bool(getattr(self._local, "in_handle", False))
+
+    @in_handle.setter
+    def in_handle(self, value: bool) -> None:
+        self._local.in_handle = value
+
+    @property
+    def shutdown_requested(self) -> bool:
+        return bool(getattr(self._local, "shutdown_requested", False))
+
+    @shutdown_requested.setter
+    def shutdown_requested(self, value: bool) -> None:
+        self._local.shutdown_requested = value
+
+
+request = _RequestContext()
 
 
 app: MiniHTTPServer = MiniHTTPServer()
@@ -1052,7 +1152,10 @@ def do_remove():
 
 @app.route("/execute", methods=["POST"])
 def do_execute():
-    local_ip = socket.gethostbyname(socket.gethostname())
+    try:
+        local_ip = socket.gethostbyname(socket.gethostname())
+    except OSError:
+        local_ip = "127.0.0.1"
 
     if "command" not in request.form:
         return json_error(400, "No command has been provided")

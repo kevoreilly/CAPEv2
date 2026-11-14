@@ -627,7 +627,8 @@ class GuestManager:
                 return
 
             try:
-                status = self.get("/status", timeout=5).json()
+                status = self.get("/status", timeout=10).json()
+                consecutive_failures = 0
             except (CuckooGuestError, requests.exceptions.ReadTimeout) as e:
                 if not self.do_run:
                     break

@@ -236,3 +236,50 @@ def test_store_file_streams_with_content_length_and_rewinds_on_connect_retry(tmp
     assert captured["filepath"] == "/tmp/42/test.run"
     assert captured["filename"] == "sample.bin"
     assert captured["file_bytes"] == payload
+
+
+def test_wait_for_completion_resets_consecutive_failures_after_recovery(monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    gm = GuestManager("win10", "192.168.122.20", "windows", 8, None)
+    gm.timeout = 300
+    monkeypatch.setattr(gm, "get_status_from_db", lambda: "running")
+
+    set_statuses = []
+    monkeypatch.setattr(gm, "set_status_in_db", lambda status: set_statuses.append(status))
+
+    observed_timeouts = []
+    # 6 transient failures, 1 running recovery, 6 more transient failures, then complete (12 total failures, max 6 consecutive).
+    outcomes = (
+        [CuckooGuestError("Connection refused")] * 6
+        + [{"status": "running"}]
+        + [requests.exceptions.ReadTimeout("Read timed out")] * 6
+        + [{"status": "complete"}]
+    )
+    outcomes_iter = iter(outcomes)
+
+    class _FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    def fake_get(method, **kwargs):
+        observed_timeouts.append(kwargs.get("timeout"))
+        item = next(outcomes_iter)
+        if isinstance(item, Exception):
+            raise item
+        return _FakeResp(item)
+
+    monkeypatch.setattr(gm, "get", fake_get)
+
+    with caplog.at_level(logging.WARNING):
+        gm.wait_for_completion()
+
+    assert set_statuses == ["complete"]
+    assert all(t == 10 for t in observed_timeouts)
+    assert "Agent is dead" not in caplog.text
+    assert "Agent unreachable (6/10)" in caplog.text
+    assert "Agent unreachable (7/10)" not in caplog.text

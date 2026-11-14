@@ -9,7 +9,7 @@ import threading
 import time
 from collections import OrderedDict
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from random import choice
 from typing import Dict, List, Optional
@@ -1722,7 +1722,7 @@ def parse_request_arguments(request, keyword="POST"):
     memory = force_bool(getattr(request, keyword).get("memory", False))
     clock = getattr(request, keyword).get("clock", "")
     if not clock:
-        clock = datetime.utcfromtimestamp(0)
+        clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
     elif "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))

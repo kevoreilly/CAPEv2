@@ -378,9 +378,9 @@ def direct_vnc_vm(request, vm_name):
         machine = _view_vm_machine(vm_name)
         if machine:
             if machine.locked_changed_on:
-                from datetime import datetime
+                from lib.cuckoo.core.data.db_common import _utcnow_naive
                 # Check if it was locked within the last 90 seconds (startup window)
-                delta = datetime.utcnow() - machine.locked_changed_on
+                delta = _utcnow_naive() - machine.locked_changed_on
                 is_starting = delta.total_seconds() < 90
 
             if is_starting:
@@ -563,7 +563,7 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
                             tz = pytz.timezone("America/New_York")
                             now_est = datetime.datetime.now(tz)
                         except ImportError:
-                            now_utc = datetime.datetime.utcnow()
+                            now_utc = datetime.datetime.now(datetime.timezone.utc)
                             if 3 < now_utc.month < 11:
                                 offset = datetime.timedelta(hours=-4)
                             else:

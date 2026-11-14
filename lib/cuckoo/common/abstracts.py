@@ -1862,7 +1862,7 @@ class Feed:
         if self.updatefeed:
             headers = {}
             if mtime:
-                timestr = datetime.datetime.utcfromtimestamp(mtime).strftime("%a, %d %b %Y %H:%M:%S GMT")
+                timestr = datetime.datetime.fromtimestamp(mtime, datetime.timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
                 headers["If-Modified-Since"] = timestr
             try:
                 req = requests.get(self.downloadurl, headers=headers, verify=True)

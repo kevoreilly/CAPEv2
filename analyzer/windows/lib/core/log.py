@@ -79,6 +79,11 @@ class LogServerThread(Thread):
             # got an entire message, send it off to the resultserver
             if data:
                 self.resultserver_socket.sendall(data)
+            elif not success:
+                # ReadFile failed without returning data: the client end of the pipe is gone
+                # (e.g. the monitored process exited). Stop instead of busy-looping.
+                self.do_run = False
+                break
 
     def run(self):
         """Create and run Log Server.

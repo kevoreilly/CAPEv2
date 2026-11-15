@@ -1412,6 +1412,164 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         return Response(resp)
 
 
+_BULK_REPORT_FORMATS = {
+    "protobuf": ("report.protobuf", "protobuf"),
+    "json": ("report.json", "json"),
+    "html": ("report.html", "html"),
+    "htmlsummary": ("summary-report.html", "html"),
+    "pdf": ("report.pdf", "pdf"),
+    "maec": ("report.maec-4.1.xml", "xml"),
+    "maec5": ("report.maec-5.0.json", "json"),
+    "metadata": ("report.metadata.xml", "xml"),
+    "litereport": ("lite.json", "json"),
+    "parti": ("report.parti", "parti"),
+}
+
+
+def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str = "", max_reports: int = 3):
+    """Parse task ID ranges/lists and enforce max_reports limit."""
+    spec = (raw_task_ids or "").strip()
+    if not spec and start_id and end_id:
+        spec = f"{start_id.strip()}-{end_id.strip()}"
+    elif not spec and start_id:
+        spec = start_id.strip()
+
+    if not spec:
+        return None, "No Task IDs or range specified"
+
+    task_ids = []
+    seen = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            pieces = part.split("-", 1)
+            start = force_int(pieces[0].strip())
+            end = force_int(pieces[1].strip())
+            if start <= 0 or end <= 0:
+                return None, "Invalid Task ID range specified"
+            if start > end:
+                return None, "Start Task ID is bigger than End Task ID"
+            if (end - start + 1) + len(task_ids) > max_reports:
+                return None, f"Requested range exceeds maximum of {max_reports} reports"
+            for tid in range(start, end + 1):
+                if tid not in seen:
+                    seen.add(tid)
+                    task_ids.append(tid)
+        else:
+            tid = force_int(part)
+            if tid <= 0:
+                return None, "Invalid Task ID specified"
+            if tid not in seen:
+                if len(task_ids) + 1 > max_reports:
+                    return None, f"Requested range exceeds maximum of {max_reports} reports"
+                seen.add(tid)
+                task_ids.append(tid)
+
+    if not task_ids:
+        return None, "No valid Task IDs specified"
+    return task_ids, None
+
+
+def _cfg_bool(val) -> bool:
+    """Convert config boolean values safely, handling strings like 'no' and '0'."""
+    if isinstance(val, str):
+        return val.strip().lower() in ("yes", "true", "on", "1")
+    return bool(val)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_reports_bulk(request, task_ids=None, report_format="json"):
+    """Bulk download analysis reports as a ZIP archive with files named by sample SHA256."""
+    if not _cfg_bool(apiconf.taskreport.get("enabled")) or not _cfg_bool(apiconf.taskreport.get("bulk_download")):
+        return Response({"error": True, "error_value": "Bulk Report Download API is Disabled"})
+
+    allow_dl = False
+    if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
+        allow_dl = True
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and allow_dl is False:
+        return render(
+            request,
+            "error.html",
+            {"error": "You don't have permissions to download reports. Ask admin to enable it for you in user profile."},
+        )
+
+    fmt = (request.GET.get("report_format") or report_format or "json").strip().lower()
+    if fmt not in _BULK_REPORT_FORMATS:
+        return Response({"error": True, "error_value": "Invalid report format specified"})
+
+    report_filename, ext = _BULK_REPORT_FORMATS[fmt]
+    package_filter = (request.GET.get("package") or "").strip().lower()
+    raw_max = apiconf.taskreport.get("bulk_max_reports", 3)
+    max_reports = force_int(raw_max) if raw_max is not None else 3
+    if max_reports <= 0:
+        max_reports = 3
+
+    parsed_ids, err = _parse_bulk_task_ids(
+        raw_task_ids=task_ids or request.GET.get("task_ids", ""),
+        start_id=request.GET.get("start_id", ""),
+        end_id=request.GET.get("end_id", ""),
+        max_reports=max_reports,
+    )
+    if err:
+        return Response({"error": True, "error_value": err})
+
+    matched_entries = []
+    used_arcnames = set()
+    for tid in parsed_ids:
+        check = validate_task(tid)
+        if check.get("error"):
+            continue
+        if str(check.get("tlp", "")).lower() == "red":
+            continue
+
+        task = db.view_task(tid, details=True)
+        if not task:
+            continue
+        if package_filter and (getattr(task, "package", "") or "").lower() != package_filter:
+            continue
+
+        effective_tid = check.get("rtid") or tid
+        report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(effective_tid), "reports", report_filename)
+        if not os.path.normpath(report_path).startswith(ANALYSIS_BASE_PATH) or not path_exists(report_path):
+            continue
+
+        sha256 = ""
+        sample = getattr(task, "sample", None)
+        if sample is not None and getattr(sample, "sha256", None):
+            sha256 = sample.sha256
+        elif getattr(task, "target", "") and path_exists(task.target):
+            with suppress(Exception):
+                from lib.cuckoo.common.objects import File as CuckooFile
+
+                sha256 = CuckooFile(task.target).get_sha256()
+
+        base_stem = sha256 if sha256 else f"{tid}_report"
+        arcname = f"{base_stem}.{ext}"
+        if arcname in used_arcnames:
+            arcname = f"{base_stem}_{tid}.{ext}"
+        used_arcnames.add(arcname)
+        matched_entries.append((report_path, arcname))
+
+    if not matched_entries:
+        return Response({"error": True, "error_value": "No matching reports found for the specified criteria"})
+
+    mem_zip = BytesIO()
+    with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as zf:
+        for report_path, arcname in matched_entries:
+            zf.write(report_path, arcname)
+
+    archive_size = mem_zip.tell()
+    mem_zip.seek(0)
+    resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+    resp["Content-Length"] = archive_size
+    resp["Content-Disposition"] = f"attachment; filename=reports_{fmt}.zip"
+    return resp
+
+
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_iocs(request, task_id, detail=None):

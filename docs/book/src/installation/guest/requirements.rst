@@ -44,6 +44,23 @@ to download and install the proper packages according to your Python version.
 .. _`official website`: http://www.python.org/getit/
 .. _`Python Image Library`: https://python-pillow.org
 
+Archive packages
+================
+
+Install archive extraction tools inside the Windows guest before saving its
+snapshot. The ``archive`` package requires 7-Zip. Install it in the standard
+``7-Zip`` directory under ``Program Files`` or ``Program Files (x86)``, so the
+analyzer can find ``7z.exe``. Installing 7-Zip on the CAPE host does not satisfy
+this requirement.
+
+If you set ``recursion_depth`` above zero, also install Detect It Easy in the
+guest with its extra database and ``diec.exe`` in the ``die`` directory under
+``Program Files`` or ``Program Files (x86)``. Detect It Easy is not needed for
+non-recursive extraction with this package.
+
+The ``rar`` package has its own Python dependency. See :doc:`../../usage/packages`
+for its prerequisites and the other archive package options.
+
 Additional Software
 ===================
 

@@ -21,7 +21,7 @@ from urllib.request import urlopen
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
-from lib.common.constants import PATHS
+from lib.common.constants import OPT_PROCDUMP, PATHS
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.results import upload_to_host
 from lib.core.config import Config
@@ -71,7 +71,7 @@ def _is_procdump_enabled(options):
     """Check whether child process memory dumping is enabled."""
     if not isinstance(options, Mapping):
         return True
-    for key in ("procdump", "procmemdump"):
+    for key in (OPT_PROCDUMP, "procmemdump"):
         if key in options and str(options[key]).strip().lower() in _DISABLED_OPTION_VALUES:
             return False
     return True

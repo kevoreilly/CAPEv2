@@ -184,13 +184,13 @@ rule DCRat {
         $av6 = "DetectVirtualMachine" fullword ascii
         $av7 = "Select * from Win32_ComputerSystem" fullword wide
         // Plugin_AutoStealer, Plugin_AutoKeylogger
-        $pl1 = "dcratAPI" fullword ascii
-        $pl2 = "dsockapi" fullword ascii
-        $pl3 = "file_get_contents" fullword ascii
-        $pl4 = "classthis" fullword ascii
-        $pl5 = "typemdt" fullword ascii
-        $pl6 = "Plugin_AutoStealer" ascii wide
-        $pl7 = "Plugin_AutoKeylogger" ascii wide
+        $pl_1 = "dcratAPI" fullword ascii
+        $pl_2 = "dsockapi" fullword ascii
+        $pl_3 = "file_get_contents" fullword ascii
+        $pl_4 = "classthis" fullword ascii
+        $pl_5 = "typemdt" fullword ascii
+        $pl_6 = "Plugin_AutoStealer" ascii wide
+        $pl_7 = "Plugin_AutoKeylogger" ascii wide
         // variant
         $v1 = "Plugin couldn't process this action!" wide
         $v2 = "Unknown command!" wide
@@ -218,7 +218,7 @@ rule DCRat {
         $px13 = "[Other] Clipboard" wide
         $px14 = "[Other] Saving system information" wide
     condition:
-        uint16(0) == 0x5a4d and (all of ($dc*) or all of ($string*) or 2 of ($x*) or 6 of ($v*) or 5 of ($px*)) or ($plugin and (4 of ($av*) or 5 of ($pl*)))
+        uint16(0) == 0x5a4d and (all of ($dc*) or all of ($string*) or 2 of ($x*) or 6 of ($v*) or 5 of ($px*)) or ($plugin and (4 of ($av*) or 5 of ($pl_*)))
 }
 
 rule dcrat_kingrat {

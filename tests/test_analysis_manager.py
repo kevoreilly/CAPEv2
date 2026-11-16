@@ -13,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config, ConfigMeta
 from lib.cuckoo.core.analysis_manager import AnalysisManager
-from lib.cuckoo.core.data.task import TASK_RUNNING, Task, TASK_FAILED_ANALYSIS
+from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_FAILED_ANALYSIS, TASK_RUNNING, Task
 from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.database import _Database
@@ -1198,6 +1198,86 @@ class TestAnalysisManager:
 
         analysis_man.dump_machine_memory()
         mock_dump_mem.assert_not_called()
+
+    def test_run_analysis_on_guest_preserves_failed_status_and_returns_false(
+        self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        from lib.cuckoo.core.guest import GuestManager
+
+        with db.session.begin():
+            t = db.session.merge(task)
+            m = db.session.merge(machine)
+            db.create_guest(m, "MockMachinery", t)
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "build_options", return_value={"id": task.id})
+
+        # 1. Guest already marked "failed" by start_analysis() -> returns False, keeps "failed", skips wait
+        def fail_on_start(_options):
+            db.guest_set_status(task.id, "failed")
+
+        mocker.patch.object(GuestManager, "start_analysis", side_effect=fail_on_start)
+        mock_wait = mocker.patch.object(GuestManager, "wait_for_completion")
+
+        assert analysis_man.run_analysis_on_guest() is False
+        assert db.guest_get_status(task.id) == "failed"
+        mock_wait.assert_not_called()
+
+        # 2. Guest marked "failed" by wait_for_completion() -> returns False, keeps "failed" (not "stopping")
+        mocker.patch.object(GuestManager, "start_analysis", return_value=None)
+        mock_wait.side_effect = lambda: db.guest_set_status(task.id, "failed")
+
+        assert analysis_man.run_analysis_on_guest() is False
+        assert db.guest_get_status(task.id) == "failed"
+
+        # 3. Unhandled exception in wait_for_completion() -> marks guest "failed" and returns False
+        mock_wait.side_effect = RuntimeError("boom")
+
+        assert analysis_man.run_analysis_on_guest() is False
+        assert db.guest_get_status(task.id) == "failed"
+
+    def test_launch_analysis_dead_guest_marks_completed_unsuccessfully_and_preserves_guest_failed(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        tmp_cuckoo_root: pathlib.Path,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        import contextlib
+        from lib.cuckoo.core.guest import GuestManager
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            analysis_man.prepare_task_and_machine_to_start()
+        db.session.expunge_all()
+
+        mocker.patch.object(machinery_manager, "start_machine")
+        mocker.patch.object(machinery_manager, "stop_machine")
+        mocker.patch.object(analysis_man, "result_server", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "network_routing", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "run_auxiliary", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "build_options", return_value={"id": task.id})
+        mocker.patch.object(GuestManager, "start_analysis")
+
+        def dead_agent_wait(gm_self):
+            gm_self.set_status_in_db("failed")
+
+        mocker.patch.object(GuestManager, "wait_for_completion", autospec=True, side_effect=dead_agent_wait)
+
+        with caplog.at_level(logging.INFO):
+            analysis_man.launch_analysis()
+
+        assert db.guest_get_status(task.id) == "failed"
+        with db.session.begin():
+            db_task = db.view_task(task.id)
+            db_machine = db.session.get(Machine, machine.id)
+            assert db_task is not None and db_task.status == TASK_COMPLETED
+            assert db_machine is not None and db_machine.locked is False
+        assert "Completed analysis unsuccessfully." in caplog.text
+        assert "Completed analysis successfully." not in caplog.text
 
 
 

@@ -4,6 +4,7 @@ from collections import Counter
 from email import message_from_bytes
 from email.policy import default as email_policy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import logging
 import socket
 from threading import Event, Lock, Thread
 import time
@@ -236,3 +237,92 @@ def test_store_file_streams_with_content_length_and_rewinds_on_connect_retry(tmp
     assert captured["filepath"] == "/tmp/42/test.run"
     assert captured["filename"] == "sample.bin"
     assert captured["file_bytes"] == payload
+
+
+def test_wait_for_completion_resets_consecutive_failures_on_success(monkeypatch, caplog):
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    gm = GuestManager("vm0", "127.0.0.1", "windows", 7, None)
+    gm.timeout = 60
+
+    db_statuses = []
+    monkeypatch.setattr(gm, "get_status_from_db", lambda: "running")
+    monkeypatch.setattr(gm, "set_status_in_db", db_statuses.append)
+
+    class _FakeResp:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    # 6 transient failures, 1 healthy response (resets counter), 6 more failures, then complete.
+    # Total errors = 12 (> 10), but max consecutive failures = 6 (<= 10).
+    responses = (
+        [CuckooGuestError("timeout")] * 6
+        + [_FakeResp({"status": "running"})]
+        + [CuckooGuestError("timeout")] * 6
+        + [_FakeResp({"status": "complete"})]
+    )
+    calls = iter(responses)
+
+    def fake_get(_method, **_kwargs):
+        item = next(calls)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+    monkeypatch.setattr(gm, "get", fake_get)
+
+    with caplog.at_level(logging.ERROR):
+        gm.wait_for_completion()
+
+    assert db_statuses == ["complete"]
+    assert "Agent is dead" not in caplog.text
+
+
+def test_wait_for_completion_marks_guest_failed_when_agent_dead(monkeypatch, caplog):
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    gm = GuestManager("vm0", "127.0.0.1", "windows", 8, None)
+    gm.timeout = 60
+
+    db_statuses = []
+    monkeypatch.setattr(gm, "get_status_from_db", lambda: "running")
+    monkeypatch.setattr(gm, "set_status_in_db", db_statuses.append)
+
+    attempts = 0
+
+    def always_fail(_method, **_kwargs):
+        nonlocal attempts
+        attempts += 1
+        raise CuckooGuestError("connection lost")
+
+    monkeypatch.setattr(gm, "get", always_fail)
+
+    with caplog.at_level(logging.ERROR):
+        gm.wait_for_completion()
+
+    assert attempts == 11
+    assert db_statuses == ["failed"]
+    assert "Agent is dead" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("agent_status", "expected_db_status"),
+    [("complete", "complete"), ("failed", "failed")],
+)
+def test_wait_for_completion_propagates_agent_terminal_status(monkeypatch, agent_status, expected_db_status):
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    gm = GuestManager("vm0", "127.0.0.1", "windows", 9, None)
+    gm.timeout = 60
+
+    db_statuses = []
+    monkeypatch.setattr(gm, "get_status_from_db", lambda: "running")
+    monkeypatch.setattr(gm, "set_status_in_db", db_statuses.append)
+    monkeypatch.setattr(
+        gm,
+        "get",
+        lambda _method, **_kwargs: type("_R", (), {"json": staticmethod(lambda: {"status": agent_status})})(),
+    )
+
+    gm.wait_for_completion()
+    assert db_statuses == [expected_db_status]

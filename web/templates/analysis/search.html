@@ -272,8 +272,10 @@
                                 {% elif analysis.status == "distributed" %}<span class="badge bg-warning">distributed</span>
                                 {% elif analysis.status == "completed" %}<span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
-                                    {% if analysis.errors %}<span class="badge bg-danger">error</span>
-                                    {% else %}<span class="badge bg-success">reported</span>{% endif %}
+                                    <span class="badge bg-success">reported</span>
+                                    {% if analysis.errors %}
+                                    <span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>
+                                    {% endif %}
                                 {% else %}<span class="badge bg-danger">{{analysis.status}}</span>{% endif %}
                             </td>
                         </tr>

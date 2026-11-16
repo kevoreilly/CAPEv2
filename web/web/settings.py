@@ -430,7 +430,13 @@ else:
     ACCOUNT_EMAIL_VERIFICATION = "none"
     SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
 
-ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
+_email_signup_field = (
+    "email*"
+    if (web_cfg.registration.get("email_required", False) or web_cfg.registration.get("email_confirmation", False))
+    else "email"
+)
+ACCOUNT_LOGIN_METHODS = {"username"}
+ACCOUNT_SIGNUP_FIELDS = ["username*", _email_signup_field, "password1*", "password2*"]
 ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
 ACCOUNT_RATE_LIMITS = {"login_failed": "3/m"}
 LOGIN_REDIRECT_URL = "/"

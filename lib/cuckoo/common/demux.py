@@ -8,6 +8,7 @@ import re
 import logging
 import os
 import tempfile
+from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Optional
 
 from lib.cuckoo.common.config import Config
@@ -346,44 +347,83 @@ def is_valid_package(package: str) -> bool:
     return any(ptype in package for ptype in VALID_PACKAGES)
 
 
-# list of junk extensions to skip
-JUNK_EXTENSIONS = {
-    b".yar",
-    b".yara",
-    b".md",
-    b".txt",
-    b".yml",
-    b".yaml",
-    b".gitignore",
-    b".gitattributes",
-    b".gitmodules",
-    b".pdb",
-}
+def _split_list(value: str) -> Tuple[str, ...]:
+    return tuple(item.strip() for item in value.split(",") if item.strip())
 
-JUNK_NAMES = {b"license", b"copying", b"makefile", b"authors", b"readme"}
 
-JUNK_MAGICS = (
-    "Microsoft Roslyn C# debugging symbols",
-    "MSVC program database",
-    "Microsoft C/C++ MSF",
-    "Microsoft C/C++ program database",
-)
+@dataclass(frozen=True)
+class JunkFilter:
+    """Rules for skipping junk files, from the [junk_filter] section of web.conf."""
+
+    extensions: Tuple[bytes, ...] = (
+        b".yar",
+        b".yara",
+        b".md",
+        b".txt",
+        b".yml",
+        b".yaml",
+        b".gitignore",
+        b".gitattributes",
+        b".gitmodules",
+        b".pdb",
+    )
+    names: Tuple[bytes, ...] = (b"license", b"copying", b"makefile", b"authors", b"readme")
+    paths: Tuple[bytes, ...] = (b".git/", b".github/")
+    magics: Tuple[str, ...] = (
+        "Microsoft Roslyn C# debugging symbols",
+        "MSVC program database",
+        "Microsoft C/C++ MSF",
+        "Microsoft C/C++ program database",
+    )
+
+    @classmethod
+    def from_config(cls, cfg: dict) -> "JunkFilter":
+        """Build from the [junk_filter] section; missing keys keep the defaults, empty values disable that check."""
+        if not cfg.get("enabled", True):
+            return cls(extensions=(), names=(), paths=(), magics=())
+        rules = {
+            key: tuple(item.lower().encode() for item in _split_list(cfg[key]))
+            for key in ("extensions", "names", "paths")
+            if key in cfg
+        }
+        if "magics" in cfg:
+            rules["magics"] = _split_list(cfg["magics"])
+        return cls(**rules)
+
+    def match_name(self, filename: bytes) -> Optional[str]:
+        """Return the rule the file name matches, e.g. "name: license", or None."""
+        basename = os.path.basename(filename.lower())
+        for extension in self.extensions:
+            if basename.endswith(extension):
+                return f"extension: {extension.decode()}"
+        for name in self.names:
+            if name in basename:
+                return f"name: {name.decode()}"
+        return None
+
+    def match_magic(self, magic: Optional[str]) -> Optional[str]:
+        """Return the rule the file type matches, e.g. "magic: MSVC program database", or None."""
+        for junk_magic in self.magics:
+            if magic and junk_magic in magic:
+                return f"magic: {junk_magic}"
+        return None
+
+    def is_junk_path(self, filename: bytes) -> bool:
+        filename = filename.lower()
+        return any(path in filename for path in self.paths)
+
+
+junk_filter = JunkFilter.from_config(getattr(web_cfg, "junk_filter", {}))
 
 
 # ToDo fix return type
 def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, str, str, int]:
     path_to_extract = b""
-    filename_lower = child.filename.lower()
 
     # Skip junk files (unless analysis is forced via ignore_junk_filter option)
-    if not ignore_junk_filter:
-        if any(filename_lower.endswith(ext) for ext in JUNK_EXTENSIONS):
-            return b"", child.platform, child.magic, child.filesize
-        if any(name in filename_lower for name in JUNK_NAMES):
-            return b"", child.platform, child.magic, child.filesize
-        if child.magic and any(m in child.magic for m in JUNK_MAGICS):
-            return b"", child.platform, child.magic, child.filesize
-    if b".github/" in filename_lower or b".git/" in filename_lower:
+    if not ignore_junk_filter and (junk_filter.match_name(child.filename) or junk_filter.match_magic(child.magic)):
+        return b"", child.platform, child.magic, child.filesize
+    if junk_filter.is_junk_path(child.filename):
         return b"", child.platform, child.magic, child.filesize
 
     _, ext = os.path.splitext(child.filename)
@@ -541,12 +581,9 @@ def demux_sample(
     # Skip junk files (unless analysis is forced via ignore_junk_filter option)
     if not option_enabled(options, "ignore_junk_filter"):
         filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
-        filename_lower_bytes = filename_bytes.lower()
-        if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
-            name in filename_lower_bytes for name in JUNK_NAMES
-        ):
+        if junk_rule := junk_filter.match_name(filename_bytes):
             filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
-            return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
+            return [], [{"junk_filter": f"File {filename_str} skipped by junk filter ({junk_rule})"}]
 
     # sflock requires filename to be bytes object for Py3
     # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist
@@ -573,9 +610,9 @@ def demux_sample(
     # don't try to extract from office docs
     magic = File(filename).get_type() or ""
 
-    if not option_enabled(options, "ignore_junk_filter") and any(m in magic for m in JUNK_MAGICS):
+    if not option_enabled(options, "ignore_junk_filter") and (junk_rule := junk_filter.match_magic(magic)):
         filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
-        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
+        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter ({junk_rule})"}]
 
     # --- 3. Handle Password-Protected Office Files ---
     is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and not any(x in magic for x in MS_EXCLUDE)

@@ -347,8 +347,10 @@ def is_valid_package(package: str) -> bool:
     return any(ptype in package for ptype in VALID_PACKAGES)
 
 
-def _split_list(value: str) -> Tuple[str, ...]:
-    return tuple(item.strip() for item in value.split(",") if item.strip())
+def _split_list(value: Any) -> Tuple[str, ...]:
+    if value is None or isinstance(value, bool) or value == 0:
+        return ()
+    return tuple(item.strip() for item in str(value).split(",") if item.strip())
 
 
 @dataclass(frozen=True)
@@ -377,28 +379,37 @@ class JunkFilter:
     )
 
     @classmethod
-    def from_config(cls, cfg: dict) -> "JunkFilter":
+    def from_config(cls, cfg: Optional[dict]) -> "JunkFilter":
         """Build from the [junk_filter] section; missing keys keep the defaults, empty values disable that check."""
+        if cfg is None:
+            return cls()
         if not cfg.get("enabled", True):
             return cls(extensions=(), names=(), paths=(), magics=())
-        rules = {
-            key: tuple(item.lower().encode() for item in _split_list(cfg[key]))
-            for key in ("extensions", "names", "paths")
-            if key in cfg
-        }
+        rules: Dict[str, Any] = {}
+        if "extensions" in cfg:
+            rules["extensions"] = tuple(
+                (item if item.startswith(".") else f".{item}").lower().encode()
+                for item in _split_list(cfg["extensions"])
+            )
+        if "names" in cfg:
+            rules["names"] = tuple(item.lower().encode() for item in _split_list(cfg["names"]))
+        if "paths" in cfg:
+            rules["paths"] = tuple(item.replace("\\", "/").lower().encode() for item in _split_list(cfg["paths"]))
         if "magics" in cfg:
             rules["magics"] = _split_list(cfg["magics"])
         return cls(**rules)
 
-    def match_name(self, filename: bytes) -> Optional[str]:
+    def match_name(self, filename: Optional[bytes]) -> Optional[str]:
         """Return the rule the file name matches, e.g. "name: license", or None."""
-        basename = os.path.basename(filename.lower())
+        if not filename:
+            return None
+        basename = os.path.basename(filename.replace(b"\\", b"/").lower())
         for extension in self.extensions:
             if basename.endswith(extension):
-                return f"extension: {extension.decode()}"
+                return f"extension: {extension.decode('utf-8', errors='replace')}"
         for name in self.names:
             if name in basename:
-                return f"name: {name.decode()}"
+                return f"name: {name.decode('utf-8', errors='replace')}"
         return None
 
     def match_magic(self, magic: Optional[str]) -> Optional[str]:
@@ -408,25 +419,29 @@ class JunkFilter:
                 return f"magic: {junk_magic}"
         return None
 
-    def is_junk_path(self, filename: bytes) -> bool:
-        filename = filename.lower()
-        return any(path in filename for path in self.paths)
+    def is_junk_path(self, filename: Optional[bytes]) -> bool:
+        if not filename:
+            return False
+        normalized = filename.replace(b"\\", b"/").lower()
+        return any(path in normalized for path in self.paths)
 
 
-junk_filter = JunkFilter.from_config(getattr(web_cfg, "junk_filter", {}))
+junk_filter = JunkFilter.from_config(getattr(web_cfg, "junk_filter", None))
 
 
 # ToDo fix return type
 def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, str, str, int]:
     path_to_extract = b""
+    child_filename = child.filename or b""
+    child_relpath = getattr(child, "relapath", None) or child_filename
 
     # Skip junk files (unless analysis is forced via ignore_junk_filter option)
-    if not ignore_junk_filter and (junk_filter.match_name(child.filename) or junk_filter.match_magic(child.magic)):
+    if not ignore_junk_filter and (junk_filter.match_name(child_filename) or junk_filter.match_magic(child.magic)):
         return b"", child.platform, child.magic, child.filesize
-    if junk_filter.is_junk_path(child.filename):
+    if junk_filter.is_junk_path(child_relpath):
         return b"", child.platform, child.magic, child.filesize
 
-    _, ext = os.path.splitext(child.filename)
+    _, ext = os.path.splitext(child_filename)
     ext = ext.lower()
     if (
         ignore_junk_filter
@@ -435,7 +450,7 @@ def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, s
         or is_valid_type(child.magic)
         or (not ext and is_valid_type(child.magic))
         # msix
-        or all([pattern in child.contents for pattern in (b"Registry.dat", b"AppxManifest.xml")])
+        or (child.contents and all([pattern in child.contents for pattern in (b"Registry.dat", b"AppxManifest.xml")]))
     ):
         target_path = os.path.join(tmp_path, "cuckoo-sflock")
         if not path_exists(target_path):
@@ -443,7 +458,8 @@ def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, s
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode())).encode()
+                safe_name = sanitize_filename((child_filename or b"extracted").decode("utf-8", errors="replace")) or "extracted"
+                path_to_extract = os.path.join(tmp_dir, safe_name).encode()
                 _ = path_write_file(path_to_extract, child.contents)
         except Exception as e:
             log.exception(e)

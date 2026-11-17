@@ -16,7 +16,6 @@ try:
 except Exception:
     HAVE_REQUESTS = False
     DOH_SESSION = None
-    DOH_SESSION = None
 
 try:
     import pycares
@@ -80,20 +79,40 @@ def with_timeout(func: Callable, args=(), kwargs={}):
         return it.result
 
 
+def _is_valid_dns_name(name: str) -> bool:
+    """Return True if *name* is a non-empty, syntactically valid DNS name safe for resolver backends."""
+    if not isinstance(name, str) or not name:
+        return False
+    if any(ord(ch) <= 0x20 or ord(ch) == 0x7F or ch == "\\" or ch.isspace() for ch in name):
+        return False
+    try:
+        encoded = name.encode("idna")
+    except UnicodeError:
+        return False
+    return bool(encoded) and len(encoded.rstrip(b".")) <= 253
+
+
 def resolve_thread(name: str) -> str:
+    if not _is_valid_dns_name(name):
+        return DNS_TIMEOUT_VALUE
     return with_timeout(gethostbyname, (name,))
 
 
 def gethostbyname(name: str) -> str:
+    if not _is_valid_dns_name(name):
+        return ""
     try:
         ip = socket.gethostbyname(name)
-    except socket.gaierror:
+    except (socket.gaierror, UnicodeError, ValueError, OSError):
         ip = ""
     return ip
 
 
 # C-ARES (http://c-ares.haxx.se/)
 def resolve_cares(name: str) -> str:
+    if not _is_valid_dns_name(name):
+        return DNS_TIMEOUT_VALUE
+
     # create new c-ares channel
     careschan = pycares.Channel(timeout=DNS_TIMEOUT, tries=1)
 
@@ -106,18 +125,22 @@ def resolve_cares(name: str) -> str:
         if res and res.addresses:
             result.value = res.addresses[0]
 
-    # resolve with cb
-    careschan.gethostbyname(name, socket.AF_INET, setresult_cb)
+    try:
+        # resolve with cb
+        careschan.gethostbyname(name, socket.AF_INET, setresult_cb)
 
-    # now do the actual work
-    readfds, writefds = careschan.getsock()
-    canreadfds, _, _ = select.select(readfds, writefds, [], DNS_TIMEOUT)
-    for rfd in canreadfds:
-        careschan.process_fd(rfd, -1)
-
-    # if the query did not succeed, setresult was not called and we just
-    # return result destroy the channel first to not leak anything
-    careschan.destroy()
+        # now do the actual work
+        readfds, writefds = careschan.getsock()
+        if readfds or writefds:
+            canreadfds, _, _ = select.select(readfds, writefds, [], DNS_TIMEOUT)
+            for rfd in canreadfds:
+                careschan.process_fd(rfd, -1)
+    except Exception as e:
+        log.debug("c-ares resolution failed for %s: %s", name, e)
+    finally:
+        # if the query did not succeed, setresult was not called and we just
+        # return result destroy the channel first to not leak anything
+        careschan.destroy()
     return result.value
 
 
@@ -182,6 +205,8 @@ def resolve_doh(name: str, rdtype: str = "A") -> str:
 
     Uses a persistent requests.Session for connection pooling.
     """
+    if not _is_valid_dns_name(name):
+        return DNS_TIMEOUT_VALUE
     if not HAVE_REQUESTS or DOH_SESSION is None:
         if rdtype == "A":
             log.warning("requests library not available for DoH, falling back to system DNS")
@@ -226,6 +251,8 @@ def resolve_doh(name: str, rdtype: str = "A") -> str:
 
 # choose resolver automatically
 def resolve(name: str) -> str:
+    if not _is_valid_dns_name(name):
+        return DNS_TIMEOUT_VALUE
     if USE_DOH:
         return resolve_doh(name)
     if HAVE_CARES:

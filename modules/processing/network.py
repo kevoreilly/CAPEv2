@@ -195,6 +195,33 @@ else:
         return None
 
 
+def _sanitize_dns_text(value) -> str:
+    """Escape control characters and surrogates in DNS strings while preserving printable UTF-8 text."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8")
+        except UnicodeDecodeError:
+            value = value.decode("latin-1")
+    elif not isinstance(value, str):
+        value = str(value)
+
+    if all(0x20 <= ord(ch) <= 0x7E or (ord(ch) > 0x9F and not (0xD800 <= ord(ch) <= 0xDFFF)) for ch in value):
+        return value
+
+    out = []
+    for ch in value:
+        code = ord(ch)
+        if code < 0x20 or code == 0x7F or 0x80 <= code <= 0x9F:
+            out.append(f"\\x{code:02x}")
+        elif 0xD800 <= code <= 0xDFFF:
+            out.append(f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 class Pcap:
     """Reads network data from PCAP file."""
 
@@ -492,11 +519,12 @@ class Pcap:
         if dns.rcode == dpkt.dns.DNS_RCODE_NOERR or dns.qr == dpkt.dns.DNS_R or dns.opcode == dpkt.dns.DNS_QUERY:
             # DNS question.
             try:
-                q_name = dns.qd[0].name
+                raw_q_name = dns.qd[0].name
                 q_type = dns.qd[0].type
             except IndexError:
                 return False
 
+            q_name = _sanitize_dns_text(raw_q_name)
             query["request"] = q_name
 
             # See https://dpkt.readthedocs.io/en/latest/_modules/dpkt/dns.html
@@ -534,20 +562,20 @@ class Pcap:
                     except (OSError, ValueError):
                         continue
                 elif answer.type == dpkt.dns.DNS_CNAME:
-                    ans = {"type": "CNAME", "data": answer.cname}
+                    ans = {"type": "CNAME", "data": _sanitize_dns_text(answer.cname)}
                 elif answer.type == dpkt.dns.DNS_MX:
-                    ans = {"type": "MX", "data": answer.mxname}
+                    ans = {"type": "MX", "data": _sanitize_dns_text(answer.mxname)}
                 elif answer.type == dpkt.dns.DNS_PTR:
-                    ans = {"type": "PTR", "data": answer.ptrname}
+                    ans = {"type": "PTR", "data": _sanitize_dns_text(answer.ptrname)}
                 elif answer.type == dpkt.dns.DNS_NS:
-                    ans = {"type": "NS", "data": answer.nsname}
+                    ans = {"type": "NS", "data": _sanitize_dns_text(answer.nsname)}
                 elif answer.type == dpkt.dns.DNS_SOA:
                     ans = {
                         "type": "SOA",
                         "data": ",".join(
                             [
-                                answer.mname,
-                                answer.rname,
+                                _sanitize_dns_text(answer.mname),
+                                _sanitize_dns_text(answer.rname),
                                 str(answer.serial),
                                 str(answer.refresh),
                                 str(answer.retry),
@@ -557,9 +585,9 @@ class Pcap:
                         ),
                     }
                 elif answer.type == dpkt.dns.DNS_HINFO:
-                    ans = {"type": "HINFO", "data": " ".join(answer.text)}
+                    ans = {"type": "HINFO", "data": " ".join(_sanitize_dns_text(part) for part in answer.text)}
                 elif answer.type == dpkt.dns.DNS_TXT:
-                    ans = {"type": "TXT", "data": " ".join(answer.text)}
+                    ans = {"type": "TXT", "data": " ".join(_sanitize_dns_text(part) for part in answer.text)}
 
                 # TODO: add srv handling
                 query["answers"].append(ans)
@@ -578,7 +606,7 @@ class Pcap:
                                 ip_passlist.add(addip["data"])
                         return True
 
-            self._add_domain(query["request"])
+            self._add_domain(raw_q_name)
 
             if "type" in query:
                 reqtuple = query["type"], query["request"]
@@ -597,6 +625,16 @@ class Pcap:
         """Add a domain to unique list.
         @param domain: domain name.
         """
+        if (
+            not isinstance(domain, str)
+            or domain in ("", ".")
+            or any(
+                ord(ch) <= 0x20 or ord(ch) == 0x7F or (0x80 <= ord(ch) <= 0x9F) or (0xD800 <= ord(ch) <= 0xDFFF) or ch.isspace()
+                for ch in domain
+            )
+        ):
+            return
+
         for regexp in DOMAIN_FILTERS_RE:
             if regexp.match(domain):
                 return

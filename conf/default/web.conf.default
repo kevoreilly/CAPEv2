@@ -79,6 +79,19 @@ url_splitter =
 demux_files_limit = 10
 public_searches = yes
 
+# Skip junk files (docs, repo metadata, debug symbols) on submission and archive extraction.
+# Lists are comma-separated; an empty value disables that check. ignore_junk_filter=1 bypasses all but paths per task.
+[junk_filter]
+enabled = yes
+# File extensions, case-insensitive
+extensions = .yar,.yara,.md,.txt,.yml,.yaml,.gitignore,.gitattributes,.gitmodules,.pdb
+# Substrings of the file name (basename), case-insensitive
+names = license,copying,makefile,authors,readme
+# Archive children whose path contains one of these are skipped
+paths = .git/,.github/
+# Substrings of the file type (libmagic), content-based
+magics = Microsoft Roslyn C# debugging symbols,MSVC program database,Microsoft C/C++ MSF,Microsoft C/C++ program database
+
 # ratelimit for anon users
 [ratelimit]
 enabled = no

@@ -11,7 +11,7 @@ import pytest
 from tcr_misc import get_sample
 
 from lib.cuckoo.common import demux
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import AnalysisConfig, Config
 
 
 @pytest.fixture
@@ -201,13 +201,34 @@ class TestDemux:
     def test_junk_filter_defaults_match_web_conf(self):
         assert demux.JunkFilter.from_config(Config("web").junk_filter) == demux.JunkFilter()
         assert demux.JunkFilter.from_config({}) == demux.JunkFilter()
+        assert demux.JunkFilter.from_config(None) == demux.JunkFilter()
 
-    def test_junk_filter_from_config_overrides_present_keys(self):
+    def test_junk_filter_from_config_overrides_present_keys(self, tmp_path):
         junk_filter = demux.JunkFilter.from_config({"extensions": "", "names": " README , "})
         assert junk_filter == demux.JunkFilter(extensions=(), names=(b"readme",))
 
+        normalized = demux.JunkFilter.from_config({"extensions": "md, .TXT", "paths": r".git\,.svn/"})
+        assert normalized.extensions == (b".md", b".txt")
+        assert normalized.paths == (b".git/", b".svn/")
+        assert normalized.match_name(b"systemd") is None
+        assert normalized.match_name(b"readme.md") == "extension: .md"
+
+        ini_path = tmp_path / "web.conf"
+        ini_path.write_text(
+            "[junk_filter]\n"
+            "enabled = yes\n"
+            "extensions = no\n"
+            "names = 123\n"
+            "paths = .git\\\n"
+            "magics = 0\n"
+        )
+        parsed = AnalysisConfig(str(ini_path))
+        coerced = demux.JunkFilter.from_config(parsed.junk_filter)
+        assert coerced == demux.JunkFilter(extensions=(), names=(b"123",), paths=(b".git/",), magics=())
+
     def test_junk_filter_from_config_disabled(self):
         assert demux.JunkFilter.from_config({"enabled": False}) == demux.JunkFilter(extensions=(), names=(), paths=(), magics=())
+        assert demux.JunkFilter.from_config({"enabled": 0}) == demux.JunkFilter(extensions=(), names=(), paths=(), magics=())
 
     def test_demux_junk_filter_reports_rule_and_matches_basename(self, tmp_path):
         license_file = tmp_path / "LicenseServer.exe"
@@ -224,6 +245,10 @@ class TestDemux:
         assert len(demuxed) == 1
         assert errors == []
 
+        assert demux.junk_filter.match_name(b"readme_files\\sample.exe") is None
+        assert demux.junk_filter.match_name(b"readme_files\\LicenseServer.exe") == "name: license"
+        assert demux.junk_filter.match_name(None) is None
+
     @pytest.mark.parametrize("name", ["LicenseServer.exe", "readme.txt", "Makefile.yml"])
     def test_demux_junk_filter_content_only_accepts_named_files(self, tmp_path, monkeypatch, name):
         monkeypatch.setattr(demux, "junk_filter", demux.JunkFilter(extensions=(), names=(), paths=()))
@@ -234,11 +259,20 @@ class TestDemux:
         assert len(demuxed) == 1
         assert errors == []
 
-    @pytest.mark.parametrize("filename", [b"License.exe", b"readme.txt", b".git/hooks/payload"])
-    def test_sf_children_content_only_extracts_pe_and_skips_pdb(self, monkeypatch, filename):
+    @pytest.mark.parametrize(
+        ("relapath", "filename"),
+        [
+            (b"License.exe", b"License.exe"),
+            (b"readme.txt", b"readme.txt"),
+            (b".git/hooks/payload", b"payload"),
+        ],
+    )
+    def test_sf_children_content_only_extracts_pe_and_skips_pdb(self, tmp_path, monkeypatch, relapath, filename):
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
         monkeypatch.setattr(demux, "junk_filter", demux.JunkFilter(extensions=(), names=(), paths=()))
         pe_child = SimpleNamespace(
             filename=filename,
+            relapath=relapath,
             contents=b"MZ\x90\x00",
             platform="windows",
             magic="PE32 executable (GUI) Intel 80386, for MS Windows",
@@ -252,6 +286,51 @@ class TestDemux:
         pdb_child = SimpleNamespace(**{**vars(pe_child), "magic": "MSVC program database ver 7.00"})
         path, _, _, _ = demux._sf_children(pdb_child, ignore_junk_filter=False)
         assert path == b""
+
+    @pytest.mark.parametrize(
+        ("relapath", "filename"),
+        [
+            (b".git/hooks/payload.exe", b"payload.exe"),
+            (b"repo\\.github\\workflows\\runner.exe", b"runner.exe"),
+        ],
+    )
+    def test_sf_children_junk_paths_matches_relapath(self, tmp_path, monkeypatch, relapath, filename):
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
+        child = SimpleNamespace(
+            filename=filename,
+            relapath=relapath,
+            contents=b"MZ\x90\x00",
+            platform="windows",
+            magic="PE32 executable (GUI) Intel 80386, for MS Windows",
+            filesize=4,
+            package=None,
+        )
+        for ignore in (False, True):
+            path, _, _, _ = demux._sf_children(child, ignore_junk_filter=ignore)
+            assert path == b""
+
+        if demux.HAS_SFLOCK and demux.sfFile:
+            real_child = demux.sfFile(relapath=relapath, contents=b"MZ\x90\x00")
+            assert real_child.filename == filename
+            for ignore in (False, True):
+                path, _, _, _ = demux._sf_children(real_child, ignore_junk_filter=ignore)
+                assert path == b""
+
+    def test_sf_children_handles_none_filename(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(demux, "tmp_path", str(tmp_path))
+        unnamed_pe = SimpleNamespace(
+            filename=None,
+            relapath=None,
+            contents=b"MZ\x90\x00",
+            platform="windows",
+            magic="PE32 executable (GUI) Intel 80386, for MS Windows",
+            filesize=4,
+            package=None,
+        )
+        path, _, _, _ = demux._sf_children(unnamed_pe, ignore_junk_filter=False)
+        assert path != b""
+        assert os.path.basename(path) == b"extracted"
+        assert open(path, "rb").read() == b"MZ\x90\x00"
 
     def test_is_encrypted_office_magic_and_msoffcrypto(self, tmp_path, monkeypatch):
         sample = tmp_path / "doc.bin"

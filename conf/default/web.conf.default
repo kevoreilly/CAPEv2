@@ -83,13 +83,13 @@ public_searches = yes
 # Lists are comma-separated; an empty value disables that check. ignore_junk_filter=1 bypasses all but paths per task.
 [junk_filter]
 enabled = yes
-# File extensions, case-insensitive
+# File extensions, case-insensitive (leading dot optional)
 extensions = .yar,.yara,.md,.txt,.yml,.yaml,.gitignore,.gitattributes,.gitmodules,.pdb
 # Substrings of the file name (basename), case-insensitive
 names = license,copying,makefile,authors,readme
 # Archive children whose path contains one of these are skipped
 paths = .git/,.github/
-# Substrings of the file type (libmagic), content-based
+# Substrings of the file type (libmagic), content-based (note: commas separate rules)
 magics = Microsoft Roslyn C# debugging symbols,MSVC program database,Microsoft C/C++ MSF,Microsoft C/C++ program database
 
 # ratelimit for anon users

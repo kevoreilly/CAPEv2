@@ -7,8 +7,10 @@ import getpass
 import logging
 import os
 import shlex
+import shutil
 import signal
 import subprocess
+import xml.etree.ElementTree as ET
 from stat import S_ISUID
 
 from lib.cuckoo.common.abstracts import Auxiliary
@@ -153,6 +155,203 @@ def ssh_opts(task_id):
     ]
 
 
+def _is_option_enabled(value, default=True):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() not in ("false", "no", "0", "off")
+
+
+def _guest_mac_from_arp(host, interface, arp_path="/proc/net/arp"):
+    try:
+        with open(arp_path, "r", encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return None
+
+    for line in lines[1:]:
+        cols = line.split()
+        if len(cols) >= 6 and cols[0] == host and cols[5] == interface and cols[2] != "0x0":
+            mac = cols[3].lower()
+            if mac != "00:00:00:00:00:00" and len(mac.split(":")) == 6:
+                return mac
+    return None
+
+
+def _resolve_libvirt_tap(interface, bridge_ports, label, kvm_dsn="qemu:///system", guest_mac_fn=None):
+    try:
+        import libvirt  # type: ignore[import-not-found]
+    except ImportError:
+        return None
+
+    conn = None
+    try:
+        conn = libvirt.openReadOnly(kvm_dsn or "qemu:///system")
+        if conn is None:
+            return None
+        dom = conn.lookupByName(label)
+        root = ET.fromstring(dom.XMLDesc(0))
+    except Exception as e:
+        log.debug("Unable to query libvirt domain %s for bridge %s tap resolution: %s", label, interface, e)
+        return None
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    candidates = []
+    for iface_elem in root.findall("./devices/interface"):
+        target_elem = iface_elem.find("target")
+        if target_elem is None:
+            continue
+        dev = target_elem.get("dev", "")
+        if not dev or dev not in bridge_ports:
+            continue
+        source_elem = iface_elem.find("source")
+        src_bridge = source_elem.get("bridge") if source_elem is not None else None
+        if src_bridge and src_bridge != interface:
+            continue
+        mac_elem = iface_elem.find("mac")
+        mac_addr = mac_elem.get("address", "").lower() if mac_elem is not None else ""
+        candidates.append((dev, mac_addr))
+
+    if len(candidates) == 1:
+        return candidates[0][0]
+    if len(candidates) > 1 and guest_mac_fn is not None:
+        guest_mac = guest_mac_fn()
+        if guest_mac:
+            matched = [dev for dev, mac_addr in candidates if mac_addr == guest_mac]
+            if len(matched) == 1:
+                return matched[0]
+    return None
+
+
+def _resolve_arp_fdb_tap(interface, bridge_ports, guest_mac, sys_net_root="/sys/class/net"):
+    if not guest_mac or ":" not in guest_mac:
+        return None
+
+    bridge_bin = shutil.which("bridge")
+    if not bridge_bin:
+        for candidate in ("/sbin/bridge", "/usr/sbin/bridge"):
+            if os.path.exists(candidate):
+                bridge_bin = candidate
+                break
+
+    if bridge_bin:
+        try:
+            res = subprocess.run(
+                [bridge_bin, "fdb", "show", "br", interface],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            res = None
+        if res is not None and res.returncode == 0:
+            fdb_ports = set()
+            for line in res.stdout.splitlines():
+                tokens = line.split()
+                if (
+                    len(tokens) >= 3
+                    and tokens[0].lower() == guest_mac
+                    and tokens[1] == "dev"
+                    and tokens[2] in bridge_ports
+                    and "permanent" not in tokens
+                    and "self" not in tokens
+                ):
+                    fdb_ports.add(tokens[2])
+            if len(fdb_ports) == 1:
+                return next(iter(fdb_ports))
+
+    # QEMU/libvirt assigns the host tap MAC `fe:<guest_mac[1:]>` so the bridge
+    # does not adopt the guest's MAC as its own bridge ID.
+    expected_tap_mac = "fe:" + guest_mac.split(":", 1)[1]
+    tap_matches = []
+    for port in sorted(bridge_ports):
+        addr_file = os.path.join(sys_net_root, port, "address")
+        try:
+            with open(addr_file, "r", encoding="utf-8") as fh:
+                port_mac = fh.read().strip().lower()
+        except OSError:
+            continue
+        if port_mac == expected_tap_mac:
+            tap_matches.append(port)
+    if len(tap_matches) == 1:
+        return tap_matches[0]
+    return None
+
+
+def resolve_capture_interface(
+    interface,
+    host,
+    machine=None,
+    machinery_name=None,
+    kvm_dsn=None,
+    sys_net_root="/sys/class/net",
+    arp_path="/proc/net/arp",
+):
+    """Resolve a local Linux bridge interface (`virbr*`) to the guest VM's
+    bridge slave tap port (`vnetX`) so `br_netfilter` `nat PREROUTING`
+    `REDIRECT`/`DNAT` rules do not rewrite outbound packet destinations before
+    `AF_PACKET` capture. Falls back to `interface` when not a local bridge or
+    when the port cannot be uniquely determined.
+    """
+    if not interface or not host or os.path.basename(interface) != interface:
+        return interface
+
+    brif_dir = os.path.join(sys_net_root, interface, "brif")
+    if not os.path.isdir(brif_dir):
+        return interface
+
+    try:
+        bridge_ports = {p for p in os.listdir(brif_dir) if p and "/" not in p}
+    except OSError:
+        return interface
+    if not bridge_ports:
+        return interface
+
+    arp_cache = []
+
+    def _get_guest_mac():
+        if not arp_cache:
+            arp_cache.append(_guest_mac_from_arp(host, interface, arp_path=arp_path))
+        return arp_cache[0]
+
+    label = getattr(machine, "label", None)
+    if label and machinery_name in ("kvm", "multi", None):
+        tap = _resolve_libvirt_tap(
+            interface,
+            bridge_ports,
+            label,
+            kvm_dsn=kvm_dsn or "qemu:///system",
+            guest_mac_fn=_get_guest_mac,
+        )
+        if tap:
+            return tap
+
+    tap = _resolve_arp_fdb_tap(
+        interface,
+        bridge_ports,
+        _get_guest_mac(),
+        sys_net_root=sys_net_root,
+    )
+    if tap:
+        return tap
+
+    log.warning(
+        "Could not resolve guest tap on bridge %s for %s (%s); capturing on bridge, redirected flows may be half-duplex",
+        interface,
+        label or "unknown",
+        host,
+    )
+    return interface
+
+
 class Sniffer(Auxiliary):
     sudo_path = "/usr/bin/sudo"
 
@@ -230,9 +429,33 @@ class Sniffer(Auxiliary):
             except Exception:
                 pass
 
+        capture_interface = interface
+        if not remote and _is_option_enabled(self.options.get("resolve_tap"), default=True):
+            kvm_dsn = None
+            if cfg.cuckoo.machinery in ("kvm", "multi"):
+                try:
+                    kvm_dsn = Config("kvm").kvm.dsn
+                except Exception:
+                    kvm_dsn = "qemu:///system"
+            capture_interface = resolve_capture_interface(
+                interface,
+                host,
+                machine=self.machine,
+                machinery_name=cfg.cuckoo.machinery,
+                kvm_dsn=kvm_dsn,
+            )
+            if capture_interface != interface:
+                log.info(
+                    "Resolved bridge interface %s to guest tap %s for %s (%s)",
+                    interface,
+                    capture_interface,
+                    getattr(self.machine, "label", "unknown"),
+                    host,
+                )
+
         pargs = build_tcpdump_args(
             tcpdump,
-            interface,
+            capture_interface,
             host,
             file_path,
             resultserver_ip,
@@ -295,13 +518,18 @@ class Sniffer(Auxiliary):
             try:
                 self.proc = subprocess.Popen(pargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
             except (OSError, ValueError):
-                log.exception("Failed to start sniffer (interface=%s, host=%s, dump path=%s)", interface, host, file_path)
+                log.exception(
+                    "Failed to start sniffer (interface=%s, host=%s, dump path=%s)",
+                    capture_interface,
+                    host,
+                    file_path,
+                )
                 return
 
             log.info(
                 "Started sniffer with PID %d (interface=%s, host=%s, dump path=%s)",
                 self.proc.pid,
-                interface,
+                capture_interface,
                 host,
                 file_path,
             )

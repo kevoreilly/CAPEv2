@@ -482,7 +482,7 @@ def index(request, task_id=None, resubmit_hash=None):
             options += "amsidump=1,"
 
         if request.POST.get("import_reconstruction"):
-            options += "import_reconstruction=1,"
+            options += "import-reconstruction=1,"
 
         if request.POST.get("unpacker"):
             options += "unpacker=2,"

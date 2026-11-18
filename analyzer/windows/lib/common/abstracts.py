@@ -186,6 +186,9 @@ class Package:
         if not free and not kernel_analysis:
             p.inject(interest)
 
+        if not free:
+            p.retain_monitor_handle()
+
         p.resume()
         p.close()
 

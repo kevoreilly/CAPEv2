@@ -48,8 +48,10 @@ from lib.common.defines import (
     PROCESS_QUERY_LIMITED_INFORMATION,
     PSAPI,
     SHELL32,
+    STILL_ACTIVE,
     USER32,
 )
+from lib.common.errors import format_ntstatus
 
 KERNEL32.OpenProcess.restype = c_void_p
 KERNEL32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
@@ -733,7 +735,10 @@ class Analyzer:
             self.pid_check = False
 
         # next phase; go to the analysis loop
-        self.analysis_loop(aux_modules)
+        try:
+            self.analysis_loop(aux_modules)
+        finally:
+            Process.clear_monitor_handles()
 
         return True
 
@@ -785,7 +790,9 @@ class Analyzer:
                         # "process list is empty" check by a loop iteration
                         # each - one second apiece.
                         for pid in self.process_list.pids[:]:
-                            if not Process(pid=pid).is_alive():
+                            proc = Process(pid=pid)
+                            proc_exit_code = proc.exit_code()
+                            if proc_exit_code != STILL_ACTIVE:
                                 if self.options.get("procmemdump", False):
                                     try:
                                         self.files.dump_file(
@@ -795,7 +802,27 @@ class Analyzer:
                                         )
                                     except Exception as e:
                                         log.exception(e)
-                                log.info("Process with pid %s appears to have terminated", pid)
+                                if proc_exit_code is not None and proc_exit_code >= 0xC0000000:
+                                    ntstatus_name = format_ntstatus(proc_exit_code)
+                                    if ntstatus_name:
+                                        log.warning(
+                                            "Process with pid %s (%s) appears to have terminated with exit code 0x%08x (%s)",
+                                            pid,
+                                            proc.get_image_name() or "???",
+                                            proc_exit_code,
+                                            ntstatus_name,
+                                        )
+                                    else:
+                                        log.warning(
+                                            "Process with pid %s (%s) appears to have terminated with exit code 0x%08x",
+                                            pid,
+                                            proc.get_image_name() or "???",
+                                            proc_exit_code,
+                                        )
+                                elif proc_exit_code is not None:
+                                    log.info("Process with pid %s appears to have terminated (exit code 0x%x)", pid, proc_exit_code)
+                                else:
+                                    log.info("Process with pid %s appears to have terminated", pid)
                                 if pid in self.process_list.pids:
                                     self.process_list.remove_pid(pid)
 
@@ -868,6 +895,8 @@ class Analyzer:
                         log.info("Waiting for process %d to exit", proc.pid)
                         KERNEL32.Sleep(1000)
                         proc_counter += 1
+
+        Process.clear_monitor_handles()
 
         # Create the shutdown mutex.
         KERNEL32.CreateMutexA(None, False, SHUTDOWN_MUTEX)
@@ -1073,6 +1102,7 @@ class ProcessList:
         if pid not in self.pids and pid not in self.pids_notrack:
             if track:
                 self.pids.append(pid)
+                Process.retain_pid_monitor_handle(pid)
             else:
                 self.pids_notrack.append(pid)
 
@@ -1103,6 +1133,8 @@ class ProcessList:
 
         if pid in self.pids_notrack:
             self.pids_notrack.remove(pid)
+
+        Process.release_monitor_handle(pid)
 
 
 class CommandPipeHandler:

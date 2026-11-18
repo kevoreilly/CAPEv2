@@ -40,6 +40,9 @@ class TestProtectedPathNormalization(unittest.TestCase):
 
 
 class TestAnalysisLoopProcessTracking(unittest.TestCase):
+    def tearDown(self):
+        analyzer.Process.clear_monitor_handles()
+
     def _analyzer(self, pids):
         test = analyzer.Analyzer()
         test.config = MagicMock()
@@ -62,6 +65,7 @@ class TestAnalysisLoopProcessTracking(unittest.TestCase):
 
         dead = MagicMock()
         dead.is_alive.return_value = False
+        dead.exit_code.return_value = 0
 
         with patch("analyzer.Process", return_value=dead), patch("analyzer.KERNEL32"):
             test.analysis_loop([])
@@ -73,13 +77,58 @@ class TestAnalysisLoopProcessTracking(unittest.TestCase):
 
         def make_process(pid=None, **kwargs):
             proc = MagicMock()
-            proc.is_alive.return_value = pid == 102
+            alive = pid == 102
+            proc.is_alive.return_value = alive
+            proc.exit_code.return_value = analyzer.STILL_ACTIVE if alive else 0
             return proc
 
         with patch("analyzer.Process", side_effect=make_process), patch("analyzer.KERNEL32"):
             test.analysis_loop([])
 
         self.assertEqual([102], test.process_list.pids)
+
+    def test_early_ntstatus_crash_logs_status_using_retained_monitor_handle_and_releases_it(self):
+        def fill_image_name(h_proc, buf, size):
+            if h_proc == 0xBEEF:
+                buf.value = b"\\Device\\HarddiskVolume1\\sample.exe"
+                return len(buf.value)
+            return 0
+
+        def fill_exit_code(h_proc, out_ptr):
+            if h_proc == 0xBEEF:
+                out_ptr._obj.value = 0xC0000135
+                return 1
+            return 0
+
+        test = self._analyzer([])
+
+        with (
+            patch("lib.api.process.KERNEL32") as mock_k32,
+            patch("lib.api.process.PSAPI") as mock_psapi,
+            patch("analyzer.KERNEL32"),
+        ):
+            mock_k32.OpenProcess.return_value = 0xBEEF
+            mock_k32.CloseHandle.return_value = 1
+            mock_psapi.GetProcessImageFileNameA.side_effect = fill_image_name
+            mock_k32.GetExitCodeProcess.side_effect = fill_exit_code
+
+            test.process_list.add_pids([220])
+            # Simulate PID 220 exiting and being reaped by the OS before analysis_loop checks it.
+            mock_k32.OpenProcess.return_value = 0
+
+            with (
+                self.assertLogs(level="WARNING") as ana_logs,
+                self.assertNoLogs("lib.api.process", level="WARNING"),
+            ):
+                test.analysis_loop([])
+
+        self.assertEqual([], test.process_list.pids)
+        self.assertNotIn(220, analyzer.Process._monitor_handles)
+        closed_beef = [c for c in mock_k32.CloseHandle.call_args_list if getattr(c[0][0], "value", c[0][0]) == 0xBEEF]
+        self.assertEqual(len(closed_beef), 1)
+        joined = "\n".join(ana_logs.output)
+        self.assertIn("220 (sample.exe)", joined)
+        self.assertIn("0xc0000135 (STATUS_DLL_NOT_FOUND)", joined)
 
 
 if __name__ == "__main__":

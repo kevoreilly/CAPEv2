@@ -5,11 +5,13 @@
 import base64
 import contextlib
 import logging
+import ntpath
 import os
 import platform
 import random
 import subprocess
 import sys
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -126,6 +128,8 @@ KERNEL32.DeleteProcThreadAttributeList.argtypes = [LPVOID]
 KERNEL32.DeleteProcThreadAttributeList.restype = None
 KERNEL32.GetCurrentProcess.argtypes = []
 KERNEL32.GetCurrentProcess.restype = HANDLE
+KERNEL32.GetExitCodeProcess.argtypes = [HANDLE, POINTER(c_ulong)]
+KERNEL32.GetExitCodeProcess.restype = BOOL
 KERNEL32.GetLastError.restype = DWORD
 KERNEL32.InitializeProcThreadAttributeList.argtypes = [LPVOID, DWORD, DWORD, POINTER(SIZE_T)]
 KERNEL32.InitializeProcThreadAttributeList.restype = BOOL
@@ -135,6 +139,9 @@ KERNEL32.OpenThread.restype = HANDLE
 KERNEL32.OpenThread.argtypes = [DWORD, BOOL, DWORD]
 KERNEL32.UpdateProcThreadAttribute.argtypes = [LPVOID, DWORD, SIZE_T, LPVOID, SIZE_T, LPVOID, LPVOID]
 KERNEL32.UpdateProcThreadAttribute.restype = BOOL
+
+PSAPI.GetProcessImageFileNameA.argtypes = [HANDLE, c_void_p, DWORD]
+PSAPI.GetProcessImageFileNameA.restype = DWORD
 
 ADVAPI32.AdjustTokenPrivileges.argtypes = [HANDLE, BOOL, POINTER(TOKEN_PRIVILEGES), DWORD, LPVOID, POINTER(DWORD)]
 ADVAPI32.AdjustTokenPrivileges.restype = BOOL
@@ -185,10 +192,24 @@ def NT_SUCCESS(val):
     return val >= 0
 
 
+def _is_valid_handle(handle) -> bool:
+    return bool(getattr(handle, "value", handle))
+
+
+def _raw_handle_value(handle) -> int:
+    if isinstance(handle, int) and not isinstance(handle, bool):
+        return handle
+    if isinstance(handle, c_void_p):
+        return handle.value or 0
+    return 0
+
+
 class Process:
     """Windows process."""
 
     process_num = 0
+    _monitor_handles: dict[int, tuple[object, str]] = {}
+    _monitor_handles_lock = threading.Lock()
     # This adds 1 up to 30 times of 20 minutes to the startup
     # time of the process, therefore bypassing anti-vm checks
     # which check whether the VM has only been up for <10 minutes.
@@ -212,17 +233,106 @@ class Process:
         self.critical = False
         self.path = None
         self.last_error = None
+        self._open_failed = False
+        self._cached_image_name = ""
 
     def __del__(self):
         """Close open handles."""
-        if hasattr(self, "h_process") and self.h_process != KERNEL32.GetCurrentProcess():
-            KERNEL32.CloseHandle(self.h_process)
-        if hasattr(self, "h_thread") and self.h_thread != 0:
-            KERNEL32.CloseHandle(self.h_thread)
+        h_proc = _raw_handle_value(getattr(self, "h_process", 0))
+        if h_proc and h_proc != _raw_handle_value(KERNEL32.GetCurrentProcess()):
+            KERNEL32.CloseHandle(h_proc)
+        h_thread = _raw_handle_value(getattr(self, "h_thread", 0))
+        if h_thread:
+            KERNEL32.CloseHandle(h_thread)
 
     def fill_system_info(self):
         """Get system information."""
         KERNEL32.GetSystemInfo(byref(self.system_info))
+
+    def retain_monitor_handle(self) -> bool:
+        """Retain a limited-query handle so the kernel keeps the exit code until reaped."""
+        if not self.pid:
+            return False
+
+        pid = int(self.pid)
+        image_name = self.get_image_name() or self._cached_image_name
+        h_mon = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        valid_h = _is_valid_handle(h_mon)
+
+        with self._monitor_handles_lock:
+            old = self._monitor_handles.get(pid)
+            if old and _is_valid_handle(old[0]):
+                KERNEL32.CloseHandle(old[0])
+            if valid_h or image_name:
+                self._monitor_handles[pid] = (h_mon if valid_h else None, image_name)
+            else:
+                self._monitor_handles.pop(pid, None)
+        return valid_h
+
+    @classmethod
+    def retain_pid_monitor_handle(cls, pid: int, image_name: str = "") -> bool:
+        """Retain a limited-query monitor handle for a tracked PID if not already held."""
+        pid = int(pid)
+        if not pid:
+            return False
+
+        with cls._monitor_handles_lock:
+            existing = cls._monitor_handles.get(pid)
+            if existing and _is_valid_handle(existing[0]):
+                if image_name and not existing[1]:
+                    cls._monitor_handles[pid] = (existing[0], image_name)
+                return True
+            existing_name = existing[1] if existing else ""
+
+        if not image_name and existing_name:
+            image_name = existing_name
+
+        h_mon = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not _is_valid_handle(h_mon):
+            if image_name:
+                with cls._monitor_handles_lock:
+                    existing = cls._monitor_handles.get(pid)
+                    if existing and _is_valid_handle(existing[0]):
+                        if not existing[1]:
+                            cls._monitor_handles[pid] = (existing[0], image_name)
+                        return True
+                    cls._monitor_handles[pid] = (None, image_name)
+            return False
+
+        if not image_name:
+            image_name_buf = c_buffer(MAX_PATH)
+            n = PSAPI.GetProcessImageFileNameA(h_mon, image_name_buf, MAX_PATH)
+            if n:
+                image_name = image_name_buf.value.decode(errors="replace").split("\\")[-1]
+
+        with cls._monitor_handles_lock:
+            existing = cls._monitor_handles.get(pid)
+            if existing and _is_valid_handle(existing[0]):
+                KERNEL32.CloseHandle(h_mon)
+                if image_name and not existing[1]:
+                    cls._monitor_handles[pid] = (existing[0], image_name)
+                return True
+            cls._monitor_handles[pid] = (h_mon, image_name or (existing[1] if existing else ""))
+        return True
+
+    @classmethod
+    def release_monitor_handle(cls, pid: int) -> None:
+        """Close and remove any retained monitor handle for the given PID."""
+        pid = int(pid)
+        with cls._monitor_handles_lock:
+            entry = cls._monitor_handles.pop(pid, None)
+        if entry and _is_valid_handle(entry[0]):
+            KERNEL32.CloseHandle(entry[0])
+
+    @classmethod
+    def clear_monitor_handles(cls) -> None:
+        """Close and clear all retained monitor handles."""
+        with cls._monitor_handles_lock:
+            entries = list(cls._monitor_handles.values())
+            cls._monitor_handles.clear()
+        for h_mon, _ in entries:
+            if _is_valid_handle(h_mon):
+                KERNEL32.CloseHandle(h_mon)
 
     def open(self):
         """Open a process and/or thread.
@@ -230,26 +340,41 @@ class Process:
         """
         # Logging calls in this method can get really noisy since it's called a
         # lot. As a result only failed ctypes calls are logged, nothing else.
-        ret = bool(self.pid or self.thread_id)
-        if self.pid and not self.h_process:
-            if self.pid == os.getpid():
-                self.h_process = KERNEL32.GetCurrentProcess()
+        proc_ok = False
+        thread_ok = False
+        if self.pid:
+            if _is_valid_handle(self.h_process):
+                proc_ok = True
+            elif self._open_failed:
+                proc_ok = False
             else:
-                self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
-                if not self.h_process:
-                    self.h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, self.pid)
+                if self.pid == os.getpid():
+                    self.h_process = KERNEL32.GetCurrentProcess()
+                else:
+                    self.h_process = KERNEL32.OpenProcess(PROCESS_ALL_ACCESS, False, self.pid)
+                    if not _is_valid_handle(self.h_process):
+                        self.h_process = KERNEL32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, self.pid)
 
-            ret = True
+                if not _is_valid_handle(self.h_process):
+                    self._open_failed = True
+                    log.warning("failed to open process %d", self.pid)
+                    proc_ok = False
+                else:
+                    self._open_failed = False
+                    proc_ok = True
 
-            if not self.h_process:
-                log.warning("failed to open process %d", self.pid)
+        if self.thread_id:
+            if _is_valid_handle(self.h_thread):
+                thread_ok = True
+            else:
+                self.h_thread = KERNEL32.OpenThread(THREAD_ALL_ACCESS, False, self.thread_id)
+                if not _is_valid_handle(self.h_thread):
+                    log.warning("OpenThread(THREAD_ALL_ACCESS, ...) failed for thread %d", self.thread_id)
+                    thread_ok = False
+                else:
+                    thread_ok = True
 
-        if self.thread_id and not self.h_thread:
-            self.h_thread = KERNEL32.OpenThread(THREAD_ALL_ACCESS, False, self.thread_id)
-            if not self.h_thread:
-                log.warning("OpenThread(THREAD_ALL_ACCESS, ...) failed for thread %d", self.thread_id)
-            ret = True
-        return ret
+        return bool(proc_ok or thread_ok)
 
     def close(self):
         """Close any open handles.
@@ -276,11 +401,24 @@ class Process:
 
         @return: exit code value.
         """
-        if not self.h_process:
+        h_proc = self.h_process if _is_valid_handle(self.h_process) else None
+        if h_proc is None and self.pid:
+            with self._monitor_handles_lock:
+                mon = self._monitor_handles.get(int(self.pid))
+            if mon and _is_valid_handle(mon[0]):
+                h_proc = mon[0]
+
+        if h_proc is None:
             self.open()
+            if _is_valid_handle(self.h_process):
+                h_proc = self.h_process
+
+        if h_proc is None:
+            log.debug("Failed getting exit code for %s", self)
+            return None
 
         exit_code = c_ulong(0)
-        ok = KERNEL32.GetExitCodeProcess(self.h_process, byref(exit_code))
+        ok = KERNEL32.GetExitCodeProcess(h_proc, byref(exit_code))
         if not ok:
             log.debug("Failed getting exit code for %s", self)
             return None
@@ -320,17 +458,34 @@ class Process:
 
     def get_image_name(self):
         """Get the image name; returns an empty string on error."""
-        if not self.h_process:
-            self.open()
+        if self._cached_image_name:
+            return self._cached_image_name
+
+        mon = None
+        if self.pid:
+            with self._monitor_handles_lock:
+                mon = self._monitor_handles.get(int(self.pid))
+            if mon and mon[1]:
+                self._cached_image_name = mon[1]
+                return mon[1]
+
+        h_proc = self.h_process if _is_valid_handle(self.h_process) else (mon[0] if mon and _is_valid_handle(mon[0]) else None)
+        if h_proc is None:
+            if self._open_failed or not self.open() or not _is_valid_handle(self.h_process):
+                return ""
+            h_proc = self.h_process
 
         ret = ""
         image_name_buf = c_buffer(MAX_PATH)
-        n = PSAPI.GetProcessImageFileNameA(self.h_process, image_name_buf, MAX_PATH)
+        n = PSAPI.GetProcessImageFileNameA(h_proc, image_name_buf, MAX_PATH)
         if not n:
             log.debug("Failed getting image name for pid %d", self.pid)
             return ret
-        image_name = image_name_buf.value.decode()
-        return image_name.split("\\")[-1]
+        image_name = image_name_buf.value.decode(errors="replace")
+        name = image_name.split("\\")[-1]
+        if name:
+            self._cached_image_name = name
+        return name
 
     def is_alive(self):
         """Process is alive?
@@ -707,6 +862,9 @@ class Process:
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
             self.last_error = None
+            self._open_failed = False
+            if path and not self._cached_image_name:
+                self._cached_image_name = ntpath.basename(path)
             log.info('Successfully executed process from path "%s" with arguments "%s" with pid %d', path, args or "", self.pid)
             # self.log_process_tree(os.path.basename(path))
             if kernel_analysis:

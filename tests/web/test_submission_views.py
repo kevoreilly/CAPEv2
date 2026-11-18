@@ -385,3 +385,24 @@ class TestSubmissionViews(SimpleTestCase):
         finally:
             web_conf.general.existent_tasks = orig_existent
 
+    def test_import_reconstruction_checkbox_sets_hyphenated_option(self):
+        from unittest.mock import patch
+
+        with patch("submission.views.db.add_url", return_value=123) as mock_add_url:
+            resp = self.client.post(
+                "/submit/",
+                data={
+                    "active_tab": "url",
+                    "url": "http://example.com/sample",
+                    "import_reconstruction": "on",
+                    "syscall": "on",
+                },
+            )
+        self.assertEqual(resp.status_code, 302)
+        mock_add_url.assert_called_once()
+        options = mock_add_url.call_args.kwargs["options"]
+        option_parts = [part for part in options.split(",") if part]
+        self.assertIn("import-reconstruction=1", option_parts)
+        self.assertNotIn("import_reconstruction=1", option_parts)
+
+

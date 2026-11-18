@@ -403,3 +403,24 @@ def get_error_string(error_code):
     except Exception:
         pass
     return str(error_code)
+
+
+NTSTATUS_ERRORS: dict[int, str] = {
+    0xC0000005: "STATUS_ACCESS_VIOLATION",
+    0xC000001D: "STATUS_ILLEGAL_INSTRUCTION",
+    0xC0000022: "STATUS_ACCESS_DENIED",
+    0xC000007A: "STATUS_PROCEDURE_NOT_FOUND",
+    0xC000007B: "STATUS_INVALID_IMAGE_FORMAT",
+    0xC00000FD: "STATUS_STACK_OVERFLOW",
+    0xC0000135: "STATUS_DLL_NOT_FOUND",
+    0xC0000138: "STATUS_ORDINAL_NOT_FOUND",
+    0xC0000139: "STATUS_ENTRYPOINT_NOT_FOUND",
+    0xC0000142: "STATUS_DLL_INIT_FAILED",
+    0xC0000374: "STATUS_HEAP_CORRUPTION",
+    0xC0000409: "STATUS_STACK_BUFFER_OVERRUN",
+}
+
+
+def format_ntstatus(code: int) -> str | None:
+    """Return symbolic NTSTATUS name for an unsigned/signed 32-bit status code."""
+    return NTSTATUS_ERRORS.get(code & 0xFFFFFFFF)

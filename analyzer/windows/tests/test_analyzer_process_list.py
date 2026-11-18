@@ -2,10 +2,13 @@
 
 import unittest
 
-from analyzer import ProcessList
+from analyzer import Process, ProcessList
 
 
 class TestProcessList(unittest.TestCase):
+    def tearDown(self):
+        Process.clear_monitor_handles()
+
     def test_can_instantiate(self):
         process_list = ProcessList()
         self.assertIsInstance(process_list, ProcessList)

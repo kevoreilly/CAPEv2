@@ -344,11 +344,10 @@
                                 {% elif analysis.status == "completed" %}
                                 <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
-                                {% if analysis.errors %}
-                                <span class="badge bg-danger">error</span>
-                                {% else %}
                                 <span class="badge bg-success">reported</span>
-                                {% endif%}
+                                {% if analysis.errors %}
+                                <span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>
+                                {% endif %}
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
@@ -602,11 +601,10 @@
                                 {% elif analysis.status == "completed" %}
                                 <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
-                                {% if analysis.errors %}
-                                <span class="badge bg-danger">error</span>
-                                {% else %}
                                 <span class="badge bg-success">reported</span>
-                                {% endif%}
+                                {% if analysis.errors %}
+                                <span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>
+                                {% endif %}
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
@@ -855,10 +853,15 @@
                                 <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
                                 <span class="badge bg-warning">running</span>
+                                {% elif analysis.status == "distributed" %}
+                                <span class="badge bg-warning">distributed</span>
                                 {% elif analysis.status == "completed" %}
                                 <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
                                 <span class="badge bg-success">reported</span>
+                                {% if analysis.errors %}
+                                <span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>
+                                {% endif %}
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
@@ -1082,14 +1085,15 @@
                                 <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
                                 <span class="badge bg-warning">running</span>
+                                {% elif analysis.status == "distributed" %}
+                                <span class="badge bg-warning">distributed</span>
                                 {% elif analysis.status == "completed" %}
                                 <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
-                                {% if analysis.errors %}
-                                <span class="badge bg-danger">error</span>
-                                {% else %}
                                 <span class="badge bg-success">reported</span>
-                                {% endif%}
+                                {% if analysis.errors %}
+                                <span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>
+                                {% endif %}
                                 {% elif analysis.status == "failed_processing" %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}

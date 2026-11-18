@@ -551,7 +551,7 @@ class GuestManager:
             }
             self.post("/execute", data=data)
 
-    def wait_for_completion(self):
+    def wait_for_completion(self) -> None:
         count = 0
         start = timeit.default_timer()
         current_status = ""
@@ -628,6 +628,7 @@ class GuestManager:
 
             try:
                 status = self.get("/status", timeout=5).json()
+                consecutive_failures = 0
             except (CuckooGuestError, requests.exceptions.ReadTimeout) as e:
                 if not self.do_run:
                     break
@@ -639,7 +640,8 @@ class GuestManager:
                 # If we fail 10 times in a row (approx 10-15 seconds), give up.
                 if consecutive_failures > 10:
                     log.error("Task #%s: Agent is dead. Virtual Machine %s /status failed. This can indicate the guest losing network connectivity. Killing analysis.", self.task_id, self.vmid)
-                    return # Or raise exception
+                    mark_failed()
+                    return
                 continue
             except Exception as e:
                 if not self.do_run:
@@ -650,7 +652,7 @@ class GuestManager:
             if status["status"] in ("complete", "failed"):
                 completed_as = "completed successfully" if status["status"] == "complete" else "failed"
                 log.info("Task #%s: Analysis %s (id=%s, ip=%s)", self.task_id, completed_as, self.vmid, self.ipaddr)
-                self.set_status_in_db("complete")
+                self.set_status_in_db("failed" if status["status"] == "failed" else "complete")
                 return
             elif status["status"] == "exception":
                 log.warning(

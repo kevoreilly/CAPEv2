@@ -458,7 +458,7 @@ class AnalysisManager(threading.Thread):
         finally:
             aux.stop()
 
-    def run_analysis_on_guest(self) -> None:
+    def run_analysis_on_guest(self) -> bool:
         # Generate the analysis configuration file.
         options = self.build_options()
 
@@ -477,11 +477,16 @@ class AnalysisManager(threading.Thread):
         self.guest_started_on = _utcnow_naive()
         try:
             current_status = guest_manager.get_status_from_db()
+            if current_status == "failed":
+                return False
             if current_status == "starting":
                 guest_manager.set_status_in_db("running")
                 guest_manager.wait_for_completion()
-                if guest_manager.get_status_from_db() == "stopping":
+                post_status = guest_manager.get_status_from_db()
+                if post_status == "stopping":
                     self.stopped_by_user = True
+                elif post_status == "failed":
+                    return False
             elif current_status == "stopping":
                 self.stopped_by_user = True
             guest_manager.set_status_in_db("stopping")
@@ -489,8 +494,9 @@ class AnalysisManager(threading.Thread):
             self.log.exception("Unknown exception waiting for guest completion: %s", str(e))
             with contextlib.suppress(Exception):
                 guest_manager.set_status_in_db("failed")
+            return False
 
-        return
+        return True
 
     def perform_analysis(self) -> bool:
         """Start analysis."""
@@ -516,11 +522,11 @@ class AnalysisManager(threading.Thread):
 
         with self.machine_running(), self.result_server(), self.network_routing(), self.run_auxiliary():
             try:
-                self.run_analysis_on_guest()
+                guest_ok = self.run_analysis_on_guest()
             except CuckooGuestError as e:
                 self.log.exception(str(e))
             else:
-                succeeded = True
+                succeeded = guest_ok is not False
             finally:
                 def _stop_guest():
                     self.db.guest_stop(self.guest.id)

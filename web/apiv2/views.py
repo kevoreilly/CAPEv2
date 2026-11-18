@@ -1170,25 +1170,22 @@ def tasks_delete(request, task_id, status=False):
 # under SSO deployments where the global DRF chain is API-key-only.
 @csrf_exempt
 @api_view(["GET", "POST"])
-def tasks_status(request, task_id):
+def tasks_status(request, task_id: int | str):
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
 
     resp = {}
-    if request.method == "POST":
-        try:
-            task = db.view_task(task_id, details=True)
-        except TypeError:
-            task = db.view_task(task_id)
-    else:
+    try:
+        task = db.view_task(task_id, details=True)
+    except TypeError:
         task = db.view_task(task_id)
     if not task:
         resp = {"error": True, "error_value": "Task does not exist"}
         return Response(resp)
     if request.method == "GET":
         status = task.to_dict()["status"]
-        resp = {"error": False, "data": status}
+        resp = {"error": False, "data": status, "has_errors": bool(getattr(task, "errors", None))}
     elif request.method == "POST":
         requested_status = request.data.get("status", "")
         static_preview_cfg = getattr(web_conf, "static_preview", None)

@@ -31,6 +31,14 @@ def taskreprocess_enabled(custom_conf_path: pathlib.Path):
 
 
 @pytest.fixture
+def taskstatus_enabled(custom_conf_path: pathlib.Path):
+    with open(custom_conf_path / "api.conf", "wt") as fil:
+        print("[taskstatus]\nenabled = yes", file=fil)
+    ConfigMeta.refresh()
+    yield
+
+
+@pytest.fixture
 def dlnexeccreate_enabled(custom_conf_path: pathlib.Path):
     with open(custom_conf_path / "api.conf", "wt") as fil:
         print(
@@ -613,6 +621,177 @@ class TestBulkReportsDownload(SimpleTestCase):
                 ctx_all = analysis_views.index(anon_req)
                 assert ctx_all["config"]["bulk_download"] is True
                 assert ctx_all["config"]["bulk_max_reports"] == 5
+
+
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
+class TestTasksStatusApi(SimpleTestCase):
+    @pytest.mark.usefixtures("taskstatus_enabled")
+    def test_tasks_status_get_includes_has_errors_flag(self):
+        from lib.cuckoo.core.database import Database
+
+        database = Database()
+        clean_tid = database.add_url("http://clean.example/")
+        err_tid = database.add_url("http://errored.example/")
+        with database.session.begin():
+            database.set_status(clean_tid, TASK_REPORTED)
+            database.set_status(err_tid, TASK_REPORTED)
+            database.add_error("Agent is dead", err_tid)
+
+        clean_resp = self.client.get(f"/apiv2/tasks/status/{clean_tid}/")
+        assert clean_resp.status_code == 200
+        assert clean_resp.json() == {"error": False, "data": "reported", "has_errors": False}
+
+        err_resp = self.client.get(f"/apiv2/tasks/status/{err_tid}/")
+        assert err_resp.status_code == 200
+        assert err_resp.json() == {"error": False, "data": "reported", "has_errors": True}
+
+        # Mock DBs without a `details` keyword argument fall back gracefully.
+        with patch("apiv2.views.db.view_task", side_effect=lambda _tid: SimpleNamespace(to_dict=lambda: {"status": "reported"})):
+            fallback_resp = self.client.get(f"/apiv2/tasks/status/{clean_tid}/")
+        assert fallback_resp.status_code == 200
+        assert fallback_resp.json() == {"error": False, "data": "reported", "has_errors": False}
+
+
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
+class TestAnalysisErrorStatusDisplay(SimpleTestCase):
+    def test_get_analysis_info_sets_errors_safely_without_detached_instance_error(self):
+        import analysis.views as analysis_views
+        from lib.cuckoo.core.database import Database
+
+        database = Database()
+        tid = database.add_url("http://errored-info.example/")
+        with database.session.begin():
+            database.set_status(tid, TASK_REPORTED)
+            database.add_error("Agent is dead", tid)
+            # Load Task WITHOUT selectinload(Task.errors), then detach it.
+            detached_task = database.session.get(Task, tid)
+            database.session.expunge_all()
+
+        with (
+            patch.dict(analysis_views.enabledconf, {"mongodb": False}),
+            patch.object(analysis_views, "es_as_db", False),
+        ):
+            # Passing detached Task without loaded errors must not raise DetachedInstanceError.
+            info_no_details = analysis_views.get_analysis_info(database, task=detached_task)
+            assert info_no_details is not None
+            assert "errors" not in info_no_details
+
+            # Loading by id fetches details=True and populates errors=True.
+            info_by_id = analysis_views.get_analysis_info(database, id=tid)
+            assert info_by_id is not None
+            assert info_by_id.get("errors") is True
+
+            # Report debug.errors from MongoDB/ES rtmp also marks errors=True.
+            info_from_rtmp = analysis_views.get_analysis_info(
+                database,
+                task=detached_task,
+                rtmp={"debug": {"errors": ["Agent is dead"]}},
+            )
+            assert info_from_rtmp is not None
+            assert info_from_rtmp.get("errors") is True
+
+    def test_analysis_index_renders_reported_and_errors_badges_across_all_tabs(self):
+        from django.template.loader import render_to_string
+
+        def _make_item(item_id: int, status: str, *, errors: bool = False, target: str = "sample.bin"):
+            return {
+                "id": item_id,
+                "status": status,
+                "errors": errors,
+                "completed_on": "2026-01-01 00:00:00",
+                "added_on": None,
+                "package": "exe",
+                "filename": target,
+                "target": target,
+                "sample": {"md5": "a" * 32, "sha256": "b" * 64},
+            }
+
+        html = render_to_string(
+            "analysis/index.html",
+            {
+                "title": "Recent Analysis",
+                "files": [_make_item(1, "reported", errors=True), _make_item(2, "reported", errors=False)],
+                "static": [_make_item(3, "reported", errors=True), _make_item(4, "reported", errors=False)],
+                "urls": [
+                    _make_item(5, "reported", errors=True, target="http://err.example"),
+                    _make_item(6, "reported", errors=False, target="http://ok.example"),
+                    _make_item(7, "distributed", target="http://dist.example"),
+                ],
+                "pcaps": [_make_item(8, "reported", errors=True), _make_item(9, "reported", errors=False)],
+                "paging": {},
+                "config": {"url_analysis": True, "bulk_download": False},
+            },
+        )
+
+        # 8 reported rows across the 4 tabs -> 8 green reported badges + 4 red errors badges (never replacing reported with "error").
+        assert html.count('<span class="badge bg-success">reported</span>') == 8
+        assert html.count('<span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>') == 4
+        assert '<span class="badge bg-danger">error</span>' not in html
+        assert '<span class="badge bg-warning">distributed</span>' in html
+
+    def test_analysis_search_renders_reported_and_errors_badges(self):
+        from django.template.loader import render_to_string
+
+        html = render_to_string(
+            "analysis/search.html",
+            {
+                "title": "Search Results",
+                "term": "status:reported",
+                "error": None,
+                "config": {},
+                "analyses": [
+                    {
+                        "id": 10,
+                        "status": "reported",
+                        "errors": True,
+                        "completed_on": "2026-01-01 00:00:00",
+                        "package": "exe",
+                        "filename": "bad.exe",
+                        "category": "file",
+                        "sample": {"md5": "a" * 32},
+                    },
+                    {
+                        "id": 11,
+                        "status": "reported",
+                        "errors": False,
+                        "completed_on": "2026-01-01 00:00:00",
+                        "package": "exe",
+                        "filename": "ok.exe",
+                        "category": "file",
+                        "sample": {"md5": "b" * 32},
+                    },
+                ],
+            },
+        )
+
+        assert html.count('<span class="badge bg-success">reported</span>') == 2
+        assert html.count('<span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>') == 1
+        assert '<span class="badge bg-danger">error</span>' not in html
+
+    def test_analysis_search_view_renders_errors_badge_for_errored_task(self):
+        import analysis.views as analysis_views
+        from lib.cuckoo.core.database import Database
+
+        database = Database()
+        err_tid = database.add_url("http://search-err.example/")
+        ok_tid = database.add_url("http://search-ok.example/")
+        with database.session.begin():
+            database.set_status(err_tid, TASK_REPORTED)
+            database.set_status(ok_tid, TASK_REPORTED)
+            database.add_error("Agent is dead", err_tid)
+
+        with (
+            patch.dict(analysis_views.enabledconf, {"mongodb": True, "elasticsearchdb": False}),
+            patch.object(analysis_views, "es_as_db", False),
+            patch("analysis.views.perform_search", return_value=[{"info": {"id": err_tid}}, {"info": {"id": ok_tid}}]),
+            patch("analysis.views.mongo_find_one", return_value=None, create=True),
+        ):
+            resp = self.client.get("/analysis/search/", {"search": f"ids:{err_tid},{ok_tid}"})
+
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert body.count('<span class="badge bg-success">reported</span>') == 2
+        assert body.count('<span class="badge bg-danger" title="Completed with analysis or processing errors">errors</span>') == 1
 
 
 

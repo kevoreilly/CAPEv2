@@ -16,6 +16,7 @@ from contextlib import suppress
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
@@ -285,9 +286,14 @@ def get_task_package(task_id: int) -> str:
     return task_dict.get("package", "")
 
 
-def get_analysis_info(db, id=-1, task=None, rtmp=None):
+def get_analysis_info(
+    db: Any, id: int = -1, task: Any = None, rtmp: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     if not task:
-        task = db.view_task(id)
+        try:
+            task = db.view_task(id, details=True)
+        except TypeError:
+            task = db.view_task(id)
     if not task:
         return None
 
@@ -344,6 +350,7 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
                 "suri_http_cnt": 1,
                 "suri_file_cnt": 1,
                 "trid": 1,
+                "debug.errors": 1,
                 "_id": 0,
             },
             sort=[("_id", -1)],
@@ -371,6 +378,7 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
                 "suri_http_cnt",
                 "suri_file_cnt",
                 "trid",
+                "debug.errors",
             ],
         )["hits"]["hits"]
         if len(rtmp) > 1:
@@ -457,6 +465,11 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
                 + quote("\x3d\x3d\x22%s\x3a%s\x22" % (settings.MOLOCH_NODE, new["id"]), safe="")
             )
 
+    has_sql_errors = "errors" in getattr(task, "__dict__", {}) and bool(task.errors)
+    has_report_errors = bool(isinstance(rtmp, dict) and (rtmp.get("debug") or {}).get("errors"))
+    if has_sql_errors or has_report_errors:
+        new["errors"] = True
+
     return new
 
 
@@ -513,6 +526,7 @@ def index(request, page=1):
                     "suri_http_cnt": 1,
                     "suri_file_cnt": 1,
                     "trid": 1,
+                    "debug.errors": 1,
                     "_id": 0,
                 },
                 sort=[("_id", -1)],

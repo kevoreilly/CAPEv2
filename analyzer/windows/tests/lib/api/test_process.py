@@ -213,3 +213,27 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(format_ntstatus(0xC0000135), "STATUS_DLL_NOT_FOUND")
         self.assertEqual(format_ntstatus(-1073741515), "STATUS_DLL_NOT_FOUND")
         self.assertIsNone(format_ntstatus(0))
+
+    def test_del_ignores_null_current_process_and_mock_handles(self):
+        closed = []
+        c_close = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p)(lambda h: closed.append(h) or 1)
+        with patch("lib.api.process.KERNEL32") as mock_k32:
+            mock_k32.GetCurrentProcess.return_value = -1
+            mock_k32.CloseHandle = c_close
+
+            p_mock = Process()
+            p_mock.h_process = MagicMock()
+            p_mock.h_thread = MagicMock()
+            p_mock.__del__()
+
+            p_self = Process()
+            p_self.h_process = -1
+            p_self.h_thread = 0
+            p_self.__del__()
+
+            p_real = Process(h_process=0x1234, h_thread=0x5678)
+            p_real.__del__()
+            p_real.h_process = None
+            p_real.h_thread = None
+
+        self.assertEqual(closed, [0x1234, 0x5678])

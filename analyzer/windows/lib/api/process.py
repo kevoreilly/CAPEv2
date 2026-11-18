@@ -196,6 +196,14 @@ def _is_valid_handle(handle) -> bool:
     return bool(getattr(handle, "value", handle))
 
 
+def _raw_handle_value(handle) -> int:
+    if isinstance(handle, int) and not isinstance(handle, bool):
+        return handle
+    if isinstance(handle, c_void_p):
+        return handle.value or 0
+    return 0
+
+
 class Process:
     """Windows process."""
 
@@ -230,10 +238,12 @@ class Process:
 
     def __del__(self):
         """Close open handles."""
-        if hasattr(self, "h_process") and self.h_process != KERNEL32.GetCurrentProcess():
-            KERNEL32.CloseHandle(self.h_process)
-        if hasattr(self, "h_thread") and self.h_thread != 0:
-            KERNEL32.CloseHandle(self.h_thread)
+        h_proc = _raw_handle_value(getattr(self, "h_process", 0))
+        if h_proc and h_proc != _raw_handle_value(KERNEL32.GetCurrentProcess()):
+            KERNEL32.CloseHandle(h_proc)
+        h_thread = _raw_handle_value(getattr(self, "h_thread", 0))
+        if h_thread:
+            KERNEL32.CloseHandle(h_thread)
 
     def fill_system_info(self):
         """Get system information."""

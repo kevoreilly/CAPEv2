@@ -100,6 +100,8 @@ class TestAnalysisLoopProcessTracking(unittest.TestCase):
                 return 1
             return 0
 
+        test = self._analyzer([])
+
         with (
             patch("lib.api.process.KERNEL32") as mock_k32,
             patch("lib.api.process.PSAPI") as mock_psapi,
@@ -110,7 +112,7 @@ class TestAnalysisLoopProcessTracking(unittest.TestCase):
             mock_psapi.GetProcessImageFileNameA.side_effect = fill_image_name
             mock_k32.GetExitCodeProcess.side_effect = fill_exit_code
 
-            test = self._analyzer([220])
+            test.process_list.add_pids([220])
             # Simulate PID 220 exiting and being reaped by the OS before analysis_loop checks it.
             mock_k32.OpenProcess.return_value = 0
 

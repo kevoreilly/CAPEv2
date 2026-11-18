@@ -50,15 +50,21 @@ NEXTHOP_BAND_LO = "10000"
 NEXTHOP_BAND_HI = "10255"
 
 
-def run(*args):
-    """Wrapper to subprocess.run."""
+def run_status(*args):
+    """Wrapper to subprocess.run returning (returncode, stdout, stderr)."""
     log.debug("Running command: %s", " ".join(args))
     try:
         p = subprocess.run(args, capture_output=True, text=True, check=False)
-        return p.stdout, p.stderr
+        return p.returncode, p.stdout, p.stderr
     except Exception as e:
         log.error("Error executing command %s: %s", args, e)
-        return "", str(e)
+        return 1, "", str(e)
+
+
+def run(*args):
+    """Wrapper to subprocess.run."""
+    _, stdout, stderr = run_status(*args)
+    return stdout, stderr
 
 
 def get_tun_peer_address(interface_name):
@@ -123,7 +129,7 @@ def check_tuntap(vm_name, main_iface):
         return False
 
 
-def run_iptables(*args, **kwargs):
+def _build_iptables_args(*args, **kwargs):
     if kwargs and kwargs.get('netns'):
         netns = kwargs.get('netns')
         iptables_args = ["/usr/sbin/ip", "netns", "exec", netns, ServicePaths.iptables]
@@ -132,7 +138,18 @@ def run_iptables(*args, **kwargs):
 
     iptables_args.extend(list(args))
     iptables_args.extend(["-m", "comment", "--comment", "CAPE-rooter"])
-    return run(*iptables_args)
+    return iptables_args
+
+
+def run_iptables(*args, **kwargs):
+    return run(*_build_iptables_args(*args, **kwargs))
+
+
+_DEFAULT_RUN_IPTABLES = run_iptables
+
+
+def run_iptables_status(*args, **kwargs):
+    return run_status(*_build_iptables_args(*args, **kwargs))
 
 
 # SSLproxy TPROXY/NFQUEUE rules must use iptables-legacy because the nftables
@@ -708,14 +725,38 @@ def nexthop_init(rt_table, egress_if, next_hop):
         run(settings.ip, "route", "replace", "default", "via", next_hop, "dev", egress_if, "table", rt_table)
 
 
-def _iptables_delete_all(*args):
-    """Best-effort delete an iptables rule until it is no longer present, so a retried bind can't
-    leave stacked duplicates (a single -D would remove only one copy). run_iptables never raises;
-    a non-empty stderr from `-D` means the rule is gone. Bounded so a persistent error can't spin."""
+def _is_missing_iptables_rule_err(err):
+    lower_err = (err or "").lower()
+    return "bad rule" in lower_err or "does a matching rule exist" in lower_err or "no chain" in lower_err
+
+
+def _iptables_delete_all_status(*args, _runner=None):
+    """Delete all matching iptables rules using returncode so transient -w lock-wait
+    stderr does not abort deletion and lock timeouts/errors fail loudly."""
+    runner = _runner or run_iptables_status
     for _ in range(32):
-        _, err = run_iptables(*args)
-        if err:
+        rc, _, err = runner(*args)
+        if rc == 0:
+            continue
+        if _is_missing_iptables_rule_err(err):
             break
+        raise RuntimeError(f"Failed deleting iptables rule ({' '.join(args)}): {err.strip() or f'exit {rc}'}")
+
+
+def _iptables_delete_all(*args):
+    """Best-effort delete an iptables rule until it is no longer present."""
+
+    def _compat_runner(*cmd_args):
+        # Preserve compatibility with tests that monkeypatch run_iptables directly.
+        if run_iptables is not _DEFAULT_RUN_IPTABLES:
+            out, err = run_iptables(*cmd_args)
+            return (1 if err else 0), out, err
+        return run_iptables_status(*cmd_args)
+
+    try:
+        _iptables_delete_all_status(*args, _runner=_compat_runner)
+    except RuntimeError as e:
+        log.warning("Best-effort iptables delete failed: %s", e)
 
 
 def nexthop_enable(vm_ip, ingress_if, egress_if, rt_table, priority):
@@ -1118,68 +1159,124 @@ def interface_route_tun_disable(ipaddr: str, out_interface: str, task_id: str):
         log.error("interface_route_disable missing peer IP ")
 
 
+def _socks5_nat_and_output_rules(ipaddr, resultserver_port, dns_port, proxy_port):
+    """Return ordered (add_args, del_args) pairs for socks5 nat PREROUTING and OUTPUT rules."""
+    return (
+        (
+            (
+                "-t",
+                "nat",
+                "-I",
+                "PREROUTING",
+                "--source",
+                ipaddr,
+                "-p",
+                "tcp",
+                "--syn",
+                "!",
+                "--dport",
+                resultserver_port,
+                "-j",
+                "REDIRECT",
+                "--to-ports",
+                proxy_port,
+            ),
+            (
+                "-t",
+                "nat",
+                "-D",
+                "PREROUTING",
+                "--source",
+                ipaddr,
+                "-p",
+                "tcp",
+                "--syn",
+                "!",
+                "--dport",
+                resultserver_port,
+                "-j",
+                "REDIRECT",
+                "--to-ports",
+                proxy_port,
+            ),
+        ),
+        (
+            ("-I", "OUTPUT", "1", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP"),
+            ("-D", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP"),
+        ),
+        (
+            ("-I", "OUTPUT", "2", "-m", "state", "--state", "INVALID", "-j", "DROP"),
+            ("-D", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP"),
+        ),
+        (
+            ("-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port),
+            ("-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port),
+        ),
+        (
+            ("-t", "nat", "-A", "PREROUTING", "-p", "udp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port),
+            ("-t", "nat", "-D", "PREROUTING", "-p", "udp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port),
+        ),
+        (
+            ("-A", "OUTPUT", "--source", ipaddr, "-j", "DROP"),
+            ("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP"),
+        ),
+    )
+
+
 def socks5_enable(ipaddr, resultserver_port, dns_port, proxy_port):
     """Enable hijacking of all traffic and send it to socks5."""
     log.info("Enabling socks route.")
-    run_iptables(
-        "-t",
-        "nat",
-        "-I",
-        "PREROUTING",
-        "--source",
-        ipaddr,
-        "-p",
-        "tcp",
-        "--syn",
-        "!",
-        "--dport",
-        resultserver_port,
-        "-j",
-        "REDIRECT",
-        "--to-ports",
-        proxy_port,
-    )
-    run_iptables("-I", "OUTPUT", "1", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
-    run_iptables("-I", "OUTPUT", "2", "-m", "state", "--state", "INVALID", "-j", "DROP")
-    run_iptables(
-        "-t", "nat", "-A", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port
-    )
-    run_iptables(
-        "-t", "nat", "-A", "PREROUTING", "-p", "udp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port
-    )
-    run_iptables("-A", "OUTPUT", "--source", ipaddr, "-j", "DROP")
+    run("conntrack", "-D", "-s", ipaddr)
+    _iptables_delete_all_status("-w", "5", "-D", "FORWARD", "--source", ipaddr, "-j", "DROP")
+    rc, _, err = run_iptables_status("-w", "5", "-I", "FORWARD", "1", "--source", ipaddr, "-j", "DROP")
+    if rc != 0:
+        raise RuntimeError(f"Failed to add FORWARD DROP rule for {ipaddr}: {err.strip() or f'exit {rc}'}")
+
+    rollback_deletes = [("-w", "5", "-D", "FORWARD", "--source", ipaddr, "-j", "DROP")]
+    try:
+        rc, _, err = run_status(ServicePaths.iptables, "-w", "5", "-t", "raw", "-N", "CAPE_TOR_CLIENTS")
+        if rc != 0 and "chain already exists" not in (err or "").lower():
+            raise RuntimeError(f"Failed to ensure CAPE_TOR_CLIENTS chain: {err.strip() or f'exit {rc}'}")
+        _iptables_delete_all_status("-w", "5", "-t", "raw", "-D", "CAPE_TOR_CLIENTS", "--source", ipaddr, "-p", "tcp", "-j", "ACCEPT")
+        rc, _, err = run_iptables_status(
+            "-w", "5", "-t", "raw", "-A", "CAPE_TOR_CLIENTS", "--source", ipaddr, "-p", "tcp", "-j", "ACCEPT"
+        )
+        if rc != 0:
+            raise RuntimeError(f"Failed to add CAPE_TOR_CLIENTS rule for {ipaddr}: {err.strip() or f'exit {rc}'}")
+        rollback_deletes.append(("-w", "5", "-t", "raw", "-D", "CAPE_TOR_CLIENTS", "--source", ipaddr, "-p", "tcp", "-j", "ACCEPT"))
+
+        for add_args, del_args in _socks5_nat_and_output_rules(ipaddr, resultserver_port, dns_port, proxy_port):
+            rc, _, err = run_iptables_status("-w", "5", *add_args)
+            if rc != 0:
+                raise RuntimeError(f"Failed to add socks5 iptables rule ({' '.join(add_args)}): {err.strip() or f'exit {rc}'}")
+            rollback_deletes.append(("-w", "5", *del_args))
+    except Exception:
+        for del_args in reversed(rollback_deletes):
+            run_iptables(*del_args)
+        raise
 
 
 def socks5_disable(ipaddr, resultserver_port, dns_port, proxy_port):
-    """Enable hijacking of all traffic and send it to socks5."""
+    """Disable hijacking of all traffic and stop sending it to socks5."""
     log.info("Disabling socks route.")
-    run_iptables(
-        "-t",
-        "nat",
-        "-D",
-        "PREROUTING",
-        "--source",
-        ipaddr,
-        "-p",
-        "tcp",
-        "--syn",
-        "!",
-        "--dport",
-        resultserver_port,
-        "-j",
-        "REDIRECT",
-        "--to-ports",
-        proxy_port,
-    )
-    run_iptables("-D", "OUTPUT", "-m", "conntrack", "--ctstate", "INVALID", "-j", "DROP")
-    run_iptables("-D", "OUTPUT", "-m", "state", "--state", "INVALID", "-j", "DROP")
-    run_iptables(
-        "-t", "nat", "-D", "PREROUTING", "-p", "tcp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port
-    )
-    run_iptables(
-        "-t", "nat", "-D", "PREROUTING", "-p", "udp", "--dport", "53", "--source", ipaddr, "-j", "REDIRECT", "--to-ports", dns_port
-    )
-    run_iptables("-D", "OUTPUT", "--source", ipaddr, "-j", "DROP")
+    errors = []
+    for del_args in (
+        ("-w", "5", "-t", "raw", "-D", "CAPE_TOR_CLIENTS", "--source", ipaddr, "-p", "tcp", "-j", "ACCEPT"),
+        ("-w", "5", "-D", "FORWARD", "--source", ipaddr, "-j", "DROP"),
+    ):
+        try:
+            _iptables_delete_all_status(*del_args)
+        except RuntimeError as e:
+            errors.append(e)
+
+    for _, del_args in _socks5_nat_and_output_rules(ipaddr, resultserver_port, dns_port, proxy_port):
+        rc, _, err = run_iptables_status("-w", "5", *del_args)
+        if rc != 0 and not _is_missing_iptables_rule_err(err):
+            errors.append(RuntimeError(f"Failed deleting iptables rule ({' '.join(del_args)}): {err.strip() or f'exit {rc}'}"))
+
+    run("conntrack", "-D", "-s", ipaddr)
+    if errors:
+        raise errors[0]
 
 
 def drop_enable(ipaddr, resultserver_port):

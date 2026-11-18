@@ -13,6 +13,7 @@ from modules.auxiliary.sniffer import (
     Sniffer,
     build_remote_script,
     build_tcpdump_args,
+    resolve_capture_interface,
     ssh_opts,
     sudo_allows_tcpdump,
 )
@@ -259,3 +260,306 @@ def test_stop_remote_uses_one_multiplexed_connection(monkeypatch, tmp_path):
     assert len(invocations) == 3
     for args in invocations:
         assert "ControlMaster=auto" in args
+
+
+def _make_bridge_sysfs(tmp_path, bridge_name="virbr1", port_macs=None):
+    sys_net = tmp_path / "sys_net"
+    brif = sys_net / bridge_name / "brif"
+    brif.mkdir(parents=True)
+    for port, mac in (port_macs or {}).items():
+        (brif / port).mkdir()
+        port_dir = sys_net / port
+        port_dir.mkdir(parents=True)
+        if mac is not None:
+            (port_dir / "address").write_text(f"{mac}\n", encoding="utf-8")
+    return sys_net
+
+
+def test_resolve_capture_interface_non_bridge_unchanged(tmp_path):
+    sys_net = tmp_path / "sys_net"
+    (sys_net / "eth0").mkdir(parents=True)
+    arp = tmp_path / "arp"
+    assert (
+        resolve_capture_interface(
+            "eth0",
+            "192.168.122.101",
+            sys_net_root=str(sys_net),
+            arp_path=str(arp),
+        )
+        == "eth0"
+    )
+    assert (
+        resolve_capture_interface(
+            "../virbr1",
+            "192.168.122.101",
+            sys_net_root=str(sys_net),
+            arp_path=str(arp),
+        )
+        == "../virbr1"
+    )
+
+
+def test_resolve_capture_interface_libvirt_single_and_multi_nic(monkeypatch, tmp_path):
+    sys_net = _make_bridge_sysfs(tmp_path, "virbr1", {"vnet2": "fe:54:00:aa:bb:02", "vnet9": "fe:54:00:aa:bb:09"})
+    arp = tmp_path / "arp"
+
+    closed = []
+    xml_doc = """
+    <domain type='kvm'>
+      <name>win10_1</name>
+      <devices>
+        <interface type='network'>
+          <mac address='52:54:00:aa:bb:01'/>
+          <source network='mgmt' bridge='virbr0'/>
+          <target dev='vnet1'/>
+        </interface>
+        <interface type='network'>
+          <mac address='52:54:00:aa:bb:02'/>
+          <source network='default' bridge='virbr1'/>
+          <target dev='vnet2'/>
+        </interface>
+      </devices>
+    </domain>
+    """
+
+    class FakeDom:
+        def XMLDesc(self, flags=0):
+            return xml_doc
+
+    class FakeConn:
+        def lookupByName(self, name):
+            assert name == "win10_1"
+            return FakeDom()
+
+        def close(self):
+            closed.append(True)
+
+    fake_libvirt = type("FakeLibvirt", (), {"openReadOnly": staticmethod(lambda dsn: FakeConn())})()
+    monkeypatch.setitem(__import__("sys").modules, "libvirt", fake_libvirt)
+
+    machine = type("Machine", (), {"label": "win10_1"})()
+    resolved = resolve_capture_interface(
+        "virbr1",
+        "192.168.122.102",
+        machine=machine,
+        machinery_name="kvm",
+        kvm_dsn="qemu:///system",
+        sys_net_root=str(sys_net),
+        arp_path=str(arp),
+    )
+    assert resolved == "vnet2"
+    assert closed == [True]
+
+
+def test_resolve_capture_interface_libvirt_disambiguates_same_bridge_by_arp_mac(monkeypatch, tmp_path):
+    sys_net = _make_bridge_sysfs(tmp_path, "virbr1", {"vnet2": "fe:54:00:aa:bb:02", "vnet3": "fe:54:00:aa:bb:03"})
+    arp = tmp_path / "arp"
+    arp.write_text(
+        "IP address       HW type     Flags       HW address            Mask     Device\n"
+        "192.168.122.103  0x1         0x2         52:54:00:AA:BB:03     *        virbr1\n",
+        encoding="utf-8",
+    )
+    xml_doc = """
+    <domain type='kvm'>
+      <devices>
+        <interface type='bridge'>
+          <mac address='52:54:00:aa:bb:02'/>
+          <source bridge='virbr1'/>
+          <target dev='vnet2'/>
+        </interface>
+        <interface type='bridge'>
+          <mac address='52:54:00:aa:bb:03'/>
+          <source bridge='virbr1'/>
+          <target dev='vnet3'/>
+        </interface>
+      </devices>
+    </domain>
+    """
+    closed = []
+
+    class FakeConn:
+        def lookupByName(self, _name):
+            return type("FakeDom", (), {"XMLDesc": lambda self, flags=0: xml_doc})()
+
+        def close(self):
+            closed.append(True)
+
+    fake_libvirt = type("FakeLibvirt", (), {"openReadOnly": staticmethod(lambda dsn: FakeConn())})()
+    monkeypatch.setitem(__import__("sys").modules, "libvirt", fake_libvirt)
+
+    machine = type("Machine", (), {"label": "dual_nic_vm"})()
+    assert (
+        resolve_capture_interface(
+            "virbr1",
+            "192.168.122.103",
+            machine=machine,
+            machinery_name="kvm",
+            sys_net_root=str(sys_net),
+            arp_path=str(arp),
+        )
+        == "vnet3"
+    )
+    assert closed == [True]
+
+
+def test_resolve_capture_interface_libvirt_error_closes_conn_and_falls_back_to_fdb(monkeypatch, tmp_path, caplog):
+    sys_net = _make_bridge_sysfs(tmp_path, "virbr1", {"vnet4": "02:11:22:33:44:55", "vnet5": "02:11:22:33:44:66"})
+    arp = tmp_path / "arp"
+    arp.write_text(
+        "IP address       HW type     Flags       HW address            Mask     Device\n"
+        "192.168.122.104  0x1         0x0         00:00:00:00:00:00     *        virbr1\n"
+        "192.168.122.105  0x1         0x2         52:54:00:11:22:33     *        virbr1\n",
+        encoding="utf-8",
+    )
+    closed = []
+
+    class BrokenConn:
+        def lookupByName(self, _name):
+            raise RuntimeError("libvirt domain lookup failed")
+
+        def close(self):
+            closed.append(True)
+
+    fake_libvirt = type("FakeLibvirt", (), {"openReadOnly": staticmethod(lambda dsn: BrokenConn())})()
+    monkeypatch.setitem(__import__("sys").modules, "libvirt", fake_libvirt)
+    monkeypatch.setattr(shutil, "which", lambda name: "/sbin/bridge" if name == "bridge" else None)
+
+    fdb_out = "02:11:22:33:44:55 dev vnet4 master virbr1 permanent\n52:54:00:11:22:33 dev vnet4 master virbr1\n"
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **kw: subprocess.CompletedProcess(args, 0, fdb_out, ""),
+    )
+
+    machine = type("Machine", (), {"label": "vm105"})()
+    assert (
+        resolve_capture_interface(
+            "virbr1",
+            "192.168.122.105",
+            machine=machine,
+            machinery_name="multi",
+            sys_net_root=str(sys_net),
+            arp_path=str(arp),
+        )
+        == "vnet4"
+    )
+    assert closed == [True]
+    # Incomplete 0x0 ARP entry safely falls back to the bridge master interface and logs a warning.
+    assert (
+        resolve_capture_interface(
+            "virbr1",
+            "192.168.122.104",
+            machine=machine,
+            machinery_name="kvm",
+            sys_net_root=str(sys_net),
+            arp_path=str(arp),
+        )
+        == "virbr1"
+    )
+    assert "Could not resolve guest tap on bridge virbr1" in caplog.text
+
+
+def test_resolve_capture_interface_missing_libvirt_and_ambiguous_fdb_or_tap_fallback(monkeypatch, tmp_path):
+    sys_net = _make_bridge_sysfs(tmp_path, "virbr1", {"vnet6": "fe:54:00:de:ad:06", "vnet7": "fe:54:00:de:ad:07"})
+    arp = tmp_path / "arp"
+    arp.write_text(
+        "IP address       HW type     Flags       HW address            Mask     Device\n"
+        "192.168.122.106  0x1         0x2         52:54:00:de:ad:06     *        virbr1\n",
+        encoding="utf-8",
+    )
+    # Simulate python-libvirt not installed (ImportError) and ambiguous 2-port FDB entry falling back to unique fe: MAC.
+    monkeypatch.setitem(__import__("sys").modules, "libvirt", None)
+    monkeypatch.setattr(shutil, "which", lambda name: "/sbin/bridge" if name == "bridge" else None)
+    ambiguous_fdb = "52:54:00:de:ad:06 dev vnet6 master virbr1\n52:54:00:de:ad:06 dev vnet7 master virbr1\n"
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **kw: subprocess.CompletedProcess(args, 0, ambiguous_fdb, ""),
+    )
+
+    machine = type("Machine", (), {"label": "vm106"})()
+    assert (
+        resolve_capture_interface(
+            "virbr1",
+            "192.168.122.106",
+            machine=machine,
+            machinery_name="kvm",
+            sys_net_root=str(sys_net),
+            arp_path=str(arp),
+        )
+        == "vnet6"
+    )
+
+
+def test_sniffer_start_uses_resolved_tap_without_mutating_machine_interface(monkeypatch):
+    machine = type(
+        "Machine",
+        (),
+        {
+            "label": "win10_1",
+            "ip": "192.168.122.101",
+            "interface": "virbr1",
+            "resultserver_ip": "192.168.122.1",
+            "resultserver_port": 2042,
+        },
+    )()
+    popen_calls = []
+    resolve_calls = []
+    ssh_calls = []
+
+    def fake_popen(args, **kwargs):
+        popen_calls.append(list(args))
+        return FakeProc(None, args=list(args))
+
+    def fake_resolve(interface, host, **kwargs):
+        resolve_calls.append((interface, host, kwargs))
+        return "vnet2"
+
+    monkeypatch.setattr(sniffer_mod, "path_exists", lambda _p: True)
+    monkeypatch.setattr(sniffer_mod, "sudo_allows_tcpdump", lambda _s, _t: True)
+    monkeypatch.setattr(sniffer_mod, "ResultServer", lambda: None)
+    monkeypatch.setattr(sniffer_mod, "resolve_capture_interface", fake_resolve)
+    monkeypatch.setattr(sniffer_mod.cfg.cuckoo, "machinery", "kvm")
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+
+    sniffer = _sniffer({"tcpdump": "/usr/bin/tcpdump", "interface": "virbr1", "bpf": "not arp"})
+    sniffer.machine = machine
+    sniffer.db = type("DB", (), {"view_machine_by_label": staticmethod(lambda _lbl: machine)})()
+    sniffer.start()
+
+    assert len(popen_calls) == 1
+    assert len(resolve_calls) == 1
+    assert resolve_calls[0][2]["machinery_name"] == "kvm"
+    assert resolve_calls[0][2]["kvm_dsn"]
+    i_idx = popen_calls[0].index("-i")
+    assert popen_calls[0][i_idx + 1] == "vnet2"
+    # machine.interface must stay on virbr1 for rooter iptables -i virbr1 rules.
+    assert machine.interface == "virbr1"
+
+    # Disabling resolve_tap (both bool False from Config.getboolean and string "no") keeps capture on virbr1.
+    for opt_val in (False, "no"):
+        popen_calls.clear()
+        resolve_calls.clear()
+        sniffer_no_tap = _sniffer({"tcpdump": "/usr/bin/tcpdump", "interface": "virbr1", "resolve_tap": opt_val})
+        sniffer_no_tap.machine = machine
+        sniffer_no_tap.db = sniffer.db
+        sniffer_no_tap.start()
+        assert len(popen_calls) == 1
+        assert resolve_calls == []
+        i_idx = popen_calls[0].index("-i")
+        assert popen_calls[0][i_idx + 1] == "virbr1"
+
+    # Remote mode skips local tap resolution and passes virbr1 over SSH.
+    resolve_calls.clear()
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, **kw: (ssh_calls.append(kw.get("input", "")), subprocess.CompletedProcess(args, 0, "9876\n", ""))[1],
+    )
+    sniffer_remote = _sniffer({"tcpdump": "/usr/bin/tcpdump", "interface": "virbr1", "remote": True, "host": "root@192.168.122.1"})
+    sniffer_remote.machine = machine
+    sniffer_remote.db = sniffer.db
+    sniffer_remote.start()
+    assert resolve_calls == []
+    assert len(ssh_calls) == 1
+    assert "-i virbr1" in ssh_calls[0]

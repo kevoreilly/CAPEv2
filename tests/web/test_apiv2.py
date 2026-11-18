@@ -663,9 +663,9 @@ class TestAnalysisErrorStatusDisplay(SimpleTestCase):
         with database.session.begin():
             database.set_status(tid, TASK_REPORTED)
             database.add_error("Agent is dead", tid)
-            # Load Task WITHOUT selectinload(Task.errors), then detach it.
-            detached_task = database.session.get(Task, tid)
-            database.session.expunge_all()
+        # Load detached Task with tags/sample (via view_task(details=False)) WITHOUT selectinload(Task.errors).
+        detached_task = database.view_task(tid, details=False)
+        database.session.expunge_all()
 
         with (
             patch.dict(analysis_views.enabledconf, {"mongodb": False}),

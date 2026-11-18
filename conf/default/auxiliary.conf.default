@@ -57,6 +57,11 @@ tcpdump = /usr/bin/tcpdump
 # traffic. Make sure the interface is active.
 interface = virbr1
 
+# Automatically resolve local Linux bridge interfaces (e.g. virbr0/virbr1) to
+# the guest VM's bridge port (vnetX) so br_netfilter PREROUTING NAT/REDIRECT
+# rules do not rewrite outbound packet destinations before capture [yes/no].
+resolve_tap = yes
+
 # Specify a Berkeley packet filter to pass to tcpdump.
 bpf = not arp
 

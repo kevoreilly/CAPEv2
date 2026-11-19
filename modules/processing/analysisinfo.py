@@ -13,6 +13,7 @@ from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.routing import normalize_task_route
 from lib.cuckoo.common.utils import get_options
 from lib.cuckoo.core.database import Database
 
@@ -117,6 +118,9 @@ class AnalysisInfo(Processing):
                 parent_sample_details = parent_sample_details.to_dict()
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
+        attrs = self.task.get("attributes") if isinstance(self.task.get("attributes"), dict) else {}
+        reported_route = normalize_task_route(attrs.get("effective_route")) or normalize_task_route(self.task.get("route"))
+
         return {
             "version": CUCKOO_VERSION,
             "started": self.task["started_on"],
@@ -132,7 +136,7 @@ class AnalysisInfo(Processing):
             "parent_sample": parent_sample_details,
             "options": parsed_options,
             "source_url": source_url,
-            "route": self.task.get("route"),
+            "route": reported_route,
             "user_id": self.task.get("user_id"),
             "CAPE_current_commit": CAPE_CURRENT_COMMIT_HASH,
         }

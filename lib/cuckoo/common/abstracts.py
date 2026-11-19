@@ -88,6 +88,7 @@ class Auxiliary:
         self.task = None
         self.machine = None
         self.options = None
+        self.route = None
         self.db = Database()
 
     def set_task(self, task):
@@ -98,6 +99,9 @@ class Auxiliary:
 
     def set_options(self, options):
         self.options = options
+
+    def set_route(self, route):
+        self.route = route
 
     def start(self):
         raise NotImplementedError

@@ -49,6 +49,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.routing import is_no_route, resolve_task_route
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
@@ -241,8 +242,8 @@ def validate_default_route(routing_cfg):
     """Check that the configured default route is valid.  Accepts gateway ids
     (from gateways global) when nexthop is enabled, bypassing the vpn.enabled gate.
     Extracted from init_routing so it is independently unit-testable (review H3)."""
-    route = routing_cfg.routing.route
-    if str(route).lower() in ("none", "drop", "false", "internet", "tor", "inetsim"):
+    route = resolve_task_route(None, routing_cfg)
+    if is_no_route(route) or route.lower() in ("internet", "tor", "inetsim"):
         return
     nexthop_on = hasattr(routing_cfg, "nexthop") and routing_cfg.nexthop.enabled
     if nexthop_on and (route in gateways or route in _POLICY_TOKENS or route == "nexthop"):

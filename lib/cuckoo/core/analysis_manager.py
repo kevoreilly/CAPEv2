@@ -21,6 +21,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
+from lib.cuckoo.common.routing import is_no_route, normalize_task_route, resolve_task_route
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
 from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.database import Database, _Database, run_db_unit
@@ -447,9 +448,32 @@ class AnalysisManager(threading.Thread):
             except Exception:
                 self.log.exception("Unexpected error while unrouting network")
 
+    @property
+    def effective_route(self) -> Optional[str]:
+        """Effective runtime route applied by route_network() (concrete nexthop gateway if bound)."""
+        return self.nexthop_id or self.route
+
+    def _record_effective_route(self) -> None:
+        """Persist the resolved effective route into task.attributes without mutating tasks.route."""
+        effective = normalize_task_route(self.effective_route)
+        if not effective:
+            return
+        if hasattr(self.task, "set_attribute"):
+            self.task.set_attribute("effective_route", effective)
+        task_id = getattr(self.task, "id", None)
+        db = getattr(self, "db", None)
+        if db is not None and hasattr(db, "set_task_attribute") and task_id:
+            try:
+                self._db_unit(
+                    lambda: db.set_task_attribute(task_id, "effective_route", effective),
+                    f"record effective_route for task {task_id}",
+                )
+            except Exception as e:
+                self.log.warning("Failed to record effective_route '%s' for task %s: %s", effective, task_id, e)
+
     @contextlib.contextmanager
     def run_auxiliary(self) -> Generator[None, None, None]:
-        aux = RunAuxiliary(task=self.task, machine=self.machine)
+        aux = RunAuxiliary(task=self.task, machine=self.machine, route=self.effective_route)
 
         aux.start()
 
@@ -664,7 +688,7 @@ class AnalysisManager(threading.Thread):
             return False
         if self.route in gateways or self.route in ("roundrobin", "random"):
             sel = self.route
-        elif self.route == "nexthop" or self.route == routing.routing.route:
+        elif self.route == "nexthop" or self.route == normalize_task_route(routing.routing.route):
             # the "nexthop" sentinel (explicit) OR the node's configured default route falls back
             # to default_policy and picks from the live pool. "nexthop" is a reserved token (a
             # [gwX] may not be named it), so this is not the gemini-#15 typo'd-route leak.
@@ -721,12 +745,9 @@ class AnalysisManager(threading.Thread):
         """Enable network routing if desired."""
         # Determine the desired routing strategy (none, internet, VPN).
         routing = Config("routing")
-        self.route = routing.routing.route
+        self.route = resolve_task_route(self.task.route, routing)
 
-        if self.task.route:
-            self.route = self.task.route
-
-        if str(self.route).lower() in ("none", "drop", "false"):
+        if is_no_route(self.route):
             self.interface = None
             self.rt_table = None
         elif self.route == "inetsim":
@@ -817,7 +838,7 @@ class AnalysisManager(threading.Thread):
             self._rooter_response_check()
             self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
 
-        elif str(self.route).lower() in ("none", "drop", "false"):
+        elif is_no_route(self.route):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.machine.resultserver_port))
             if self._rooter_optional_and_unavailable(self.rooter_response):
                 # Default configuration: no rooter is running and none is required, so there are no drop rules to apply.
@@ -881,7 +902,7 @@ class AnalysisManager(threading.Thread):
                 )
                 self._rooter_response_check()
 
-        self.log.info("Enabled route '%s'.", self.route)
+        self.log.info("Enabled route '%s'.", self.effective_route)
 
         if self.no_local_routing:
             self.rooter_response = rooter("add_dev_to_vrf", self.machine.interface)
@@ -889,6 +910,8 @@ class AnalysisManager(threading.Thread):
         elif self.rt_table:
             self.rooter_response = rooter("srcroute_enable", self.rt_table, self.machine.ip)
             self._rooter_response_check()
+
+        self._record_effective_route()
 
     def unroute_network(self):
         """Disable network routing.
@@ -969,7 +992,7 @@ class AnalysisManager(threading.Thread):
             )
             disable("libvirt_fwo_disable", self.machine.interface, self.machine.ip)
 
-        elif self.route is not None and str(self.route).lower() in ("none", "drop", "false"):
+        elif self.route is not None and is_no_route(self.route):
             disable("drop_disable", self.machine.ip, str(self.machine.resultserver_port))
         elif isinstance(self.route, str) and self.route[:3] == "tun":
             self.log.info("Disable tunnel interface: %s", self.interface)

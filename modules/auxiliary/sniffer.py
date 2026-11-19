@@ -17,6 +17,7 @@ from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.routing import is_no_route, resolve_task_route
 from lib.cuckoo.core.resultserver import ResultServer
 
 log = logging.getLogger(__name__)
@@ -362,8 +363,15 @@ class Sniffer(Auxiliary):
         # stop() has to cope with it never having been assigned.
         self.pid = None
 
+    def _should_skip_pcap(self) -> bool:
+        if router_cfg.routing.enable_pcap:
+            return False
+        aux_route = getattr(self, "route", None)
+        raw_route = aux_route if aux_route is not None else getattr(self.task, "route", None)
+        return is_no_route(resolve_task_route(raw_route, router_cfg))
+
     def start(self):
-        if not router_cfg.routing.enable_pcap and self.task.route in ("none", "None", "drop", "false"):
+        if self._should_skip_pcap():
             return
 
         # Get updated machine info
@@ -550,7 +558,7 @@ class Sniffer(Auxiliary):
         @return: operation status.
         """
 
-        if not router_cfg.routing.enable_pcap and self.task.route in ("none", "None", "drop", "false"):
+        if self._should_skip_pcap():
             return
 
         remote = self.options.get("remote", False)

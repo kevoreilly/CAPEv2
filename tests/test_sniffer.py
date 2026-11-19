@@ -563,3 +563,61 @@ def test_sniffer_start_uses_resolved_tap_without_mutating_machine_interface(monk
     assert resolve_calls == []
     assert len(ssh_calls) == 1
     assert "-i virbr1" in ssh_calls[0]
+
+
+@pytest.mark.parametrize(
+    "enable_pcap, conf_route, task_route, aux_route, expect_skip",
+    [
+        (False, "none", None, None, True),
+        (False, "none", "", None, True),
+        (False, "none", "none", None, True),
+        (False, "none", "DROP", None, True),
+        (False, "vpn0", None, None, False),
+        (False, "vpn0", "none", None, True),
+        (False, "vpn0", "vpn0", "none", True),
+        (False, "none", None, "gw2", False),
+        (True, "none", None, None, False),
+    ],
+)
+def test_sniffer_start_and_stop_route_gating(
+    monkeypatch, enable_pcap, conf_route, task_route, aux_route, expect_skip
+):
+    fake_router_cfg = type(
+        "Cfg",
+        (),
+        {"routing": type("Routing", (), {"enable_pcap": enable_pcap, "route": conf_route})()},
+    )()
+    monkeypatch.setattr(sniffer_mod, "router_cfg", fake_router_cfg)
+    monkeypatch.setattr(sniffer_mod, "path_exists", lambda _p: True)
+    monkeypatch.setattr(sniffer_mod, "sudo_allows_tcpdump", lambda _s, _t: True)
+    monkeypatch.setattr(sniffer_mod, "ResultServer", lambda: None)
+
+    machine = type(
+        "M",
+        (),
+        {
+            "label": "win10_1",
+            "name": "win10_1",
+            "ip": "192.168.122.101",
+            "interface": "virbr1",
+            "resultserver_ip": "192.168.122.1",
+            "resultserver_port": 2042,
+        },
+    )()
+    popen_calls = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **kw: popen_calls.append(list(args)) or FakeProc(None, args=list(args)))
+
+    s = _sniffer({"tcpdump": "/usr/bin/tcpdump", "interface": "virbr1", "resolve_tap": False})
+    s.task = type("T", (), {"id": 99, "route": task_route})()
+    s.set_route(aux_route)
+    s.machine = machine
+    s.db = type("DB", (), {"view_machine_by_label": staticmethod(lambda _lbl: machine)})()
+    s.start()
+
+    if expect_skip:
+        assert popen_calls == []
+        assert s.proc is None
+    else:
+        assert len(popen_calls) == 1
+        assert s.proc is not None
+

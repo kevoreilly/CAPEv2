@@ -514,14 +514,15 @@ def _sslproxy_rt_table(route: str) -> str:
     """The routing table SSLProxy sends upstream through for `route` (its own lookup); '' = host's."""
     try:
         from lib.cuckoo.common.config import Config
+        from lib.cuckoo.common.routing import is_no_route, resolve_task_route
 
         conf = Config("routing")
-        route = route or str(conf.routing.route or "")
-        if not route or route in ("none", "None", "drop", "false", "inetsim", "tor", "internet"):
+        resolved = resolve_task_route(route, conf)
+        if is_no_route(resolved) or resolved.lower() in ("inetsim", "tor", "internet"):
             return ""
-        if hasattr(conf, route):
-            return str(getattr(conf.get(route), "rt_table", "") or "")
-        return route if route.startswith("tun") else ""
+        if hasattr(conf, resolved):
+            return str(getattr(conf.get(resolved), "rt_table", "") or "")
+        return resolved if resolved.startswith("tun") else ""
     except Exception:
         return ""
 
@@ -560,8 +561,9 @@ def _routing_conf_default_route() -> Optional[str]:
     """routing.conf [routing] route: what analysis_manager uses for a task without a route."""
     try:
         from lib.cuckoo.common.config import Config
+        from lib.cuckoo.common.routing import normalize_task_route
 
-        return _norm_token(Config("routing").routing.route) or None
+        return _norm_token(normalize_task_route(Config("routing").routing.route)) or None
     except Exception:
         return None
 

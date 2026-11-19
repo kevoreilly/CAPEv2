@@ -160,6 +160,8 @@ Monitor & Evasion
 - ``protected-pids``: Enable protection for critical PIDs to prevent termination or injection.
 - ``single-process``: Limit behavior monitoring to the initial process only.
 - ``interactive``: Enable interactive desktop mode.
+- ``nohuman``: Set to ``1`` to disable the Windows ``human`` automated UI interaction auxiliary module (see :doc:`human`).
+- ``nouia``: Set to ``1`` to disable native Windows UI Automation in ``human.py`` while keeping classic Win32 dialog interaction (see :doc:`human`).
 - ``pdf``: Enable specific hooks/behavior for Adobe Reader.
 - ``startbrowser``: Launch a browser 30 seconds into the analysis.
 - ``browserdelay``: Seconds to wait before starting the browser (default 30).

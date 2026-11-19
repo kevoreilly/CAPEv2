@@ -11,19 +11,29 @@ import time
 import math
 import re
 import traceback
-from ctypes import WINFUNCTYPE, byref, c_bool, c_size_t, create_unicode_buffer, memmove, sizeof, wintypes
+from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, c_size_t, c_ssize_t, c_void_p, create_unicode_buffer, memmove, sizeof, wintypes
 from datetime import datetime, timedelta
 from math import floor
 from threading import Thread
 
+from lib.api.uia import UIAClient
 from lib.common.abstracts import Auxiliary
 from lib.common.defines import (
     BM_CLICK,
     BM_GETCHECK,
     BM_SETCHECK,
+    BS_3STATE,
+    BS_AUTO3STATE,
+    BS_AUTOCHECKBOX,
+    BS_AUTORADIOBUTTON,
+    BS_CHECKBOX,
+    BS_RADIOBUTTON,
+    BS_TYPEMASK,
     BST_CHECKED,
     GMEM_MOVEABLE,
+    GWL_STYLE,
     KERNEL32,
+    SMTO_ABORTIFHUNG,
     USER32,
     WM_CLOSE,
     WM_GETTEXT,
@@ -74,6 +84,86 @@ USER32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
 USER32.SetClipboardData.restype = wintypes.HANDLE
 USER32.CloseClipboard.argtypes = []
 USER32.CloseClipboard.restype = wintypes.BOOL
+
+# Explicit WinAPI prototypes for MUI loading, button style inspection, and timeout-bounded messaging.
+KERNEL32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+KERNEL32.GetModuleHandleW.restype = wintypes.HMODULE
+USER32.LoadStringW.argtypes = [wintypes.HINSTANCE, wintypes.UINT, wintypes.LPWSTR, c_int]
+USER32.LoadStringW.restype = c_int
+USER32.GetWindowLongW.argtypes = [wintypes.HWND, c_int]
+USER32.GetWindowLongW.restype = wintypes.LONG
+USER32.SendMessageTimeoutW.argtypes = [
+    wintypes.HWND,
+    wintypes.UINT,
+    c_size_t,
+    c_void_p,
+    wintypes.UINT,
+    wintypes.UINT,
+    POINTER(c_size_t),
+]
+USER32.SendMessageTimeoutW.restype = c_ssize_t
+
+SEND_MESSAGE_TIMEOUT_MS = 500
+
+# Standard user32.dll MUI string resource IDs (799 + IDOK..IDCONTINUE).
+MUI_CLICK_RESOURCE_IDS = (
+    800,  # OK
+    803,  # Retry
+    805,  # Yes
+    809,  # Try Again
+    810,  # Continue
+)
+MUI_DONT_CLICK_RESOURCE_IDS = (
+    801,  # Cancel
+    802,  # Abort
+    808,  # Help
+)
+MUI_ACCESS_KEY_RE = re.compile(r"\s*\(&[A-Za-z0-9]\)")
+
+MUI_CLICK_BUTTONS = ()
+MUI_DONT_CLICK_BUTTONS = ()
+UIA_CLIENT = None
+
+WIN32_CHECKBOX_TYPES = (BS_CHECKBOX, BS_AUTOCHECKBOX, BS_3STATE, BS_AUTO3STATE)
+WIN32_RADIO_TYPES = (BS_RADIOBUTTON, BS_AUTORADIOBUTTON)
+
+UIA_SKIP_WINDOW_CLASSES = frozenset(
+    {
+        "consolewindowclass",
+        "dv2controlhost",
+        "notifyiconoverflowwindow",
+        "progman",
+        "shell_secondarytraywnd",
+        "shell_traywnd",
+        "tasklistthumbnailwnd",
+        "workerw",
+    }
+)
+OFFICE_MAIN_FRAME_CLASSES = frozenset(
+    {
+        "opusapp",
+        "xlmain",
+        "pptframeclass",
+    }
+)
+# Exclude permanent Ribbon / chrome actions when inspecting an Office main document frame via UIA,
+# while still allowing Protected View / Security Warning bar buttons ("Enable Editing", "Enable Content", etc.).
+OFFICE_FRAME_EXCLUDED_UIA_BUTTONS = frozenset(
+    {
+        "save",
+        "open",
+        "end",
+        "later",
+        "finish",
+        "keep",
+        "connect",
+        "speichern",
+        "oeffnen",
+        "ende",
+        "spaeter",
+        "fertig",
+    }
+)
 
 CLICK_BUTTONS = (
     # english
@@ -189,23 +279,133 @@ def cursor_over_console_window():
     return any(cls in classname for cls in terminal_classes)
 
 
-def get_window_text(hwnd):
-    length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
-    if length == 0:
+def _is_cjk_text(text):
+    return any(
+        "\u2e80" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff" or "\uac00" <= ch <= "\ud7af"
+        for ch in text
+    )
+
+
+def normalize_button_text(text):
+    if not text:
         return ""
+    cleaned = MUI_ACCESS_KEY_RE.sub("", text)
+    return cleaned.replace("&", "").strip().lower()
+
+
+def _matches_candidate(button_text, candidate):
+    if not candidate:
+        return False
+    if len(candidate) == 1:
+        return button_text == candidate
+    if _is_cjk_text(candidate):
+        return candidate in button_text
+    return re.search(rf"(?<!\w){re.escape(candidate)}(?!\w)", button_text) is not None
+
+
+def load_mui_button_strings():
+    """Load localized standard dialog button labels from user32.dll via Windows MUI."""
+    try:
+        h_user32 = KERNEL32.GetModuleHandleW("user32.dll")
+    except Exception as err:
+        log.debug("Failed to obtain user32.dll handle for MUI strings: %s", err)
+        return (), ()
+
+    if not isinstance(h_user32, int) or not h_user32:
+        return (), ()
+
+    def _load_group(res_ids):
+        loaded = []
+        buf = create_unicode_buffer(128)
+        for res_id in res_ids:
+            try:
+                length = USER32.LoadStringW(h_user32, res_id, buf, 128)
+            except Exception as err:
+                log.debug("LoadStringW failed for resource ID %d: %s", res_id, err)
+                continue
+            if isinstance(length, int) and length > 0:
+                normalized = normalize_button_text(buf.value[:length])
+                if normalized and normalized not in loaded:
+                    loaded.append(normalized)
+        return tuple(loaded)
+
+    return _load_group(MUI_CLICK_RESOURCE_IDS), _load_group(MUI_DONT_CLICK_RESOURCE_IDS)
+
+
+def refresh_mui_button_strings():
+    global MUI_CLICK_BUTTONS
+    global MUI_DONT_CLICK_BUTTONS
+    MUI_CLICK_BUTTONS, MUI_DONT_CLICK_BUTTONS = load_mui_button_strings()
+    if MUI_CLICK_BUTTONS or MUI_DONT_CLICK_BUTTONS:
+        log.debug(
+            "Loaded %d clickable and %d ignored Windows MUI dialog labels",
+            len(MUI_CLICK_BUTTONS),
+            len(MUI_DONT_CLICK_BUTTONS),
+        )
+
+
+def should_click_button(raw_text, excluded=None):
+    button_text = normalize_button_text(raw_text)
+    if not button_text:
+        return False
+
+    dont_click_candidates = DONT_CLICK_BUTTONS + MUI_DONT_CLICK_BUTTONS
+    if any(_matches_candidate(button_text, text) for text in dont_click_candidates):
+        return False
+
+    click_candidates = CLICK_BUTTONS + MUI_CLICK_BUTTONS
+    for text in click_candidates:
+        if excluded and text in excluded:
+            continue
+        if _matches_candidate(button_text, text):
+            return True
+    return False
+
+
+def _send_message_timeout(hwnd, msg, wparam=0, lparam=0, timeout_ms=SEND_MESSAGE_TIMEOUT_MS):
+    result = c_size_t(0)
+    ok = USER32.SendMessageTimeoutW(hwnd, msg, wparam, lparam, SMTO_ABORTIFHUNG, timeout_ms, byref(result))
+    if not ok:
+        return None
+    return int(result.value)
+
+
+def get_window_classname(hwnd):
+    classname_ptr = create_unicode_buffer(128)
+    USER32.GetClassNameW(hwnd, classname_ptr, 128)
+    return str(classname_ptr.value).lower()
+
+
+def get_win32_button_type(hwnd):
+    try:
+        style = USER32.GetWindowLongW(hwnd, GWL_STYLE)
+    except Exception:
+        return None
+    if not isinstance(style, int):
+        return None
+    return style & BS_TYPEMASK
+
+
+def get_window_text(hwnd):
+    length = _send_message_timeout(hwnd, WM_GETTEXTLENGTH, 0, 0)
+    if not length or length < 0:
+        return ""
+    length = min(length, 4096)
     text = create_unicode_buffer(length + 1)
-    USER32.SendMessageW(hwnd, WM_GETTEXT, length + 1, text)
-    return text.value.replace("&", "")
+    if _send_message_timeout(hwnd, WM_GETTEXT, length + 1, text) is None:
+        return ""
+    return MUI_ACCESS_KEY_RE.sub("", text.value).replace("&", "")
 
 
 def is_button_checked(hwnd):
-    return bool(USER32.SendMessageW(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED)
+    state = _send_message_timeout(hwnd, BM_GETCHECK, 0, 0)
+    return bool(state == BST_CHECKED)
 
 
 def send_click(hwnd):
     USER32.SetForegroundWindow(hwnd)
     KERNEL32.Sleep(1000)
-    USER32.SendMessageW(hwnd, BM_CLICK, 0, 0)
+    _send_message_timeout(hwnd, BM_CLICK, 0, 0)
 
 
 def click_button(hwnd, classname):
@@ -227,15 +427,9 @@ def click_button(hwnd, classname):
         return False
 
     # Check if the button is set as "clickable" and click it.
-    button_text = button_text.lower()
-
-    ignore_matches = [text for text in DONT_CLICK_BUTTONS if text in button_text]
-    if ignore_matches:
-        return True
-
-    click_matches = [text for text in CLICK_BUTTONS if text in button_text]
-    if click_matches:
-        log.info('Found button "%s", clicking it', button_text)
+    normalized_text = normalize_button_text(button_text)
+    if should_click_button(normalized_text):
+        log.info('Found button "%s", clicking it', normalized_text)
         send_click(hwnd)
         # only stop searching when we click a button
         return False
@@ -244,23 +438,20 @@ def click_button(hwnd, classname):
 
 
 def check_button(hwnd):
+    if not USER32.IsWindowEnabled(hwnd):
+        return True
+
     if is_button_checked(hwnd):
         return True
 
-    button_text = get_window_text(hwnd).lower()
-
-    ignore_matches = [text for text in DONT_CLICK_BUTTONS if text in button_text]
-    if ignore_matches:
-        return True
-
-    matches = [text for text in CLICK_BUTTONS if text in button_text]
-    if matches:
+    button_text = normalize_button_text(get_window_text(hwnd))
+    if should_click_button(button_text):
         log.info('Found checkable button "%s", checking it', button_text)
         # try clicking it first
         send_click(hwnd)
         if not is_button_checked(hwnd):
             # if it's still unchecked, check it
-            USER32.SendMessageW(hwnd, BM_SETCHECK, BST_CHECKED, 0)
+            _send_message_timeout(hwnd, BM_SETCHECK, BST_CHECKED, 0)
         # only stop searching when we click a checkbox
         return False
     # continue searching through windows
@@ -271,12 +462,20 @@ def is_button(classname):
     return bool("button" in classname or ("button" not in classname and classname in OFFICE_WINDOW_CLASSES))
 
 
-def is_checkbox(classname):
-    return "checkbox" in classname
+def is_checkbox(classname, hwnd=None):
+    if "checkbox" in classname:
+        return True
+    if "button" in classname and hwnd is not None:
+        return get_win32_button_type(hwnd) in WIN32_CHECKBOX_TYPES
+    return False
 
 
-def is_radio_button(classname):
-    return "radiobutton" in classname
+def is_radio_button(classname, hwnd=None):
+    if "radiobutton" in classname:
+        return True
+    if "button" in classname and hwnd is not None:
+        return get_win32_button_type(hwnd) in WIN32_RADIO_TYPES
+    return False
 
 
 def interact_with_window(hwnd, lparam):
@@ -286,11 +485,9 @@ def interact_with_window(hwnd, lparam):
     if not USER32.IsWindowVisible(hwnd):
         return True
 
-    classname_ptr = create_unicode_buffer(128)
-    USER32.GetClassNameW(hwnd, classname_ptr, 128)
-    classname = str(classname_ptr.value).lower()
+    classname = get_window_classname(hwnd)
 
-    if is_checkbox(classname) or is_radio_button(classname):
+    if is_checkbox(classname, hwnd) or is_radio_button(classname, hwnd):
         return check_button(hwnd)
     elif is_button(classname):
         return click_button(hwnd, classname)
@@ -345,11 +542,49 @@ def move_mouse_realistically(dest_x, dest_y):
     USER32.SetCursorPos(dest_x, dest_y)
 
 
+def _click_uia_point(hwnd, x, y):
+    USER32.SetForegroundWindow(hwnd)
+    move_mouse_realistically(x, y)
+    if not cursor_over_console_window():
+        click_mouse()
+
+
+def interact_with_window_uia(hwnd, uia_client):
+    if not uia_client or not uia_client.available:
+        return False
+    if hwnd in INITIAL_HWNDS or not USER32.IsWindowVisible(hwnd):
+        return False
+
+    top_classname = get_window_classname(hwnd)
+    if top_classname in UIA_SKIP_WINDOW_CLASSES:
+        return False
+
+    excluded = OFFICE_FRAME_EXCLUDED_UIA_BUTTONS if top_classname in OFFICE_MAIN_FRAME_CLASSES else None
+    return uia_client.interact_with_hwnd(
+        hwnd,
+        match_fn=lambda text: should_click_button(text, excluded=excluded),
+        click_point_fn=lambda x, y: _click_uia_point(hwnd, x, y),
+    )
+
+
 # Callback procedure invoked for every enumerated window.
 def handle_window_interaction(hwnd, lparam):
     # we also want to inspect the "parent" windows, not just the children
-    interact_with_window(hwnd, lparam)
-    USER32.EnumChildWindows(hwnd, EnumChildProc(interact_with_window), 0)
+    acted = not interact_with_window(hwnd, lparam)
+    if not acted:
+        child_acted = [False]
+
+        def _child_callback(child_hwnd, child_lparam):
+            keep_going = interact_with_window(child_hwnd, child_lparam)
+            if not keep_going:
+                child_acted[0] = True
+            return keep_going
+
+        USER32.EnumChildWindows(hwnd, EnumChildProc(_child_callback), 0)
+        acted = child_acted[0]
+
+    if not acted and UIA_CLIENT is not None and UIA_CLIENT.available:
+        interact_with_window_uia(hwnd, UIA_CLIENT)
     return True
 
 
@@ -457,16 +692,32 @@ def get_document_window_click_around(hwnd, lparm):
             )
         ):
             # 2260 x 1325 PDF 0-160 y off limit x 460 last off limit
-            click_around(hwnd, (0, RESOLUTION["X"] - 460), (160, RESOLUTION_WITHOUT_TASKBAR["Y"]))
+            click_around(
+                hwnd,
+                (0, max(0, RESOLUTION["x"] - 460)),
+                (min(160, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
+            )
         elif any(value in text.value for value in ("Microsoft Word",)):
             # Word 1632 x 1092 Doc 0-300 y off limit
-            click_around(hwnd, (0, RESOLUTION["X"]), (300, RESOLUTION_WITHOUT_TASKBAR["Y"]))
+            click_around(
+                hwnd,
+                (0, RESOLUTION["x"]),
+                (min(300, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
+            )
         elif any(value in text.value for value in ("Microsoft Excel",)):
             # Excel 2624 x 1000 0-400 y off limit
-            click_around(hwnd, (0, RESOLUTION["X"]), (400, RESOLUTION_WITHOUT_TASKBAR["Y"]))
+            click_around(
+                hwnd,
+                (0, RESOLUTION["x"]),
+                (min(400, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
+            )
         elif any(value in text.value for value in ("Microsoft PowerPoint",)):
             # Powerpoint 1300 x 974 0-300 y off limit 0-930 off limit
-            click_around(hwnd, (300, RESOLUTION["X"]), (930, RESOLUTION_WITHOUT_TASKBAR["Y"]))
+            click_around(
+                hwnd,
+                (min(300, RESOLUTION["x"]), RESOLUTION["x"]),
+                (min(930, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
+            )
         KERNEL32.Sleep(20000)
         DOCUMENT_WINDOW_CLICK_AROUND = True
     return True
@@ -577,6 +828,8 @@ class Human(Auxiliary, Thread):
     def run(self):
         global DOCUMENT_WINDOW_CLICK_AROUND
         global GIVEN_INSTRUCTIONS
+        global UIA_CLIENT
+        uia_client = None
         try:
             randoff = random.randint(0, 10)
 
@@ -585,6 +838,17 @@ class Human(Auxiliary, Thread):
             nohuman = self.options.get("nohuman")
             if nohuman:
                 return True
+
+            refresh_mui_button_strings()
+
+            nouia = str(self.options.get("nouia", "")).strip().lower() in ("1", "true", "yes", "on")
+            if not nouia:
+                uia_client = UIAClient()
+                if not uia_client.initialize():
+                    uia_client.close()
+                    uia_client = None
+            UIA_CLIENT = uia_client
+
             doc = False
             if hasattr(self.config, "file_type"):
                 file_type = self.config.file_type
@@ -698,3 +962,7 @@ class Human(Auxiliary, Thread):
         except Exception:
             error_exc = traceback.format_exc()
             log.exception(error_exc)
+        finally:
+            UIA_CLIENT = None
+            if uia_client is not None:
+                uia_client.close()

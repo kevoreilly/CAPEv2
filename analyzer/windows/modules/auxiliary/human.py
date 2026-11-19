@@ -646,6 +646,24 @@ def get_window_list(hwnd, lparam):
     return True
 
 
+def get_random_click_coords(doc=False):
+    max_x = RESOLUTION_WITHOUT_TASKBAR["x"]
+    max_y = RESOLUTION_WITHOUT_TASKBAR["y"]
+    if doc:
+        # Dividing by uniform(1, 16) puts 80% of draws in the top-left quarter, where
+        # Acrobat's Home/Tools tabs and Office's File/Ribbon live (plus narrow side
+        # panes like PowerPoint's slide rail and Acrobat's right Tools pane). Sample
+        # uniformly across the central/lower document body instead.
+        return (
+            random.randint(max_x // 4, (max_x * 3) // 4),
+            random.randint(max_y // 4, max_y),
+        )
+    return (
+        int(max_x / random.uniform(1, 16)),
+        int(max_y / random.uniform(1, 16)),
+    )
+
+
 def move_mouse_random():
     # To avoid mousing over desktop icons, use 1/4 of the total resolution as the starting pixel
     x = random.randint(RESOLUTION_WITHOUT_TASKBAR["x"] // 4, RESOLUTION_WITHOUT_TASKBAR["x"])
@@ -729,9 +747,12 @@ def click_around(hwnd, workable_range_x, workable_range_y):
 def get_document_window_click_around(hwnd, lparm):
     # (0,0) left upper corner
     global DOCUMENT_WINDOW_CLICK_AROUND
+    if DOCUMENT_WINDOW_CLICK_AROUND:
+        return True
     if USER32.IsWindowVisible(hwnd):
         text = create_unicode_buffer(1024)
         USER32.GetWindowTextW(hwnd, text, 1024)
+        matched = False
         if any(
             value in text.value
             for value in (
@@ -748,29 +769,34 @@ def get_document_window_click_around(hwnd, lparm):
                 (0, max(0, RESOLUTION["x"] - 460)),
                 (min(160, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
             )
-        elif any(value in text.value for value in ("Microsoft Word",)):
+            matched = True
+        elif any(value in text.value for value in ("Microsoft Word", "- Word")):
             # Word 1632 x 1092 Doc 0-300 y off limit
             click_around(
                 hwnd,
                 (0, RESOLUTION["x"]),
                 (min(300, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
             )
-        elif any(value in text.value for value in ("Microsoft Excel",)):
+            matched = True
+        elif any(value in text.value for value in ("Microsoft Excel", "- Excel")):
             # Excel 2624 x 1000 0-400 y off limit
             click_around(
                 hwnd,
                 (0, RESOLUTION["x"]),
                 (min(400, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
             )
-        elif any(value in text.value for value in ("Microsoft PowerPoint",)):
+            matched = True
+        elif any(value in text.value for value in ("Microsoft PowerPoint", "- PowerPoint")):
             # Powerpoint 1300 x 974 0-300 y off limit 0-930 off limit
             click_around(
                 hwnd,
                 (min(300, RESOLUTION["x"]), RESOLUTION["x"]),
                 (min(930, RESOLUTION_WITHOUT_TASKBAR["y"]), RESOLUTION_WITHOUT_TASKBAR["y"]),
             )
-        KERNEL32.Sleep(20000)
-        DOCUMENT_WINDOW_CLICK_AROUND = True
+            matched = True
+        if matched:
+            KERNEL32.Sleep(20000)
+            DOCUMENT_WINDOW_CLICK_AROUND = True
     return True
 
 
@@ -990,10 +1016,8 @@ class Human(Auxiliary, Thread):
                     ):  # 6-7 25% of the time do realistic human movements for things like https://thehackernews.com/2023/11/lummac2-malware-deploys-new.html
                         realistic_human_cursor_movement()
                     else:  # 4-5 25% of the time move the cursor somewhere random and click/move around
-                        move_mouse_realistically(
-                            int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
-                            int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
-                        )
+                        x, y = get_random_click_coords(doc)
+                        move_mouse_realistically(x, y)
                         # Avoid clicking on console windows and suspending execution
                         if not cursor_over_console_window():
                             click_mouse()

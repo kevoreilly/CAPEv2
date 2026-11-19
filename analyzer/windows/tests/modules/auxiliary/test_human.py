@@ -1,6 +1,7 @@
 """Tests for modules.auxiliary.human monotonic clock scheduling, MUI, Win32, and UIA."""
 
 import ctypes
+import random
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -220,6 +221,132 @@ class TestHumanWin32StyleAndDocumentFixes(unittest.TestCase):
             self.assertTrue(human_mod.get_document_window_click_around(0x301, 0))
 
         click_around.assert_called_once_with(0x301, (0, 1280), (300, 680))
+
+    def test_get_document_window_click_around_ignores_non_document_windows_and_matches_modern_office(self):
+        titles = {
+            0x310: "Program Manager",
+            0x311: "report.docx - Word",
+            0x312: "lure.pdf - Adobe Acrobat Reader DC",
+            0x313: "budget.xlsx - Excel",
+            0x314: "slides.pptx - PowerPoint",
+        }
+
+        def fake_get_window_text(hwnd, buf, _size):
+            buf.value = titles[hwnd]
+            return len(buf.value)
+
+        with (
+            patch.object(human_mod, "RESOLUTION", {"x": 1920, "y": 1080}),
+            patch.object(human_mod, "RESOLUTION_WITHOUT_TASKBAR", {"x": 1920, "y": 1040}),
+            patch.object(human_mod, "DOCUMENT_WINDOW_CLICK_AROUND", False),
+            patch.object(human_mod, "click_around") as click_around,
+            patch.object(human_mod, "USER32") as user32,
+            patch.object(human_mod, "KERNEL32") as kernel32,
+        ):
+            user32.IsWindowVisible.return_value = True
+            user32.GetWindowTextW.side_effect = fake_get_window_text
+
+            # Non-document window must not click, sleep, or set DOCUMENT_WINDOW_CLICK_AROUND.
+            self.assertTrue(human_mod.get_document_window_click_around(0x310, 0))
+            click_around.assert_not_called()
+            kernel32.Sleep.assert_not_called()
+            self.assertFalse(human_mod.DOCUMENT_WINDOW_CLICK_AROUND)
+
+            # Modern Word title ("- Word") triggers click_around, sleeps once, and marks done.
+            self.assertTrue(human_mod.get_document_window_click_around(0x311, 0))
+            click_around.assert_called_once_with(0x311, (0, 1920), (300, 1040))
+            kernel32.Sleep.assert_called_once_with(20000)
+            self.assertTrue(human_mod.DOCUMENT_WINDOW_CLICK_AROUND)
+
+            # Subsequent enumerated windows must not click or sleep again once done.
+            self.assertTrue(human_mod.get_document_window_click_around(0x312, 0))
+            click_around.assert_called_once()
+            kernel32.Sleep.assert_called_once()
+
+        # Verify Excel/PowerPoint modern titles and low-resolution clamping (no inverted range).
+        with (
+            patch.object(human_mod, "RESOLUTION", {"x": 800, "y": 600}),
+            patch.object(human_mod, "RESOLUTION_WITHOUT_TASKBAR", {"x": 800, "y": 560}),
+            patch.object(human_mod, "DOCUMENT_WINDOW_CLICK_AROUND", False),
+            patch.object(human_mod, "click_around") as click_around,
+            patch.object(human_mod, "USER32") as user32,
+            patch.object(human_mod, "KERNEL32"),
+        ):
+            user32.IsWindowVisible.return_value = True
+            user32.GetWindowTextW.side_effect = fake_get_window_text
+
+            self.assertTrue(human_mod.get_document_window_click_around(0x313, 0))
+            click_around.assert_called_once_with(0x313, (0, 800), (400, 560))
+
+            human_mod.DOCUMENT_WINDOW_CLICK_AROUND = False
+            click_around.reset_mock()
+            self.assertTrue(human_mod.get_document_window_click_around(0x314, 0))
+            click_around.assert_called_once_with(0x314, (300, 800), (560, 560))
+
+    def test_get_random_click_coords_keeps_documents_in_body_without_edge_pileup(self):
+        rng = random.Random(42)
+        with (
+            patch.object(human_mod, "RESOLUTION_WITHOUT_TASKBAR", {"x": 1920, "y": 1040}),
+            patch.object(human_mod, "random", rng),
+        ):
+            doc_pts = [human_mod.get_random_click_coords(doc=True) for _ in range(200)]
+            non_doc_pts = [human_mod.get_random_click_coords(doc=False) for _ in range(50)]
+
+        xs = [x for x, _ in doc_pts]
+        ys = [y for _, y in doc_pts]
+        self.assertTrue(all(480 <= x <= 1440 for x in xs))
+        self.assertTrue(all(260 <= y <= 1040 for y in ys))
+        # Uniform body sampling spreads clicks instead of piling ~80% onto y == H // 4.
+        self.assertGreater(len(set(ys)), 50)
+        self.assertLess(sum(y == 260 for y in ys), 10)
+        # Non-document samples retain the original top-left-skewed distribution.
+        self.assertTrue(any(y < 260 for _, y in non_doc_pts))
+        self.assertTrue(any(x < 480 for x, _ in non_doc_pts))
+
+    def test_human_run_random_click_branch_uses_document_body_coords(self):
+        cfg = MagicMock()
+        cfg.human_windows = True
+        cfg.file_type = "PDF document, version 1.7"
+        cfg.file_name = "invoice.pdf"
+
+        h = Human(options={"nouia": "1"}, config=cfg)
+        clicked_coords = []
+
+        def fake_move(x, y):
+            clicked_coords.append((x, y))
+
+        def fake_sleep(_ms):
+            h.do_run = False
+
+        # First randint(0, 10) -> randoff=0, second randint(0, 7) -> rng=4 (random click branch),
+        # then get_random_click_coords(doc=True) calls randint for x and y.
+        randint_calls = iter([0, 4, 900, 620])
+        randint_bounds = []
+
+        def fake_randint(a, b):
+            randint_bounds.append((a, b))
+            return next(randint_calls)
+
+        with (
+            patch.object(human_mod, "RESOLUTION_WITHOUT_TASKBAR", {"x": 1920, "y": 1040}),
+            patch.object(human_mod.random, "randint", side_effect=fake_randint),
+            patch.object(human_mod, "populate_clipboard"),
+            patch.object(human_mod, "refresh_mui_button_strings"),
+            patch.object(human_mod, "move_mouse_realistically", side_effect=fake_move),
+            patch.object(human_mod, "move_mouse_random"),
+            patch.object(human_mod, "cursor_over_console_window", return_value=False),
+            patch.object(human_mod, "click_mouse") as click_mouse,
+            patch.object(human_mod, "EnumWindowsProc", side_effect=lambda fn: fn),
+            patch.object(human_mod, "INITIAL_HWNDS", []),
+            patch.object(human_mod, "USER32"),
+            patch.object(human_mod, "KERNEL32") as kernel32,
+        ):
+            kernel32.Sleep.side_effect = fake_sleep
+            h.run()
+
+        self.assertEqual([(0, 10), (0, 7), (480, 1440), (260, 1040)], randint_bounds)
+        self.assertEqual([(900, 620)], clicked_coords)
+        click_mouse.assert_called_once()
 
     def test_send_message_timeout_reads_text_and_handles_hung_or_error_window(self):
         def fake_send_timeout(_hwnd, msg, _wparam, lparam, flags, timeout_ms, out_ptr):

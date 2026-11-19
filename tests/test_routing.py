@@ -8,7 +8,8 @@ from types import SimpleNamespace
 import pytest
 
 from lib.cuckoo.common.abstracts import Auxiliary
-from lib.cuckoo.common.routing import is_no_route, normalize_task_route, resolve_task_route
+from lib.cuckoo.common.dictionary import Dictionary
+from lib.cuckoo.common.routing import is_no_route, normalize_task_route, resolve_auxiliary_route, resolve_task_route
 from lib.cuckoo.core.plugins import RunAuxiliary
 
 
@@ -112,6 +113,7 @@ def test_polarproxy_and_sslproxy_use_resolved_route(monkeypatch, tmp_path):
         routing=SimpleNamespace(route="inetsim", rt_table="main"),
         inetsim=SimpleNamespace(server="192.168.1.2"),
         gw2=SimpleNamespace(rt_table="202"),
+        socks_ch=Dictionary({"name": "ch_socks", "proxyport": 5008}),
     )
     fake_routing.get = lambda section: getattr(fake_routing, section)
     monkeypatch.setattr(polarproxy_mod, "routing", fake_routing)
@@ -139,6 +141,17 @@ def test_polarproxy_and_sslproxy_use_resolved_route(monkeypatch, tmp_path):
     ruleset2 = json.loads((tmp_path / "storage" / "analyses" / "2" / "polarproxy" / "ruleset.json").read_text())
     assert ruleset2["default"]["action"] == {"type": "inspect"}
 
+    # PolarProxy: empty auxiliary route="" does not shadow explicit task.route="internet".
+    pp3 = polarproxy_mod.PolarProxyThread(
+        SimpleNamespace(id=5, route="internet"), SimpleNamespace(resultserver_port=2042), route=""
+    )
+    pp3.block_domains = None
+    pp3.bypass_domains = None
+    (tmp_path / "storage" / "analyses" / "5" / "polarproxy").mkdir(parents=True)
+    pp3.generate_ruleset()
+    ruleset3 = json.loads((tmp_path / "storage" / "analyses" / "5" / "polarproxy" / "ruleset.json").read_text())
+    assert ruleset3["default"]["action"] == {"type": "inspect"}
+
     # SSLProxy: concrete runtime route="gw2" resolves gw2's rt_table even when task.route is None.
     sp = sslproxy_mod.SSLProxyThread(SimpleNamespace(id=3, route=None), SimpleNamespace(resultserver_port=2042), route="gw2")
     assert sp.route == "gw2"
@@ -150,3 +163,42 @@ def test_polarproxy_and_sslproxy_use_resolved_route(monkeypatch, tmp_path):
     )
     assert sp_drop.route == "none"
     assert sp_drop.rt_table == ""
+
+    # SSLProxy: Dictionary section without rt_table yields "" rather than literal "None".
+    sp_socks = sslproxy_mod.SSLProxyThread(
+        SimpleNamespace(id=6, route=None), SimpleNamespace(resultserver_port=2042), route="socks_ch"
+    )
+    assert sp_socks.route == "socks_ch"
+    assert sp_socks.rt_table == ""
+
+    # SSLProxy: empty auxiliary route="" does not shadow task.route="gw2".
+    sp_empty_aux = sslproxy_mod.SSLProxyThread(
+        SimpleNamespace(id=7, route="gw2"), SimpleNamespace(resultserver_port=2042), route=""
+    )
+    assert sp_empty_aux.route == "gw2"
+    assert sp_empty_aux.rt_table == "202"
+
+
+@pytest.mark.parametrize(
+    "aux_route, task_route, conf_route, expected",
+    [
+        ("gw2", None, "none", "gw2"),
+        ("none", "vpn0", "vpn0", "none"),
+        ("", "vpn0", "none", "vpn0"),
+        (False, "vpn0", "none", "vpn0"),
+        (None, None, "inetsim", "inetsim"),
+        (None, "none", "inetsim", "none"),
+    ],
+)
+def test_resolve_auxiliary_route(aux_route, task_route, conf_route, expected):
+    fake_conf = SimpleNamespace(routing=SimpleNamespace(route=conf_route))
+    task = SimpleNamespace(route=task_route)
+    assert resolve_auxiliary_route(aux_route, task, fake_conf) == expected
+
+
+def test_strip_untrusted_attributes_drops_effective_route(monkeypatch):
+    from lib.tenancy import hooks as tenancy_hooks
+
+    monkeypatch.setattr(tenancy_hooks, "_trusted_submitter", lambda: False)
+    cleaned = tenancy_hooks._strip_untrusted_task_acl({"effective_route": "internet", "note": "keep"})
+    assert cleaned == {"note": "keep"}

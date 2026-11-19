@@ -575,6 +575,7 @@ def test_sniffer_start_uses_resolved_tap_without_mutating_machine_interface(monk
         (False, "vpn0", None, None, False),
         (False, "vpn0", "none", None, True),
         (False, "vpn0", "vpn0", "none", True),
+        (False, "none", "vpn0", "", False),
         (False, "none", None, "gw2", False),
         (True, "none", None, None, False),
     ],
@@ -589,7 +590,7 @@ def test_sniffer_start_and_stop_route_gating(
     )()
     monkeypatch.setattr(sniffer_mod, "router_cfg", fake_router_cfg)
     monkeypatch.setattr(sniffer_mod, "path_exists", lambda _p: True)
-    monkeypatch.setattr(sniffer_mod, "sudo_allows_tcpdump", lambda _s, _t: True)
+    monkeypatch.setattr(sniffer_mod, "sudo_allows_tcpdump", lambda _s, _t: False)
     monkeypatch.setattr(sniffer_mod, "ResultServer", lambda: None)
 
     machine = type(
@@ -617,7 +618,14 @@ def test_sniffer_start_and_stop_route_gating(
     if expect_skip:
         assert popen_calls == []
         assert s.proc is None
+        sentinel = FakeProc(None)
+        s.proc = sentinel
+        s.stop()
+        assert not sentinel.terminated
     else:
         assert len(popen_calls) == 1
         assert s.proc is not None
+        proc = s.proc
+        s.stop()
+        assert proc.terminated
 

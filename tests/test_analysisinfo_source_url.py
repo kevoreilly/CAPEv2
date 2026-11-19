@@ -77,3 +77,44 @@ def test_analysisinfo_prefers_effective_route_attribute(monkeypatch):
     inst3.task["route"] = "internet"
     assert inst3.run()["route"] == "internet"
 
+
+def test_analysisinfo_preserves_standalone_parent_sample_lookup_with_effective_route(monkeypatch):
+    inst = _make_info(monkeypatch, "")
+    inst.task["attributes"] = {"effective_route": "internet"}
+    parent_dict = {"id": 11, "sha256": "cafebabe" * 8}
+
+    class _Parent:
+        def to_dict(self):
+            return parent_dict
+
+    called = False
+
+    def _lookup(task_id=None):
+        nonlocal called
+        called = True
+        return _Parent()
+
+    monkeypatch.setattr("modules.processing.analysisinfo.db.get_parent_sample_from_task", _lookup)
+    info = inst.run()
+    assert called is True
+    assert info["parent_sample"] == parent_dict
+    assert info["route"] == "internet"
+
+
+def test_analysisinfo_skips_parent_sample_db_lookup_on_distributed_worker(monkeypatch):
+    inst = _make_info(monkeypatch, "")
+    inst.task["attributes"] = {"main_task_id": 1234, "effective_route": "vpn_us"}
+
+    called = False
+
+    def _unexpected_lookup(*a, **k):
+        nonlocal called
+        called = True
+        return None
+
+    monkeypatch.setattr("modules.processing.analysisinfo.db.get_parent_sample_from_task", _unexpected_lookup)
+    info = inst.run()
+    assert called is False
+    assert info["parent_sample"] is False
+    assert info["route"] == "vpn_us"
+

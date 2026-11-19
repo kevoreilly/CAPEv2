@@ -2104,12 +2104,14 @@ class TestDatabaseEngine:
         assert db.view_task(tid_vpn).route == "vpn_uk"
 
     def test_set_task_attribute_persists_effective_route(self, db: _Database, temp_filename: str):
-        tid = db.add_path(temp_filename, route=None)
+        tid = db.add_path(temp_filename, route=None, attributes={"main_task_id": 42, "task_acl": {"owner": 7}})
         assert db.set_task_attribute(tid, "effective_route", "vpn_eu") is True
         assert db.set_task_attribute(999999, "effective_route", "vpn_eu") is False
 
         loaded = db.view_task(tid)
         assert loaded.route is None
         assert loaded.get_attribute("effective_route") == "vpn_eu"
+        assert loaded.get_attribute("main_task_id") == 42
+        assert loaded.get_attribute("task_acl") == {"owner": 7}
 
 

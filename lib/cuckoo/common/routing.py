@@ -39,6 +39,18 @@ def resolve_task_route(task_route: Any, routing_conf: Any = None) -> str:
     return route or "none"
 
 
+def resolve_auxiliary_route(aux_route: Any, task: Any = None, routing_conf: Any = None) -> str:
+    """Return the effective route for an auxiliary module.
+
+    Prefers a non-empty runtime route propagated from ``AnalysisManager``,
+    falling back to ``task.route`` and then ``routing.conf``.
+    """
+    raw_route = normalize_task_route(aux_route)
+    if raw_route is None:
+        raw_route = getattr(task, "route", None)
+    return resolve_task_route(raw_route, routing_conf)
+
+
 def is_no_route(route: Any) -> bool:
     """Return True when ``route`` represents no outbound network routing."""
     normalized = normalize_task_route(route)

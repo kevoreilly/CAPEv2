@@ -11,7 +11,7 @@ from threading import Thread
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.routing import is_no_route, resolve_task_route
+from lib.cuckoo.common.routing import is_no_route, resolve_auxiliary_route
 from lib.cuckoo.core.rooter import rooter
 
 log = logging.getLogger(__name__)
@@ -79,13 +79,13 @@ class SSLProxyThread(Thread):
 
         # Determine routing table for upstream VPN routing
         routing_conf = Config("routing")
-        raw_route = route if route is not None else getattr(self.task, "route", None)
-        self.route = resolve_task_route(raw_route, routing_conf)
+        self.route = resolve_auxiliary_route(route, self.task, routing_conf)
         self.rt_table = ""
         if not is_no_route(self.route) and self.route.lower() not in ("inetsim", "tor"):
             if hasattr(routing_conf, self.route):
                 entry = routing_conf.get(self.route)
-                self.rt_table = str(getattr(entry, "rt_table", ""))
+                rt_table = entry.get("rt_table") if isinstance(entry, dict) else getattr(entry, "rt_table", None)
+                self.rt_table = str(rt_table) if rt_table else ""
             elif self.route.startswith("tun"):
                 self.rt_table = self.route
             elif self.route.lower() == "internet":

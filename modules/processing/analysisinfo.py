@@ -109,16 +109,16 @@ class AnalysisInfo(Processing):
             # Save.
             self.task["machine"] = machine
         parsed_options = get_options(self.task["options"])
+        attrs = self.task.get("attributes") if isinstance(self.task.get("attributes"), dict) else {}
         parent_sample_details = False
-        if attributes := self.task.get("attributes"):
-            parent_sample_details = attributes.get("parent_sample", False)
-        else:
+        if "parent_sample" in attrs:
+            parent_sample_details = attrs["parent_sample"]
+        elif "main_task_id" not in attrs:
             parent_sample_details = db.get_parent_sample_from_task(task_id=self.task["id"])
             if parent_sample_details:
                 parent_sample_details = parent_sample_details.to_dict()
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
-        attrs = self.task.get("attributes") if isinstance(self.task.get("attributes"), dict) else {}
         reported_route = normalize_task_route(attrs.get("effective_route")) or normalize_task_route(self.task.get("route"))
 
         return {

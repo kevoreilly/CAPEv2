@@ -1038,6 +1038,7 @@ class Process:
                 "loader_64",
                 "route",
                 "nohuman",
+                "nouia",
                 "main_task_id",
                 "function",
                 "file",

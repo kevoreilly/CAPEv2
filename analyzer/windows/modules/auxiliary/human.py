@@ -27,6 +27,7 @@ from lib.common.defines import (
     BS_AUTOCHECKBOX,
     BS_AUTORADIOBUTTON,
     BS_CHECKBOX,
+    BS_GROUPBOX,
     BS_RADIOBUTTON,
     BS_TYPEMASK,
     BST_CHECKED,
@@ -92,6 +93,8 @@ USER32.LoadStringW.argtypes = [wintypes.HINSTANCE, wintypes.UINT, wintypes.LPWST
 USER32.LoadStringW.restype = c_int
 USER32.GetWindowLongW.argtypes = [wintypes.HWND, c_int]
 USER32.GetWindowLongW.restype = wintypes.LONG
+USER32.IsIconic.argtypes = [wintypes.HWND]
+USER32.IsIconic.restype = wintypes.BOOL
 USER32.SendMessageTimeoutW.argtypes = [
     wintypes.HWND,
     wintypes.UINT,
@@ -104,6 +107,7 @@ USER32.SendMessageTimeoutW.argtypes = [
 USER32.SendMessageTimeoutW.restype = c_ssize_t
 
 SEND_MESSAGE_TIMEOUT_MS = 500
+_MAX_SIGNED_SIZE_T = (1 << (sizeof(c_size_t) * 8 - 1)) - 1
 
 # Standard user32.dll MUI string resource IDs (799 + IDOK..IDCONTINUE).
 MUI_CLICK_RESOURCE_IDS = (
@@ -118,7 +122,9 @@ MUI_DONT_CLICK_RESOURCE_IDS = (
     802,  # Abort
     808,  # Help
 )
-MUI_ACCESS_KEY_RE = re.compile(r"\s*\(&[A-Za-z0-9]\)")
+# Strip Western/CJK accelerator suffixes both with '&' (Win32 WM_GETTEXT / LoadStringW)
+# and trailing '(X)' / '（X）' without '&' (Windows UIA HWND proxy strips '&' from Name).
+MUI_ACCESS_KEY_RE = re.compile(r"\s*[\(\uff08]&[A-Za-z0-9][\)\uff09]|\s*[\(\uff08][A-Za-z0-9][\)\uff09](?=\s*$)")
 
 MUI_CLICK_BUTTONS = ()
 MUI_DONT_CLICK_BUTTONS = ()
@@ -129,29 +135,43 @@ WIN32_RADIO_TYPES = (BS_RADIOBUTTON, BS_AUTORADIOBUTTON)
 
 UIA_SKIP_WINDOW_CLASSES = frozenset(
     {
+        "cabinetwclass",
+        "cascadia_hosting_window_class",
+        "chrome_widgetwin_1",
         "consolewindowclass",
         "dv2controlhost",
+        "mozillawindowclass",
         "notifyiconoverflowwindow",
         "progman",
+        "shell_inputswitchtoplevelwindow",
         "shell_secondarytraywnd",
         "shell_traywnd",
         "tasklistthumbnailwnd",
+        "toplevelwindowforoverflowxamlisland",
+        "windows.ui.core.corewindow",
         "workerw",
+        "xamlexplorerhostislandwindow",
     }
 )
-OFFICE_MAIN_FRAME_CLASSES = frozenset(
+APP_MAIN_FRAME_CLASSES = frozenset(
     {
+        "acrobatsdiwindow",
         "opusapp",
-        "xlmain",
         "pptframeclass",
+        "rctrl_renwnd32",
+        "xlmain",
     }
 )
-# Exclude permanent Ribbon / chrome actions when inspecting an Office main document frame via UIA,
-# while still allowing Protected View / Security Warning bar buttons ("Enable Editing", "Enable Content", etc.).
-OFFICE_FRAME_EXCLUDED_UIA_BUTTONS = frozenset(
+OFFICE_MAIN_FRAME_CLASSES = APP_MAIN_FRAME_CLASSES
+# Exclude permanent Ribbon / toolbar / chrome actions when inspecting an Office or
+# document application main frame via UIA, while still allowing Protected View /
+# Security Warning bar buttons ("Enable Editing", "Enable Content", etc.).
+APP_FRAME_EXCLUDED_UIA_BUTTONS = frozenset(
     {
         "save",
         "open",
+        "next",
+        "accept",
         "end",
         "later",
         "finish",
@@ -159,11 +179,20 @@ OFFICE_FRAME_EXCLUDED_UIA_BUTTONS = frozenset(
         "connect",
         "speichern",
         "oeffnen",
+        "öffnen",
+        "weiter",
+        "akzeptieren",
         "ende",
         "spaeter",
+        "später",
         "fertig",
+        "starten",
+        "beenden",
+        "senden",
+        "schliessen",
     }
 )
+OFFICE_FRAME_EXCLUDED_UIA_BUTTONS = APP_FRAME_EXCLUDED_UIA_BUTTONS
 
 CLICK_BUTTONS = (
     # english
@@ -386,9 +415,17 @@ def get_win32_button_type(hwnd):
     return style & BS_TYPEMASK
 
 
+def is_window_minimized(hwnd):
+    try:
+        iconic = USER32.IsIconic(hwnd)
+    except Exception:
+        return False
+    return bool(isinstance(iconic, int) and iconic)
+
+
 def get_window_text(hwnd):
     length = _send_message_timeout(hwnd, WM_GETTEXTLENGTH, 0, 0)
-    if not length or length < 0:
+    if not length or length < 0 or length > _MAX_SIGNED_SIZE_T:
         return ""
     length = min(length, 4096)
     text = create_unicode_buffer(length + 1)
@@ -458,8 +495,12 @@ def check_button(hwnd):
     return True
 
 
-def is_button(classname):
-    return bool("button" in classname or ("button" not in classname and classname in OFFICE_WINDOW_CLASSES))
+def is_button(classname, hwnd=None):
+    if "button" in classname:
+        if hwnd is not None and get_win32_button_type(hwnd) == BS_GROUPBOX:
+            return False
+        return True
+    return classname in OFFICE_WINDOW_CLASSES
 
 
 def is_checkbox(classname, hwnd=None):
@@ -489,7 +530,7 @@ def interact_with_window(hwnd, lparam):
 
     if is_checkbox(classname, hwnd) or is_radio_button(classname, hwnd):
         return check_button(hwnd)
-    elif is_button(classname):
+    elif is_button(classname, hwnd):
         return click_button(hwnd, classname)
     # continue searching through windows
     return True
@@ -552,23 +593,33 @@ def _click_uia_point(hwnd, x, y):
 def interact_with_window_uia(hwnd, uia_client):
     if not uia_client or not uia_client.available:
         return False
-    if hwnd in INITIAL_HWNDS or not USER32.IsWindowVisible(hwnd):
+    if hwnd in INITIAL_HWNDS or not USER32.IsWindowVisible(hwnd) or is_window_minimized(hwnd):
         return False
 
     top_classname = get_window_classname(hwnd)
     if top_classname in UIA_SKIP_WINDOW_CLASSES:
         return False
 
-    excluded = OFFICE_FRAME_EXCLUDED_UIA_BUTTONS if top_classname in OFFICE_MAIN_FRAME_CLASSES else None
+    is_app_frame = top_classname in APP_MAIN_FRAME_CLASSES
+    excluded = APP_FRAME_EXCLUDED_UIA_BUTTONS if is_app_frame else None
     return uia_client.interact_with_hwnd(
         hwnd,
         match_fn=lambda text: should_click_button(text, excluded=excluded),
         click_point_fn=lambda x, y: _click_uia_point(hwnd, x, y),
+        include_hyperlinks=not is_app_frame,
     )
 
 
 # Callback procedure invoked for every enumerated window.
 def handle_window_interaction(hwnd, lparam):
+    uia_ready = UIA_CLIENT is not None and UIA_CLIENT.available
+    top_classname = get_window_classname(hwnd) if uia_ready and USER32.IsWindowVisible(hwnd) else ""
+
+    # On Office NetUI/SDM dialogs, prefer explicit UIA button invocation over a blind Enter keypress.
+    if uia_ready and top_classname in OFFICE_WINDOW_CLASSES:
+        if interact_with_window_uia(hwnd, UIA_CLIENT):
+            return True
+
     # we also want to inspect the "parent" windows, not just the children
     acted = not interact_with_window(hwnd, lparam)
     if not acted:
@@ -583,7 +634,7 @@ def handle_window_interaction(hwnd, lparam):
         USER32.EnumChildWindows(hwnd, EnumChildProc(_child_callback), 0)
         acted = child_acted[0]
 
-    if not acted and UIA_CLIENT is not None and UIA_CLIENT.available:
+    if not acted and uia_ready and top_classname not in OFFICE_WINDOW_CLASSES:
         interact_with_window_uia(hwnd, UIA_CLIENT)
     return True
 

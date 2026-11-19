@@ -22,6 +22,7 @@ This chapter explains how to use CAPE.
     utilities
     performance
     monitor
+    human
     interactive_desktop
     patterns_replacement
     mcp

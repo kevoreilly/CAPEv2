@@ -990,10 +990,13 @@ class Human(Auxiliary, Thread):
                     ):  # 6-7 25% of the time do realistic human movements for things like https://thehackernews.com/2023/11/lummac2-malware-deploys-new.html
                         realistic_human_cursor_movement()
                     else:  # 4-5 25% of the time move the cursor somewhere random and click/move around
-                        move_mouse_realistically(
-                            int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
-                            int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
-                        )
+                        y = int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16))
+                        if doc:
+                            # This draw favours the top-left corner, where a document window keeps its tabs,
+                            # menus and ribbon: a click there opens Acrobat's Tools view or Office's File
+                            # backstage, and the document is no longer on screen for the rest of the analysis.
+                            y = max(y, RESOLUTION_WITHOUT_TASKBAR["y"] // 4)
+                        move_mouse_realistically(int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)), y)
                         # Avoid clicking on console windows and suspending execution
                         if not cursor_over_console_window():
                             click_mouse()

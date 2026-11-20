@@ -175,39 +175,44 @@ def test_web_systemd_units_use_granian_and_drop_daphne_uwsgi():
 
 def test_rewrite_poetry_crontab_stream_handles_paths_and_is_idempotent():
     sample = (
-        "# comment with /etc/poetry/bin/poetry run python keep.py\n"
-        "5 0 * * * cd /opt/CAPEv2 && sudo -u cape /etc/poetry/bin/poetry run python utils/community.py -waf -cr && sudo -u cape /etc/poetry/bin/poetry run pip install -U flare-capa\n"
-        "30 1 * * 0 sudo -u cape /home/cape/.local/bin/poetry --directory /opt/CAPEv2 run python ./utils/cleaners.py\n"
-        "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u cape /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && sudo -u cape /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install -U flare-capa\n"
-        "0 2 * * * cd /opt/CAPEv2 && poetry run pip3 install -U flare-capa\n"
-        "0 3 * * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python already_migrated.py\n"
+        "# comment with /etc/poetry/bin/poetry run python utils/community.py -waf -cr\n"
+        "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u cape /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && sudo -u cape /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null\n"
+        "30 1 * * 0 cd /opt/CAPEv2 && sudo -u cape /home/cape/.local/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo\n"
+        "@daily sudo -u cape /etc/poetry/bin/poetry --directory /opt/CAPEv2 run python ./utils/cleaners.py --delete-unused-file-data-in-mongo\n"
+        "0 2 * * * cd /opt/CAPEv2 && sudo -u cape /etc/poetry/bin/poetry run python custom_script.py\n"
+        "0 3 * * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python utils/community.py -waf -cr\n"
         "0 4 * * * echo mypoetry run stays intact\n"
-        "0 5 * * * sudo -u cape /etc/poetry/bin/poetry run python script.py --mode run --flag\n"
-        "0 6 * * * cd /opt/CAPEv2 && sudo -u cape /etc/poetry/bin/poetry install\n"
     )
     script = (
         "set -euo pipefail\n"
+        "CAPE_ROOT=/opt/CAPEv2\n"
+        "USER=cape\n"
         "PYTHON_MGR=/usr/local/bin/uv\n"
+        "PYTHON_MGR_CMD='run --no-sync'\n"
+        "PYTHON_MGR_PIP=pip\n"
         f"eval \"$(awk '/^function rewrite_poetry_crontab_stream\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
         "rewrite_poetry_crontab_stream\n"
     )
     res = subprocess.run(["bash", "-c", script], input=sample, capture_output=True, text=True, check=True)
     lines = res.stdout.splitlines()
-    assert lines[0] == "# comment with /etc/poetry/bin/poetry run python keep.py"
+    assert lines[0] == "# comment with /etc/poetry/bin/poetry run python utils/community.py -waf -cr"
     assert lines[1] == (
-        "5 0 * * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python utils/community.py -waf -cr"
-        " && sudo -Hu cape /usr/local/bin/uv pip install -U flare-capa"
-    )
-    assert lines[2] == "30 1 * * 0 sudo -Hu cape /usr/local/bin/uv run --no-sync --project /opt/CAPEv2 python ./utils/cleaners.py"
-    assert lines[3] == (
-        "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -Hu cape /usr/local/bin/uv run --no-sync --project /opt/CAPEv2/ python3 community.py -waf -cr"
+        "5 0 */1 * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python utils/community.py -waf -cr"
         " && sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python -U flare-capa"
+        " && systemctl restart cape-processor 2>/dev/null"
     )
-    assert lines[4] == "0 2 * * * cd /opt/CAPEv2 && /usr/local/bin/uv pip install -U flare-capa"
-    assert lines[5] == "0 3 * * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python already_migrated.py"
+    assert lines[2] == (
+        "30 1 * * 0 cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python ./utils/cleaners.py"
+        " --delete-unused-file-data-in-mongo"
+    )
+    assert lines[3] == (
+        "@daily cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python ./utils/cleaners.py"
+        " --delete-unused-file-data-in-mongo"
+    )
+    # Custom user cron jobs and already-migrated lines must stay untouched
+    assert lines[4] == "0 2 * * * cd /opt/CAPEv2 && sudo -u cape /etc/poetry/bin/poetry run python custom_script.py"
+    assert lines[5] == "0 3 * * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv run --no-sync python utils/community.py -waf -cr"
     assert lines[6] == "0 4 * * * echo mypoetry run stays intact"
-    assert lines[7] == "0 5 * * * sudo -Hu cape /usr/local/bin/uv run --no-sync python script.py --mode run --flag"
-    assert lines[8] == "0 6 * * * cd /opt/CAPEv2 && sudo -Hu cape /usr/local/bin/uv sync --locked --no-install-project --inexact"
 
     # Re-running on already-migrated output must be a no-op
     res2 = subprocess.run(["bash", "-c", script], input=res.stdout, capture_output=True, text=True, check=True)

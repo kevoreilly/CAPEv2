@@ -1815,20 +1815,32 @@ function sync_installed_systemd_units() {
 }
 
 function rewrite_poetry_crontab_stream() {
+    local cape_root="${CAPE_ROOT:-/opt/CAPEv2}"
+    local cape_user="${USER:-cape}"
     local uv_bin="${PYTHON_MGR:-/usr/local/bin/uv}"
-    sed -E "/^[[:space:]]*#/! {
-        /(^|[[:space:]])(\/[^[:space:]]*\/)?poetry([[:space:]]|$)/ {
-            s@sudo[[:space:]]+-u([[:space:]])@sudo -Hu\1@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]+)--directory[[:space:]]+([^[:space:]|;&]+)[[:space:]]+run[[:space:]]+pip3?[[:space:]]+install([[:space:]]|$)@\1${uv_bin}\3pip install --python \4/.venv/bin/python\5@g
-            s@--python ([^[:space:]]+)//\.venv/bin/python@--python \1/.venv/bin/python@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]+)--directory[[:space:]]+([^[:space:]|;&]+)[[:space:]]+run[[:space:]]+pip3?([[:space:]]|$)@\1${uv_bin}\3--directory \4 pip\5@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]+)--directory[[:space:]]+([^[:space:]|;&]+)[[:space:]]+run([[:space:]]|$)@\1${uv_bin}\3run --no-sync --project \4\5@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]+)run[[:space:]]+pip3?([[:space:]]|$)@\1${uv_bin}\3pip\4@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]+)run([[:space:]]|$)@\1${uv_bin}\3run --no-sync\4@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]+)install([[:space:]]|$)@\1${uv_bin}\3sync --locked --no-install-project --inexact\4@g
-            s@(^|[[:space:]])(/[^[:space:]]*/)?poetry([[:space:]]|$)@\1${uv_bin}\3@g
-        }
-    }"
+    local uv_cmd="${PYTHON_MGR_CMD:-run --no-sync}"
+    local uv_pip="${PYTHON_MGR_PIP:-pip}"
+    local cleaners_cmd="cd ${cape_root} && sudo -Hu ${cape_user} ${uv_bin} ${uv_cmd} python ./utils/cleaners.py --delete-unused-file-data-in-mongo"
+    local community_cmd="cd ${cape_root} && sudo -Hu ${cape_user} ${uv_bin} ${uv_cmd} python utils/community.py -waf -cr && sudo -Hu ${cape_user} ${uv_bin} ${uv_pip} install --python ${cape_root}/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"
+    local cron_re='^([[:space:]]*(@[[:alpha:]]+[[:space:]]+|[^@[:space:]][^[:space:]]*[[:space:]]+([^[:space:]]+[[:space:]]+){4}))'
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ "$line" =~ ^[[:space:]]*# ]] || [[ "$line" != *poetry* ]] || ! [[ "$line" =~ $cron_re ]]; then
+            printf '%s\n' "$line"
+            continue
+        fi
+        case "$line" in
+            *cleaners.py*--delete-unused-file-data-in-mongo*)
+                printf '%s%s\n' "${BASH_REMATCH[1]}" "$cleaners_cmd"
+                ;;
+            *community.py*-waf*-cr*)
+                printf '%s%s\n' "${BASH_REMATCH[1]}" "$community_cmd"
+                ;;
+            *)
+                printf '%s\n' "$line"
+                ;;
+        esac
+    done
 }
 
 function update() {
@@ -1923,12 +1935,16 @@ function migrate_to_uv() {
     sync_installed_systemd_units
 
     if crontab -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
-        echo "[+] Updating Poetry commands in root crontab to uv"
+        echo "[+] Updating CAPE Poetry entries in root crontab to uv"
         crontab -l 2>/dev/null | rewrite_poetry_crontab_stream | crontab -
+        if crontab -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
+            echo "[!] Remaining custom Poetry entries in root crontab (migrate manually):"
+            crontab -l 2>/dev/null | grep -E '^[^#]*poetry'
+        fi
     fi
     if crontab -u "${USER}" -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
-        echo "[+] Updating Poetry commands in ${USER} crontab to uv"
-        crontab -u "${USER}" -l 2>/dev/null | rewrite_poetry_crontab_stream | crontab -u "${USER}" -
+        echo "[!] Custom Poetry entries found in ${USER} crontab (migrate manually):"
+        crontab -u "${USER}" -l 2>/dev/null | grep -E '^[^#]*poetry'
     fi
 
     if [ -n "$enabled_services" ]; then

@@ -171,3 +171,140 @@ def test_web_systemd_units_use_granian_and_drop_daphne_uwsgi():
     assert "conf/*.env" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
     cape2_src = (REPO_ROOT / "installer" / "cape2.sh").read_text(encoding="utf-8")
     assert r"granian.*web\.wsgi|cape-web|" in cape2_src
+
+
+def test_rewrite_poetry_crontab_stream_handles_paths_and_is_idempotent():
+    sample = (
+        "# comment with /etc/poetry/bin/poetry run python keep.py\n"
+        "5 0 * * * cd /opt/CAPEv2 && sudo -u cape /etc/poetry/bin/poetry run python utils/community.py -waf -cr && sudo -u cape /etc/poetry/bin/poetry run pip install -U flare-capa\n"
+        "30 1 * * 0 sudo -u cape /home/cape/.local/bin/poetry --directory /opt/CAPEv2 run python ./utils/cleaners.py\n"
+        "0 2 * * * cd /opt/CAPEv2 && poetry run pip3 install -U flare-capa\n"
+        "0 3 * * * cd /opt/CAPEv2 && sudo -u cape /usr/local/bin/uv run --no-sync python already_migrated.py\n"
+        "0 4 * * * echo mypoetry run stays intact\n"
+    )
+    script = (
+        "set -euo pipefail\n"
+        "PYTHON_MGR=/usr/local/bin/uv\n"
+        f"eval \"$(awk '/^function rewrite_poetry_crontab_stream\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "rewrite_poetry_crontab_stream\n"
+    )
+    res = subprocess.run(["bash", "-c", script], input=sample, capture_output=True, text=True, check=True)
+    lines = res.stdout.splitlines()
+    assert lines[0] == "# comment with /etc/poetry/bin/poetry run python keep.py"
+    assert lines[1] == (
+        "5 0 * * * cd /opt/CAPEv2 && sudo -u cape /usr/local/bin/uv run --no-sync python utils/community.py -waf -cr"
+        " && sudo -u cape /usr/local/bin/uv pip install -U flare-capa"
+    )
+    assert lines[2] == "30 1 * * 0 sudo -u cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python ./utils/cleaners.py"
+    assert lines[3] == "0 2 * * * cd /opt/CAPEv2 && /usr/local/bin/uv pip install -U flare-capa"
+    assert lines[4] == "0 3 * * * cd /opt/CAPEv2 && sudo -u cape /usr/local/bin/uv run --no-sync python already_migrated.py"
+    assert lines[5] == "0 4 * * * echo mypoetry run stays intact"
+
+    # Re-running on already-migrated output must be a no-op
+    res2 = subprocess.run(["bash", "-c", script], input=res.stdout, capture_output=True, text=True, check=True)
+    assert res2.stdout == res.stdout
+
+
+def test_install_libvirt_has_no_broken_comment_and_uses_pkg_config(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    cape_root.mkdir()
+    pc_dir = tmp_path / "pkgconfig"
+    pc_dir.mkdir()
+    (pc_dir / "libvirt.pc").write_text("Name: libvirt\nVersion: 11.9.0\n", encoding="utf-8")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(fake_bin / "pkg-config", f'#!/bin/bash\necho "{pc_dir}"\n')
+    _write_exe(fake_bin / "uv", f'#!/bin/bash\necho "PKG_CONFIG_PATH=$PKG_CONFIG_PATH ARGS=$*" >> "{uv_log}"\n')
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "LIB_VERSION=11.9.0\n"
+        "UV_PYTHON_DIR=/usr/local/share/uv/python\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_PIP=pip\n"
+        f"PKG_CONFIG_PATH={str(pc_dir)!r}\n"
+        f"eval \"$(awk '/^function install_libvirt\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "install_libvirt\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    res = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+    assert "No such file or directory" not in res.stderr
+    logged = uv_log.read_text(encoding="utf-8")
+    assert f"PKG_CONFIG_PATH={pc_dir}" in logged
+    assert f"pip install --python {cape_root}/.venv/bin/python libvirt-python==11.9.0" in logged
+
+
+def test_migrate_to_uv_installs_yara_x_and_seeds_env_files(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    (cape_root / "conf" / "default").mkdir(parents=True)
+    (cape_root / "systemd").mkdir(parents=True)
+    (cape_root / "pyproject.toml").write_text("[project]\nname = 'CAPEv2'\n", encoding="utf-8")
+    (cape_root / "conf" / "default" / "cape-web.env.default").write_text("#GRANIAN_PORT=8000\n", encoding="utf-8")
+    (cape_root / "systemd" / "cape-web.service").write_text(
+        (REPO_ROOT / "systemd" / "cape-web.service").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    dest_systemd = tmp_path / "systemd_dest"
+    dest_systemd.mkdir()
+    (dest_systemd / "cape-web.service").write_text(
+        "[Service]\nExecStart=/etc/poetry/bin/poetry run python manage.py runserver_plus\n",
+        encoding="utf-8",
+    )
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    systemctl_log = tmp_path / "systemctl.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(fake_bin / "chown", "#!/bin/bash\nexit 0\n")
+    _write_exe(fake_bin / "crontab", "#!/bin/bash\nexit 1\n")
+    _write_exe(
+        fake_bin / "systemctl",
+        f'#!/bin/bash\necho "$@" >> "{systemctl_log}"\n'
+        'if [ "$1" = "list-unit-files" ]; then echo "cape-web.service enabled"; fi\n',
+    )
+    _write_exe(fake_bin / "uv", f'#!/bin/bash\necho "$*" >> "{uv_log}"\n')
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "DISABLE_LIBVIRT=1\n"
+        "UV_PYTHON_VERSION=3.14\n"
+        f"UV_PYTHON_DIR={str(tmp_path / 'uv_py')!r}\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_CMD='run --no-sync'\n"
+        "PYTHON_MGR_PIP=pip\n"
+        "PYTHON_MGR_INSTALL_PYPROJECT='sync --locked --no-install-project --inexact --python 3.14'\n"
+        f"SYSTEMD_UNIT_DIR={str(dest_systemd)!r}\n"
+        "install_uv_and_python() { mkdir -p \"$UV_PYTHON_DIR\"; }\n"
+        f"eval \"$(awk '/^function sync_installed_systemd_units\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        f"eval \"$(awk '/^function rewrite_poetry_crontab_stream\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        f"eval \"$(awk '/^function migrate_to_uv\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "migrate_to_uv\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+
+    uv_calls = uv_log.read_text(encoding="utf-8")
+    assert f"venv --python 3.14 --allow-existing {cape_root}/.venv" in uv_calls
+    assert "sync --locked --no-install-project --inexact --python 3.14" in uv_calls
+    assert f"pip install --python {cape_root}/.venv/bin/python yara-x" in uv_calls
+    assert "yara-python" not in uv_calls
+    assert (cape_root / "conf" / "cape-web.env").read_text(encoding="utf-8") == "#GRANIAN_PORT=8000\n"
+    assert "granian --interface wsgi" in (dest_systemd / "cape-web.service").read_text(encoding="utf-8")
+    assert "start cape-web.service" in systemctl_log.read_text(encoding="utf-8")

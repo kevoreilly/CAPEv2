@@ -185,7 +185,7 @@ your Ansible/Puppet templates):
    * - ``cape-processor.service``
      - ``/usr/local/bin/uv run --no-sync python utils/process.py``
    * - ``cape-web.service``
-     - ``/usr/local/bin/uv run --no-sync python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown`` (or Gunicorn below)
+     - ``/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static web.wsgi:application`` (tune via ``conf/cape-web.env``)
    * - ``cape-rooter.service``
      - Remove ``ExecStartPre=...poetry config cache-dir...``; set ``ExecStart=/usr/local/bin/uv run --no-sync python rooter.py -g cape``
    * - ``cape-fstab.service``
@@ -195,7 +195,7 @@ your Ansible/Puppet templates):
    * - ``cape-sigma-update.service``
      - ``/usr/local/bin/uv run --no-sync --project /opt/CAPEv2 python zircolite.py --update-rules``
    * - ``guac-web.service``
-     - ``/usr/local/bin/uv run --no-sync gunicorn --bind 127.0.0.1:8008 web.asgi -t 180 -w 4 -k uvicorn.workers.UvicornWorker --capture-output --enable-stdio-inheritance``
+     - ``/usr/local/bin/uv run --no-sync granian --interface asgi --ws --respawn-failed-workers --access-log --process-name guac-web web.asgi:application`` (tune via ``conf/guac-web.env``)
    * - ``cape-pubsub.service``
      - ``/usr/local/bin/uv run --no-sync python utils/gcp_pubsub_service.py``
 
@@ -206,32 +206,39 @@ Reload systemd and start the services:
     sudo systemctl daemon-reload
     xargs -r sudo systemctl start < /tmp/cape-enabled-services.txt
 
-7. Web UI behind Nginx: uWSGI vs Gunicorn
------------------------------------------
+7. Web UI behind Nginx: Replacing uWSGI / Gunicorn with Granian
+-----------------------------------------------------------------
 
 .. warning::
 
-   The distro package ``uwsgi-plugin-python3`` is compiled against the **host OS**
-   ``libpython`` (for example Python 3.10 on Ubuntu 22.04 or 3.12 on Ubuntu 24.04) and
-   **cannot** load a ``uv``-managed Python 3.14 ``.venv``.
+   ``uWSGI`` (``uwsgi-plugin-python3``) has been removed. The distro plugin links against host
+   OS ``libpython`` and cannot load a ``uv``-managed Python 3.14 ``.venv``.
 
-If you previously served Django via system ``uwsgi``, switch ``cape-web.service`` to Gunicorn
-running inside ``uv`` (Gunicorn is included in ``pyproject.toml``):
+``cape-web.service`` (Django WSGI) and ``guac-web.service`` (Channels ASGI WebSockets) now run
+on **Granian** with built-in worker respawn, RSS/lifetime recycling, access logging, and
+zero-downtime ``SIGHUP`` reloads (``sudo systemctl reload cape-web``).
 
-.. code-block:: ini
+If you previously ran system ``uwsgi`` behind Nginx:
 
-    [Service]
-    WorkingDirectory=/opt/CAPEv2/web
-    ExecStart=/usr/local/bin/uv run --no-sync gunicorn web.wsgi -b 127.0.0.1:8000 -w 4 -t 200 --capture-output --enable-stdio-inheritance
-    User=cape
-    Group=cape
+1. Disable legacy uWSGI configs and stop ``uwsgi``:
 
-Alternatively, if you require uWSGI, build ``uwsgi`` directly inside ``.venv`` so it links
-against the ``uv``-managed Python 3.14 library:
+   .. code-block:: bash
 
-.. code-block:: bash
+       sudo rm -f /etc/uwsgi/apps-enabled/*cape*
+       sudo systemctl disable --now uwsgi 2>/dev/null || true
 
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python uwsgi
+2. Bind Granian to loopback in ``/opt/CAPEv2/conf/cape-web.env`` (or ``custom/conf/cape-web.env``):
+
+   .. code-block:: ini
+
+       GRANIAN_HOST=127.0.0.1
+       GRANIAN_PORT=8000
+       GRANIAN_WORKERS=4
+       GRANIAN_BLOCKING_THREADS=4
+
+3. Update Nginx to use HTTP ``proxy_pass`` to ``127.0.0.1:8000`` (and WebSocket ``proxy_pass``
+   for ``/guac/`` to ``127.0.0.1:8008``) instead of ``uwsgi_pass`` / ``include uwsgi_params``
+   (see ``nginx/cape.conf``), then enable ``cape-web.service``.
 
 8. Update cron jobs, scripts, and monitoring
 --------------------------------------------

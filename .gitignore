@@ -16,6 +16,7 @@ log/
 storage/
 !lib/tenancy/storage/
 conf/*.conf
+conf/*.env
 
 web/web/secret_key.py
 tests/test_bson.bson.compressed

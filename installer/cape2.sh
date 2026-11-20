@@ -257,10 +257,10 @@ function librenms_sneck_config() {
     fi
     if [ "$MONGO_ENABLE" -ge 1 ]; then
         echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python manage.py" 1:'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python manage.py)" 1:'
     else
         echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python manage.py" 0'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python manage.py)" 0'
     fi
 }
 
@@ -699,11 +699,18 @@ function redsocks2() {
 
 function distributed() {
     echo "[+] Configure distributed configuration"
-    sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_PIP install flask flask-restful flask-sqlalchemy requests"
+    sudo apt-get install -y nginx 2>/dev/null
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export UV_PYTHON_INSTALL_DIR='$UV_PYTHON_DIR'; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT --group dist"
 
-    sudo cp $CAPE_ROOT/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
-    sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
+    sudo cp "$CAPE_ROOT/systemd/cape-dist.service" /lib/systemd/system/cape-dist.service
+    if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
+        sudo sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-dist.service
+    fi
+    if [ "$PYTHON_MGR" != "/usr/local/bin/uv" ]; then
+        sudo sed -i "s|/usr/local/bin/uv|$PYTHON_MGR|g" /lib/systemd/system/cape-dist.service
+    fi
+    sudo systemctl daemon-reload
+    sudo systemctl enable cape-dist.service
 
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}dist\"";
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER}dist to ${USER};\""
@@ -1135,7 +1142,7 @@ function dependencies() {
     sudo apt-get install -y innoextract msitools iptables psmisc jq sqlite3 tmux net-tools checkinstall graphviz python3-pydot git numactl python3 python3-dev python3-pip libjpeg-dev zlib1g-dev
     sudo apt-get install -y zpaq upx-ucl wget zip unzip lzip rar unrar unace-nonfree cabextract geoip-database libgeoip-dev libjpeg-dev mono-utils ssdeep libfuzzy-dev exiftool
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y uthash-dev libconfig-dev libarchive-dev libtool autoconf automake privoxy software-properties-common wkhtmltopdf xvfb xfonts-100dpi tcpdump libcap2-bin wireshark-common tshark
-    sudo apt-get install -y python3-pil subversion uwsgi uwsgi-plugin-python3 python3-pyelftools git curl
+    sudo apt-get install -y subversion git curl
     sudo apt-get install -y openvpn wireguard
     # for bingraph
     sudo apt-get install -y libgraphviz-dev
@@ -1387,7 +1394,7 @@ function install_CAPE() {
 
 if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
-Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
+Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl reload cape-web, /usr/bin/systemctl reload-or-restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl reload guac-web, /usr/bin/systemctl restart guacd
 Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
 # Allow cape user to fix Nginx permissions for static files
@@ -1451,11 +1458,10 @@ function install_systemd() {
     if [ ! -f "/etc/sudoers.d/cape" ] ; then
         cat > /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SVC = /usr/bin/systemctl stop cape, /usr/bin/systemctl start cape, /usr/bin/systemctl restart cape
-Cmnd_Alias CAPE_WEB_SVC = /usr/bin/systemctl stop cape-web, /usr/bin/systemctl start cape-web, /usr/bin/systemctl restart cape-web
+Cmnd_Alias CAPE_WEB_SVC = /usr/bin/systemctl stop cape-web, /usr/bin/systemctl start cape-web, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl reload cape-web, /usr/bin/systemctl reload-or-restart cape-web
 Cmnd_Alias CAPE_PROCESSING_SVC = /usr/bin/systemctl stop cape-processor, /usr/bin/systemctl start cape-processor, /usr/bin/systemctl restart cape-processor
 Cmnd_Alias CAPE_ROOTER_SVC = /usr/bin/systemctl stop cape-rooter, /usr/bin/systemctl start cape-rooter, /usr/bin/systemctl restart cape-rooter
 Cmnd_Alias SURICATA = /usr/bin/systemctl stop suricata, /usr/bin/systemctl start suricata, /usr/bin/systemctl restart suricata
-Cmnd_Alias UWSGI = /usr/bin/systemctl stop uwsgi, /usr/bin/systemctl start uwsgi, /usr/bin/systemctl restart uwsgi
 
 # disttributed cape related
 Cmnd_Alias CAPE_FSTAB_SVC = /usr/bin/systemctl stop cape-fstab, /usr/bin/systemctl start cape-fstab, /usr/bin/systemctl restart cape-fstab
@@ -1465,7 +1471,6 @@ Cmnd_Alias CAPE_FSTAB_SVC = /usr/bin/systemctl stop cape-fstab, /usr/bin/systemc
 %${USER} ALL=CAPE_PROCESSING_SVC
 %${USER} ALL=CAPE_ROOTER_SVC
 %${USER} ALL=SURICATA
-%${USER} ALL=UWSGI
 
 %cape ALL=CAPE_FSTAB_SVC
 EOF
@@ -1562,9 +1567,6 @@ function install_guacamole() {
     USE_SYSTEM=1 dpkg-deb --build --root-owner-group /tmp/guacamole-"${guacamole_version}"_builded
     sudo dpkg -i --force-overwrite /tmp/guacamole-"${guacamole_version}"_builded.deb
     sudo ldconfig
-
-    #pip3 install -U 'Twisted[tls,http2]'
-    sudo apt-get install -y python3-twisted
 
     if [ -f "/etc/systemd/system/guacd.service" ] ; then
         sudo rm /etc/systemd/system/guacd.service
@@ -1803,6 +1805,11 @@ function migrate_to_uv() {
     fi
     echo "[+] Once verified, remove Poetry with:"
     echo "    sudo rm -rf /etc/poetry ${CAPE_ROOT}/.cache/pypoetry /home/${USER}/.cache/pypoetry /root/.cache/pypoetry"
+    if ls /etc/uwsgi/apps-enabled/*cape* >/dev/null 2>&1; then
+        echo "[!] Legacy uWSGI CAPE configs detected in /etc/uwsgi/apps-enabled/."
+        echo "    CAPE web/dist now run via Granian/Uvicorn systemd units (cape-web.service, cape-dist.service)."
+        echo "    Disable legacy uWSGI configs and switch Nginx from uwsgi_pass to proxy_pass (see nginx/cape.conf)."
+    fi
 }
 
 # Doesn't work ${$1,,}

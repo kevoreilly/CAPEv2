@@ -69,8 +69,7 @@ with the desired port number)::
 
     $ uv run --no-sync python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
-You can serve CAPE's web interface using WSGI interface with common web servers:
-Apache, Nginx, Unicorn, and so on. Devs are using Nginx + Uwsgi.
+You can serve CAPE's web interface using WSGI with **Granian** (default in ``systemd/cape-web.service``) behind Nginx.
 Please refer both to the documentation of the web server of your choice as well as `Django documentation`_.
 
 .. _`Django documentation`: https://docs.djangoproject.com/
@@ -115,29 +114,37 @@ To get rid of many bots/scrappers so we suggest deploying this amazing project `
 
 Best practices for production
 =============================
-**Gunicorn + NGINX** is the recommended way of serving the CAPE web UI.
+**Granian + NGINX** is the recommended way of serving the CAPE web UI and Guacamole ASGI WebSockets.
 
-Gunicorn
---------
-First, configure the ``cape-web`` service to use Gunicorn
+Granian
+-------
+``systemd/cape-web.service`` runs **Granian** (``granian --interface wsgi``) directly inside ``uv``
+with automatic worker respawn, memory/lifetime recycling, access logging to ``journalctl``, and
+zero-downtime ``SIGHUP`` reloads (``sudo systemctl reload cape-web``).
 
-Modify ``/lib/systemd/system/cape-web.service`` so the ``ExecStart``
-setting is set to:
+Override defaults without editing the unit file by setting ``GRANIAN_*`` variables in
+``/opt/CAPEv2/conf/cape-web.env`` (or ``custom/conf/cape-web.env``):
 
-.. code:: systemd
+.. code:: ini
 
-    ExecStart=/usr/local/bin/uv run --no-sync gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance
+    GRANIAN_HOST=127.0.0.1
+    GRANIAN_PORT=8000
+    GRANIAN_WORKERS=4
+    GRANIAN_BLOCKING_THREADS=4
+    GRANIAN_WORKERS_MAX_RSS=1024
 
-Run
+Then restart or reload:
 
 .. code:: bash
 
     sudo systemctl daemon-reload
-    sudo service cape-web restart
+    sudo systemctl restart cape-web
+    # Zero-downtime worker reload:
+    sudo systemctl reload cape-web
 
 NGINX
 -----
-Next, install NGINX and configure it to be a reverse proxy to Gunicorn.
+Next, install NGINX and configure it as a reverse proxy to Granian (see also ``nginx/cape.conf``).
 
 .. code:: bash
 

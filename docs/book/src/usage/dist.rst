@@ -316,33 +316,18 @@ And enable the worker again::
 Good practice for production
 ----------------------------
 
-The number of retrieved threads can be configured in reporting.conf
+The number of retrieved threads can be configured in ``reporting.conf``.
 
-Installation of "uwsgi"::
+Run the distributed FastAPI/Uvicorn daemon via ``systemd/cape-dist.service`` (installed
+automatically by ``sudo bash installer/cape2.sh dist``)::
 
-    # nginx is optional
-    # apt install uwsgi uwsgi-plugin-python3 nginx
+    sudo cp /opt/CAPEv2/systemd/cape-dist.service /lib/systemd/system/cape-dist.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now cape-dist.service
 
-
-It's better if you run "web" and "dist.py" as uwsgi application. To run your api with config just execute as::
-
-    # Web UI is started by systemd as cape-web.service
-    $ uwsgi --ini /opt/CAPEv2/uwsgi/capedist.ini
-
-To add your application to auto start after boot, copy your config file to::
-
-    cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
-    ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
-
-    service uwsgi restart
-
-Optimizations::
-
-    If you have many workers is recommended
-        UWSGI:
-            set processes to be able handle number of requests dist + dist2 + 10
-        DB:
-            set max connection number to be able handle number of requests dist + dist2 + 10
+If exposing the distributed API behind Nginx, use standard HTTP ``proxy_pass`` to port ``9003``
+(uWSGI is no longer used). Keep PostgreSQL ``max_connections`` sized to handle worker nodes
+plus ``cape-dist`` threads.
 
 
 Distributed Mongo setup
@@ -461,16 +446,6 @@ For more information see:
     https://docs.mongodb.com/manual/tutorial/remove-shards-from-cluster/
 
 
-If you need extra help, check this:
-
-See any of these files on your system::
-
-    $ /etc/uwsgi/apps-available/README
-    $ /etc/uwsgi/apps-enabled/README
-    $ /usr/share/doc/uwsgi/README.Debian.gz
-    $ /etc/default/uwsgi
-
-
 Administration and some useful commands::
 
     https://docs.mongodb.com/manual/reference/command/nav-sharding/
@@ -575,9 +550,6 @@ Online:
 
     Mongo Auth:
         https://docs.mongodb.com/manual/tutorial/enable-authentication/
-
-    Help about UWSGI:
-        http://vladikk.com/2013/09/12/serving-flask-with-nginx-on-ubuntu/
 
     Help about mongo distributed/sharded:
             http://dws.la/deploying-a-sharded-cluster-in-mongodb/

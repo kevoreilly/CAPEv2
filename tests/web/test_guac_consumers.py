@@ -2,16 +2,73 @@ import asyncio
 import logging
 from importlib import import_module
 from types import SimpleNamespace
+from unittest import mock
+from urllib.parse import unquote, urlparse
 
 import pytest
+from asgiref.testing import ApplicationCommunicator as _BaseApplicationCommunicator
 from channels.routing import URLRouter
-from channels.testing import WebsocketCommunicator
 
 consumers = import_module("guac.consumers")
 guac_routing = import_module("guac.routing")
 
 TEST_TOKEN = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 TEST_VNC_PORT = 5901
+
+
+class WebsocketCommunicator(_BaseApplicationCommunicator):
+    """Minimal ASGI WebSocket test communicator built on asgiref.
+
+    channels.testing.__init__ unconditionally imports channels.testing.live ->
+    daphne.testing.DaphneProcess even though WebsocketCommunicator only uses
+    asgiref.testing.ApplicationCommunicator. Defining the wrapper here avoids
+    requiring daphne (and its twisted/autobahn stack) just to run unit tests.
+    """
+
+    def __init__(self, application, path, headers=None, subprotocols=None):
+        parsed = urlparse(path)
+        self.scope = {
+            "type": "websocket",
+            "path": unquote(parsed.path),
+            "query_string": parsed.query.encode("utf-8"),
+            "headers": headers or [],
+            "subprotocols": subprotocols or [],
+        }
+        super().__init__(application, self.scope)
+        self.response_headers = None
+
+    async def send_input(self, message):
+        with mock.patch("channels.db.close_old_connections", lambda: None):
+            return await super().send_input(message)
+
+    async def receive_output(self, timeout=1):
+        with mock.patch("channels.db.close_old_connections", lambda: None):
+            return await super().receive_output(timeout)
+
+    async def connect(self, timeout=1):
+        await self.send_input({"type": "websocket.connect"})
+        response = await self.receive_output(timeout)
+        if response["type"] == "websocket.close":
+            return (False, response.get("code", 1000))
+        assert response["type"] == "websocket.accept"
+        self.response_headers = response.get("headers", [])
+        return (True, response.get("subprotocol", None))
+
+    async def send_to(self, text_data=None, bytes_data=None):
+        assert bool(text_data) != bool(bytes_data), "Supply exactly one of text_data or bytes_data"
+        if text_data:
+            await self.send_input({"type": "websocket.receive", "text": text_data})
+        else:
+            await self.send_input({"type": "websocket.receive", "bytes": bytes_data})
+
+    async def receive_from(self, timeout=1):
+        response = await self.receive_output(timeout)
+        assert response["type"] == "websocket.send", f"Expected 'websocket.send', got {response['type']!r}"
+        return response["text"] if "text" in response else response["bytes"]
+
+    async def disconnect(self, code=1000, timeout=1):
+        await self.send_input({"type": "websocket.disconnect", "code": code})
+        await self.wait(timeout)
 
 
 class FakeTask:

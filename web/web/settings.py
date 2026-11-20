@@ -241,7 +241,6 @@ WSGI_APPLICATION = "web.wsgi.application"
 ASGI_APPLICATION = "web.asgi.application"
 
 INSTALLED_APPS = [
-    "daphne",
     "channels",
     "guac",
     "django.contrib.auth",
@@ -484,14 +483,29 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "filters": {"require_debug_false": {"()": "django.utils.log.RequireDebugFalse"}},
+    "formatters": {
+        "cape_web": {
+            "format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s",
+        },
+    },
     "handlers": {
-        "mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"}
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "cape_web",
+        },
+        "mail_admins": {"level": "ERROR", "filters": ["require_debug_false"], "class": "django.utils.log.AdminEmailHandler"},
     },
     "loggers": {
         "django.request": {
-            "handlers": ["mail_admins"],
+            "handlers": ["console", "mail_admins"],
             "level": "ERROR",
-            "propagate": True,
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
         },
     },
 }
@@ -505,7 +519,7 @@ SILENCED_SYSTEM_CHECKS = [
 ALLOWED_HOSTS = ["*"]
 
 # Reverse-proxy TLS termination: when nginx terminates HTTPS and forwards plain
-# HTTP to gunicorn/daphne, Django must be told via X-Forwarded-Proto that the
+# HTTP to granian, Django must be told via X-Forwarded-Proto that the
 # original request was HTTPS — otherwise request.is_secure() is False and the
 # absolute OIDC redirect_uri django-allauth builds comes out as http://…, which
 # the IdP rejects. Requires `proxy_set_header X-Forwarded-Proto $scheme;` in nginx.

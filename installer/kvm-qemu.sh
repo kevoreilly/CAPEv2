@@ -582,7 +582,7 @@ EOH
 
     cd ..
     # Remove the $libvirt_version directory to permission errors when runing
-    # cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/poetry_libvirt_installer.sh later
+    # cd /opt/CAPEv2/ ; sudo -u cape /usr/local/bin/uv pip install libvirt-python later
     rm -r libvirt-python-$libvirt_version
 
     if [ "$OS" = "Linux" ]; then

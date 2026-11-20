@@ -2,7 +2,7 @@
 [web_auth]
 enabled = no
 # You will also need to add django admin to make it working by running:
-# poetry run python manage.py createsuperuser
+# uv run --no-sync python manage.py createsuperuser
 # ReCaptcha protected admin login
 captcha = no
 2fa = no

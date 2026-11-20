@@ -34,7 +34,7 @@ dns_etw = no
 amsi_etw = no
 network_etw = no
 watchdownloads = no
-# html_scraper Setup: install Firefox 115+ and Selenium (pip install selenium) in the Windows guest ; add geckodriver.exe 0.37 to analyzer/windows/bin; install urlextract (poetry run pip install urlextract) on CAPE host; enable [html_scraper] in processing.conf.
+# html_scraper Setup: install Firefox 115+ and Selenium (pip install selenium) in the Windows guest ; add geckodriver.exe 0.37 to analyzer/windows/bin; install urlextract (uv pip install urlextract) on CAPE host; enable [html_scraper] in processing.conf.
 html_scraper = no
 
 [AzSniffer]

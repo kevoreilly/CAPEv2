@@ -315,3 +315,17 @@ def test_new_branch_falls_back_to_other_remotes(capsys, repo, tmp_path, origin):
 def test_new_branch_reports_a_missing_branch(repo, tmp_path):
     rc = agent_worktree.main(["--repo", str(repo), "--base-dir", str(tmp_path / "wt"), "new", "--branch", "nope"])
     assert rc == 1
+
+
+def test_detect_venv_prefers_uv_dot_venv(tmp_path, monkeypatch):
+    repo = tmp_path / "CAPEv2"
+    uv_bin = repo / ".venv" / "bin"
+    uv_bin.mkdir(parents=True)
+    (uv_bin / "python").write_text("#!/bin/sh\n")
+
+    other_bin = tmp_path / "other_venv" / "bin"
+    other_bin.mkdir(parents=True)
+    (other_bin / "python").write_text("#!/bin/sh\n")
+    monkeypatch.setenv("VIRTUAL_ENV", str(tmp_path / "other_venv"))
+
+    assert agent_worktree.detect_venv(str(repo)) == str(uv_bin)

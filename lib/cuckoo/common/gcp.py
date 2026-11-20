@@ -257,7 +257,7 @@ def download_from_gcs(gcs_uri: str, destination_path: str, logger: Optional[Any]
 
     if not HAVE_GCP:
         logger.error(
-            "Google Cloud Storage dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage`"
+            "Google Cloud Storage dependencies not installed. Please run `uv sync --locked --no-install-project --inexact --extra gcp` or `uv pip install google-cloud-storage`"
         )
         return False
 

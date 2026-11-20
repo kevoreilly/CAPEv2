@@ -27,7 +27,7 @@ def _load_imagehash():
 
         _IMAGEHASH_BINDINGS = _imagehash
     except ImportError:
-        log.error("Missed dependency: poetry run pip install ImageHash")
+        log.error("Missed dependency: uv pip install ImageHash")
         _IMAGEHASH_BINDINGS = False
     return _IMAGEHASH_BINDINGS
 
@@ -38,7 +38,7 @@ try:
 
     HAVE_CV2 = True
 except ImportError:
-    print("Missed dependency: poetry run pip install opencv-python")
+    print("Missed dependency: uv pip install opencv-python")
 
 HAVE_ZXING = False
 try:
@@ -53,7 +53,7 @@ try:
 
     logging.getLogger("PIL").setLevel(logging.WARNING)
 except ImportError:
-    log.error("Missed dependency: poetry install")
+    log.error("Missed dependency: uv sync --locked --no-install-project --inexact")
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists

@@ -31,7 +31,7 @@ class GCS(Report):
         if not HAVE_GCP:
             log.error(
                 "Failed to run GCS reporting module: the 'google-cloud-storage' "
-                "library is not installed. Please run 'poetry install --extras gcp'."
+                "library is not installed. Please run 'uv sync --locked --no-install-project --inexact --extra gcp'."
             )
             return
 

@@ -20,7 +20,7 @@ CAPE (Config And Payload Extraction) is a malware analysis sandbox derived from 
 - **Database:** PostgreSQL (SQLAlchemy) for task management, MongoDB/Elasticsearch for results storage.
 - **Virtualization:** KVM/QEMU (preferred), VirtualBox, VMWare, Azure, Google Cloud.
 - **Frontend:** HTML5, Bootstrap, Jinja2 Templates.
-- **Dependency Management:** Poetry.
+- **Dependency Management:** uv (`.python-version` pinned to Python 3.14, `uv.lock`).
 
 ## 2. Directory Structure Key
 | Directory | Purpose |
@@ -77,22 +77,22 @@ CAPE (Config And Payload Extraction) is a malware analysis sandbox derived from 
 
 ### Local Development Environment
 
-Dependencies are managed with **Poetry**; the test suite imports `sqlalchemy`,
-`django` and friends, so a system Python without the project environment will
-fail at collection time in `tests/conftest.py`.
+Dependencies are managed with **uv** (Python 3.14 via `.python-version`); the
+test suite imports `sqlalchemy`, `django` and friends, so a system Python
+without the project environment will fail at collection time in `tests/conftest.py`.
 
 ```bash
-poetry install
-poetry run pytest tests/ -q
+uv sync --locked --all-groups
+uv run pytest tests/ -q
 ```
 
-Use `poetry run <cmd>` (or activate the venv) for *every* Python invocation -
+Use `uv run <cmd>` (or activate `.venv`) for *every* Python invocation -
 `pytest`, `ruff`, `black`, `alembic`, `python utils/...`.
 
 **Linting.** `ruff` is the fast gate and is expected to be clean:
 
 ```bash
-poetry run ruff check <changed files>
+uv run ruff check <changed files>
 ```
 
 `black` and `ruff format` are configured with `line-length = 132` in
@@ -105,7 +105,7 @@ unreviewable diff.
 that bury the result; `-p no:warnings` keeps the output readable:
 
 ```bash
-poetry run pytest tests/test_something.py -p no:warnings -q
+uv run pytest tests/test_something.py -p no:warnings -q
 ```
 
 ### Isolated Checkouts for Review and Testing
@@ -143,9 +143,8 @@ Notes:
   extra shows up in `git status`.
 * `remove` and `cleanup` refuse to discard uncommitted changes or unpushed
   commits; `cleanup` reports what it skipped and why. `--force` overrides.
-* Poetry keys virtualenvs by project path, so a fresh worktree has no
-  environment of its own. Run `poetry run` from your main clone, or use the
-  interpreter reported by `info`.
+* Worktrees do not contain their own `.venv` until synced. Run `uv run --project <main_clone>`
+  or use the interpreter reported by `info`.
 
 Tests live in `tests/test_agent_worktree.py` and run against throwaway local
 repositories - no network, credentials or CAPE configuration required.
@@ -291,7 +290,7 @@ class MyPackage(Package):
     *   **0% CPU:** Waiting for I/O (likely network or agent).
     *   Check `lib/cuckoo/core/guest.py` timeouts.
 *   **Permissions:** Ensure `cape` user owns the directories and files.
-*   **Database Migrations:** If DB errors occur, run `cd utils/db_migration && poetry run alembic upgrade head`.
+*   **Database Migrations:** If DB errors occur, run `cd utils/db_migration && uv run --no-sync alembic upgrade head`.
 
 ### Advanced Debugging (py-spy)
 If the Python controller is unresponsive, use `py-spy` to inspect the stack trace without stopping the process:
@@ -300,12 +299,12 @@ If the Python controller is unresponsive, use `py-spy` to inspect the stack trac
 3.  **Analyze:** Look for `wait_for_completion` (waiting for Guest/Agent) or network calls like `select`, `poll`, `recv` that may be blocked.
 
 ### Important Commands
-*   **Start CAPE:** `sudo -u cape poetry run python cuckoo.py`
-*   **Debug Mode:** `sudo -u cape poetry run python cuckoo.py -d`
-*   **Reprocess Task:** `sudo -u cape poetry run python utils/process.py -r <task_id>`
-*   **Clean All:** `sudo -u cape poetry run python utils/cleaners.py --clean` (Destructive!)
-*   **Download Signatures:** `sudo -u cape poetry run python utils/community.py -waf`
-*   **Test Rooter:** `sudo python3 utils/rooter.py -g cape -v`
+*   **Start CAPE:** `sudo -u cape uv run --no-sync python cuckoo.py`
+*   **Debug Mode:** `sudo -u cape uv run --no-sync python cuckoo.py -d`
+*   **Reprocess Task:** `sudo -u cape uv run --no-sync python utils/process.py -r <task_id>`
+*   **Clean All:** `sudo -u cape uv run --no-sync python utils/cleaners.py --clean` (Destructive!)
+*   **Download Signatures:** `sudo -u cape uv run --no-sync python utils/community.py -waf`
+*   **Test Rooter:** `sudo uv run --no-sync python utils/rooter.py -g cape -v`
 *   **Check Out a PR Safely:** `python utils/agent_worktree.py new --pr <pr_id>` (isolated worktree; your clone is untouched)
 
 ### Database Querying (MongoDB)

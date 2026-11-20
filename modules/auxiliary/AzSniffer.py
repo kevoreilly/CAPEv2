@@ -19,7 +19,7 @@ if cfg.cuckoo.machinery == "az":
         HAVE_AZURE = True
     except ImportError:
         HAVE_AZURE = False
-        print("Missing machinery-required libraries.Run: poetry install --extras azure")
+        print("Missing machinery-required libraries.Run: uv sync --locked --no-install-project --inexact --extra azure")
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config

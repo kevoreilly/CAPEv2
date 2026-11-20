@@ -971,8 +971,6 @@ function install_mongo(){
         sudo apt-get install -y libpcre3-dev numactl cron
         sudo apt-get install -y mongodb-org
 
-        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install pymongo -U --break-system-packages
-
         # sudo apt-get install -y ntp
         # systemctl start ntp.service && sudo systemctl enable ntp.service
 cat >> /lib/systemd/system/enable-transparent-huge-pages.service <<EOF
@@ -1074,7 +1072,7 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     sudo apt-get update && sudo apt-get install -y elasticsearch
-    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install elasticsearch
+    sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python "$CAPE_ROOT/.venv/bin/python" elasticsearch
 
     systemctl enable elasticsearch
 }
@@ -1852,7 +1850,7 @@ case "$COMMAND" in
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python utils/community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install --python $CAPE_ROOT/.venv/bin/python -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -

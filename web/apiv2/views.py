@@ -82,7 +82,7 @@ try:
     HAVE_PSUTIL = True
 except ImportError:
     HAVE_PSUTIL = False
-    print("Missed psutil dependency: poetry run pip install -U psutil")
+    print("Missed psutil dependency: uv pip install -U psutil")
 
 log = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ try:
     # first run socks5man to generate /home/cape/.socks5man on each server
     # You will need to distribute socks5man.db to all servers to /home/cape/.socks5man
 except ImportError:
-    sys.exit("Missed dependency. Run: poetry run pip install requests git+https://github.com/CAPESandbox/socks5man")
+    sys.exit("Missed dependency. Run: uv pip install requests git+https://github.com/CAPESandbox/socks5man")
 
 
 def get_proxy_list():

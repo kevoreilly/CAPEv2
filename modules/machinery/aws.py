@@ -13,7 +13,7 @@ if cfg.cuckoo.machinery == "aws":
 
         HAVE_BOTO3 = True
     except ImportError:
-        sys.exit("Missed boto3 dependency: poetry run pip install boto3")
+        sys.exit("Missed boto3 dependency: uv pip install boto3")
 
 
 from lib.cuckoo.common.abstracts import Machinery

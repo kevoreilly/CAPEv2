@@ -22,7 +22,7 @@ try:
     HAVE_DEEPDIFF = True
 except ImportError:
     HAVE_DEEPDIFF = False
-    print("poetry run pip install mmh3 deepdiff")
+    print("uv pip install mmh3 deepdiff")
 
 try:
     from paramiko import AutoAddPolicy, ProxyCommand, SSHClient, SSHConfig
@@ -40,7 +40,7 @@ try:
 
     HAVE_PARAMIKO = True
 except ImportError:
-    print("poetry run pip install -U paramiko scp")
+    print("uv pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
 

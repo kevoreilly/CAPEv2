@@ -277,21 +277,21 @@ def unpushed(worktree_path: str) -> bool:
 def detect_venv(repo: str) -> Optional[str]:
     """Return the bin/ directory of the project's virtualenv, if any.
 
-    Resolved against the *main* worktree on purpose: poetry keys its
-    virtualenvs by project path, so asking from inside a fresh worktree would
-    point at an env that does not exist.
+    Resolved against the *main* worktree on purpose: uv places ``.venv`` in the
+    main checkout (and legacy poetry installs key their virtualenvs by project
+    path), so asking from inside a fresh worktree would point at an env that
+    does not exist.
     """
     env_var = os.environ.get("VIRTUAL_ENV")
-    candidates: List[str] = []
+    candidates: List[str] = [os.path.join(repo, ".venv")]
+    if env_var:
+        candidates.append(env_var)
     if shutil.which("poetry"):
         out = run(["poetry", "env", "info", "--path"], cwd=repo, check=False).strip()
         if out:
             candidates.append(out)
     name = os.path.basename(repo.rstrip("/")).lower()
     candidates += sorted(glob.glob(os.path.join(os.path.expanduser("~"), ".cache", "pypoetry", "virtualenvs", f"{name}-*")))
-    candidates += [os.path.join(repo, ".venv")]
-    if env_var:
-        candidates.append(env_var)
     for cand in candidates:
         binary = os.path.join(cand, "bin", "python")
         if os.path.isfile(binary):

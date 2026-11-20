@@ -19,12 +19,12 @@ try:
     import networkx as nx
     from networkx.drawing.nx_pydot import write_dot
 except ImportError:
-    print("Optional! Missed regex dependency: poetry run pip install networkx[default,extra]")
+    print("Optional! Missed regex dependency: uv pip install networkx[default,extra]")
 
 try:
     import regex as re
 except ImportError:
-    print("Optional! Missed regex dependency: poetry run pip install regex")
+    print("Optional! Missed regex dependency: uv pip install regex")
 
 log = logging.getLogger(__name__)
 

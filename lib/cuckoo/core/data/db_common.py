@@ -25,7 +25,7 @@ try:
     )
 
 except ImportError:  # pragma: no cover
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `uv sync --locked --no-install-project --inexact`)")
 
 # ToDo verify variable declaration in Mapped
 class Base(DeclarativeBase):

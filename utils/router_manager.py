@@ -25,7 +25,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missing dependency: poetry run pip install psutil")
+    print("Missing dependency: uv pip install psutil")
 
 
 def check_privileges():

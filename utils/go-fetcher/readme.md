@@ -41,7 +41,7 @@ Create a `config.json` file:
 1. **Stop existing retrieval:**
    Run `dist.py` with the `--submit-only` flag to disable its internal fetcher.
    ```bash
-   poetry run python utils/dist.py --submit-only
+   uv run --no-sync python utils/dist.py --submit-only
    ```
 
 2. **Run the Go Fetcher:**

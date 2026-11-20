@@ -49,7 +49,7 @@ try:
     )
 
 except ImportError:  # pragma: no cover
-    raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
+    raise CuckooDependencyError("Unable to import sqlalchemy (install with `uv sync --locked --no-install-project --inexact`)")
 
 
 
@@ -235,7 +235,7 @@ class _Database(TasksMixIn,
             print(f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations")
             print(
                 red(
-                    f"Please backup your data before migration!\ncd {os.path.join(CUCKOO_ROOT, 'utils', 'db_migration')} && poetry run alembic upgrade head"
+                    f"Please backup your data before migration!\ncd {os.path.join(CUCKOO_ROOT, 'utils', 'db_migration')} && uv run --no-sync alembic upgrade head"
                 )
             )
             sys.exit()

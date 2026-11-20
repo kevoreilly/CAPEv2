@@ -75,7 +75,7 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
-    log.error("Missed dependency: poetry run pip install")
+    log.error("Missed dependency: uv sync --locked --no-install-project --inexact")
 
 HAVE_TSHARK = bool(shutil.which("tshark"))
 if not HAVE_TSHARK:

@@ -92,7 +92,7 @@ if repconf.mongodb.enabled:
     from pymongo.errors import AutoReconnect, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
 
     if version_tuple[0] < 4:
-        log.warning("You using old version of PyMongo, upgrade: poetry install")
+        log.warning("You using old version of PyMongo, upgrade: uv sync --locked --no-install-project --inexact")
 
     def connect_to_mongo() -> MongoClient:
         try:

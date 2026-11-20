@@ -29,7 +29,7 @@ modifies `type` itself. That is deliberate --
     nothing has collapsed the two into one string.
 
 Enable in: processing.conf -> [magika] -> enabled = yes
-Requires: poetry run pip install -U magika
+Requires: uv pip install -U magika
 """
 
 import contextlib
@@ -94,7 +94,7 @@ if MAGIKA_ENABLED:
             raise ImportError("imported 'magika' does not expose Magika (module shadowing?)")
         HAVE_MAGIKA = True
     except ImportError as e:
-        log.warning("Magika is enabled in processing.conf but unavailable: %s. Install with: poetry run pip install -U magika", e)
+        log.warning("Magika is enabled in processing.conf but unavailable: %s. Install with: uv pip install -U magika", e)
 
 # The ONNX session is expensive to build (~0.5-1s) and cheap to reuse
 # (~1-5ms/file), so it is a lazily-built per-process singleton. Workers are

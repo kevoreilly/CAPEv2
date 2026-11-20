@@ -107,7 +107,7 @@ if gcp_conf.samples_pubsub.enabled:
     )
 
     if not GCS_ENABLED or not HAVE_GCP:
-        sys.exit("Run: poetry install --extras gcp or poetry run pip install --upgrade google-cloud-compute google-cloud-storage")
+        sys.exit("Run: uv sync --locked --no-install-project --inexact --extra gcp or uv pip install --upgrade google-cloud-compute google-cloud-storage")
 
     cloud = GCP()
 
@@ -163,7 +163,7 @@ failed_clean_enabled = False
 
 
 def required(package):
-    sys.exit("The %s package is required: poetry run pip install %s" % (package, package))
+    sys.exit("The %s package is required: uv pip install %s" % (package, package))
 
 
 try:

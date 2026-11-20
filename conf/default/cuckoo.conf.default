@@ -279,9 +279,9 @@ readers_can_comment = no
 # of [multitenancy] or together with it.
 enabled = no
 # Storage backend:
-#   s3    = AWS S3, MinIO, Ceph RGW, or any S3-compatible endpoint (poetry install --extras s3)
-#   gcs   = Google Cloud Storage (poetry install --extras gcp)
-#   azure = Azure Blob Storage (poetry install --extras azure)
+#   s3    = AWS S3, MinIO, Ceph RGW, or any S3-compatible endpoint (uv sync --locked --no-install-project --inexact --extra s3)
+#   gcs   = Google Cloud Storage (uv sync --locked --no-install-project --inexact --extra gcp)
+#   azure = Azure Blob Storage (uv sync --locked --no-install-project --inexact --extra azure)
 #   local = Shared local / NFS filesystem mount (`local_root`)
 backend = s3
 # Bucket / container name (for s3, gcs, or azure)

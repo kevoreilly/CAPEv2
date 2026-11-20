@@ -43,7 +43,7 @@ class GCP(Machinery):
         @raise CuckooMachineError: if configuration is invalid
         """
         if not HAVE_GCP:
-            raise CuckooDependencyError("Missed google-cloud-compute dependencies: poetry add google-cloud-compute")
+            raise CuckooDependencyError("Missed google-cloud-compute dependencies: uv pip install google-cloud-compute")
 
         # Read Configuration
         self.project = self.options.gcp.project

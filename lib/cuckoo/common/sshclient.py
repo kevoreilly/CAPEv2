@@ -66,39 +66,14 @@ class SSHJumpClient(SSHClient):
     def __str__(self):
         return self.__class__.__name__
 
-    def _auth(
-        self,
-        username,
-        password,
-        pkey,
-        key_filenames,
-        allow_agent,
-        look_for_keys,
-        gss_auth,
-        gss_kex,
-        gss_deleg_creds,
-        gss_host,
-        passphrase,
-    ):  # pylint: disable=R0913
+    def _auth(self, username, *args, **kwargs):
         if callable(self._auth_handler):
             return self._transport.auth_interactive(
                 username=username,
                 handler=self._auth_handler,
             )
 
-        return super()._auth(
-            username=username,
-            password=password,
-            pkey=pkey,
-            key_filenames=key_filenames,
-            allow_agent=allow_agent,
-            look_for_keys=look_for_keys,
-            gss_auth=gss_auth,
-            gss_kex=gss_kex,
-            gss_deleg_creds=gss_deleg_creds,
-            gss_host=gss_host,
-            passphrase=passphrase,
-        )
+        return super()._auth(username, *args, **kwargs)
 
     def connect(
         self,
@@ -113,15 +88,11 @@ class SSHJumpClient(SSHClient):
         look_for_keys=True,
         compress=False,
         sock=None,
-        gss_auth=False,
-        gss_kex=False,
-        gss_deleg_creds=True,
-        gss_host=None,
         banner_timeout=None,
         auth_timeout=None,
-        gss_trust_dns=True,
         passphrase=None,
         disabled_algorithms=None,
+        **kwargs,
     ):  # pylint: disable=R0913,R0914
         if timeout is None:
             timeout = TIMEOUT
@@ -149,15 +120,11 @@ class SSHJumpClient(SSHClient):
             look_for_keys=look_for_keys,
             compress=compress,
             sock=sock,
-            gss_auth=gss_auth,
-            gss_kex=gss_kex,
-            gss_deleg_creds=gss_deleg_creds,
-            gss_host=gss_host,
             banner_timeout=banner_timeout,
             auth_timeout=auth_timeout,
-            gss_trust_dns=gss_trust_dns,
             passphrase=passphrase,
             disabled_algorithms=disabled_algorithms,
+            **kwargs,
         )
 
 

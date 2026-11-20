@@ -70,7 +70,7 @@ dependencies = [
     "binGraph @ https://github.com/CAPESandbox/binGraph/archive/refs/tags/4.0.tar.gz",
     "psycopg[binary]>=3.2.4",
     "ruff>=0.7.2",
-    "paramiko==3.5.0",
+    "paramiko>=5.0.0",
     "psutil>=6.1.1",
     "peepdf-3==5.0.0",
     "pyre2==0.3.10; python_version < '3.11'",

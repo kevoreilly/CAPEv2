@@ -48,20 +48,21 @@ For a custom install directory:
 
 What ``migrate-uv`` does:
 
-1. Saves the list of currently enabled ``cape*`` / ``guac-web`` services and stops them.
+1. Saves the list of currently enabled ``cape*`` / ``guac-web`` services/timers and stops them.
 2. Snapshots the existing Poetry environment to ``/tmp/cape-poetry-freeze.txt`` (if Poetry is
    present) so optional extras (``gcp``, ``s3``, ``azure``, ``yara``, ``mcp``, ``dist``) and
-   packages (``libvirt-python``, ``yara-python``, ``volatility3``) are detected.
+   packages (``libvirt-python``, ``volatility3``) are detected.
 3. Installs ``uv`` to ``/usr/local/bin/uv`` and standalone Python 3.14 to
    ``/usr/local/share/uv/python`` (world-readable so both ``cape`` and ``root`` services share
    one interpreter).
 4. Creates ``$CAPE_ROOT/.venv`` on Python 3.14 owned by ``cape`` and runs
    ``uv sync --locked --no-install-project --inexact``.
-5. Rebuilds native extensions (``libvirt-python``, ``yara-python`` with cuckoo/magic/profiling)
-   and reinstalls ``volatility3`` if previously present.
-6. Updates installed systemd units in ``/lib/systemd/system/`` from Poetry to
-   ``/usr/local/bin/uv run --no-sync``, updates root crontab Poetry commands, reloads systemd,
-   and restarts the previously enabled services.
+5. Installs ``yara-x`` (prebuilt wheel), rebuilds ``libvirt-python`` (on KVM hosts), and
+   reinstalls ``volatility3`` if previously present.
+6. Seeds missing ``conf/*.env`` files from ``conf/default/*.env.default``, updates installed
+   systemd units in ``/lib/systemd/system/`` (and ``/etc/systemd/system/``) to
+   ``/usr/local/bin/uv run --no-sync``, updates root and ``cape`` crontab Poetry commands,
+   reloads systemd, and restarts the previously enabled services.
 7. Leaves ``/etc/poetry`` and old Poetry virtualenvs untouched until you verify and clean up.
 
 Option 2: Manual / Fleet Migration (Ansible, Custom Infra, Distributed Nodes)
@@ -141,8 +142,8 @@ Include optional extras or dependency groups as needed:
 .. important::
 
    Always pass ``--inexact`` to ``uv sync`` on CAPE hosts. Without ``--inexact``, ``uv sync``
-   removes packages installed via ``uv pip install`` (such as ``libvirt-python``, custom-built
-   ``yara-python``, ``volatility3``, and ``extra/optional_dependencies.txt``).
+   removes packages installed via ``uv pip install`` (such as ``libvirt-python``, ``yara-x``,
+   ``volatility3``, and ``extra/optional_dependencies.txt``).
 
 5. Reinstall native & optional packages
 ---------------------------------------
@@ -152,22 +153,17 @@ Inspect ``/tmp/cape-poetry-freeze.txt`` and reinstall any host-built or optional
 
 .. code-block:: bash
 
-    # libvirt-python (KVM hosts — match installed libvirt version)
-    PKG_CONFIG_PATH="$(dirname "$(locate libvirt.pc | head -n1)")"
-    sudo -u cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
+    # libvirt-python (KVM hosts)
+    PKG_CONFIG_PATH="$(dirname "$(find /usr/local/lib /usr/lib -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1)")"
+    sudo -Hu cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
         /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python libvirt-python==11.9.0
 
-    # yara-python built with CAPE's required flags
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python yara-python \
-        --no-binary :all: \
-        --config-setting="--global-option=build" \
-        --config-setting="--global-option=--enable-cuckoo" \
-        --config-setting="--global-option=--enable-magic" \
-        --config-setting="--global-option=--enable-profiling"
+    # yara-x (prebuilt wheel with cuckoo module included)
+    sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python yara-x
 
     # Optional: extra dependencies and Volatility 3 (only if used in your deployment)
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python -r extra/optional_dependencies.txt
-    sudo -u cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python git+https://github.com/volatilityfoundation/volatility3
+    sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python -r extra/optional_dependencies.txt
+    sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python git+https://github.com/volatilityfoundation/volatility3
 
 6. Update systemd service units
 -------------------------------

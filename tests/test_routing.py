@@ -178,6 +178,13 @@ def test_polarproxy_and_sslproxy_use_resolved_route(monkeypatch, tmp_path):
     assert sp_empty_aux.route == "gw2"
     assert sp_empty_aux.rt_table == "202"
 
+    # SSLProxy: route colliding with a Config method name (e.g. "get") must not crash.
+    sp_method_collision = sslproxy_mod.SSLProxyThread(
+        SimpleNamespace(id=8, route=None), SimpleNamespace(resultserver_port=2042), route="get"
+    )
+    assert sp_method_collision.route == "get"
+    assert sp_method_collision.rt_table == ""
+
 
 @pytest.mark.parametrize(
     "aux_route, task_route, conf_route, expected",

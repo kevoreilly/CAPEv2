@@ -11,12 +11,13 @@ Why migrate
 ===========
 
 * **Decouples CAPE from the host OS Python**: Ubuntu 22.04 ships Python 3.10 (EOL October 2026).
-  ``uv`` downloads a standalone CPython 3.14 build into ``/usr/local/share/uv/python`` without
-  modifying system ``/usr/bin/python3`` or ``apt`` packages.
-* **Security coverage**: Several core dependencies (``Pillow>=13``, ``filelock>=4.2.1``,
-  ``soupsieve>=4``, ``dnspython>=2.9``, ``autobahn>=26.7``) only ship CVE fixes for
-  Python 3.11.5+. Running CAPE on ``uv``-managed Python 3.14 lets every deployment stay on
-  patched releases regardless of host distro.
+  ``uv`` downloads a standalone CPython 3.14 build (security support through October 2030) into
+  ``/usr/local/share/uv/python`` without modifying system ``/usr/bin/python3`` or ``apt`` packages.
+* **Security coverage**: The recent wave of AI-assisted vulnerability discovery has accelerated
+  CVE volume across core Python packages, and upstream security fixes for several dependencies
+  (``Pillow>=13``, ``filelock>=4.2.1``, ``soupsieve>=4``, ``dnspython>=2.9``) require
+  Python 3.11.5+. Running CAPE on an independent, ``uv``-managed Python 3.14 runtime lets every
+  deployment stay on patched releases regardless of host distro.
 * **Single lockfile & faster syncs**: ``uv.lock`` replaces ``poetry.lock`` and installs in
   seconds with deterministic hashes.
 * **Safe service startups**: Systemd units invoke ``/usr/local/bin/uv run --no-sync``, so

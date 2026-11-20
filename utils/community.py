@@ -10,8 +10,8 @@ import sys
 import zipfile
 from contextlib import suppress
 
-if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+if sys.version_info[:2] < (3, 14):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.14")
 
 import argparse
 import logging

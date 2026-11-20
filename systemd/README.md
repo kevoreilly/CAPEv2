@@ -43,7 +43,7 @@ These files help run all the various parts of CAPE as systemd services, so that 
 
     ```bash
     cd /opt/CAPEv2
-    sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python /usr/local/bin/uv sync --locked --no-install-project --inexact --python 3.14
+    sudo -Hu cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python /usr/local/bin/uv sync --locked --no-install-project --inexact --python 3.14
     ```
 
 5. Edit configuration files in `/opt/CAPEv2/conf` as needed

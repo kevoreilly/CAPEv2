@@ -123,11 +123,11 @@ Run as the ``cape`` user (never as ``root``, which breaks ``.venv`` ownership):
 .. code-block:: bash
 
     cd /opt/CAPEv2
-    sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+    sudo -Hu cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
         /usr/local/bin/uv venv --python 3.14 /opt/CAPEv2/.venv
 
     # Base dependencies (add --extra / --group flags matching your deployment)
-    sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+    sudo -Hu cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
         /usr/local/bin/uv sync --locked --no-install-project --inexact --python 3.14
 
 Include optional extras or dependency groups as needed:
@@ -158,7 +158,8 @@ Inspect ``/tmp/cape-poetry-freeze.txt`` and reinstall any host-built or optional
     sudo -Hu cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
         /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python libvirt-python==11.9.0
 
-    # yara-x (prebuilt wheel with cuckoo module included)
+    # yara-x (prebuilt wheel with cuckoo module included; note YARA-X does not provide
+    # the legacy `magic` module — use `sudo bash installer/cape2.sh yara` if needed)
     sudo -Hu cape /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python yara-x
 
     # Optional: extra dependencies and Volatility 3 (only if used in your deployment)
@@ -272,10 +273,10 @@ Run these checks after restarting services:
 .. code-block:: bash
 
     # 1. Confirm Python 3.14 inside .venv
-    sudo -u cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python --version
+    sudo -Hu cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python --version
 
     # 2. Confirm native extensions import cleanly
-    sudo -u cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python -c "import yara, libvirt, django, sqlalchemy; print('OK')"
+    sudo -Hu cape /usr/local/bin/uv --directory /opt/CAPEv2 run --no-sync python -c "import yara_x, libvirt, django, sqlalchemy; print('OK')"
 
     # 3. Confirm all services are active and check recent logs
     systemctl status cape cape-processor cape-rooter cape-web --no-pager

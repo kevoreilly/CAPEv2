@@ -516,6 +516,8 @@ class File:
             for _ in range(len(rules) + 1):
                 if HAVE_YARA_X:
                     compiler = yara_x.Compiler(relaxed_re_syntax=True)
+                    for ext_k, ext_v in externals.items():
+                        compiler.define_global(ext_k, ext_v)
                     for name, path in rules.items():
                         try:
                             with open(path, "r") as f:
@@ -669,7 +671,11 @@ class File:
             if HAVE_YARA_X:
                 # Built here, on the scanning thread, and deliberately not cached
                 # anywhere that outlives the scan -- see init_yara().
-                yara_results = yara_x.Scanner(rules).scan_file(self.file_path)
+                scanner = yara_x.Scanner(rules)
+                for ext_k, ext_v in externals.items():
+                    with contextlib.suppress(ValueError):
+                        scanner.set_global(ext_k, ext_v)
+                yara_results = scanner.scan_file(self.file_path)
                 for match in yara_results.matching_rules:
                     strings = []
                     addresses = {}

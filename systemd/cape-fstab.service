@@ -4,6 +4,7 @@ Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/local/bin/uv run --no-sync python fstab.py -g cape
 User=root
 Group=root

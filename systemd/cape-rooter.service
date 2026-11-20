@@ -6,6 +6,7 @@ After=syslog.target network.target
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
+Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/local/bin/uv run --no-sync python rooter.py -g cape
 User=root
 Group=root

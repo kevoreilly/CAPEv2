@@ -2,7 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import ast
 import inspect
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -86,3 +88,17 @@ def test_ssh_jump_client_auth_delegates_paramiko5_signature_and_custom_handler()
         username="cape",
         handler=handler,
     )
+
+
+def test_admin_jumpbox_connect_does_not_disable_rsa_sha2_algorithms():
+    """Paramiko 5.x removed ssh-rsa (SHA-1); disabling rsa-sha2-* leaves zero RSA pubkey algorithms."""
+    admin_src = (Path(__file__).resolve().parents[1] / "admin" / "admin.py").read_text(encoding="utf-8")
+    tree = ast.parse(admin_src)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "connect":
+            for kw in node.keywords:
+                if kw.arg == "disabled_algorithms":
+                    rendered = ast.unparse(kw.value)
+                    assert "rsa-sha2-512" not in rendered and "rsa-sha2-256" not in rendered, (
+                        f"admin/admin.py disables RSA-SHA2 pubkeys incompatible with Paramiko 5.x: {rendered}"
+                    )

@@ -1279,5 +1279,46 @@ class TestAnalysisManager:
         assert "Completed analysis unsuccessfully." in caplog.text
         assert "Completed analysis successfully." not in caplog.text
 
+    def test_route_network_records_effective_route_and_passes_to_run_auxiliary(
+        self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        analysis_man = self._routing_manager(task, machine, machinery_manager, mocker, route="internet", internet="eth9")
+        mocker.patch(
+            "lib.cuckoo.core.analysis_manager.rooter",
+            side_effect=lambda command, *a, **k: {"output": command == "nic_available", "exception": None},
+        )
+
+        analysis_man.route_network()
+
+        assert analysis_man.route == "internet"
+        assert analysis_man.effective_route == "internet"
+        # tasks.route stays None while effective_route is persisted in task.attributes.
+        loaded = db.view_task(task.id)
+        assert loaded is not None
+        assert loaded.route is None
+        assert loaded.get_attribute("effective_route") == "internet"
+
+        mock_run_aux = mocker.patch("lib.cuckoo.core.analysis_manager.RunAuxiliary")
+        with analysis_man.run_auxiliary():
+            pass
+        mock_run_aux.assert_called_once_with(task=analysis_man.task, machine=machine, route="internet")
+
+    def test_route_network_records_downgraded_effective_route_on_missing_nic(
+        self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        analysis_man = self._routing_manager(task, machine, machinery_manager, mocker, route="internet", internet="eth9")
+        mocker.patch(
+            "lib.cuckoo.core.analysis_manager.rooter",
+            side_effect=lambda command, *a, **k: {"output": False, "exception": None} if command == "nic_available" else {"output": None, "exception": None},
+        )
+
+        analysis_man.route_network()
+
+        assert analysis_man.effective_route == "none"
+        loaded = db.view_task(task.id)
+        assert loaded is not None
+        assert loaded.get_attribute("effective_route") == "none"
+
+
 
 

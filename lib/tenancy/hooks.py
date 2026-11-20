@@ -189,8 +189,8 @@ def _enforce_task_entitlements(
     return None
 
 
-# Attributes only dist sets when it hands a task to a worker.
-_DIST_ONLY_ATTRIBUTES = ("task_acl", "main_task_id", "parent_sample")
+# Attributes only dist or AnalysisManager set internally.
+_DIST_ONLY_ATTRIBUTES = ("task_acl", "main_task_id", "parent_sample", "effective_route")
 
 
 def _strip_untrusted_task_acl(attributes: Any) -> Any:

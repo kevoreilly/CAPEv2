@@ -11,6 +11,7 @@ from threading import Thread
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.routing import resolve_auxiliary_route
 from lib.cuckoo.core.rooter import rooter
 
 log = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class PolarProxy(Auxiliary):
     def start(self):
         """Start PolarProxy in a separate thread."""
 
-        self.polarproxy_thread = PolarProxyThread(self.task, self.machine)
+        self.polarproxy_thread = PolarProxyThread(self.task, self.machine, route=getattr(self, "route", None))
         self.polarproxy_thread.start()
         return True
 
@@ -43,9 +44,10 @@ class PolarProxy(Auxiliary):
 class PolarProxyThread(Thread):
     """Thread responsible for control PolarProxy service for each analysis."""
 
-    def __init__(self, task, machine):
+    def __init__(self, task, machine, route=None):
         Thread.__init__(self)
         self.task = task
+        self.route = route
         self.storage_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "polarproxy")
         self.machine = machine
         self.proc = None
@@ -79,7 +81,7 @@ class PolarProxyThread(Thread):
             "description": "A curated ruleset generated on the fly to block/bypass specific domain patterns AND handle termination proxying to InetSim.",
             "rules": [],
         }
-        if self.task.route == "inetsim":
+        if resolve_auxiliary_route(getattr(self, "route", None), self.task, routing).lower() == "inetsim":
             # It does not appear feasible to redirect packets from client destined for port 443 to
             # a local service listening on port XYZ _AND_ have iptables DNAT that same packet to
             # inetsim. After PREROUTING to localhost:XYZ, iptables briefly "loses track" of the

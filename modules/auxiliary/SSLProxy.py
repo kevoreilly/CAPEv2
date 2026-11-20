@@ -11,6 +11,7 @@ from threading import Thread
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.routing import is_no_route, resolve_auxiliary_route
 from lib.cuckoo.core.rooter import rooter
 
 log = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class SSLProxy(Auxiliary):
         self.sslproxy_thread = None
 
     def start(self):
-        self.sslproxy_thread = SSLProxyThread(self.task, self.machine)
+        self.sslproxy_thread = SSLProxyThread(self.task, self.machine, route=getattr(self, "route", None))
         self.sslproxy_thread.start()
         return True
 
@@ -50,7 +51,7 @@ class SSLProxyThread(Thread):
     FWMARK_BASE = 100
     FWMARK_RANGE = 900
 
-    def __init__(self, task, machine):
+    def __init__(self, task, machine, route=None):
         Thread.__init__(self)
         self.task = task
         self.machine = machine
@@ -78,15 +79,16 @@ class SSLProxyThread(Thread):
 
         # Determine routing table for upstream VPN routing
         routing_conf = Config("routing")
-        self.route = self.task.route or routing_conf.routing.route
+        self.route = resolve_auxiliary_route(route, self.task, routing_conf)
         self.rt_table = ""
-        if self.route and self.route not in ("none", "None", "drop", "false", "inetsim", "tor"):
+        if not is_no_route(self.route) and self.route.lower() not in ("inetsim", "tor"):
             if hasattr(routing_conf, self.route):
                 entry = routing_conf.get(self.route)
-                self.rt_table = str(getattr(entry, 'rt_table', ''))
+                rt_table = entry.get("rt_table") if isinstance(entry, dict) else getattr(entry, "rt_table", None)
+                self.rt_table = str(rt_table) if rt_table else ""
             elif self.route.startswith("tun"):
                 self.rt_table = self.route
-            elif self.route == "internet":
+            elif self.route.lower() == "internet":
                 self.rt_table = str(routing_conf.routing.rt_table) if routing_conf.routing.rt_table else ""
 
     def _get_unused_port(self):

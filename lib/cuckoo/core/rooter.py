@@ -9,6 +9,7 @@ import threading
 from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.routing import normalize_task_route
 from lib.cuckoo.common.socket_utils import DEFAULT_SOCKET_TIMEOUT, send_socket_command
 
 cfg = Config()
@@ -71,15 +72,16 @@ def rooter_required(routing=None) -> bool:
     """
     routing = routing or router_cfg
     nexthop_enabled = hasattr(routing, "nexthop") and routing.nexthop.enabled
-    internet = getattr(routing.routing, "internet", "none")
+    internet = normalize_task_route(getattr(routing.routing, "internet", None))
+    default_route = normalize_task_route(getattr(routing.routing, "route", None))
     drop_enabled = bool(getattr(routing.routing, "drop", False))
     return bool(
         routing.vpn.enabled
         or routing.tor.enabled
         or routing.inetsim.enabled
         or routing.socks5.enabled
-        or str(routing.routing.route).lower() not in ("none", "false")
-        or (internet and str(internet).lower() not in ("none", "false"))
+        or (default_route is not None and default_route.lower() not in ("none", "false"))
+        or (internet is not None and internet.lower() not in ("none", "false"))
         or drop_enabled
         or nexthop_enabled
     )

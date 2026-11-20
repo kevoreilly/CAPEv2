@@ -2086,3 +2086,32 @@ class TestDatabaseEngine:
         assert db.get_guac_session("tok-2") is None
         assert not db.session().in_transaction()
 
+    def test_task_route_omitted_and_normalized_to_none(self, db: _Database, temp_filename: str):
+        # Unset/empty/False routes must store SQL NULL (None), never '0' or 'false'.
+        tid_none = db.add_path(temp_filename, route=None)
+        tid_empty = db.add_path(temp_filename, route="")
+        tid_spaces = db.add_path(temp_filename, route="   ")
+        tid_false = db.add_path(temp_filename, route=False)
+        # Explicit route tokens are preserved trimmed so callers can override routing.conf.
+        tid_explicit_none = db.add_url("http://example.invalid/a", route="none")
+        tid_explicit_drop = db.add_url("http://example.invalid/b", route="drop")
+        tid_vpn = db.add_url("http://example.invalid/c", route="  vpn_uk  ")
+
+        for tid in (tid_none, tid_empty, tid_spaces, tid_false):
+            assert db.view_task(tid).route is None
+        assert db.view_task(tid_explicit_none).route == "none"
+        assert db.view_task(tid_explicit_drop).route == "drop"
+        assert db.view_task(tid_vpn).route == "vpn_uk"
+
+    def test_set_task_attribute_persists_effective_route(self, db: _Database, temp_filename: str):
+        tid = db.add_path(temp_filename, route=None, attributes={"main_task_id": 42, "task_acl": {"owner": 7}})
+        assert db.set_task_attribute(tid, "effective_route", "vpn_eu") is True
+        assert db.set_task_attribute(999999, "effective_route", "vpn_eu") is False
+
+        loaded = db.view_task(tid)
+        assert loaded.route is None
+        assert loaded.get_attribute("effective_route") == "vpn_eu"
+        assert loaded.get_attribute("main_task_id") == 42
+        assert loaded.get_attribute("task_acl") == {"owner": 7}
+
+

@@ -8,6 +8,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.hooks import apply_sql_task_filter
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
+from lib.cuckoo.common.routing import normalize_task_route
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.utils import bytes2str, get_options
 from lib.cuckoo.common.demux import demux_sample
@@ -226,7 +227,7 @@ class TasksMixIn:
             task.memory = bool(memory)
             task.enforce_timeout = enforce_timeout
             task.tlp = tlp
-            task.route = route
+            task.route = normalize_task_route(route)
             task.cape = cape
             task.tags_tasks = tags_tasks
 
@@ -866,6 +867,15 @@ class TasksMixIn:
                 return None
 
             return self.set_task_status(task, status)
+
+    def set_task_attribute(self, task_id: int, key: str, value) -> bool:
+        """Persist a single key/value entry in Task.attributes."""
+        with self.session.begin():
+            task = self.session.get(Task, task_id)
+            if not task:
+                return False
+            task.set_attribute(key, value)
+            return True
 
     def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.

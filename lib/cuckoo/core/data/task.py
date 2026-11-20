@@ -69,7 +69,7 @@ class Task(Base):
     custom: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     machine: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     package: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    route: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default=False)
+    route: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     # Task tags
     tags_tasks: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     # Virtual machine tags

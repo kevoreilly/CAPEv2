@@ -17,3 +17,4 @@ This chapter explains how to install CAPE.
     guest/index
     guest_physical/index
     upgrade
+    uv_migration

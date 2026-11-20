@@ -35,7 +35,7 @@ Module Installation and Configuration
     The module depends on the official Google Cloud Storage library. Install it within your CAPE virtual environment.
 
     .. note::
-       Install dependency ``poetry run pip install google-cloud-storage``.
+       Install dependency ``uv sync --locked --no-install-project --inexact --extra gcp`` (or ``uv pip install google-cloud-storage``).
 
 2.  **Update Configuration:**
     * Edit ``/opt/CAPEv2/conf/reporting.conf``.

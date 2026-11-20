@@ -131,9 +131,6 @@ dev = [
     "pre-commit>=2.19.0",
 ]
 
-[tool.poetry]
-package-mode = false
-
 [tool.uv]
 package = false
 
@@ -167,10 +164,6 @@ filterwarnings = [
     "ignore:datetime\\.datetime\\.utcnow\\(\\) is deprecated:DeprecationWarning:httpretty\\..*",
     "ignore:This process \\(pid=\\d+\\) is multi-threaded, use of fork\\(\\) may lead to deadlocks in the child:DeprecationWarning",
 ]
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 132

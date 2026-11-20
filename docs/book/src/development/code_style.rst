@@ -215,13 +215,13 @@ and to run the actions that are scheduled::
 We created a file ``.actrc`` containing ``--env CAPE_AS_ROOT=1`` because ``act`` runs the tests
 as root, and otherwise the tests would exit saying you cannot run CAPE as root.
 
-Poetry and pre-commit hooks
-===========================
+uv and pre-commit hooks
+=======================
 
 After cloning the git repository, the first commands that you should do::
 
-    poetry install
-    poetry run pre-commit install
+    uv sync --locked --all-groups
+    uv run pre-commit install
 
 This will install the pre-commit hooks, ensuring that all files have to conform
 to black and isort.

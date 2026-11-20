@@ -559,7 +559,7 @@ To manage your socks server you can use Socks5man software.
 Building them by yourself, using your favorite software, buying, etc
 The configuration is pretty simple and looks like VPN, but you don't need to configure anything else
 
-Requires to install dependency: ``poetry run pip install git+https://github.com/CAPESandbox/socks5man``
+Requires to install dependency: ``uv pip install --python /opt/CAPEv2/.venv/bin/python git+https://github.com/CAPESandbox/socks5man``
 
 Example::
 

@@ -57,8 +57,7 @@ The following steps are suggested as a requirement to migrate your data:
 
 Now setup Alembic (the framework used for migrations) and dateutil with::
 
-    poetry run pip install alembic
-    poetry run pip install python-dateutil
+    uv pip install --python /opt/CAPEv2/.venv/bin/python alembic python-dateutil
 
 Enter the alembic migration directory in "utils/db_migration" with::
 
@@ -73,48 +72,25 @@ configuration may corrupt your data, backup should save kittens!
 
 Run the database migrations with::
 
-    alembic upgrade head
+    uv run --no-sync alembic upgrade head
 
 
 Python library upgrades:
 ========================
 
-PIP3:
+Sync locked dependencies (``--inexact`` preserves ``libvirt-python``, custom ``yara-python``, and optional packages)::
 
-   $ poetry run pip install -U <library>
+   $ sudo -u cape uv sync --locked --no-install-project --inexact
 
-PIP3+git:
-   $ poetry run pip install -U git+<repo_url>
-   $ poetry run pip install -U git+https://github.com/CAPEsandbox/sflock
+Install or upgrade an extra package directly into ``.venv``::
 
-Troubleshooting:
-================
-When trying to update your local CAPE installation with poetry with either of the following commands::
+   $ sudo -u cape uv pip install --python /opt/CAPEv2/.venv/bin/python -U <library>
+   $ sudo -u cape uv pip install --python /opt/CAPEv2/.venv/bin/python -U git+<repo_url>
+   $ sudo -u cape uv pip install --python /opt/CAPEv2/.venv/bin/python -U git+https://github.com/CAPEsandbox/sflock
 
-   $ sudo -u cape poetry install
-   $ sudo -u cape poetry update
+Migrating from Poetry to uv:
+============================
 
-you may encounter the following error::
-
-   CalledProcessError
-      Command '['git', '--git-dir', '/tmp/pypoetry-git-web3.pyocemorcf/.git', '--work-tree', '/tmp/pypoetry-git-web3.pyocemorcf', 'checkout', 'master']' returned non-zero exit status 1.
-
-
-Or maybe when trying to update ``poetry`` itself with::
-
-   $ sudo -u cape poetry self update
-
-you may face the following error::
-
-   RuntimeError
-      Poetry was not installed with the recommended installer. Cannot update automatically.
-
-That is because you probably installed poetry with pip.
-
-In order to solve it you must first upgrade your local ``poetry`` installation with::
-
-   $ sudo pip3 install poetry --upgrade
-
-and then run the update command again::
-
-   $ sudo -u cape poetry update
+CAPEv2 has migrated from Poetry to ``uv`` with a managed Python 3.14 runtime. If your
+installation still uses ``/etc/poetry/bin/poetry``, run ``sudo bash installer/cape2.sh migrate-uv``
+or follow :ref:`uv_migration`.

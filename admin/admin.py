@@ -256,7 +256,6 @@ if __name__ == "__main__":
             username=JUMP_BOX_SECOND_USERNAME,
             look_for_keys=True,
             allow_agent=True,
-            disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
         )
         JUMPBOX_USED = True
 
@@ -268,7 +267,6 @@ if __name__ == "__main__":
             username=JUMP_BOX_USERNAME,
             look_for_keys=True,
             allow_agent=True,
-            disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
         )
 
     if args.static_server_list:

@@ -41,7 +41,7 @@ if cfg.cuckoo.machinery == "az":
         HAVE_AZURE = True
     except ImportError:
         print("Missing machinery-required libraries.")
-        print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
+        print("uv pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
 
 # Only log INFO or higher from imported python packages

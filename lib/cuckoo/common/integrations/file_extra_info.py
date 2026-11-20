@@ -117,7 +117,7 @@ try:
     HAVE_BAT_DECODER = True
 except ImportError:
     HAVE_BAT_DECODER = False
-    print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
+    print("OPTIONAL! Missed dependency: uv pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
 unautoit_binary = ""
 innoextact_binary = ""
@@ -1147,7 +1147,7 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
     tool = False
 
     if not path_exists(sevenzip_binary):
-        logging.error("Missed 7zip executable. Run: poetry run python utils/community.py -waf")
+        logging.error("Missed 7zip executable. Run: uv run --no-sync python utils/community.py -waf")
         return
 
     # Check for msix file since it's a zip

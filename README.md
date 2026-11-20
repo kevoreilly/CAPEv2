@@ -163,7 +163,8 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 ## Installation recommendations and scripts for optimal performance
 * Python3
     * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
-    * host tested with python3 version 3.10, 3.12, but newer versions should work too
+    * host runs inside `uv` using a `uv`-managed **Python 3.14** runtime (`.python-version`) installed into `/usr/local/share/uv/python`, decoupling CAPEv2 from the host OS Python (works on Ubuntu 22.04 and 24.04).
+    * **Migrating existing Poetry deployments**: run `sudo bash installer/cape2.sh migrate-uv` or follow the step-by-step [Poetry to uv Infrastructure Migration Guide](docs/book/src/installation/uv_migration.rst).
 
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
@@ -201,8 +202,8 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * [choco.bat](https://github.com/kevoreilly/CAPEv2/blob/master/installer/choco.bat)
 
 ## How to update
-* CAPE: `git pull`
-* community: `python3 utils/community.py -waf` see `-h` before to ensure you understand
+* CAPE: `git pull && sudo -u cape uv sync --locked --no-install-project --inexact` (or `sudo bash installer/cape2.sh update`)
+* community: `sudo -u cape uv run --no-sync python utils/community.py -waf` see `-h` before to ensure you understand
 
 ## How to upgrade with a lot of custom small modifications that can't be public?
 

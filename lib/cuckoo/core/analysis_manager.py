@@ -46,7 +46,7 @@ try:
     network_interfaces = list(psutil.net_if_addrs().keys())
     HAVE_NETWORKIFACES = True
 except ImportError:
-    print("Missed dependency: poetry run pip install psutil")
+    print("Missed dependency: uv pip install psutil")
 
 latest_symlink_lock = threading.Lock()
 

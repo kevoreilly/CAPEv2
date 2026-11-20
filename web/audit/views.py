@@ -35,7 +35,7 @@ except ImportError:
     try:
         from ratelimit.decorators import ratelimit
     except ImportError:
-        print("missed dependency: poetry install")
+        print("missed dependency: uv sync --locked --no-install-project --inexact")
 '''
 
 SESSIONS_PER_PAGE = 10

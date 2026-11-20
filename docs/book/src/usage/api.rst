@@ -8,7 +8,7 @@ To see the current hosted REST API documentation head to ``/apiv2/``. You will f
 
 To enable the REST API, we use `django-rest-framework`::
 
-    $ poetry run pip install djangorestframework
+    $ uv pip install --python /opt/CAPEv2/.venv/bin/python djangorestframework
 
 .. _`django-rest-framework`: https://www.django-rest-framework.org
 
@@ -20,12 +20,12 @@ To generate a user authorization token:
     cd /opt/CAPEv2/web
 
     # To create super user aka admin
-    sudo -u cape poetry run python3 manage.py createsuperuser
+    sudo -u cape uv run --no-sync python manage.py createsuperuser
 
     # To create normal user, use web interface /admin/ (in case if you not changed path)
 
     # By hand, only required if auth enabled and user MUST exist
-    sudo -u cape poetry run python3 manage.py drf_create_token <your_user>
+    sudo -u cape uv run --no-sync python manage.py drf_create_token <your_user>
 
     # Auto generation local or any public instance
     curl -d "username=<USER>&password=<PASSWD>" http://127.0.0.1:8000/apiv2/api-token-auth/

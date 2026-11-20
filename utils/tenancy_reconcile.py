@@ -2,7 +2,7 @@
 """Restamp MongoDB/Elasticsearch report docs from task_acl (multitenancy upgrade step).
 
 Run once after upgrading an install that ran the earlier inline tenancy code, with the web and
-processing services stopped: poetry run python utils/tenancy_reconcile.py [--dry-run]
+processing services stopped: uv run --no-sync python utils/tenancy_reconcile.py [--dry-run]
 """
 
 import os

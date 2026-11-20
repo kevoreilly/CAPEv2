@@ -525,7 +525,7 @@ def init_modules():
     if HAS_CUSTOM_SIGNATURES_WINDOWS:
         import_package(custom.signatures.windows)
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
-        log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
+        log.warning("Suggestion: looks like you didn't install community, execute: uv run --no-sync python utils/community.py -h")
     # Import all reporting modules.
     import_package(modules.reporting)
     # Import all feeds modules.
@@ -663,7 +663,7 @@ def init_rooter(apply_state=False):
             raise CuckooStartupError(
                 "The rooter is required but it is either not running or it "
                 "has been configured to a different Unix socket path. "
-                "poetry run python utils/rooter.py -h or systemctl status cape-rooter"
+                "uv run --no-sync python utils/rooter.py -h or systemctl status cape-rooter"
             )
 
         if e.strerror == "Connection refused":

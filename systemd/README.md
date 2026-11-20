@@ -23,10 +23,12 @@ These files help run all the various parts of CAPE as systemd services, so that 
     systemctl show cape-processor | grep LimitNOFILE
     ```
 
-1. (optional) Install virtualenv
+1. Install `uv` and a shared managed Python 3.14 runtime (see [Poetry to uv Migration Guide](../docs/book/src/installation/uv_migration.rst) if upgrading an existing Poetry host):
 
    ```bash
-   sudo apt-get install -y python3-virtualenv
+   curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR=/usr/local/bin sh
+   sudo env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python /usr/local/bin/uv python install 3.14
+   sudo chmod -R a+rX /usr/local/share/uv/python
    ```
 
 2. Place CAPEv2 in `/opt/CAPEv2`
@@ -36,32 +38,22 @@ These files help run all the various parts of CAPE as systemd services, so that 
     sudo chown cape:cape -R /opt/CAPEv2
     ```
 
-4. Switch to the cape user
+4. Sync dependencies into `/opt/CAPEv2/.venv` as the `cape` user
 
     ```bash
-    sudo su cape
+    cd /opt/CAPEv2
+    sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python /usr/local/bin/uv sync --locked --no-install-project --inexact --python 3.14
     ```
 
-5. (optional) Create a virtualenv at `/opt/CAPEv2/venv`
+5. Edit configuration files in `/opt/CAPEv2/conf` as needed
+
+6. Install the `systemd` service unit configuration files (all Python units invoke `/usr/local/bin/uv run --no-sync` against `/opt/CAPEv2/.venv`):
 
     ```bash
-    virtualenv /opt/CAPEv2/venv
-    ```
-
-6. Edit configuration files in `/opt/CAPEv2/conf` as needed
-7. Return to your user
-
-    ```bash
-    exit
-    ```
-
-8. Install the `systemd` service unit configuration files(you need modify ExecStart= if you using virtualenv, just comment current one and uncomment another one)
-
-    ```bash
-    sudo cp /opt/CAPE/systemd/*.service /etc/systemd/system
-    sudo cp /opt/CAPE/systemd/*.timer /etc/systemd/system
+    sudo cp /opt/CAPEv2/systemd/*.service /etc/systemd/system
+    sudo cp /opt/CAPEv2/systemd/*.timer /etc/systemd/system
     sudo mkdir -p /etc/systemd/network
-    sudo cp /opt/CAPE/systemd/00-ignore-vnet.network /etc/systemd/network/
+    sudo cp /opt/CAPEv2/systemd/00-ignore-vnet.network /etc/systemd/network/
     sudo networkctl reload
     sudo systemctl daemon-reload
     sudo systemctl enable suricata-update.service
@@ -72,7 +64,7 @@ These files help run all the various parts of CAPE as systemd services, so that 
     sudo systemctl enable cape-web.service
     ```
 
-10. Start the services for the first time
+7. Start the services for the first time
 
     ```bash
     sudo systemctl start suricata-update.service

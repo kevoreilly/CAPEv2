@@ -137,7 +137,7 @@ class GCPPubSubService:
 
             self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
         except ImportError:
-            log.error("GCP Pub/Sub dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-pubsub google-cloud-storage`")
+            log.error("GCP Pub/Sub dependencies not installed. Please run `uv sync --locked --no-install-project --inexact --extra gcp` or `uv pip install google-cloud-pubsub google-cloud-storage`")
             sys.exit(1)
         except Exception as e:
             log.error("Failed to initialize GCP Pub/Sub client: %s", e)

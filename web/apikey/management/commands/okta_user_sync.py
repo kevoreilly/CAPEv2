@@ -14,8 +14,8 @@ Configuration (web.conf [oauth_oidc]):
   admin_api_token  = <SSWS token with okta.users.read scope>
 
 Usage:
-  poetry run python manage.py okta_user_sync           # apply changes
-  poetry run python manage.py okta_user_sync --dry-run # report only
+  uv run --no-sync python manage.py okta_user_sync           # apply changes
+  uv run --no-sync python manage.py okta_user_sync --dry-run # report only
 """
 
 import logging

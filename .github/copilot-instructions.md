@@ -20,7 +20,7 @@
 - Code avoids mutable global variables; configuration is accessed via `Config` objects.
 
 ## Developer Workflows
-- No Makefile or standard build scripts; dependency management is usually via `poetry` or `pip`.
+- No Makefile or standard build scripts; dependency management uses `uv` (`uv.lock` / `pyproject.toml`).
 - For testing, use virtual environments and run scripts manually.
 - Typical backend startup is via Django (`manage.py runserver`), and analysis workers are launched separately.
 - Database changes require manual migrations (see Alembic comments in `database.py`).

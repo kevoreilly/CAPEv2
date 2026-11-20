@@ -17,7 +17,7 @@ try:
 
     HAVE_FLOSS = True
 except ImportError:
-    print("Missed dependency flare-floss: poetry run pip install -U flare-floss")
+    print("Missed dependency flare-floss: uv pip install -U flare-floss")
 
 log = logging.getLogger(__name__)
 

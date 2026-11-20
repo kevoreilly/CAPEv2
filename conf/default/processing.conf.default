@@ -177,7 +177,7 @@ binary = /usr/bin/diec
 [magika]
 # Google Magika - deep-learning content type identification.
 # https://github.com/google/magika
-# Install: poetry run pip install -U magika
+# Install: uv pip install -U magika
 # Main benfit is classification of text file types i.e. PowerShell, ini files etc.
 enabled = no
 # Optional path to a custom/pinned model directory. Empty = use the model
@@ -307,7 +307,7 @@ hashmethod = ahash
 # Mac - brew install graphviz
 # Ubuntu - sudo apt-get install graphviz
 # Arch - sudo pacman -S graphviz+
-# sudo poetry run pip install networkx>=2.1 graphviz>=0.8.4 pydot>=1.2.4
+# sudo -u cape uv pip install networkx>=2.1 graphviz>=0.8.4 pydot>=1.2.4
 enabled = yes
 on_demand = yes
 
@@ -319,7 +319,7 @@ ja3_path = data/ja3/ja3fingerprint.json
 [maliciousmacrobot]
 # https://maliciousmacrobot.readthedocs.io
 # Install mmbot
-#   sudo poetry run pip install mmbot
+#   sudo -u cape uv pip install mmbot
 # Create/Set required paths
 # Populate benign_path and malicious_path with appropriate macro maldocs (try the tests/samples in the github)
 #   https://github.com/egaus/MaliciousMacroBot/tree/master/tests/samples
@@ -336,7 +336,7 @@ model_path = /opt/cuckoo/data/mmbot/model
 
 # Community
 [xlsdeobf]
-# poetry run pip install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
+# uv pip install git+https://github.com/DissectMalware/XLMMacroDeobfuscator.git
 enabled = no
 on_demand = no
 

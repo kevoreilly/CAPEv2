@@ -12,14 +12,14 @@ Dependencies
 The distributed script uses a few Python libraries which can be installed
 through the following command (on Debian/Ubuntu)::
 
-    $ poetry install --with dist
+    $ uv sync --locked --no-install-project --inexact --group dist
 
 Starting the Distributed REST API
 =================================
 
 The Distributed REST API requires a few command line options in order to run::
 
-    $ cd /opt/CAPEv2/web && poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+    $ cd /opt/CAPEv2/web && uv run --no-sync python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 Authentication
 ==============
@@ -160,23 +160,23 @@ CLI Admin Tools (Recommended)
 
 Get cluster and task queue status::
 
-    $ poetry run python utils/dist.py --status
+    $ uv run --no-sync python utils/dist.py --status
 
 List all registered nodes and their associated VMs::
 
-    $ poetry run python utils/dist.py --list-nodes
+    $ uv run --no-sync python utils/dist.py --list-nodes
 
 Register a CAPE worker node::
 
-    $ poetry run python utils/dist.py --register-node --node NAME --url http://1.2.3.4:8000/apiv2/ [--apikey KEY]
+    $ uv run --no-sync python utils/dist.py --register-node --node NAME --url http://1.2.3.4:8000/apiv2/ [--apikey KEY]
 
 Disable/deactivate a CAPE node::
 
-    $ poetry run python utils/dist.py --modify-node --node NAME --disable
+    $ uv run --no-sync python utils/dist.py --modify-node --node NAME --disable
 
 Enable/activate a CAPE node::
 
-    $ poetry run python utils/dist.py --modify-node --node NAME --enable
+    $ uv run --no-sync python utils/dist.py --modify-node --node NAME --enable
 
 
 JSON REST API
@@ -290,27 +290,27 @@ having to restart the ``./cuckoo.py`` daemon.
 
 First, get a list of available VMs that are running on the worker::
 
-   $ poetry run python dist.py --node NAME
+   $ uv run --no-sync python dist.py --node NAME
 
 Secondly, you can remove VMs from being used by CAPE with::
 
-   $ poetry run python dist.py --node NAME --delete-vm VM_NAME
+   $ uv run --no-sync python dist.py --node NAME --delete-vm VM_NAME
 
 When you are done editing your VMs you need to add them back to be used by ``cuckoo``. The easiest
 way to do that is to disable the node, so no more tasks get submitted to it::
 
-   $ poetry run python dist.py --node NAME --disable
+   $ uv run --no-sync python dist.py --node NAME --disable
 
 Wait for all running VMs to finish their tasks, and then restart the workers ``./cuckoo.py``, this will
 re-insert the previously deleted VMs into the Database from ``custom/conf/virtualbox.conf``.
 
 Update the VM list on the master::
 
-   $ poetry run python dist.py --node NAME
+   $ uv run --no-sync python dist.py --node NAME
 
 And enable the worker again::
 
-   $ poetry run python dist.py --node NAME --enable
+   $ uv run --no-sync python dist.py --node NAME --enable
 
 
 Good practice for production

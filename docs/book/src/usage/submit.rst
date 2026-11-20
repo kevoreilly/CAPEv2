@@ -63,53 +63,53 @@ The concept of analysis packages will be dealt with later in this documentation 
 
 *Example*: Submit a local binary::
 
-    $ poetry run python utils/submit.py /path/to/binary
+    $ uv run --no-sync python utils/submit.py /path/to/binary
 
 *Example*: Submit an URL::
 
-    $ poetry run python utils/submit.py --url http://www.example.com
+    $ uv run --no-sync python utils/submit.py --url http://www.example.com
 
 *Example*: Submit a local binary and specify a higher priority::
 
-    $ poetry run python utils/submit.py --priority 5 /path/to/binary
+    $ uv run --no-sync python utils/submit.py --priority 5 /path/to/binary
 
 *Example*: Submit a local binary and specify a custom analysis timeout of
 60 seconds::
 
-    $ poetry run python utils/submit.py --timeout 60 /path/to/binary
+    $ uv run --no-sync python utils/submit.py --timeout 60 /path/to/binary
 
 *Example*: Submit a local binary and specify a custom analysis package::
 
-    $ poetry run python utils/submit.py --package <name of package> /path/to/binary
+    $ uv run --no-sync python utils/submit.py --package <name of package> /path/to/binary
 
 *Example*: Submit a local binary and specify a custom analysis package and
 some options (in this case a command line argument for the malware)::
 
-    $ poetry run python utils/submit.py --package exe --options arguments=--dosomething /path/to/binary.exe
+    $ uv run --no-sync python utils/submit.py --package exe --options arguments=--dosomething /path/to/binary.exe
 
 *Example*: Submit a local binary to be run on the virtual machine *cape1*::
 
-    $ poetry run python utils/submit.py --machine cape1 /path/to/binary
+    $ uv run --no-sync python utils/submit.py --machine cape1 /path/to/binary
 
 *Example*: Submit a local binary to be run on a Windows machine::
 
-    $ poetry run python utils/submit.py --platform windows /path/to/binary
+    $ uv run --no-sync python utils/submit.py --platform windows /path/to/binary
 
 *Example*: Submit a local binary and take a full memory dump of the analysis machine once the analysis is complete::
 
-    $ poetry run python utils/submit.py --memory /path/to/binary
+    $ uv run --no-sync python utils/submit.py --memory /path/to/binary
 
 *Example*: Submit a local binary and force the analysis to be executed for the full timeout (disregarding the internal mechanism that CAPE uses to decide when to terminate the analysis)::
 
-    $ poetry run python utils/submit.py --enforce-timeout /path/to/binary
+    $ uv run --no-sync python utils/submit.py --enforce-timeout /path/to/binary
 
 *Example*: Submit a local binary and set the virtual machine clock. The format is %m-%d-%Y %H:%M:%S. If not specified, the current time is used. For example, if we want to run a sample on January 24th, 2001, at 14:41:20::
 
-    $ poetry run python utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
+    $ uv run --no-sync python utils/submit.py --clock "01-24-2001 14:41:20" /path/to/binary
 
 *Example*: Submit a sample for Volatility analysis (to reduce side effects of the CAPE hooking, switch it off with *options free=True*)::
 
-    $ poetry run python utils/submit.py --memory --options free=True /path/to/binary
+    $ uv run --no-sync python utils/submit.py --memory --options free=True /path/to/binary
 
 ``--options`` Options Available
 -------------------------------
@@ -365,7 +365,7 @@ submit.py
 
 If you try to submit an analysis using ``submit.py`` and your output looks like::
 
-    $ sudo -u cape poetry run python submit.py /path/to/binary/test.exe
+    $ sudo -u cape uv run --no-sync python submit.py /path/to/binary/test.exe
     Error: adding task to database
 
 It could be due to errors while trying to communicate with the PostgreSQL instance. PostgreSQL is installed and configured by default when executing ``cape2.sh``. Make sure your PostgreSQL instance is active and running. To check it out execute the following command::

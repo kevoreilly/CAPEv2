@@ -37,7 +37,7 @@ try:
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
 except ImportError:
-    log.error("Missed dependency: poetry run pip install volatility3 -U")
+    log.error("Missed dependency: uv pip install volatility3 -U")
     HAVE_VOLATILITY = False
 
 yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")

@@ -22,7 +22,7 @@ try:
     HAVE_OLEFILE = True
 except ImportError:
     HAVE_OLEFILE = False
-    print("Missed olefile dependency: poetry run pip install olefile")
+    print("Missed olefile dependency: uv pip install olefile")
 
 
 def bytearray_xor(data: bytearray, key: int) -> bytearray:

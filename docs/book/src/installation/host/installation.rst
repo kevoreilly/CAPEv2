@@ -101,34 +101,43 @@ To see service log use::
 To install dependencies
 =======================
 
-You can install CAPE's dependencies with the traditional. However, we recommend using poetry. As all services are configured to use poetry and better deal with dependencies conflict. See next step for poetry::
+CAPE manages its host Python runtime and dependencies with `uv <https://docs.astral.sh/uv/>`_,
+using a ``uv``-managed **Python 3.14** interpreter (pinned in ``.python-version``). All
+systemd services execute CAPE inside ``uv`` via ``/usr/local/bin/uv run --no-sync``.
+
+.. note::
+
+    Upgrading an existing Poetry deployment? See :ref:`uv_migration` for both the automated
+    ``cape2.sh migrate-uv`` command and the manual infrastructure migration checklist.
+
+To install ``uv``, managed Python 3.14, and CAPE's dependencies manually (from the CAPE root
+directory, usually ``/opt/CAPEv2/``)::
+
+    $ curl -LsSf https://astral.sh/uv/install.sh | sudo env UV_INSTALL_DIR=/usr/local/bin sh
+    $ sudo env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python /usr/local/bin/uv python install 3.14
+    $ sudo chmod -R a+rX /usr/local/share/uv/python
+    $ sudo -u cape env UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python \
+        /usr/local/bin/uv sync --locked --no-install-project --inexact --python 3.14
+
+Once installed, verify the virtual environment at ``/opt/CAPEv2/.venv``::
+
+    $ sudo -u cape uv run --no-sync python --version
+    Python 3.14.x
+
+From now on, execute CAPE commands within the ``uv`` environment using ``uv run --no-sync <command>``. For example::
+
+    $ sudo -u cape uv run --no-sync python cuckoo.py
+
+If you prefer ``pip`` directly, ``requirements.txt`` is still exported from ``uv.lock``::
+
     $ pip3 install -r requirements.txt
-
-To install dependencies with poetry, execute the following command (from the main working directory of CAPE, usually ``/opt/CAPEv2/``)::
-
-    $ poetry install
-
-Once the installation is done, you can confirm a virtual environment has been created with::
-
-    $ poetry env list
-
-The output should be similar to::
-
-    $ poetry env list
-    capev2-t2x27zRb-py3.10 (Activated)
-
-From now on, you will have to execute CAPE within the virtual env of Poetry. To do so you need just ``poetry run <command>``. For example::
-
-    $ sudo -u cape poetry run python3 cuckoo.py
-
-If you need further assistance with Poetry, there are hundreds of cheat sheets on the Internet
 
 Optional dependencies
 ~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: bash
 
-   sudo -u cape poetry run pip install -r extra/optional_dependencies.txt
+   sudo -u cape uv pip install --python /opt/CAPEv2/.venv/bin/python -r extra/optional_dependencies.txt
 
 
 **ATTENTION!** ``cape`` user

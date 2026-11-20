@@ -20,7 +20,7 @@ from typing import Dict, List
 try:
     import dns.resolver
 except ImportError:
-    logging.error("Missed dependency -> poetry install")
+    logging.error("Missed dependency -> uv sync --locked --no-install-project --inexact")
 
 import PIL
 import requests

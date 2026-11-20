@@ -28,7 +28,7 @@ def _load_peepdf():
         from peepdf.PDFCore import PDFParser
         _PEEPDF_BINDINGS = (PDFParser, isJavascript, analyseJS)
     except ImportError:
-        print("OPTIONAL! Missed dependency: poetry run pip install peepdf-3")
+        print("OPTIONAL! Missed dependency: uv pip install peepdf-3")
         _PEEPDF_BINDINGS = ()
     return _PEEPDF_BINDINGS
 

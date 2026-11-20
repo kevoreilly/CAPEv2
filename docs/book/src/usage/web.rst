@@ -17,7 +17,7 @@ You need to restart daemon to reload after change it::
 
 If you get migration-related WARNINGS when launching the cape-web service, you should execute::
 
-    $ poetry run python3 manage.py migrate
+    $ uv run --no-sync python3 manage.py migrate
 
 .. note:: In order to improve performance, it is recommended to move from SQLite to PostgreSQL.
 
@@ -35,7 +35,7 @@ Enable web interface auth
 To enable web authentication you need to edit `conf/web.conf` -> `web_auth` -> `enabled = yes`,
 after that you need to create your django admin user by running following command from `web` folder::
 
-    $ poetry run python manage.py createsuperuser
+    $ uv run --no-sync python manage.py createsuperuser
 
 For more security tips see `Exposed to internet`_ section.
 
@@ -61,13 +61,13 @@ Usage
 To start the web interface, you can simply run the following command
 from the ``web/`` directory::
 
-    $ poetry run python3 manage.py runserver_plus --traceback --keep-meta-shutdown
+    $ uv run --no-sync python3 manage.py runserver_plus --traceback --keep-meta-shutdown
 
 If you want to configure the web interface as listening for any IP on a
 specified port (by default the web interface is deployed at localhost:8000), you can start it with the following command (replace PORT
 with the desired port number)::
 
-    $ poetry run python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+    $ uv run --no-sync python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
 
 You can serve CAPE's web interface using WSGI interface with common web servers:
 Apache, Nginx, Unicorn, and so on. Devs are using Nginx + Uwsgi.
@@ -90,7 +90,7 @@ To extend the capabilities of control what users can do check `Django migrations
 
 .. _`Django migrations a primer`: https://realpython.com/django-migrations-a-primer/
 
-In few words you need to add new fields to ``models.py`` and run ``poetry run python3 manage.py makemigrations``
+In few words you need to add new fields to ``models.py`` and run ``uv run --no-sync python3 manage.py makemigrations``
 
 
 Exposed to internet
@@ -126,7 +126,7 @@ setting is set to:
 
 .. code:: systemd
 
-    ExecStart=/usr/bin/python3 -m poetry run gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance
+    ExecStart=/usr/local/bin/uv run --no-sync gunicorn web.wsgi -w 4 -t 200 --capture-output --enable-stdio-inheritance
 
 Run
 
@@ -447,14 +447,14 @@ Login error: no such column: users_userprofile.reports
 
 This error usually appears after updating CAPEv2 and one or more changes have been made to the database schema. To solve it, you must use the `web/manage` utility like so::
 
-$ sudo -u cape poetry run python3 manage.py migrate
+$ sudo -u cape uv run --no-sync python3 manage.py migrate
 
 The output should be similar to::
 
 
-    $ sudo -u cape poetry run python3 manage.py migrate
+    $ sudo -u cape uv run --no-sync python3 manage.py migrate
     CAPE parser: No module named Nighthawk - No module named 'Crypto'
-    Missed dependency flare-floss: poetry run pip install -U flare-floss
+    Missed dependency flare-floss: uv pip install -U flare-floss
     Operations to perform:
       Apply all migrations: account, admin, auth, authtoken, contenttypes, openid, sessions, sites, socialaccount, users
     Running migrations:
@@ -468,12 +468,12 @@ No such table: auth_user
 
 When executing::
 
-$ poetry run python manage.py createsuperuser
+$ uv run --no-sync python manage.py createsuperuser
 
 an error like ``django.db.utils.OperationalError: no such table: auth_user``
 may be raised. In order to solve it just execute the ``web/manage.py`` utility with the ``migrate`` option::
 
-$ sudo -u cape poetry run python3 web/manage.py migrate
+$ sudo -u cape uv run --no-sync python3 web/manage.py migrate
 
 
 Slow web/API searches when using MongoDB as backend

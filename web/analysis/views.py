@@ -59,7 +59,7 @@ except ImportError:
     try:
         from ratelimit.decorators import ratelimit
     except ImportError:
-        print("missed dependency: poetry install")
+        print("missed dependency: uv sync --locked --no-install-project --inexact")
 
 from lib.cuckoo.common.webadmin_utils import disable_user
 
@@ -89,7 +89,7 @@ try:
 
     HAVE_PYZIPPER = True
 except ImportError:
-    print("Missed dependency: poetry install")
+    print("Missed dependency: uv sync --locked --no-install-project --inexact")
     HAVE_PYZIPPER = False
 
 TASK_LIMIT = 25
@@ -3347,7 +3347,7 @@ def file(request, category, task_id, dlfile):
     }
 
     if category in zip_categories and not HAVE_PYZIPPER:
-        return render(request, "error.html", {"error": "Missed pyzipper library: poetry install"})
+        return render(request, "error.html", {"error": "Missed pyzipper library: uv sync --locked --no-install-project --inexact"})
 
     if category in ("sample", "static", "staticzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)

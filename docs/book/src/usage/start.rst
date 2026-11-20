@@ -41,12 +41,12 @@ Now CAPE is ready to run and it's waiting for submissions.
 
 Most importantly ``--debug`` and ``--quiet`` respectively increase and decrease the logging verbosity.
 
-Poetry users
-============
+uv users
+========
 
-If you used poetry to install dependencies, you should launch cape with the following command::
+Launch CAPE inside the ``uv`` environment with the following command::
 
-        $ sudo -u cape poetry run python3 cuckoo.py
+        $ sudo -u cape uv run --no-sync python cuckoo.py
 
 If you get any dependency-related error, make sure the cape service is using the python environment configured by the installer.
 
@@ -64,9 +64,9 @@ In fact, after installing CAPE with ``cape2.sh``, the directory should look simi
     .. image:: ../_images/screenshots/troubleshooting_0.png
             :align: center
 
-In order to execute CAPE as the ``cape`` user you can either launch a shell or execute the following command (notice the command is using Poetry)::
+In order to execute CAPE as the ``cape`` user you can either launch a shell or execute the following command (using ``uv``)::
 
-        $ sudo -u cape poetry run python3 cuckoo.py
+        $ sudo -u cape uv run --no-sync python cuckoo.py
 
 ``CuckooCriticalError: Cannot bind ResultServer on port 2042 because it was in use, bailing``
 ---------------------------------------------------------------------------------------------

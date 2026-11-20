@@ -55,7 +55,7 @@ try:
 
     HAVE_PEFILE = True
 except ImportError:
-    print("Missed pefile library. Install it with: poetry install")
+    print("Missed pefile library. Install it with: uv sync --locked --no-install-project --inexact")
     HAVE_PEFILE = False
 
 if process_cfg.mwcp.enabled and HAS_MWCP:
@@ -104,7 +104,7 @@ if process_cfg.CAPE_extractors.enabled:
     if cape_malware_parsers:
         HAVE_CAPE_EXTRACTORS = True
     if "test cape" not in cape_malware_parsers:
-        log.info("Missed cape-parsers! Run: poetry install")
+        log.info("Missed cape-parsers! Run: uv sync --locked --no-install-project --inexact")
 
 
 suppress_parsing_list = ["Cerber", "Emotet_Payload", "Ursnif", "QakBot"]

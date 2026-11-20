@@ -5,7 +5,6 @@ on:
     branches: [ master, staging ]
     paths:
       - "pyproject.toml"
-      - "poetry.lock"
 
 jobs:
   update:

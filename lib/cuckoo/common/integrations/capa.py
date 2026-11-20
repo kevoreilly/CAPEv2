@@ -42,7 +42,7 @@ if integrations_conf.flare_capa.enabled and (not HAVE_MALCAT_CAPA or integration
 
         # ToDo use major?
         if version.parse(capa_version).base_version.split(".")[0] not in capa_compatible_versions:
-            print("FLARE-CAPA missed or incompatible version. Run: poetry install")
+            print("FLARE-CAPA missed or incompatible version. Run: uv sync --locked --no-install-project --inexact")
         else:
             import capa.capabilities.common
             import capa.engine
@@ -86,7 +86,7 @@ if integrations_conf.flare_capa.enabled and (not HAVE_MALCAT_CAPA or integration
                     print("FLARE_CAPA problems. Probably install CAPA from github")
                     HAVE_FLARE_CAPA = False
             else:
-                print("FLARE CAPA rules missed! You can download them using: poetry run python utils/community.py -cr")
+                print("FLARE CAPA rules missed! You can download them using: uv run --no-sync python utils/community.py -cr")
                 HAVE_FLARE_CAPA = False
 
             signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
@@ -98,12 +98,12 @@ if integrations_conf.flare_capa.enabled and (not HAVE_MALCAT_CAPA or integration
                 except IOError:
                     print("FLARE_CAPA InvalidSignatures")
             else:
-                print("FLARE CAPA signature missed! You can download them using: poetry run python utils/community.py -cr")
+                print("FLARE CAPA signature missed! You can download them using: uv run --no-sync python utils/community.py -cr")
                 HAVE_FLARE_CAPA = False
     except ImportError as e:
         HAVE_FLARE_CAPA = False
         print(e)
-        print("FLARE-CAPA missed: poetry install")
+        print("FLARE-CAPA missed: uv sync --locked --no-install-project --inexact")
 
 
 # == Render ddictionary helpers
@@ -303,7 +303,7 @@ def flare_capa_details(
             log.warning("FLARE CAPA -> MemoryError")
         except AttributeError as e:
             log.exception(e)
-            log.warning("FLARE CAPA -> Use GitHub's version. poetry install")
+            log.warning("FLARE CAPA -> Use GitHub's version. uv sync --locked --no-install-project --inexact")
         except UnsupportedFormatError:
             log.error("FLARE CAPA -> UnsupportedFormatError")
         except EmptyReportError:

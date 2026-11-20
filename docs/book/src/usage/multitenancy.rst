@@ -56,9 +56,9 @@ Both features are configured in ``conf/cuckoo.conf`` and default to ``enabled = 
 * ``[multitenancy]`` requires **no extra packages** (uses core Django, SQLAlchemy, and PyMongo).
 * ``[object_storage]`` requires only the SDK for the backend you configure:
 
-  * ``backend = s3`` (AWS S3, MinIO, Ceph RGW): ``poetry install --extras s3``
-  * ``backend = gcs`` (Google Cloud Storage): ``poetry install --extras gcp``
-  * ``backend = azure`` (Azure Blob Storage): ``poetry install --extras azure``
+  * ``backend = s3`` (AWS S3, MinIO, Ceph RGW): ``uv sync --locked --no-install-project --inexact --extra s3``
+  * ``backend = gcs`` (Google Cloud Storage): ``uv sync --locked --no-install-project --inexact --extra gcp``
+  * ``backend = azure`` (Azure Blob Storage): ``uv sync --locked --no-install-project --inexact --extra azure``
   * ``backend = local`` (shared NFS / filesystem): no extra packages required.
 
 .. note::
@@ -92,8 +92,8 @@ report to the wrong tenant. The backfills above skip already-stamped reports, so
 restamp them from ``task_acl`` instead. Stop the web and processing services,
 then run (MongoDB and/or Elasticsearch, whichever is enabled)::
 
-    poetry run python utils/tenancy_reconcile.py --dry-run
-    poetry run python utils/tenancy_reconcile.py --adopt-public-from-reports
+    uv run --no-sync python utils/tenancy_reconcile.py --dry-run
+    uv run --no-sync python utils/tenancy_reconcile.py --adopt-public-from-reports
 
 In addition to restamping MongoDB and Elasticsearch reports from ``task_acl``,
 ``utils/tenancy_reconcile.py`` automatically:
@@ -126,7 +126,7 @@ visibility change made while the task ran is kept. The Go fast-fetcher
 (``utils/go-fetcher``) does not: with it, run the command below for the task. To do the same for one task by hand (for example after reprocessing
 it on a worker, or from an object-storage broker once a bridged report lands)::
 
-    poetry run python utils/tenancy_reconcile.py --task <id>
+    uv run --no-sync python utils/tenancy_reconcile.py --task <id>
 
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------
@@ -400,8 +400,9 @@ Supported (isolation enforced end-to-end)
   mount (``backend = local``), and the web UI streams or lazily stages artifacts on
   demand via ``TenancyMiddleware.process_view``. Multi-tenancy itself requires no
   extra packages; for object storage, install only the SDK for your chosen backend:
-  ``poetry install --extras s3`` (or ``-E s3``), ``poetry install --extras gcp`` (or
-  ``-E gcp``), or ``poetry install --extras azure`` (or ``-E azure``).
+  ``uv sync --locked --no-install-project --inexact --extra s3``,
+  ``uv sync --locked --no-install-project --inexact --extra gcp``, or
+  ``uv sync --locked --no-install-project --inexact --extra azure``.
 * **Guacamole interactive sessions** for task-backed analyses: gated by
   ``can_toggle`` / ``can_manage`` (owner / tenant-admin / break-glass), not mere
   read visibility.

@@ -24,7 +24,7 @@ log = logging.getLogger()
 try:
     from setproctitle import getproctitle, setproctitle
 except ImportError:
-    log.critical("Missed setproctitle dependency. Run: poetry install")
+    log.critical("Missed setproctitle dependency. Run: uv sync --locked --no-install-project --inexact")
     sys.exit(1)
 
 if sys.version_info[:2] < (3, 8):
@@ -34,7 +34,7 @@ if sys.version_info[:2] < (3, 8):
 try:
     import pebble  # noqa: F401  # fail fast with a clear message if the dep is missing (engines import it)
 except ImportError:
-    log.critical("Missed pebble dependency. Run: poetry install")
+    log.critical("Missed pebble dependency. Run: uv sync --locked --no-install-project --inexact")
     sys.exit(1)
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))

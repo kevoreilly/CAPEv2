@@ -64,7 +64,7 @@ try:
 
     HAVE_TLSH = True
 except ImportError:
-    print("Missed dependency: poetry run pip install -r extra/optional_dependencies.txt")
+    print("Missed dependency: uv pip install -r extra/optional_dependencies.txt")
     HAVE_TLSH = False
 
 try:
@@ -72,9 +72,9 @@ try:
 
     HAVE_YARA = True
     if not int(yara.__version__[0]) >= 4:
-        raise ImportError("Missed library. Run: poetry install")
+        raise ImportError("Missed library. Run: uv sync --locked --no-install-project --inexact")
 except ImportError:
-    print("Missed library. Run: poetry install")
+    print("Missed library. Run: uv sync --locked --no-install-project --inexact")
     HAVE_YARA = False
 
 try:
@@ -623,7 +623,7 @@ class File:
                 # Version check: must be >= 4.3
                 v = yara.__version__.split(".")
                 if int(v[0]) < 4 or (int(v[0]) == 4 and int(v[1]) < 3):
-                    log.error("You using outdated YARA version: %s. run: poetry run extra/yara_installer.sh", yara.__version__)
+                    log.error("You using outdated YARA version: %s. run: sudo bash installer/cape2.sh yara", yara.__version__)
                     return []
             except (ValueError, IndexError):
                 log.warning("Could not parse YARA version: %s", yara.__version__)

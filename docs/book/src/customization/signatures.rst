@@ -557,7 +557,7 @@ Whenever you submit a sample for analysis, when it finishes you should be able t
 
 If no signatures are showing when executing a given report, you must use the ``utils/community.py`` tool so as to download them:: 
 
-$ sudo -u cape poetry run python3 utils/community.py -waf
+$ sudo -u cape uv run --no-sync python utils/community.py -waf
 
 If the execution of the script does not end successfully, make sure you solve it. For example::
 
@@ -585,6 +585,6 @@ Errors/warnings in the logs
 
 If you ever face errors or warnings in the logs related to the signatures module (like `Signature spawns_dev_util crashing after update <https://github.com/kevoreilly/CAPEv2/issues/1261>`_)), chances are high you must update the signatures you are working with. To do so, just run the ``community``` utility like so::
 
-$ sudo -u cape poetry run python3 community.py -waf -cr
+$ sudo -u cape uv run --no-sync python utils/community.py -waf -cr
 
 

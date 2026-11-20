@@ -126,7 +126,7 @@ def get_clamav(file_path):
 
     Requires pyclamd module. Additionally if running with apparmor, an exception must be made.
     apt-get install clamav clamav-daemon clamav-freshclam clamav-unofficial-sigs -y
-    poetry run pip install -U pyclamd
+    uv pip install -U pyclamd
     systemctl enable clamav-daemon
     systemctl start clamav-daemon
     usermod -a -G cape clamav

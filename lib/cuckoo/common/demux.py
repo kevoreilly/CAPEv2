@@ -37,7 +37,7 @@ try:
 
     HAS_SFLOCK = True
 except ImportError:
-    print("\n\n[!] Missing dependencies. Run: poetry install\n\n")
+    print("\n\n[!] Missing dependencies. Run: uv sync --locked --no-install-project --inexact\n\n")
     HAS_SFLOCK = False
 
 log = logging.getLogger(__name__)

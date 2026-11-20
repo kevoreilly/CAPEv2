@@ -24,15 +24,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 try:
     from .secret_key import SECRET_KEY  # noqa: F401
 except ImportError:
+    from contextlib import suppress
+    import importlib
+
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
     from django.utils.crypto import get_random_string
 
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
-    # Write secret_key.py
-    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
+    # Write secret_key.py atomically so concurrent multi-worker boots share one key.
+    secret_key_path = os.path.join(SETTINGS_DIR, "secret_key.py")
+    tmp_secret_key_path = os.path.join(SETTINGS_DIR, f".secret_key.{os.getpid()}.tmp")
+    try:
+        fd = os.open(tmp_secret_key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f'SECRET_KEY = "{key}"\n')
+        try:
+            os.link(tmp_secret_key_path, secret_key_path)
+        except FileExistsError:
+            pass
+    finally:
+        with suppress(OSError):
+            os.unlink(tmp_secret_key_path)
 
+    importlib.invalidate_caches()
     # Reload key.
     from .secret_key import SECRET_KEY  # noqa: F401
 
@@ -167,12 +183,6 @@ logging.config.dictConfig(
                 "formatter": "default",
                 "maxBytes": 1024 * 1024 * 100,  # 100 mb
             },
-            "granian": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "formatter": "default",
-                "filename": BASE_DIR / "guac-granian.log",
-                "maxBytes": 1024 * 1024 * 100,  # 100 mb
-            },
             "django.server": DEFAULT_LOGGING["handlers"]["django.server"],
         },
         "loggers": {
@@ -193,16 +203,6 @@ logging.config.dictConfig(
             "guac-session": {
                 "handlers": ["file"],
                 "level": LOG_LEVEL,
-                "propagate": False,
-            },
-            "_granian": {
-                "level": "INFO",
-                "handlers": ["console", "granian"],
-                "propagate": False,
-            },
-            "granian.access": {
-                "level": "INFO",
-                "handlers": ["console", "granian"],
                 "propagate": False,
             },
             "django.server": DEFAULT_LOGGING["loggers"]["django.server"],

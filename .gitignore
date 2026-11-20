@@ -19,6 +19,7 @@ conf/*.conf
 conf/*.env
 
 web/web/secret_key.py
+web/static_collected/
 tests/test_bson.bson.compressed
 *~
 

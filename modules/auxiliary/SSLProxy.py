@@ -82,7 +82,8 @@ class SSLProxyThread(Thread):
         self.route = resolve_auxiliary_route(route, self.task, routing_conf)
         self.rt_table = ""
         if not is_no_route(self.route) and self.route.lower() not in ("inetsim", "tor"):
-            if hasattr(routing_conf, self.route):
+            section = getattr(routing_conf, self.route, None)
+            if section is not None and not callable(section):
                 entry = routing_conf.get(self.route)
                 rt_table = entry.get("rt_table") if isinstance(entry, dict) else getattr(entry, "rt_table", None)
                 self.rt_table = str(rt_table) if rt_table else ""

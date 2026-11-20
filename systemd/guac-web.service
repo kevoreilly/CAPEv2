@@ -1,13 +1,30 @@
 [Unit]
-Description=Guacamole ASGI app
+Description=Guacamole ASGI app (Granian)
+Documentation=https://github.com/kevoreilly/CAPEv2
+After=network.target guacd.service
+Wants=guacd.service
 
 [Service]
+Type=exec
 WorkingDirectory=/opt/CAPEv2/web
-ExecStart=/usr/local/bin/uv run --no-sync gunicorn --bind 127.0.0.1:8008 web.asgi -t 180 -w 4 -k uvicorn.workers.UvicornWorker --capture-output --enable-stdio-inheritance
+# Default Granian settings; override via /opt/CAPEv2/conf/guac-web.env
+# or /opt/CAPEv2/custom/conf/guac-web.env
+Environment=GRANIAN_HOST=127.0.0.1
+Environment=GRANIAN_PORT=8008
+Environment=GRANIAN_WORKERS=4
+Environment=GRANIAN_WORKERS_KILL_TIMEOUT=30
+Environment=GRANIAN_LOG_LEVEL=info
+EnvironmentFile=-/opt/CAPEv2/conf/guac-web.env
+EnvironmentFile=-/opt/CAPEv2/custom/conf/guac-web.env
+ExecStart=/usr/local/bin/uv run --no-sync granian --interface asgi --ws --respawn-failed-workers --access-log --process-name guac-web web.asgi:application
+ExecReload=/bin/kill -HUP $MAINPID
 User=cape
 Group=cape
 Restart=always
-RestartSec=5m
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=45
+LimitNOFILE=100000
 
 [Install]
 WantedBy=multi-user.target

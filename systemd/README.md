@@ -5,7 +5,8 @@ These files help run all the various parts of CAPE as systemd services, so that 
 - `cape-rooter.service` - Runs `rooter.py`
 - `cape-processor.service` - Runs `process.py`
 - `cape.service` - Runs `cuckoo.py`
-- `cape-web.service` - Runs the Cuckoo web interface as a WSGI application using UWSGI/Gunicorn bound to `127.0.0.1:8000`
+- `cape-web.service` - Runs the CAPE web interface via Granian (WSGI) with `conf/cape-web.env` overrides and zero-downtime `systemctl reload cape-web` (`SIGHUP`)
+- `guac-web.service` - Runs the Guacamole WebSocket/ASGI app via Granian (ASGI) on `127.0.0.1:8008` with `conf/guac-web.env` overrides
 - `00-ignore-vnet.network` - Marks ephemeral guest VM/bridge interfaces (`vnet*`, `virbr*`, `tap*`) as unmanaged in `systemd-networkd` to prevent DHCP renewal timeouts on the primary host interface
 
 ## Setup

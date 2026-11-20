@@ -83,8 +83,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-rw",
+        "--reload-web",
         "--restart-uwsgi",
-        help="Restart UWSGI, by touching control file",
+        dest="reload_web",
+        help="Gracefully reload cape-web (Granian SIGHUP)",
         action="store_true",
         default=False,
         required=False,
@@ -371,8 +373,8 @@ if __name__ == "__main__":
     if args.restart_service:
         execute_command_on_all("systemctl restart cape-processor; systemctl status cape-processor", servers, jumpbox)
 
-    if args.restart_uwsgi:
-        execute_command_on_all("touch /tmp/capeuwsgireload", servers, jumpbox)
+    if args.reload_web:
+        execute_command_on_all("systemctl reload-or-restart cape-web", servers, jumpbox)
 
     if args.remove_ssh_keys:
         for node in SERVERS_STATIC_LIST:

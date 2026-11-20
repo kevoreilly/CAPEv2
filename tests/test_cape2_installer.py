@@ -117,7 +117,8 @@ def test_sync_installed_systemd_units_migrates_poetry_and_preserves_custom_root(
     updated_guac = (dest_systemd / "guac-web.service").read_text(encoding="utf-8")
     assert "/opt/CAPEv2" not in updated_guac
     assert "poetry" not in updated_guac
-    assert "ExecStart=/usr/local/bin/uv run --no-sync gunicorn" in updated_guac
+    assert "ExecStart=/usr/local/bin/uv run --no-sync granian --interface asgi --ws" in updated_guac
+    assert f"EnvironmentFile=-{cape_root}/custom/conf/guac-web.env" in updated_guac
 
     # Uninstalled optional units must not be created during update
     assert not (dest_systemd / "cape-dist.service").exists()
@@ -142,3 +143,31 @@ def test_systemd_units_use_uv_without_poetry_and_python_version_pinned():
         text = (REPO_ROOT / "systemd" / unit_name).read_text(encoding="utf-8")
         assert "poetry" not in text, f"{unit_name} still references poetry"
         assert "ExecStart=/usr/local/bin/uv run --no-sync " in text, f"{unit_name} missing uv run --no-sync"
+
+
+def test_web_systemd_units_use_granian_and_drop_daphne_uwsgi():
+    cape_web = (REPO_ROOT / "systemd" / "cape-web.service").read_text(encoding="utf-8")
+    assert "granian --interface wsgi --no-ws" in cape_web
+    assert "--respawn-failed-workers" in cape_web
+    assert "--access-log" in cape_web
+    assert "ExecReload=/bin/kill -HUP $MAINPID" in cape_web
+    assert "GRANIAN_WORKERS_KILL_TIMEOUT=" in cape_web
+    assert "runserver_plus" not in cape_web
+
+    guac_web = (REPO_ROOT / "systemd" / "guac-web.service").read_text(encoding="utf-8")
+    assert "granian --interface asgi --ws" in guac_web
+    assert "--respawn-failed-workers" in guac_web
+    assert "--access-log" in guac_web
+    assert "ExecReload=/bin/kill -HUP $MAINPID" in guac_web
+    assert "GRANIAN_WORKERS_KILL_TIMEOUT=" in guac_web
+    assert "gunicorn" not in guac_web
+
+    settings_src = (REPO_ROOT / "web" / "web" / "settings.py").read_text(encoding="utf-8")
+    assert '"daphne"' not in settings_src
+    assert not (REPO_ROOT / "uwsgi").exists()
+    assert (REPO_ROOT / "nginx" / "cape.conf").exists()
+    assert (REPO_ROOT / "conf" / "default" / "cape-web.env.default").exists()
+    assert (REPO_ROOT / "conf" / "default" / "guac-web.env.default").exists()
+    assert "conf/*.env" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+    cape2_src = (REPO_ROOT / "installer" / "cape2.sh").read_text(encoding="utf-8")
+    assert r"granian.*web\.wsgi|cape-web|" in cape2_src

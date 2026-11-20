@@ -1,16 +1,33 @@
 [Unit]
-Description=CAPE WSGI app
+Description=CAPE Web UI (Granian WSGI)
 Documentation=https://github.com/kevoreilly/CAPEv2
 Wants=cape-rooter.service
 After=cape-rooter.service
 
 [Service]
+Type=exec
 WorkingDirectory=/opt/CAPEv2/web
-ExecStart=/usr/local/bin/uv run --no-sync python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+# Default Granian settings; override via /opt/CAPEv2/conf/cape-web.env
+# or /opt/CAPEv2/custom/conf/cape-web.env (e.g. GRANIAN_HOST=127.0.0.1 behind Nginx)
+Environment=GRANIAN_HOST=0.0.0.0
+Environment=GRANIAN_PORT=8000
+Environment=GRANIAN_WORKERS=4
+Environment=GRANIAN_BLOCKING_THREADS=4
+Environment=GRANIAN_WORKERS_MAX_RSS=1024
+Environment=GRANIAN_WORKERS_LIFETIME=3600
+Environment=GRANIAN_WORKERS_KILL_TIMEOUT=30
+Environment=GRANIAN_LOG_LEVEL=info
+EnvironmentFile=-/opt/CAPEv2/conf/cape-web.env
+EnvironmentFile=-/opt/CAPEv2/custom/conf/cape-web.env
+ExecStart=/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static web.wsgi:application
+ExecReload=/bin/kill -HUP $MAINPID
 User=cape
 Group=cape
 Restart=always
-RestartSec=5m
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=45
+LimitNOFILE=100000
 # In case if you behind of proxy, set your proxy in /etc/environment and uncomment next line
 # EnvironmentFile=/etc/environment
 

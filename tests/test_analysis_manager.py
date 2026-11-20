@@ -1319,6 +1319,77 @@ class TestAnalysisManager:
         assert loaded is not None
         assert loaded.get_attribute("effective_route") == "none"
 
+    @pytest.mark.parametrize(
+        "raw_route, canonical, expected_enable, expected_disable",
+        [
+            ("INTERNET", "internet", "forward_enable", "forward_disable"),
+            ("InetSim", "inetsim", "inetsim_enable", "inetsim_disable"),
+            ("TOR", "tor", "socks5_enable", "socks5_disable"),
+        ],
+    )
+    def test_route_network_and_unroute_normalize_case_insensitive_builtin_routes(
+        self,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+        raw_route: str,
+        canonical: str,
+        expected_enable: str,
+        expected_disable: str,
+    ):
+        from types import SimpleNamespace
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.socks5s = {}
+        mocker.patch.object(analysis_man, "task", SimpleNamespace(route=raw_route, id=task.id))
+        mocker.patch.object(machine, "resultserver_port", 2042, create=True)
+        fake_conf = self._fake_routing(route="none", internet="eth9")
+        fake_conf.inetsim = SimpleNamespace(enabled=True, interface="virbr1", server="192.168.1.2", dnsport=53, ports="80:80")
+        fake_conf.tor = SimpleNamespace(enabled=True, interface="virbr2", dnsport=5353, proxyport=9040)
+        mocker.patch("lib.cuckoo.core.analysis_manager.Config", return_value=fake_conf)
+
+        mock_rooter = mocker.patch(
+            "lib.cuckoo.core.analysis_manager.rooter",
+            side_effect=lambda command, *a, **k: {"output": command == "nic_available", "exception": None},
+        )
+
+        with caplog.at_level(logging.INFO):
+            analysis_man.route_network()
+            assert analysis_man.route == canonical
+            assert analysis_man.effective_route == canonical
+            assert expected_enable in [c.args[0] for c in mock_rooter.call_args_list]
+
+            mock_rooter.reset_mock()
+            analysis_man.unroute_network()
+            assert expected_disable in [c.args[0] for c in mock_rooter.call_args_list]
+
+        assert f"Disabled route '{canonical}'" in caplog.text
+
+    def test_unroute_network_logs_effective_route(
+        self,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        analysis_man = self._routing_manager(task, machine, machinery_manager, mocker, route="nexthop", internet="none")
+        analysis_man.route = "nexthop"
+        analysis_man.nexthop_id = "gw1"
+        analysis_man.interface = "eth9"
+        analysis_man.nexthop_interface = "eth9"
+        analysis_man.nexthop_rt_table = "201"
+        analysis_man.nexthop_priority = "10004"
+        mocker.patch("lib.cuckoo.core.analysis_manager.rooter", return_value={"output": None, "exception": None})
+
+        with caplog.at_level(logging.INFO):
+            analysis_man.unroute_network()
+
+        assert "Disabled route 'gw1'" in caplog.text
+        assert "Disabled route 'nexthop'" not in caplog.text
+
 
 
 

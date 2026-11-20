@@ -183,7 +183,7 @@ your Ansible/Puppet templates):
    * - ``cape-processor.service``
      - ``/usr/local/bin/uv run --no-sync python utils/process.py``
    * - ``cape-web.service``
-     - ``/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static web.wsgi:application`` (tune via ``conf/cape-web.env``)
+     - ``/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static_collected web.wsgi:application`` (runs ``manage.py collectstatic --noinput`` in ``ExecStartPre``; tune via ``conf/cape-web.env``)
    * - ``cape-rooter.service``
      - Remove ``ExecStartPre=...poetry config cache-dir...``; set ``ExecStart=/usr/local/bin/uv run --no-sync python rooter.py -g cape``
    * - ``cape-fstab.service``

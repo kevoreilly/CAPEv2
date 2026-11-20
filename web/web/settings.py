@@ -131,15 +131,30 @@ USE_TZ = True
 try:
     from .secret_key import SECRET_KEY  # noqa: F401
 except ImportError:
+    import importlib
+
     SETTINGS_DIR = os.path.abspath(os.path.dirname(__file__))
     # Using the same generation schema of Django startproject.
     from django.utils.crypto import get_random_string
 
     key = get_random_string(50, "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)")
 
-    # Write secret_key.py
-    _ = Path(os.path.join(SETTINGS_DIR, "secret_key.py")).write_text(f'SECRET_KEY = "{key}"')
+    # Write secret_key.py atomically so concurrent multi-worker boots share one key.
+    secret_key_path = os.path.join(SETTINGS_DIR, "secret_key.py")
+    tmp_secret_key_path = os.path.join(SETTINGS_DIR, f".secret_key.{os.getpid()}.tmp")
+    try:
+        fd = os.open(tmp_secret_key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f'SECRET_KEY = "{key}"\n')
+        try:
+            os.link(tmp_secret_key_path, secret_key_path)
+        except FileExistsError:
+            pass
+    finally:
+        with suppress(OSError):
+            os.unlink(tmp_secret_key_path)
 
+    importlib.invalidate_caches()
     # Reload key.
     from .secret_key import SECRET_KEY  # noqa: F401
 
@@ -156,9 +171,9 @@ MEDIA_URL = ""
 # Don't put anything in this directory yourself; store your static files
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/home/media/media.lawrence.com/static/"
-# When NGINX is as reverse proxy you need to put next line in local_settings.py
-# python manage.py collectstatic
-STATIC_ROOT = ""
+# `manage.py collectstatic` populates this directory with both web/static/
+# and Django app assets (admin, DRF, etc.) for Granian/Nginx serving.
+STATIC_ROOT = os.path.join(BASE_DIR, "static_collected")
 
 
 # URL prefix for static files.
@@ -166,7 +181,7 @@ STATIC_ROOT = ""
 STATIC_URL = "/static/"
 
 # Additional locations of static files
-STATICFILES_DIRS = (os.path.join(Path.cwd(), "static"),)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 
 # List of finder classes that know how to find static files in
 # various locations.

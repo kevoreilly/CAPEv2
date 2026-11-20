@@ -19,7 +19,9 @@ Environment=GRANIAN_WORKERS_KILL_TIMEOUT=30
 Environment=GRANIAN_LOG_LEVEL=info
 EnvironmentFile=-/opt/CAPEv2/conf/cape-web.env
 EnvironmentFile=-/opt/CAPEv2/custom/conf/cape-web.env
-ExecStart=/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static web.wsgi:application
+ExecStartPre=/bin/mkdir -p /opt/CAPEv2/web/static_collected
+ExecStartPre=/usr/local/bin/uv run --no-sync python manage.py collectstatic --noinput
+ExecStart=/usr/local/bin/uv run --no-sync granian --interface wsgi --no-ws --respawn-failed-workers --access-log --process-name cape-web --static-path-route /static --static-path-mount /opt/CAPEv2/web/static_collected web.wsgi:application
 ExecReload=/bin/kill -HUP $MAINPID
 User=cape
 Group=cape

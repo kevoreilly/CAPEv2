@@ -750,11 +750,14 @@ class AnalysisManager(threading.Thread):
         if is_no_route(self.route):
             self.interface = None
             self.rt_table = None
-        elif self.route == "inetsim":
+        elif self.route.lower() == "inetsim":
+            self.route = "inetsim"
             self.interface = routing.inetsim.interface
-        elif self.route == "tor":
+        elif self.route.lower() == "tor":
+            self.route = "tor"
             self.interface = routing.tor.interface
-        elif self.route == "internet" and routing.routing.internet and str(routing.routing.internet).lower() not in ("none", "false"):
+        elif self.route.lower() == "internet" and routing.routing.internet and str(routing.routing.internet).lower() not in ("none", "false"):
+            self.route = "internet"
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
             self.no_local_routing = routing.routing.no_local_routing and not routing.routing.nat
@@ -956,14 +959,15 @@ class AnalysisManager(threading.Thread):
                 disable("forward_disable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip)
             if self.reject_hostports:
                 disable("hostports_reject_disable", self.machine.interface, self.machine.ip, self.reject_hostports)
-            self.log.info("Disabled route '%s'", self.route)
+            self.log.info("Disabled route '%s'", self.effective_route)
 
         if self.no_local_routing:
             disable("delete_dev_from_vrf", self.machine.interface)
         elif self.rt_table:
             disable("srcroute_disable", self.rt_table, self.machine.ip)
 
-        if self.route == "inetsim":
+        route_lower = self.route.lower() if isinstance(self.route, str) else ""
+        if route_lower == "inetsim":
             disable(
                 "inetsim_disable",
                 self.machine.ip,
@@ -973,7 +977,7 @@ class AnalysisManager(threading.Thread):
                 str(routing.inetsim.ports),
             )
 
-        elif self.route == "tor":
+        elif route_lower == "tor":
             disable(
                 "socks5_disable",
                 self.machine.ip,

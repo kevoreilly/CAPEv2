@@ -3,25 +3,22 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import argparse
+import logging
 import os
 import shutil
 import subprocess
 import sys
-import zipfile
-from contextlib import suppress
-
-if sys.version_info[:2] < (3, 14):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.14")
-
-import argparse
-import logging
 import tarfile
 import time
+import zipfile
+from contextlib import suppress
 from io import BytesIO
 
-import urllib3
-
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
+import lib.cuckoo  # noqa: F401  # enforces minimum Python version before third-party imports
+
+import urllib3
 
 import lib.cuckoo.common.colors as colors
 from lib.cuckoo.common.constants import CUCKOO_ROOT

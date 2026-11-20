@@ -9,9 +9,6 @@ import os
 import sys
 from pathlib import Path
 
-if sys.version_info[:2] < (3, 14):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.14")
-
 if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 

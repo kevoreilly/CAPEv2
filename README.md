@@ -202,8 +202,8 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 * [choco.bat](https://github.com/kevoreilly/CAPEv2/blob/master/installer/choco.bat)
 
 ## How to update
-* CAPE: `git pull && sudo -u cape uv sync --locked --no-install-project --inexact` (or `sudo bash installer/cape2.sh update`)
-* community: `sudo -u cape uv run --no-sync python utils/community.py -waf` see `-h` before to ensure you understand
+* CAPE: `git pull && sudo -Hu cape uv sync --locked --no-install-project --inexact` (or `sudo bash installer/cape2.sh update`)
+* community: `sudo -Hu cape uv run --no-sync python utils/community.py -waf` see `-h` before to ensure you understand
 
 ## How to upgrade with a lot of custom small modifications that can't be public?
 

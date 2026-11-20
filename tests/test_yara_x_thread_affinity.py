@@ -227,3 +227,34 @@ def test_a_transient_compile_failure_is_retried_after_the_backoff(monkeypatch, s
     File.yara_uncompilable["flaky"] -= 301
     scanner_file.get_yara("flaky")
     assert len(calls) == 2, "category was permanently skipped instead of retried"
+
+
+def test_init_yara_and_get_yara_support_filename_global(monkeypatch, tmp_path):
+    """Rules referencing the external `filename` global must compile and match under yara-x."""
+    from lib.cuckoo.common import objects as objects_mod
+    from lib.cuckoo.common.objects import File
+
+    filename_rule = 'rule by_filename { condition: filename matches /target_name\\.bin$/ }'
+    for category in ("binaries", "urls", "memory", "CAPE", "macro", "monitor"):
+        for tree in ("data", "custom"):
+            (tmp_path / tree / "yara" / category).mkdir(parents=True, exist_ok=True)
+    (tmp_path / "data" / "yara" / "binaries" / "by_filename.yar").write_text(filename_rule)
+
+    monkeypatch.setattr(objects_mod, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(File, "yara_rules", {})
+    monkeypatch.setattr(File, "yara_initialized", False)
+    monkeypatch.setattr(File, "yara_uncompilable", {})
+
+    File.init_yara(force=True)
+    assert File.yara_rules.get("binaries") is not None
+
+    matching_sample = tmp_path / "target_name.bin"
+    matching_sample.write_bytes(b"payload")
+    other_sample = tmp_path / "other_name.bin"
+    other_sample.write_bytes(b"payload")
+
+    assert [m["name"] for m in File(str(matching_sample)).get_yara("binaries")] == ["by_filename"]
+    assert File(str(other_sample)).get_yara("binaries") == []
+    assert [
+        m["name"] for m in File(str(other_sample)).get_yara("binaries", externals={"filename": "target_name.bin"})
+    ] == ["by_filename"]

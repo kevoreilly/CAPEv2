@@ -4,6 +4,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import argparse
+import contextlib
 import fnmatch
 import logging
 import os
@@ -113,6 +114,10 @@ def submit_file(
         if not task_ids and tmp_path and path_exists(tmp_path):
             try:
                 os.unlink(tmp_path)
+                tmp_dir = os.fsdecode(os.path.dirname(tmp_path))
+                if os.path.basename(tmp_dir).startswith("upload_"):
+                    with contextlib.suppress(OSError):
+                        os.rmdir(tmp_dir)
             except Exception as e:
                 l.warning("Failed to delete temp file %s: %s", tmp_path, e)
 

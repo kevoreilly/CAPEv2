@@ -7,7 +7,7 @@ except ImportError:
     import re
 
 from collections import OrderedDict
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, quote_plus, urlparse
 from uuid import NAMESPACE_DNS, uuid3
 
 from django.template.defaultfilters import register
@@ -346,6 +346,19 @@ def _resolve_service_key(service: str) -> str:
     return _SERVICE_ALIASES.get(s, s)
 
 
+def _is_safe_url(url: str) -> bool:
+    """Allow only http(s) URLs with a netloc or single-slash relative paths."""
+    if not url:
+        return False
+    s = str(url).strip()
+    if not s:
+        return False
+    if s.startswith("/") and not s.startswith("//"):
+        return True
+    parsed = urlparse(s)
+    return parsed.scheme.lower() in ("http", "https") and bool(parsed.netloc)
+
+
 @register.simple_tag
 def ext_service_icon(service: str):
     key = _resolve_service_key(service)
@@ -357,12 +370,12 @@ def ext_service_icon(service: str):
 
 @register.simple_tag
 def ext_service_link(service: str, url: str, title: str = "", label: str = ""):
-    if not url:
+    if not url or not _is_safe_url(url):
         return ""
     key = _resolve_service_key(service)
     svg = _SERVICE_SVGS.get(key, '<i class="fas fa-external-link-alt ext-svc-svg" aria-hidden="true"></i>')
     resolved_title = escape(title or _SERVICE_TITLES.get(key, f"View on {service}"))
-    safe_url = escape(str(url))
+    safe_url = escape(str(url).strip())
     label_html = f'<span class="ext-svc-label">{escape(label)}</span>' if label else ""
     return mark_safe(
         f'<a href="{safe_url}" target="_blank" rel="noopener" '
@@ -418,11 +431,11 @@ def threatintel_badges(hits):
         source_label = "ThreatFox" if source == "tf" else str(ti.get("source") or "Threat Intel").capitalize()
         parts.append('<span class="ti-pill">')
         parts.append(f'<span class="ti-pill-tag" title="{tooltip}">{tag}</span>')
-        if ind_url:
+        if ind_url and _is_safe_url(ind_url):
             svg = _SERVICE_SVGS.get(source, _SERVICE_SVGS["tf"])
             link_title = escape(f"View indicator on {source_label}" + (f" ({ti.get('tooltip')})" if ti.get("tooltip") else ""))
             parts.append(
-                f'<a href="{escape(str(ind_url))}" target="_blank" rel="noopener" '
+                f'<a href="{escape(str(ind_url).strip())}" target="_blank" rel="noopener" '
                 f'class="ti-pill-link ext-svc-{escape(source)}" title="{link_title}" aria-label="{link_title}">'
                 f"{svg}</a>"
             )

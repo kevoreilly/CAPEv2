@@ -1,12 +1,14 @@
+{% load key_tags %}
 {% if procmemory %}
+    {% with sorted_procmemory=procmemory|sort_dumps %}
     <div class="tabbable tabs">
         <ul class="nav nav-tabs" style="margin-bottom: 0;">
-            {% for proc in procmemory %}
+            {% for proc in sorted_procmemory %}
                 <li {%if forloop.first %}class="nav-item active"{% endif %}><a class="nav-link" href="#procmemory_{{proc.pid}}" data-bs-toggle="tab">{{proc.pid}}</a></li>
             {% endfor %}
         </ul>
         <div class="tab-content">
-            {% for proc in procmemory %}
+            {% for proc in sorted_procmemory %}
                 {% if forloop.first %}
                 <div class="tab-pane fade show active" id="procmemory_{{proc.pid}}">
                 {% else %}
@@ -126,6 +128,7 @@
             {% endfor %}
         </div>
     </div>
+    {% endwith %}
 {% else %}
     <div class="alert alert-secondary"><b>Sorry!</b> No process dumps.</div>
 {% endif %}

@@ -10,7 +10,7 @@
         </div>
     {% endif %}
 
-    {% for file in CAPE.payloads|dictsortreversed:"size" %}
+    {% for file in CAPE.payloads|sort_dumps %}
         {% include "analysis/generic/_file_info.html" %}
     {% endfor %}
 {% else %}

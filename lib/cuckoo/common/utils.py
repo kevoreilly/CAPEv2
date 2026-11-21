@@ -18,6 +18,7 @@ import xmlrpc.client
 import zipfile
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Final, List, Optional, Tuple, Union
 
 from data.family_detection_names import family_detection_names
@@ -1018,3 +1019,55 @@ def yara_detected(name, results):
                         "XLMMacroDeobfuscator"
                     ]["info"]
         """
+
+
+def _is_git_hash(value: str) -> bool:
+    return 7 <= len(value) <= 64 and all(c in string.hexdigits for c in value)
+
+
+# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
+def get_running_commit(cuckoo_root: Union[str, Path] = CUCKOO_ROOT) -> str:
+    """
+    Retrieves the current Git commit hash of the repository.
+
+    This function reads the HEAD file in the .git directory to determine the
+    current branch or commit reference, then reads the corresponding file to
+    get the commit hash. Supports standard `.git` directories, detached `HEAD`,
+    and `packed-refs`.
+
+    Args:
+        cuckoo_root (str | Path): Repository root containing `.git`.
+
+    Returns:
+        str: The current Git commit hash as a string, or empty string if unavailable.
+    """
+    try:
+        git_dir = Path(cuckoo_root, ".git")
+        if not git_dir.is_dir():
+            return ""
+        head_lines = (git_dir / "HEAD").read_text(encoding="utf-8", errors="replace").splitlines()
+        if not head_lines:
+            return ""
+        head = head_lines[0].strip()
+        if not head.startswith("ref:"):
+            return head if _is_git_hash(head) else ""
+        ref_name = head.split(":", 1)[1].strip()
+        if not ref_name:
+            return ""
+        ref_file = git_dir / ref_name
+        if ref_file.is_file():
+            commit = ref_file.read_text(encoding="utf-8", errors="replace").strip()
+            return commit if _is_git_hash(commit) else ""
+        packed_refs = git_dir / "packed-refs"
+        if packed_refs.is_file():
+            for line in packed_refs.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if not line or line.startswith(("#", "^")):
+                    continue
+                parts = line.split()
+                if len(parts) >= 2 and parts[1] == ref_name and _is_git_hash(parts[0]):
+                    return parts[0]
+        return ""
+    except Exception as e:
+        log.debug("Failed to retrieve running git commit: %s", e)
+        return ""

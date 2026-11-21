@@ -93,7 +93,8 @@ def test_summary_mutexes_are_deduped():
 
 def test_summary_run_returns_every_key_as_a_list():
     out = Summary(_options()).run()
-    assert all(isinstance(v, list) for v in out.values()), out
+    assert isinstance(out["apispam_exclude_apis"], str)
+    assert all(isinstance(v, list) for k, v in out.items() if k != "apispam_exclude_apis"), out
 
 
 def test_summary_replace_patterns_marks_raw_and_denylisted_inputs_seen():

@@ -1,3 +1,4 @@
+import os
 import shlex
 import shutil
 import stat
@@ -26,7 +27,10 @@ def test_extracted_elf_gets_owner_execute_and_literal_path(package, tmp_path):
     outputs = []
 
     def execute(command):
-        child = subprocess.run(command, shell=True, capture_output=True, timeout=5)
+        # Relocatable Python builds (e.g. uv python-build-standalone) resolve stdlib
+        # relative to argv[0] unless PYTHONHOME points at sys.base_prefix.
+        child_env = {**os.environ, "PYTHONHOME": sys.base_prefix}
+        child = subprocess.run(command, shell=True, capture_output=True, timeout=5, env=child_env)
         assert child.returncode == 0, child.stderr
         outputs.append(child.stdout)
         return 4242

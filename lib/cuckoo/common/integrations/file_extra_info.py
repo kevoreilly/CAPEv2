@@ -48,6 +48,7 @@ from lib.cuckoo.common.path_utils import (
     path_read_file,
     path_write_file,
 )
+from lib.cuckoo.common.process_timeout import reset_task_budgets
 from lib.cuckoo.common.utils import deduplicate_file_to_storage, get_options, is_text_file, sanitize_filename
 
 try:
@@ -245,14 +246,14 @@ def static_file_info(
             with PortableExecutable(file_path) as pe:
                 data_dictionary["pe"] = pe.run(task_id)
 
-        if HAVE_FLARE_CAPA and "flare_capa" not in data_dictionary:
+        if HAVE_FLARE_CAPA and category not in ("CAPE", "procdump") and "flare_capa" not in data_dictionary:
             # https://github.com/mandiant/capa/issues/2620
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
         if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary.get("type", "") and "floss" not in data_dictionary:
-            floss_strings = Floss(file_path, "static", "pe").run()
+            floss_strings = Floss(file_path, "pe", on_demand=False).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
@@ -345,7 +346,7 @@ def static_file_info(
             if magika_result:
                 data_dictionary["magika"] = magika_result
 
-        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary.get("type", "") and "floss" not in data_dictionary:
+        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary.get("type", "") and "floss" not in data_dictionary:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
@@ -384,12 +385,14 @@ def detect_it_easy_info(file_path: str):
         log.warning("detect-it-easy binary not found at path %s", processing_conf.die.binary)
         return []
 
+    die_timeout = int(processing_conf.die.get("timeout", 30) or 0) or None
     try:
         die_output = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
             stderr=subprocess.PIPE,
             universal_newlines=True,
             errors="replace",
+            timeout=die_timeout,
         )
 
         def get_json() -> dict[str, Any]:
@@ -406,6 +409,8 @@ def detect_it_easy_info(file_path: str):
             return [sub["string"] for block in get_json().get("detects", []) for sub in block.get("values", [])]
 
         return [] if "detects" not in die_output else get_matches()
+    except subprocess.TimeoutExpired:
+        log.warning("Detect-It-Easy: timed out after %ss on %s", die_timeout, file_path)
     except subprocess.CalledProcessError as err:
         safe_cmd = shlex.join(err.cmd).encode("utf-8", errors="replace").decode("utf-8")
         log.warning(
@@ -423,14 +428,19 @@ def detect_it_easy_info(file_path: str):
 
 
 def trid_info(file_path: dict):
+    trid_timeout = int(processing_conf.trid.get("timeout", 30) or 0) or None
     try:
         output = subprocess.check_output(
             [trid_binary, f"-d:{definitions}", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
             errors="replace",
+            timeout=trid_timeout,
         )
         return output.split("\n")[6:-1]
+    except subprocess.TimeoutExpired:
+        log.warning("TrID: timed out after %ss on %s", trid_timeout, file_path)
+        return []
     except subprocess.CalledProcessError:
         log.warning(
             "You need to configure your server to make TrID work properly. Run trid by hand on file as example to ensure that it works properly."
@@ -641,10 +651,12 @@ def _teardown_extractor_pool(pool):
         _ACTIVE_EXTRACTOR_POOLS.discard(pool)
 
 
-def enable_shared_extractor_pool():
+def enable_shared_extractor_pool(*, reset_budgets: bool = True):
     """Opt this process into a shared extractor pool reused across every call to
     `generic_file_extractors`. Called by the task worker before processing."""
     global _USE_SHARED_POOL
+    if reset_budgets:
+        reset_task_budgets()
     _USE_SHARED_POOL = True
 
 
@@ -665,11 +677,13 @@ def _acquire_extractor_pool(max_workers=None):
     return _create_extractor_pool(max_workers=max_workers), False
 
 
-def shutdown_shared_extractor_pool():
+def shutdown_shared_extractor_pool(*, reset_budgets: bool = True):
     """Close+join the shared extractor pool once, if one was created, and reset
     shared-pool mode. Idempotent and exception-safe; called when the task finishes."""
     global _SHARED_EXTRACTOR_POOL, _USE_SHARED_POOL
     _USE_SHARED_POOL = False
+    if reset_budgets:
+        reset_task_budgets()
     pool = _SHARED_EXTRACTOR_POOL
     _SHARED_EXTRACTOR_POOL = None
     _teardown_extractor_pool(pool)
@@ -751,8 +765,8 @@ def generic_file_extractors(
             except (RuntimeError, concurrent.futures.process.BrokenProcessPool) as err:
                 if shared_pool:
                     log.warning("shared extractor pool schedule failed (%s); recreating pool and retrying", err)
-                    shutdown_shared_extractor_pool()
-                    enable_shared_extractor_pool()
+                    shutdown_shared_extractor_pool(reset_budgets=False)
+                    enable_shared_extractor_pool(reset_budgets=False)
                     pool, shared_pool = _acquire_extractor_pool(max_workers=len(to_schedule))
                     try:
                         futures[funcname] = pool.schedule(fn, args=args, kwargs=kwargs, timeout=func_timeout)

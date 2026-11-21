@@ -129,6 +129,14 @@ procdump = no
 behavior = no
 # Use Malcat's CAPA instead of FLARE capa (requires the Malcat bridge and malcat to be enabled - see below).
 malcat_capa = no
+# Per-file timeout in seconds for static FLARE-CAPA analysis (0 disables the timeout)
+timeout = 60
+# Cumulative per-task wall-clock budget in seconds across all files in an analysis (0 disables)
+task_timeout = 180
+# Timeout in seconds for user-triggered on-demand runs in the Web UI (0 disables)
+on_demand_timeout = 180
+# Skip full vivisect code analysis when capa file-scope rules detect a packed binary
+skip_packed = yes
 
 # external download services
 [downloaders]
@@ -151,6 +159,12 @@ tight_strings = yes
 min_length = 5
 # Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
 sigs_path = data/flare-signatures
+# Per-file timeout in seconds for FLOSS analysis (0 disables the timeout)
+timeout = 60
+# Cumulative per-task wall-clock budget in seconds across all files in an analysis (0 disables)
+task_timeout = 180
+# Timeout in seconds for user-triggered on-demand runs in the Web UI (0 disables)
+on_demand_timeout = 180
 
 # Code-similarity engines
 # We recommend ensuring local similairty engines such as mcrit are populated with unpacked samples ideally aquired from CAPE payloads/procdumps or are not heavily packed/obfuscated to ensure best matching.

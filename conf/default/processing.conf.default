@@ -168,11 +168,13 @@ extract_payloads = yes
 enabled = no
 identifier = data/trid/trid
 definitions = data/trid/triddefs.trd
+timeout = 30
 
 [die]
 # Detect it Easy
 enabled = no
 binary = /usr/bin/diec
+timeout = 30
 
 [magika]
 # Google Magika - deep-learning content type identification.

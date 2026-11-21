@@ -21,14 +21,13 @@ except ImportError:
 
 log = logging.getLogger()
 
+sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
+import lib.cuckoo  # noqa: F401  # enforces minimum Python version before third-party imports
+
 try:
     from setproctitle import getproctitle, setproctitle
 except ImportError:
     log.critical("Missed setproctitle dependency. Run: uv sync --locked --no-install-project --inexact")
-    sys.exit(1)
-
-if sys.version_info[:2] < (3, 8):
-    log.critical("You are running an incompatible version of Python, please use >= 3.8")
     sys.exit(1)
 
 try:
@@ -36,8 +35,6 @@ try:
 except ImportError:
     log.critical("Missed pebble dependency. Run: uv sync --locked --no-install-project --inexact")
     sys.exit(1)
-
-sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT

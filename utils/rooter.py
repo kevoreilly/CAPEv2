@@ -16,9 +16,6 @@ import stat
 import subprocess
 import sys
 
-if sys.version_info[:2] < (3, 10):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.10")
-
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 

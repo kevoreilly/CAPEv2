@@ -1,3 +1,4 @@
+import os
 import stat
 import shutil
 import subprocess
@@ -144,7 +145,10 @@ def test_discovery_dispatches_payloads_beside_readme(prepare_archive, tmp_path, 
     launched = []
 
     def execute(command):
-        child = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Relocatable Python builds (e.g. uv python-build-standalone) resolve stdlib
+        # relative to argv[0] unless PYTHONHOME points at sys.base_prefix.
+        child_env = {**os.environ, "PYTHONHOME": sys.base_prefix} if kind == "elf" else None
+        child = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=child_env)
         try:
             stdout, stderr = child.communicate(timeout=5)
             assert child.returncode == 0, stderr

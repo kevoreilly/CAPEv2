@@ -14,21 +14,31 @@ runs:
       run: |
         sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev innoextract unrar upx
 
-    - name: Set up Python ${{ inputs.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ inputs.python-version }}
+    - name: Detect runner OS cache tag
+      id: runner_os
+      shell: bash
+      run: |
+        if [ -r /etc/os-release ]; then
+          . /etc/os-release
+          tag="${ID:-linux}-${VERSION_ID:-unknown}"
+        else
+          tag="${RUNNER_OS:-unknown}"
+        fi
+        echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
       with:
+        python-version: ${{ inputs.python-version }}
         enable-cache: true
         cache-dependency-glob: "uv.lock"
+        cache-suffix: "${{ steps.runner_os.outputs.tag }}-py${{ inputs.python-version }}"
 
     - name: Install requirements
       shell: bash
       run: |
-        uv sync --locked --all-groups --python "${{ inputs.python-version }}"
+        uv python install "${{ inputs.python-version }}"
+        uv sync --managed-python --locked --all-groups --python "${{ inputs.python-version }}"
         echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
         echo "VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv" >> "$GITHUB_ENV"
         echo "UV_NO_SYNC=1" >> "$GITHUB_ENV"

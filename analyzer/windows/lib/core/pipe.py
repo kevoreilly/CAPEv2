@@ -39,9 +39,6 @@ MAX_PIPE_FAILURES = 100
 open_handles = set()
 INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
 
-# Ensure WinAPI returns/accepts proper handle-sized values on 64-bit.
-KERNEL32.CreateNamedPipeW.restype = c_void_p
-
 
 class PipeForwarder(threading.Thread):
     """Forward all data received from a local pipe to the CAPE server through a socket."""
@@ -224,7 +221,7 @@ class PipeServer(threading.Thread):
                     byref(sa),  # None,
                 )
 
-            if pipe_handle in (None, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
+            if not pipe_handle or pipe_handle in (INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
                 # Without the sleep this is a spin loop: a pipe name that can
                 # never be created (instance exhaustion, a failed security
                 # descriptor, something squatting the name) burned a core and

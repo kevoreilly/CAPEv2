@@ -376,7 +376,7 @@ class CAPE(Processing):
         # ToDo filename argument for procdump
 
         # Optimize to not load all if duplicated, it stores sha256 in file object
-        if getattr(processing_conf.CAPE, "dotnet_rebuild", False) and category in ("procdump", "dropped", "CAPE"):
+        if processing_conf.CAPE.get("dotnet_rebuild", False) and category in ("procdump", "dropped", "CAPE"):
             type_string = ""
             metastrings = metadata.get("metadata", "").split(";?")
             if len(metastrings) > 0 and metastrings[0].isdigit() and int(metastrings[0]) == TYPE_STRING:
@@ -385,7 +385,7 @@ class CAPE(Processing):
 
             if ".NET" in type_string or category == "procdump":
                 try:
-                    file_size_limit = getattr(processing_conf.CAPE, "max_file_size", 90) * 1024 * 1024
+                    file_size_limit = int(processing_conf.CAPE.get("max_file_size", 90) or 90) * 1024 * 1024
                     if os.path.getsize(file_path) < file_size_limit:
                         with open(file_path, "rb") as f_in:
                             pe_data = f_in.read()
@@ -395,15 +395,10 @@ class CAPE(Processing):
 
                             rebuilt_data = rebuild_dotnet_pe(pe_data)
                             if rebuilt_data and rebuilt_data != pe_data:
-                                base_name = os.path.basename(file_path)
-                                if len(base_name) == 64 and all(c in "0123456789abcdefABCDEF" for c in base_name):
-                                    rebuilt_path = f"{file_path}_rebuilt"
-                                    with open(rebuilt_path, "wb") as f_out:
-                                        f_out.write(rebuilt_data)
-                                    file_path = rebuilt_path
-                                else:
-                                    with open(file_path, "wb") as f_out:
-                                        f_out.write(rebuilt_data)
+                                rebuilt_path = file_path if file_path.endswith("_rebuilt") else f"{file_path}_rebuilt"
+                                with open(rebuilt_path, "wb") as f_out:
+                                    f_out.write(rebuilt_data)
+                                file_path = rebuilt_path
                                 log.debug("Successfully rebuilt .NET PE headers for %s", file_path)
                 except Exception as e:
                     log.error("Failed to execute .NET PE rebuilder on %s: %s", file_path, e)

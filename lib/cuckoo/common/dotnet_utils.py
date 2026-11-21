@@ -113,6 +113,45 @@ def _get_bsjb_metadata_size(data: bytes, bsjb_offset: int) -> int:
         return 0
 
 
+def _is_valid_dotnet_layout(pe, data: bytes) -> bool:
+    """Return True if the PE already has a valid COM descriptor pointing to BSJB."""
+    dotnet_dir_index = 14  # IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR
+    if dotnet_dir_index >= len(pe.OPTIONAL_HEADER.DATA_DIRECTORY):
+        return False
+    dotnet_dir = pe.OPTIONAL_HEADER.DATA_DIRECTORY[dotnet_dir_index]
+    if dotnet_dir.VirtualAddress == 0 or dotnet_dir.Size < 0x48:
+        return False
+    try:
+        cor20_off = pe.get_offset_from_rva(dotnet_dir.VirtualAddress)
+    except Exception:
+        return False
+    if cor20_off is None or cor20_off < 0 or cor20_off + 0x48 > len(data):
+        return False
+    cb, _, _, meta_rva = struct.unpack_from("<IHHI", data, cor20_off)
+    if cb != 0x48 or meta_rva == 0:
+        return False
+    try:
+        meta_off = pe.get_offset_from_rva(meta_rva)
+    except Exception:
+        return False
+    return meta_off is not None and 0 <= meta_off <= len(data) - 4 and data[meta_off : meta_off + 4] == b"BSJB"
+
+
+def _is_memory_mapped_pe(pe, data: bytes, headers_end: int) -> bool:
+    """Heuristically distinguish memory-mapped PE dumps from file-aligned PEs."""
+    if not pe.sections:
+        return False
+    first_va = min(s.VirtualAddress for s in pe.sections)
+    max_va = max(s.VirtualAddress for s in pe.sections)
+    if first_va < headers_end or max_va >= len(data):
+        return False
+    # In a memory-mapped dump, the gap between PE headers and the first mapped section
+    # is zero-padded; in a file-aligned PE, the first section's raw data begins there.
+    if first_va > headers_end and any(data[headers_end:first_va]):
+        return False
+    return True
+
+
 def rebuild_dotnet_pe(data: bytes) -> bytes:
     """Rebuilds a .NET PE file dumped from memory (Memory Layout to File Layout).
 
@@ -129,83 +168,117 @@ def rebuild_dotnet_pe(data: bytes) -> bytes:
     except pefile.PEFormatError:
         return data
 
-    modified = bytearray(data)
+    try:
+        sec_align = pe.OPTIONAL_HEADER.SectionAlignment
+        if sec_align <= 0 or (sec_align & (sec_align - 1)) != 0:
+            return data
 
-    # 1. Align Sections (Memory to File Layout conversion)
-    # Match FileAlignment to SectionAlignment
-    pe.OPTIONAL_HEADER.FileAlignment = pe.OPTIONAL_HEADER.SectionAlignment
+        # Leave already-valid .NET PEs untouched.
+        if _is_valid_dotnet_layout(pe, data):
+            return data
 
-    # Update Section Headers
-    for section in pe.sections:
-        section.PointerToRawData = section.VirtualAddress
-        # SizeOfRawData should be VirtualSize aligned to FileAlignment
-        alignment_mask = pe.OPTIONAL_HEADER.FileAlignment - 1
-        section.SizeOfRawData = (section.Misc_VirtualSize + alignment_mask) & ~alignment_mask
+        last_sec_hdr_end = (
+            pe.sections[-1].get_file_offset() + 40
+            if pe.sections
+            else pe.OPTIONAL_HEADER.get_file_offset() + pe.FILE_HEADER.SizeOfOptionalHeader
+        )
+        headers_end = max(pe.OPTIONAL_HEADER.SizeOfHeaders, last_sec_hdr_end)
+        memory_mapped = _is_memory_mapped_pe(pe, data, headers_end)
 
-        # Overwrite physical bytes in header
-        struct.pack_into("<I", modified, section.get_file_offset() + 16, section.SizeOfRawData)
-        struct.pack_into("<I", modified, section.get_file_offset() + 20, section.PointerToRawData)
+        modified = bytearray(data)
 
-    # Overwrite FileAlignment in the optional header (offset 36 in Standard/Windows fields)
-    struct.pack_into("<I", modified, pe.OPTIONAL_HEADER.get_file_offset() + 36, pe.OPTIONAL_HEADER.FileAlignment)
+        # 1. Align Sections (Memory to File Layout conversion) only for memory-mapped dumps
+        if memory_mapped:
+            # Match FileAlignment to SectionAlignment
+            pe.OPTIONAL_HEADER.FileAlignment = sec_align
+            alignment_mask = sec_align - 1
 
-    # 2. Restore .NET Data Directory if missing
-    dotnet_dir_index = 14  # IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR
-    if dotnet_dir_index < len(pe.OPTIONAL_HEADER.DATA_DIRECTORY):
-        dotnet_dir = pe.OPTIONAL_HEADER.DATA_DIRECTORY[dotnet_dir_index]
-        if dotnet_dir.VirtualAddress == 0 or dotnet_dir.Size == 0:
-            bsjb_offset = modified.find(b"BSJB")
-            if bsjb_offset != -1:
-                metadata_rva = bsjb_offset
-                metadata_size = _get_bsjb_metadata_size(modified, bsjb_offset)
-                if metadata_size == 0:
-                    metadata_size = len(modified) - bsjb_offset
+            # Update Section Headers
+            for section in pe.sections:
+                sec_off = section.get_file_offset()
+                if sec_off + 24 > len(modified):
+                    continue
+                section.PointerToRawData = section.VirtualAddress
+                # SizeOfRawData should be VirtualSize aligned to FileAlignment
+                section.SizeOfRawData = (section.Misc_VirtualSize + alignment_mask) & ~alignment_mask
 
-                # Backwards scan for existing IMAGE_COR20_HEADER (cb=0x48, Major=2, Minor=5, MetaData=bsjb_offset)
-                search_prefix = struct.pack("<IHHI", 0x48, 2, 5, metadata_rva)
-                cor20_rva = 0
+                # Overwrite physical bytes in header
+                struct.pack_into("<I", modified, sec_off + 16, section.SizeOfRawData)
+                struct.pack_into("<I", modified, sec_off + 20, section.PointerToRawData)
 
-                search_start = max(0, bsjb_offset - 4096)
-                for i in range(bsjb_offset - 12, search_start - 1, -1):
-                    if modified[i : i + 12] == search_prefix:
-                        cor20_rva = i
-                        break
+            # Overwrite FileAlignment in the optional header (offset 36 in Standard/Windows fields)
+            opt_off = pe.OPTIONAL_HEADER.get_file_offset()
+            if opt_off + 40 <= len(modified):
+                struct.pack_into("<I", modified, opt_off + 36, pe.OPTIONAL_HEADER.FileAlignment)
 
-                if cor20_rva != 0:
-                    # Update MetaData.Size if zero
-                    existing_meta_size = struct.unpack_from("<I", modified, cor20_rva + 12)[0]
-                    if existing_meta_size == 0 and metadata_size > 0:
-                        struct.pack_into("<I", modified, cor20_rva + 12, metadata_size)
-                else:
-                    # Synthesize an IMAGE_COR20_HEADER (72 = 0x48 bytes)
-                    # ECMA-335 II.25.3.3:
-                    # cb (4), Major (2), Minor (2), MetaData.RVA (4), MetaData.Size (4),
-                    # Flags (4), EntryPointToken (4), + 6 * 8-byte empty data directories = 72 bytes
-                    cor20_header = struct.pack(
-                        "<IHHIIII",
-                        0x48,           # cb
-                        2,              # MajorRuntimeVersion
-                        5,              # MinorRuntimeVersion
-                        metadata_rva,   # MetaData.VirtualAddress
-                        metadata_size,  # MetaData.Size
-                        1,              # Flags (COMIMAGE_FLAGS_ILONLY)
-                        0,              # EntryPointToken
-                    ) + (b"\x00" * 48)
-
-                    # Look for 72 bytes of zero padding before bsjb_offset
-                    if bsjb_offset >= 72 and modified[bsjb_offset - 72 : bsjb_offset] == b"\x00" * 72:
-                        cor20_rva = bsjb_offset - 72
-                        modified[cor20_rva : cor20_rva + 72] = cor20_header
+        # 2. Restore .NET Data Directory if missing
+        dotnet_dir_index = 14  # IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR
+        if dotnet_dir_index < len(pe.OPTIONAL_HEADER.DATA_DIRECTORY):
+            dotnet_dir = pe.OPTIONAL_HEADER.DATA_DIRECTORY[dotnet_dir_index]
+            if dotnet_dir.VirtualAddress == 0 or dotnet_dir.Size == 0:
+                bsjb_offset = modified.find(b"BSJB", headers_end)
+                if bsjb_offset != -1:
+                    if memory_mapped:
+                        metadata_rva = bsjb_offset
                     else:
-                        zero_block = b"\x00" * 72
-                        pad_pos = modified.rfind(zero_block, 0, bsjb_offset)
-                        if pad_pos != -1:
-                            cor20_rva = pad_pos
-                            modified[cor20_rva : cor20_rva + 72] = cor20_header
+                        metadata_rva = pe.get_rva_from_offset(bsjb_offset) or 0
+                    if metadata_rva == 0:
+                        return bytes(modified)
 
-                if cor20_rva != 0:
-                    dir_offset = dotnet_dir.get_file_offset()
-                    struct.pack_into("<II", modified, dir_offset, cor20_rva, 0x48)
+                    metadata_size = _get_bsjb_metadata_size(modified, bsjb_offset)
+                    if metadata_size == 0:
+                        metadata_size = len(modified) - bsjb_offset
 
-    return bytes(modified)
+                    # Backwards scan for existing IMAGE_COR20_HEADER (cb=0x48, Major=2, Minor=5, MetaData=metadata_rva)
+                    search_prefix = struct.pack("<IHHI", 0x48, 2, 5, metadata_rva)
+                    cor20_offset = 0
+
+                    search_start = max(headers_end, bsjb_offset - 4096)
+                    for i in range(bsjb_offset - 12, search_start - 1, -1):
+                        if modified[i : i + 12] == search_prefix:
+                            cor20_offset = i
+                            break
+
+                    if cor20_offset != 0:
+                        # Update MetaData.Size if zero
+                        if cor20_offset + 16 <= len(modified):
+                            existing_meta_size = struct.unpack_from("<I", modified, cor20_offset + 12)[0]
+                            if existing_meta_size == 0 and metadata_size > 0:
+                                struct.pack_into("<I", modified, cor20_offset + 12, metadata_size)
+                    else:
+                        # Synthesize an IMAGE_COR20_HEADER (72 = 0x48 bytes)
+                        # ECMA-335 II.25.3.3:
+                        # cb (4), Major (2), Minor (2), MetaData.RVA (4), MetaData.Size (4),
+                        # Flags (4), EntryPointToken (4), + 6 * 8-byte empty data directories = 72 bytes
+                        cor20_header = struct.pack(
+                            "<IHHIIII",
+                            0x48,           # cb
+                            2,              # MajorRuntimeVersion
+                            5,              # MinorRuntimeVersion
+                            metadata_rva,   # MetaData.VirtualAddress
+                            metadata_size,  # MetaData.Size
+                            1,              # Flags (COMIMAGE_FLAGS_ILONLY)
+                            0,              # EntryPointToken
+                        ) + (b"\x00" * 48)
+
+                        # Look for 72 bytes of zero padding after PE headers and before bsjb_offset
+                        if bsjb_offset - 72 >= headers_end and modified[bsjb_offset - 72 : bsjb_offset] == b"\x00" * 72:
+                            cor20_offset = bsjb_offset - 72
+                            modified[cor20_offset : cor20_offset + 72] = cor20_header
+                        else:
+                            zero_block = b"\x00" * 72
+                            pad_pos = modified.rfind(zero_block, headers_end, bsjb_offset)
+                            if pad_pos != -1:
+                                cor20_offset = pad_pos
+                                modified[cor20_offset : cor20_offset + 72] = cor20_header
+
+                    if cor20_offset != 0:
+                        cor20_rva = cor20_offset if memory_mapped else (pe.get_rva_from_offset(cor20_offset) or 0)
+                        dir_offset = dotnet_dir.get_file_offset()
+                        if cor20_rva != 0 and dir_offset + 8 <= len(modified):
+                            struct.pack_into("<II", modified, dir_offset, cor20_rva, 0x48)
+
+        return bytes(modified)
+    finally:
+        pe.close()
 

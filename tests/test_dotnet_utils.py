@@ -163,3 +163,55 @@ def test_rebuild_dotnet_pe_no_bsjb():
 
 def test_dotnet_user_strings_empty():
     assert dotnet_user_strings(data=b"") == []
+
+
+def test_rebuild_dotnet_pe_preserves_valid_file_aligned_pe():
+    """An already valid file-aligned .NET PE must not be rewritten or corrupted."""
+    dos_header = bytearray(128)
+    dos_header[0:2] = b"MZ"
+    struct.pack_into("<I", dos_header, 60, 0x80)
+    nt_sig = b"PE\x00\x00"
+    file_header = struct.pack("<HHIIIHH", 0x14C, 1, 0, 0, 0, 224, 0x102)
+    opt_fields = struct.pack(
+        "<HBBIIIIIIIIIHHHHHHIIIIHHIIIIII",
+        0x10B, 1, 0, 0x400, 0, 0, 0x2000, 0x2000, 0x3000, 0x400000,
+        0x1000, 0x200, 4, 0, 0, 0, 4, 0, 0, 0x3000, 0x200, 0, 3, 0,
+        0x100000, 0x1000, 0x100000, 0x1000, 0, 16,
+    )
+    data_dirs = bytearray(16 * 8)
+    # Valid COM descriptor at RVA 0x2008 (file offset 0x208), size 0x48
+    struct.pack_into("<II", data_dirs, 14 * 8, 0x2008, 0x48)
+    sec_header = struct.pack("<8sIIIIIIHHI", b".text\x00\x00\x00", 0x400, 0x2000, 0x400, 0x200, 0, 0, 0, 0, 0x60000020)
+    headers = (dos_header + nt_sig + file_header + opt_fields + data_dirs + sec_header).ljust(0x200, b"\x00")
+    body = bytearray(0x400)
+    # Non-zero code at start of section, COR20 at 0x8 (RVA 0x2008), BSJB at 0x100 (RVA 0x2100)
+    body[0:8] = b"\x90" * 8
+    body[0x8 : 0x8 + 72] = struct.pack("<IHHIIII", 0x48, 2, 5, 0x2100, 0x100, 1, 0) + (b"\x00" * 48)
+    body[0x100:0x104] = b"BSJB"
+    raw = bytes(headers + body)
+
+    assert rebuild_dotnet_pe(raw) == raw
+
+
+def test_rebuild_dotnet_pe_does_not_overwrite_pe_headers():
+    """Synthesized COR20 must never be written inside the DOS/PE/section header region."""
+    raw = bytearray(_make_test_pe(include_bsjb=True, include_cor20=False))
+    # Fill section padding before BSJB with non-zero bytes so only header zeros exist below 0x200.
+    bsjb_offset = raw.find(b"BSJB")
+    raw[0x200:bsjb_offset] = b"\x90" * (bsjb_offset - 0x200)
+    # Keep zero padding in DOS header (offset 0x40..0x80) and data directories — must never be touched.
+    orig_headers = bytes(raw[:0x200])
+
+    rebuilt = rebuild_dotnet_pe(bytes(raw))
+    assert rebuilt[:0x200] == orig_headers
+
+
+def test_rebuild_dotnet_pe_invalid_section_alignment():
+    """Zero or non-power-of-two SectionAlignment must return data unchanged."""
+    raw = bytearray(_make_test_pe(include_bsjb=True, include_cor20=False))
+    pe = pefile.PE(data=bytes(raw))
+    opt_off = pe.OPTIONAL_HEADER.get_file_offset()
+    pe.close()
+    # Set SectionAlignment (offset 32 in OptionalHeader) to 0
+    struct.pack_into("<I", raw, opt_off + 32, 0)
+    assert rebuild_dotnet_pe(bytes(raw)) == bytes(raw)

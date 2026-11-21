@@ -1,3 +1,4 @@
+{% load key_tags %}
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <div class="dynamic-layout-target layout-centered">
 {% if procdump|length > 0 %}
@@ -5,7 +6,7 @@
         <center><a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
         </br>
     {% endif %}
-    {% for file in procdump %}
+    {% for file in procdump|sort_dumps %}
         {% include "analysis/generic/_file_info.html" %}
     {% endfor %}
 {% else %}

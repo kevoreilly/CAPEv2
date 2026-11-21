@@ -814,7 +814,7 @@ class Summary:
         @return: None.
         """
         api = call.get("api")
-        if self.detect_apispam and api:
+        if self.detect_apispam and self.apispam_limit > 0 and api:
             try:
                 repeated = max(0, int(call.get("repeated", 0) or 0))
             except (ValueError, TypeError):
@@ -897,7 +897,7 @@ class Summary:
         apispam = []
         apispam_exclude_apis = ""
 
-        if self.detect_apispam:
+        if self.detect_apispam and self.apispam_limit > 0:
             apispam = sorted(api for api, count in self.api_counts.items() if count >= self.apispam_limit)
 
             if apispam:

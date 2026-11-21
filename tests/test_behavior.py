@@ -159,4 +159,15 @@ class TestSummaryAndEnhanced:
         assert res_empty["apispam"] == ["NtDelayExecution"]
         assert res_empty["apispam_exclude_apis"] == "NtDelayExecution"
 
+    def test_summary_api_spam_nonpositive_limit_disabled(self):
+        process = {"process_id": 1000}
+        call = {"api": "NtDelayExecution", "category": "system"}
+        for limit in (0, -10):
+            summary = Summary(options=Dictionary({"detect_apispam": True, "apispam_limit": limit}))
+            summary.event_apicall(call, process)
+            assert len(summary.api_counts) == 0
+            res = summary.run()
+            assert res["apispam"] == []
+            assert res["apispam_exclude_apis"] == ""
+
 

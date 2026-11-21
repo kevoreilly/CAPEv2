@@ -37,6 +37,7 @@ from lib.cuckoo.common.utils import (
     get_cape_external_dir,
     get_ip_address,
     get_options,
+    get_running_commit as get_running_commit,
     get_user_filename,
     sanitize_filename,
     store_temp_file,
@@ -1874,23 +1875,6 @@ def process_new_dlnexec_task(url: str, route: str, options: str, custom: str):
     path = store_temp_file(response, name)
 
     return path, response, ""
-
-
-# https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738
-def get_running_commit() -> str:
-    """
-    Retrieves the current Git commit hash of the repository.
-
-    This function reads the HEAD file in the .git directory to determine the
-    current branch or commit reference, then reads the corresponding file to
-    get the commit hash.
-
-    Returns:
-        str: The current Git commit hash as a string.
-    """
-    git_folder = Path(CUCKOO_ROOT, ".git")
-    head_name = Path(git_folder, "HEAD").read_text().split("\n")[0].split(" ")[-1]
-    return Path(git_folder, head_name).read_text().replace("\n", "")
 
 
 def init_static_analysis_storage(task, sha256: str = "") -> bool:

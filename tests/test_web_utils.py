@@ -3,10 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 import tempfile
 import unittest
+from pathlib import Path
 
 import httpretty
 import pytest
 
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_write_file
 from lib.cuckoo.common.web_utils import (
     _download_file,
@@ -14,6 +16,7 @@ from lib.cuckoo.common.web_utils import (
     download_from_3rdparty,
     force_int,
     get_file_content,
+    get_running_commit,
     parse_request_arguments,
 )
 
@@ -506,6 +509,71 @@ def test_download_from_3rdparty_uses_cape_external_and_removes_empty_dir(tmp_pat
     assert ext_dir.is_dir()
     assert details["path"].startswith(str(ext_dir))
     assert list(ext_dir.iterdir()) == []
+
+
+def test_get_running_commit_real_repo():
+    if not (Path(CUCKOO_ROOT) / ".git").is_dir():
+        pytest.skip("Repository does not have a standard .git directory")
+    commit = get_running_commit()
+    assert len(commit) == 40
+    assert all(c in "0123456789abcdef" for c in commit.lower())
+
+
+def test_get_running_commit_missing_git_returns_empty(tmp_path):
+    assert get_running_commit(tmp_path) == ""
+
+
+def test_get_running_commit_symbolic_loose_ref(tmp_path):
+    sha = "a" * 40
+    git_dir = tmp_path / ".git"
+    (git_dir / "refs" / "heads").mkdir(parents=True)
+    (git_dir / "HEAD").write_text("ref: refs/heads/master\n", encoding="utf-8")
+    (git_dir / "refs" / "heads" / "master").write_text(f"{sha}\n", encoding="utf-8")
+
+    assert get_running_commit(tmp_path) == sha
+
+
+def test_get_running_commit_detached_head(tmp_path):
+    sha = "b" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text(f"{sha}\n", encoding="utf-8")
+
+    assert get_running_commit(tmp_path) == sha
+
+
+def test_get_running_commit_packed_refs(tmp_path):
+    sha = "c" * 40
+    tag_sha = "d" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text("ref: refs/heads/feature\n", encoding="utf-8")
+    (git_dir / "packed-refs").write_text(
+        "# pack-refs with: peeled fully-peeled sorted\n"
+        f"{tag_sha} refs/tags/v2.5\n"
+        f"^{'e' * 40}\n"
+        f"{sha} refs/heads/feature\n",
+        encoding="utf-8",
+    )
+
+    assert get_running_commit(tmp_path) == sha
+
+
+def test_get_running_commit_handles_head_read_exception(tmp_path):
+    git_dir = tmp_path / ".git"
+    (git_dir / "HEAD").mkdir(parents=True)
+
+    assert get_running_commit(tmp_path) == ""
+
+
+def test_get_running_commit_packed_refs_non_utf8_comment(tmp_path):
+    sha = "e" * 40
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir()
+    (git_dir / "HEAD").write_text("ref: refs/heads/master\n", encoding="utf-8")
+    (git_dir / "packed-refs").write_bytes(b"# invalid utf8 \xff\xfe\n" + f"{sha} refs/heads/master\n".encode("ascii"))
+
+    assert get_running_commit(tmp_path) == sha
 
 
 if __name__ == "__main__":

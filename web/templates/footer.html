@@ -2,7 +2,7 @@
     <div class="container-fluid">
         <div class="row align-items-center">
             <div class="col-md-4 text-center text-md-left mb-2 mb-md-0">
-                <small>Powered by <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-light font-weight-bold">CAPE Sandbox</a></small>
+                <small>Powered by <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-light font-weight-bold">CAPE Sandbox</a>{% if display_cape_version and cape_version %} v{{ cape_version }}{% if cape_commit %} <span class="text-white-50">(<a href="https://github.com/kevoreilly/CAPEv2/commit/{{ cape_commit }}" target="_blank" rel="noopener noreferrer" class="text-white-50" title="{{ cape_commit }}">{{ cape_commit|slice:":7" }}</a>)</span>{% endif %}{% endif %}</small>
             </div>
             <div class="col-md-4 text-center mb-2 mb-md-0">
                 <a href="#" class="text-white-50 text-decoration-none"><i class="fas fa-chevron-up me-1"></i> Back to top</a>

@@ -986,3 +986,261 @@ def test_integrations_default_conf_de4dotex_defaults():
     assert parser.get("eziriz_deobfuscate", "enabled") == "no"
     assert parser.get("eziriz_deobfuscate", "binary") == ""
 
+
+def test_static_file_info_skips_capa_for_cape_and_procdump_and_cape_dedups_and_bounds_size(tmp_path, monkeypatch):
+    from lib.cuckoo.common.dictionary import Dictionary
+    from modules.processing import CAPE as cape_mod
+
+    pe_file = tmp_path / "payload.exe"
+    pe_file.write_bytes(b"MZ" + b"\x90" * 64)
+
+    capa_calls = []
+
+    def fake_capa_details(file_path, category="static", **kwargs):
+        capa_calls.append((file_path, category))
+        return {"CAPABILITY": {"ns": [category]}}
+
+    class _FakePE:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def run(self, task_id):
+            return {}
+
+    monkeypatch.setattr(file_extra_info, "HAVE_MALCAT", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_PEFILE", True)
+    monkeypatch.setattr(file_extra_info, "HAVE_FLARE_CAPA", True)
+    monkeypatch.setattr(file_extra_info, "HAVE_FLOSS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_STRINGS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.trid, "enabled", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.die, "enabled", False)
+    monkeypatch.setattr(file_extra_info, "PortableExecutable", _FakePE)
+    monkeypatch.setattr(file_extra_info, "flare_capa_details", fake_capa_details, raising=False)
+    monkeypatch.setattr(file_extra_info, "generic_file_extractors", lambda *a, **k: None)
+
+    for cat in ("CAPE", "procdump"):
+        data_dict = {"type": "PE32 executable (GUI) Intel 80386, for MS Windows", "sha256": "c" * 64}
+        file_extra_info.static_file_info(
+            data_dict,
+            str(pe_file),
+            "1",
+            "exe",
+            "",
+            str(tmp_path),
+            {},
+            {"sha256": set()},
+            category=cat,
+        )
+        assert "flare_capa" not in data_dict
+    assert capa_calls == []
+
+    # CAPE.process_file calls flare_capa_details once for CAPE / procdump and respects max_file_size
+    monkeypatch.setattr(cape_mod, "HAVE_FLARE_CAPA", True)
+    monkeypatch.setattr(cape_mod, "flare_capa_details", fake_capa_details, raising=False)
+    monkeypatch.setattr(cape_mod, "static_file_info", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod, "mongo_find_one", lambda *a, **k: None)
+    monkeypatch.setattr(cape_mod.processing_conf.CAPE, "file_cache", False)
+    monkeypatch.setattr(cape_mod.processing_conf.CAPE, "procdump", True)
+    monkeypatch.setattr(cape_mod.processing_conf.CAPE, "max_file_size", 10)
+    monkeypatch.setattr(cape_mod.File, "get_all", lambda self: ({
+        "name": "payload.exe",
+        "path": str(pe_file),
+        "size": 66,
+        "ssdeep": "",
+        "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+        "sha256": "d" * 64,
+        "yara": [],
+        "cape_yara": [],
+    }, None))
+
+    proc = cape_mod.CAPE()
+    proc.set_path(str(tmp_path))
+    proc.task = {"id": 99, "target": str(pe_file), "options": "", "package": "exe", "category": "file"}
+    proc.options = Dictionary({"buffer": 8192, "replace_patterns": ""})
+    proc.results = {"statistics": {"processing": []}, "temp_processing_stats": {}}
+    proc.cape = {"payloads": [], "configs": []}
+
+    proc.process_file(str(pe_file), True, {}, category="CAPE", duplicated={"sha256": set()})
+    assert len(capa_calls) == 1
+    assert capa_calls[0][1] == "cape"
+
+    # Pre-populated flare_capa must not be overwritten or run a second time
+    monkeypatch.setattr(cape_mod.File, "get_all", lambda self: ({
+        "name": "payload2.exe",
+        "path": str(pe_file),
+        "size": 67,
+        "ssdeep": "",
+        "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+        "sha256": "f" * 64,
+        "yara": [],
+        "cape_yara": [],
+        "flare_capa": {"CAPABILITY": {"ns": ["existing"]}},
+    }, None))
+    proc.process_file(str(pe_file), False, {}, category="procdump", duplicated={"sha256": set()})
+    assert len(capa_calls) == 1
+
+    # Oversized file (> max_file_size MB) skips flare_capa_details
+    monkeypatch.setattr(cape_mod.File, "get_all", lambda self: ({
+        "name": "payload3.exe",
+        "path": str(pe_file),
+        "size": 20 * 1024 * 1024,
+        "ssdeep": "",
+        "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+        "sha256": "1" * 64,
+        "yara": [],
+        "cape_yara": [],
+    }, None))
+    monkeypatch.setattr(cape_mod, "path_get_size", lambda _: 20 * 1024 * 1024)
+    proc.process_file(str(pe_file), False, {}, category="procdump", duplicated={"sha256": set()})
+    assert len(capa_calls) == 1
+
+
+def test_static_file_info_floss_respects_on_demand_flag(tmp_path, monkeypatch):
+    from lib.cuckoo.common.integrations import floss as floss_mod
+
+    pe_file = tmp_path / "sample.exe"
+    pe_file.write_bytes(b"MZ" + b"\x90" * 64)
+
+    run_calls = []
+
+    class _FakePE:
+        def __init__(self, path):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def run(self, task_id):
+            return {}
+
+    monkeypatch.setattr(floss_mod, "HAVE_FLOSS", True)
+    monkeypatch.setattr(floss_mod.integrations_conf.floss, "enabled", True)
+    monkeypatch.setattr(floss_mod.integrations_conf.floss, "on_demand", True)
+    monkeypatch.setattr(floss_mod, "_run_floss_analysis", lambda *a, **k: run_calls.append(a) or {"stack_strings": ["x"]})
+
+    monkeypatch.setattr(file_extra_info, "HAVE_MALCAT", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_PEFILE", True)
+    monkeypatch.setattr(file_extra_info, "HAVE_FLARE_CAPA", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_FLOSS", True)
+    monkeypatch.setattr(file_extra_info, "Floss", floss_mod.Floss, raising=False)
+    monkeypatch.setattr(file_extra_info.integration_conf.floss, "enabled", True)
+    monkeypatch.setattr(file_extra_info, "HAVE_STRINGS", False)
+    monkeypatch.setattr(file_extra_info, "HAVE_VIRUSTOTAL", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.trid, "enabled", False)
+    monkeypatch.setattr(file_extra_info.processing_conf.die, "enabled", False)
+    monkeypatch.setattr(file_extra_info, "PortableExecutable", _FakePE)
+    monkeypatch.setattr(file_extra_info, "generic_file_extractors", lambda *a, **k: None)
+
+    data_dict = {"type": "PE32 executable (GUI) Intel 80386, for MS Windows", "sha256": "e" * 64}
+    file_extra_info.static_file_info(
+        data_dict,
+        str(pe_file),
+        "1",
+        "exe",
+        "",
+        str(tmp_path),
+        {},
+        {"sha256": set()},
+        category="static",
+    )
+    assert "floss" not in data_dict
+    assert run_calls == []
+
+
+def test_detect_it_easy_info_and_trid_info_timeout_expired(monkeypatch, caplog):
+    import logging
+    import subprocess
+
+    monkeypatch.setattr(file_extra_info, "path_exists", lambda _: True)
+    monkeypatch.setitem(file_extra_info.processing_conf.die, "timeout", 12)
+    monkeypatch.setitem(file_extra_info.processing_conf.trid, "timeout", 15)
+    monkeypatch.setattr(file_extra_info, "trid_binary", "/tmp/fake_trid", raising=False)
+    monkeypatch.setattr(file_extra_info, "definitions", "/tmp/fake.trd", raising=False)
+
+    seen_timeouts = []
+
+    def raise_timeout(cmd, **kwargs):
+        seen_timeouts.append(kwargs.get("timeout"))
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout"))
+
+    monkeypatch.setattr(subprocess, "check_output", raise_timeout)
+
+    with caplog.at_level(logging.WARNING, logger=file_extra_info.__name__):
+        die_res = file_extra_info.detect_it_easy_info("/tmp/sample.bin")
+        trid_res = file_extra_info.trid_info("/tmp/sample.bin")
+
+    assert die_res == []
+    assert trid_res == []
+    assert seen_timeouts == [12, 15]
+    assert any("Detect-It-Easy: timed out after 12s" in r.message for r in caplog.records)
+    assert any("TrID: timed out after 15s" in r.message for r in caplog.records)
+
+
+def test_shared_extractor_pool_recovery_preserves_task_budgets_and_cache(tmp_path, monkeypatch):
+    from concurrent.futures.process import BrokenProcessPool
+    from lib.cuckoo.common import process_timeout
+
+    process_timeout.reset_task_budgets()
+    try:
+        file_extra_info.enable_shared_extractor_pool()
+        process_timeout.record_task_budget_elapsed("flare_capa", 42.0)
+        process_timeout.set_cached_task_result("flare_capa", "abc123", {"CAPABILITY": {"ns": ["kept"]}})
+
+        class _FailingPool:
+            def schedule(self, *args, **kwargs):
+                raise BrokenProcessPool("simulated crash")
+
+        class _RecoveredFuture:
+            def result(self):
+                return {}
+
+        class _HealthyPool:
+            def __init__(self):
+                self.scheduled = 0
+
+            def schedule(self, *args, **kwargs):
+                self.scheduled += 1
+                return _RecoveredFuture()
+
+        healthy = _HealthyPool()
+        pools = iter([(_FailingPool(), True), (healthy, True)])
+        monkeypatch.setattr(file_extra_info, "_acquire_extractor_pool", lambda max_workers=None: next(pools))
+        monkeypatch.setattr(file_extra_info, "_teardown_extractor_pool", lambda pool: None)
+        monkeypatch.setattr(file_extra_info, "extra_info_modules", [])
+
+        def _dummy_extractor(*args, **kwargs):
+            return {}
+
+        _dummy_extractor.enabled = True
+        monkeypatch.setattr(file_extra_info, "file_info_funcs", [_dummy_extractor])
+
+        sample = tmp_path / "sample.bin"
+        sample.write_bytes(b"data")
+        file_extra_info.generic_file_extractors(
+            str(sample),
+            str(tmp_path / "out"),
+            {"type": "data"},
+            {},
+            {},
+            {"sha256": set()},
+        )
+
+        assert healthy.scheduled == 1
+        assert process_timeout._TASK_BUDGET_SPENT.get("flare_capa") == 42.0
+        assert process_timeout.get_cached_task_result("flare_capa", "abc123") == (True, {"CAPABILITY": {"ns": ["kept"]}})
+    finally:
+        file_extra_info.shutdown_shared_extractor_pool()
+    assert process_timeout._TASK_BUDGET_SPENT == {}
+    assert process_timeout.get_cached_task_result("flare_capa", "abc123") == (False, None)
+
+

@@ -33,7 +33,8 @@ from lib.cuckoo.common.integrations.shellcode_utils import (
     process_file_shellcode,
 )
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_get_size
+from lib.cuckoo.common.process_timeout import reset_task_budgets
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -549,7 +550,12 @@ class CAPE(Processing):
                 _ = cape_name_from_yara(file_info, file_info["pid"], self.results)
 
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if (
+                HAVE_FLARE_CAPA
+                and "flare_capa" not in file_info
+                and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"])
+                and int(path_get_size(file_path) / (1024 * 1024)) <= int(processing_conf.CAPE.get("max_file_size", 90) or 90)
+            ):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "procdump")
                 if capa_details:
@@ -653,7 +659,13 @@ class CAPE(Processing):
 
         if append_file:
             # ToDo https://github.com/mandiant/capa/issues/2620
-            if HAVE_FLARE_CAPA and category == "CAPE" and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"]):
+            if (
+                HAVE_FLARE_CAPA
+                and category == "CAPE"
+                and "flare_capa" not in file_info
+                and ("PE32" in file_info["type"] or "MS-DOS executable" in file_info["type"])
+                and int(path_get_size(file_path) / (1024 * 1024)) <= int(processing_conf.CAPE.get("max_file_size", 90) or 90)
+            ):
                 pretime = timeit.default_timer()
                 capa_details = flare_capa_details(file_path, "cape")
                 if capa_details:
@@ -682,6 +694,7 @@ class CAPE(Processing):
         """Run analysis.
         @return: list of CAPE output files with related information.
         """
+        reset_task_budgets()
         self._set_dict_keys()
         self._deferred_shellcode_payloads = []
         self._dump_triggers = extract_dump_triggers(

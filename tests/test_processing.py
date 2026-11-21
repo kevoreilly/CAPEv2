@@ -458,3 +458,43 @@ class TestThreatIntelligence:
         assert "fa-chevron-down" not in sig_tpl
         # _hosts.html checks 192.168 before opening <tr>.
         assert hosts_tpl.index('host.ip|slice:":7" != "192.168"') < hosts_tpl.index("<tr>\n                            {% if")
+
+    def test_threatintel_safe_urls_and_empty_raw_id_promotion(self):
+        from analysis.templatetags.analysis_tags import ext_service_link, threatintel_badges
+        from modules.processing.threatintelligence import IND_DOMAIN, ThreatIntelligence
+
+        # Unsafe URL schemes must not render clickable anchors.
+        assert str(ext_service_link("vt", "javascript:alert(1)")) == ""
+        assert str(ext_service_link("vt", "data:text/html,<script>alert(1)</script>")) == ""
+        assert str(ext_service_link("mlch", "//evil.example/path")) == ""
+        assert 'href="/sessions?q=1"' in str(ext_service_link("mlch", "/sessions?q=1"))
+
+        bad_badge = str(
+            threatintel_badges(
+                [{"source": "threatfox", "tag": "botnet_cc:demo", "indicator_url": "javascript:alert(1)"}]
+            )
+        )
+        assert "botnet_cc:demo" in bad_badge
+        assert "<a " not in bad_badge
+
+        # Empty malware raw_id with a valid malware_printable must still promote.
+        ti = ThreatIntelligence()
+        ti.results = {}
+        promoted = ti._promote_detections(
+            {
+                "c2.example.com": [
+                    {
+                        "source": "threatfox",
+                        "indicator_type": IND_DOMAIN,
+                        "threat_type": "botnet_cc",
+                        "confidence_level": 90,
+                        "malware": None,
+                        "malware_printable": "AgentTesla",
+                    }
+                ]
+            },
+            {"promote_c2_only": False, "promote_minimum_confidence": 50},
+        )
+        assert len(promoted) == 1
+        assert promoted[0]["family"] == "AgentTesla"
+        assert any(d["family"] == "AgentTesla" for d in ti.results.get("detections", []))

@@ -562,7 +562,7 @@ class ThreatIntelligence(Processing):
                     continue
                 raw_id = (it.get("malware") or "").strip().lower()
                 family = card_names.get(raw_id) or it.get("malware_printable") or it.get("malware")
-                if not family or self._is_generic_family(family) or self._is_generic_family(raw_id):
+                if not family or self._is_generic_family(family) or (raw_id and self._is_generic_family(raw_id)):
                     continue
                 key = (family.lower(), indicator)
                 if key in seen:

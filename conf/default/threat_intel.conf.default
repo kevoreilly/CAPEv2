@@ -60,13 +60,14 @@ max_families_per_indicator = 5
 # Append a CAPE detection for indicator hits. This does NOT set the headline
 # malfamily (it only adds a detection entry), so infrastructure attribution
 # never overrides CAPE's own classification. The report card enriches
-# regardless of these settings.
+# regardless of these settings. Can also be enabled via
+# [detections] threatintelligence = yes in processing.conf.
 promote_to_detection = no
-# Promote only C2 (botnet_cc) hits -- the high-confidence type. When yes,
-# other threat types still enrich the card but are not promoted.
-promote_c2_only = yes
+# Promote only C2 (botnet_cc) hits when yes; when no, payload_delivery and
+# payload (hash) indicator hits also promote to detections.
+promote_c2_only = no
 # Minimum confidence (0-100) required to promote.
-promote_minimum_confidence = 75
+promote_minimum_confidence = 50
 
 # ---- Threat actors (master gate) ---------------------------
 # Attributing a sample to a named threat actor is a strong claim. Actor

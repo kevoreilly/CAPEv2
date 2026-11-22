@@ -122,10 +122,11 @@ class Package:
                     yield os.path.join(os.getenv("ProgramFiles(x86)"), *path[1:])
                 if os.getenv("ProgramFiles"):
                     yield os.path.join(os.getenv("ProgramFiles").replace(" (x86)", ""), *path[1:])
-            elif basedir == "HomeDrive":
-                homedrive = os.getenv("HomeDrive")
-                if homedrive:
-                    yield os.path.join(f"{homedrive}\\", *path[1:])
+            elif basedir in ("HomeDrive", "SystemDrive"):
+                drive = os.getenv(basedir)
+                if drive:
+                    drive = drive.rstrip("\\/")
+                    yield os.path.join(f"{drive}\\", *path[1:])
             elif os.getenv(basedir):
                 yield os.path.join(os.getenv(basedir), *path[1:])
             else:

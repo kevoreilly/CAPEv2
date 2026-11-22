@@ -1,10 +1,12 @@
+import logging
+import ntpath
 import os
 import zipfile
-import logging
 
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.constants import OPT_ARGUMENTS
+from lib.common.exceptions import CuckooPackageError
 
 log = logging.getLogger(__name__)
 
@@ -14,6 +16,24 @@ log = logging.getLogger(__name__)
 # Store it in extras as nodejs.zip
 NODE_ZIP_NAME = "nodejs.zip"
 NODE_DIR_NAME = "nodejs"
+
+
+def _is_safe_zip_member(extract_root: str, member_name: str) -> bool:
+    """Return True if *member_name* resolves strictly inside *extract_root*."""
+    if not member_name or member_name.startswith(("/", "\\")):
+        return False
+    drive, _ = ntpath.splitdrive(member_name)
+    if drive:
+        return False
+    parts = member_name.replace("\\", "/").split("/")
+    if ".." in parts:
+        return False
+    real_root = os.path.realpath(extract_root)
+    real_target = os.path.realpath(os.path.join(real_root, *parts))
+    try:
+        return os.path.normcase(os.path.commonpath((real_root, real_target))) == os.path.normcase(real_root)
+    except ValueError:
+        return False
 
 
 def setup_node_environment():
@@ -34,19 +54,18 @@ def setup_node_environment():
         if not os.path.exists(node_zip_path):
             return None, f"Zip not found at {node_zip_path}"
 
-        if not os.path.exists(node_bin_path):
-            os.makedirs(node_bin_path)
-
         node_exe_path = None
 
         # 1. Open Zip and Find node.exe BEFORE extracting
-        with zipfile.ZipFile(node_zip_path, 'r') as z:
-            # list of all files in zip
-            file_list = z.namelist()
-
+        with zipfile.ZipFile(node_zip_path, "r") as z:
             # Find the internal path to node.exe
             # This works for both "node.exe" (root) and "node-v25.../node.exe" (subfolder)
-            node_internal_path = next((f for f in file_list if f.lower().endswith("node.exe")), None)
+            node_candidates = [
+                member.filename
+                for member in z.infolist()
+                if not member.is_dir() and os.path.basename(member.filename.replace("\\", "/")).lower() == "node.exe"
+            ]
+            node_internal_path = min(node_candidates, key=lambda p: p.replace("\\", "/").count("/")) if node_candidates else None
 
             if not node_internal_path:
                 return None, "Archive does not contain node.exe"
@@ -56,30 +75,36 @@ def setup_node_environment():
             # We use the zip name (minus extension) as a container folder
             extract_path = node_bin_path
 
-            if not os.path.exists(extract_path):
-                # Security: Check for path traversal before extraction.
-                for member in z.infolist():
-                    if member.filename.startswith("/") or ".." in member.filename:
-                        return None, f"Aborting extraction. Zip contains potentially malicious path: {member.filename}"
-
-                os.makedirs(extract_path)
-                log.info("Extracting to %s...", extract_path)
-                z.extractall(extract_path)
+            # Security: Validate node.exe member path before constructing target path.
+            if not _is_safe_zip_member(extract_path, node_internal_path):
+                return None, f"Aborting extraction. Zip contains potentially malicious path: {node_internal_path}"
 
             # 3. Construct the full path
             # extract_path + internal_path_inside_zip
             # e.g. C:\Apps\node-v25\ + node-v25-win-x64/node.exe
-            node_exe_path = os.path.join(extract_path, node_internal_path)
+            node_exe_path = os.path.join(extract_path, *node_internal_path.replace("\\", "/").split("/"))
 
             # Normalizing path separators (fixes mix of / and \)
             node_exe_path = os.path.normpath(node_exe_path)
 
+            if not os.path.isfile(node_exe_path):
+                # Security: Check for path traversal before extraction.
+                for member in z.infolist():
+                    if not _is_safe_zip_member(extract_path, member.filename):
+                        return None, f"Aborting extraction. Zip contains potentially malicious path: {member.filename}"
+
+                os.makedirs(extract_path, exist_ok=True)
+                log.info("Extracting to %s...", extract_path)
+                z.extractall(extract_path)
+
         # 4. Final Verification and Env Setup
-        if node_exe_path and os.path.exists(node_exe_path):
+        if node_exe_path and os.path.isfile(node_exe_path):
             # Add the folder containing node.exe to PATH
             node_dir = os.path.dirname(node_exe_path)
             current_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = f"{node_dir};{current_path}"
+            path_entries = [os.path.normcase(p) for p in current_path.split(os.pathsep) if p]
+            if os.path.normcase(node_dir) not in path_entries:
+                os.environ["PATH"] = f"{node_dir}{os.pathsep}{current_path}" if current_path else node_dir
 
             return node_exe_path, None
         else:
@@ -96,13 +121,10 @@ class NodeJS(Package):
         # Standard 64-bit Install (most common)
         # Default folder is usually lowercase "nodejs"
         ("ProgramFiles", "nodejs", "node.exe"),
-
         # 32-bit Node on 64-bit Windows
         ("ProgramFiles(x86)", "nodejs", "node.exe"),
-
         # Your specific custom paths (Case insensitive, so NodeJS works too)
         ("LOCALAPPDATA", "Programs", "NodeJS", "node.exe"),
-
         # Fallback for manual installs at root
         ("SystemDrive", "nodejs", "node.exe"),
     ]
@@ -143,6 +165,6 @@ class NodeJS(Package):
 
         # 3. Execution
         if not binary:
-            raise Exception("Node.js executable not found in custom bundle OR system paths.")
+            raise CuckooPackageError("Node.js executable not found in custom bundle OR system paths.")
 
         return self.execute(binary, node_args, path)

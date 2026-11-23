@@ -27,7 +27,7 @@ from itertools import combinations
 from logging import handlers
 from urllib.parse import urlparse, urljoin
 
-from sqlalchemy import and_, or_, select, func, delete, case, update
+from sqlalchemy import and_, or_, select, func, delete, case, update, exists
 from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 import requests
@@ -873,6 +873,34 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     return check
 
 
+def _select_active_or_draining_nodes(db):
+    """Return enabled nodes plus disabled nodes that still have unfinished/unretrieved tasks."""
+    has_inflight_tasks = exists(
+        select(Task.id).where(
+            Task.node_id == Node.id,
+            Task.finished.is_(False),
+            Task.retrieved.is_(False),
+            Task.deleted.is_(False),
+        )
+    )
+    return db.scalars(select(Node).where(or_(Node.enabled.is_(True), has_inflight_tasks))).all()
+
+
+def _count_node_inflight_tasks(db, node_id: int) -> int:
+    """Count unfinished, unretrieved tasks still assigned to a worker node."""
+    return (
+        db.scalar(
+            select(func.count(Task.id)).where(
+                Task.node_id == node_id,
+                Task.finished.is_(False),
+                Task.retrieved.is_(False),
+                Task.deleted.is_(False),
+            )
+        )
+        or 0
+    )
+
+
 # class Retriever():
 class Retriever(threading.Thread):
     """
@@ -1122,7 +1150,7 @@ class Retriever(threading.Thread):
     def _failed_cleaner_pass(self):
         """One failed_cleaner sweep. The HTTP call to each node runs outside any transaction."""
         with dist_transaction() as db:
-            nodes = db.scalars(select(Node).where(Node.enabled.is_(True))).all()
+            nodes = _select_active_or_draining_nodes(db)
         for node in nodes:
             tasks_data = node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete")
             if not tasks_data:
@@ -1183,9 +1211,9 @@ class Retriever(threading.Thread):
             time.sleep(5)
 
     def _fetcher_pass(self, last_checks: dict):
-        """One fetcher sweep over enabled nodes. HTTP calls to nodes run outside any transaction."""
+        """One fetcher sweep over enabled and draining nodes. HTTP calls to nodes run outside any transaction."""
         with dist_transaction() as db:
-            nodes = db.scalars(select(Node).where(Node.enabled.is_(True))).all()
+            nodes = _select_active_or_draining_nodes(db)
         for node in nodes:
             self.status_count.setdefault(node.name, 0)
             last_checks.setdefault(node.name, 0)
@@ -2217,9 +2245,10 @@ def create_app(database_connection):
     def get_node(name: str):
         with dist_transaction() as db:
             node = db.scalar(select(Node).where(Node.name == name))
+            in_flight = _count_node_inflight_tasks(db, node.id) if node else 0
         if not node:
             raise HTTPException(status_code=404, detail="Node doesn't exist")
-        return dict(name=node.name, url=node.url)
+        return dict(name=node.name, url=node.url, enabled=node.enabled, in_flight=in_flight)
 
     @app.put("/node/{name}")
     def put_node(name: str, payload: NodeUpdate):
@@ -2256,11 +2285,30 @@ def create_app(database_connection):
         return dict(error=False, error_value=f"Successfully modified node: {name}")
 
     @app.delete("/node/{name}")
-    def delete_node(name: str):
+    def delete_node(name: str, unmount: bool = False):
+        node_url = None
+        in_flight = 0
         with dist_transaction() as db:
             node = db.scalar(select(Node).where(Node.name == name))
             if node:
                 node.enabled = False
+                node_url = node.url
+                if unmount:
+                    in_flight = _count_node_inflight_tasks(db, node.id)
+        if unmount and node_url:
+            if in_flight > 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Node {name} still has {in_flight} in-flight task(s); wait for drain before unmounting",
+                )
+            if NFS_FETCH:
+                hostname = urlparse(node_url).hostname or urlparse(node_url).netloc.split(":")[0]
+                if hostname and hostname != main_server_name:
+                    try:
+                        nfs_host = validate_nfs_hostname(hostname)
+                    except ValueError as exc:
+                        raise HTTPException(status_code=400, detail=str(exc)) from exc
+                    send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[nfs_host, name])
         return None
 
     @app.get("/status")

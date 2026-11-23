@@ -18,10 +18,10 @@ jobs:
         python-version: ["3.14"]
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Checkout test files repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: CAPESandbox/CAPE-TestFiles
           path: tests/data/
@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up python
         uses: ./.github/actions/python-setup

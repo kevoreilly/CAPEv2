@@ -699,14 +699,14 @@ class PortableExecutable:
                                 dhash = self.generate_icon_dhash(img)
 
                                 img = (
-                                    img.resize((8, 8), Image.BILINEAR)
+                                    img.resize((8, 8), Image.Resampling.BILINEAR)
                                     .convert("RGB")
-                                    .convert("P", palette=Image.ADAPTIVE, colors=2)
+                                    .convert("P", palette=Image.Palette.ADAPTIVE, colors=2)
                                     .convert("L")
                                 )
                                 lowval = img.getextrema()[0]
                                 img = img.point(lambda i: 255 if i > lowval else 0).convert("1")
-                                simplified = bytearray(img.getdata())
+                                simplified = bytearray(img.get_flattened_data())
 
                                 m = hashlib.md5()
                                 m.update(output.getvalue())

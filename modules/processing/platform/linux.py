@@ -30,7 +30,7 @@ class FilteredProcessLog(list):
                 del event["type"]
                 yield event
 
-    def __nonzero__(self):
+    def __bool__(self):
         return True
 
 

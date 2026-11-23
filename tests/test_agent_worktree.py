@@ -27,7 +27,7 @@ def _git(repo, *args):
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
     )
 
 
@@ -98,7 +98,7 @@ def test_new_from_ref_creates_worktree(capsys, repo, tmp_path):
     head = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"],
         stdout=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
         check=True,
     ).stdout.strip()
     assert head == "master"
@@ -263,7 +263,7 @@ def test_metadata_lives_outside_the_working_tree(capsys, repo, tmp_path):
     status = subprocess.run(
         ["git", "-C", created["path"], "status", "--porcelain"],
         stdout=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
         check=True,
     ).stdout
     assert status.strip() == ""

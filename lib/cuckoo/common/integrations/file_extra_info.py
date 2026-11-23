@@ -390,7 +390,7 @@ def detect_it_easy_info(file_path: str):
         die_output = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
             stderr=subprocess.PIPE,
-            universal_newlines=True,
+            text=True,
             errors="replace",
             timeout=die_timeout,
         )
@@ -433,7 +433,7 @@ def trid_info(file_path: dict):
         output = subprocess.check_output(
             [trid_binary, f"-d:{definitions}", file_path],
             stderr=subprocess.STDOUT,
-            universal_newlines=True,
+            text=True,
             errors="replace",
             timeout=trid_timeout,
         )
@@ -935,7 +935,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
         try:
             output = run_tool(
                 [binary, *extra_args, staged_file],
-                universal_newlines=True,
+                text=True,
                 stdin=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
             )
@@ -1019,7 +1019,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
         dest_path = os.path.join(tempdir, os.path.basename(file))
         output = run_tool(
             [binary, *extra_args, "-f", file, "-o", dest_path],
-            universal_newlines=True,
+            text=True,
             stdin=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
@@ -1048,7 +1048,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
         tempdir = ctx["tempdir"]
         output = run_tool(
             [innoextact_binary, file, "--output-dir", tempdir],
-            universal_newlines=True,
+            text=True,
             stderr=subprocess.PIPE,
         )
         if (
@@ -1057,7 +1057,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
         ):
             output = run_tool(
                 [innoextact_binary, "--crack", file],
-                universal_newlines=True,
+                text=True,
                 stderr=subprocess.PIPE,
             )
             if "Password found: " in output:
@@ -1065,7 +1065,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
             if password:
                 _ = run_tool(
                     [innoextact_binary, file, "--output-dir", tempdir, "--password", password],
-                    universal_newlines=True,
+                    text=True,
                     stderr=subprocess.PIPE,
                 )
                 ctx["password"] = password
@@ -1118,7 +1118,7 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
         tempdir = ctx["tempdir"]
         output = run_tool(
             [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
-            universal_newlines=True,
+            text=True,
             stderr=subprocess.PIPE,
         )
         if output:
@@ -1146,7 +1146,7 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
                 file,
                 f"-o{dest_path}",
             ],
-            universal_newlines=True,
+            text=True,
             stderr=subprocess.PIPE,
         )
         if output and "Unpacked 1 file." in output:
@@ -1227,7 +1227,7 @@ def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options:
             # Need this, otherwie NSIS fails
             if password:
                 sevenzip_args.append(password)
-            _ = run_tool(sevenzip_args, universal_newlines=True, stderr=subprocess.PIPE)
+            _ = run_tool(sevenzip_args, text=True, stderr=subprocess.PIPE)
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx
@@ -1252,7 +1252,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
         password = options.get("password", "infected")
         output = run_tool(
             ["/usr/bin/unrar", "e", "-kb", f"-p{password}", file, tempdir],
-            universal_newlines=True,
+            text=True,
             stderr=subprocess.PIPE,
         )
         if output:
@@ -1302,7 +1302,7 @@ def msix_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
         tempdir = ctx["tempdir"]
         _ = run_tool(
             ["unzip", file, "-d", tempdir],
-            universal_newlines=True,
+            text=True,
             stderr=subprocess.PIPE,
         )
         ctx["extracted_files"] = collect_extracted_filenames(tempdir)
@@ -1322,7 +1322,7 @@ def UnGPG_extract(file: str, filetype: str, data_dictionary: dict, options: dict
         tempdir = ctx["tempdir"]
         output = run_tool(
             ["gpg", "--passphrase", password, "--batch", "--quiet", "--yes", "-o", os.path.join(tempdir, filename), "-d", file],
-            universal_newlines=True,
+            text=True,
             stderr=subprocess.PIPE,
         )
         if output:

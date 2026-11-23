@@ -79,7 +79,7 @@ class MongoDB(Report):
 
     # use this function to hunt down non string key
     def fix_int2str(self, dictionary, current_key_tree=""):
-        for k, v in dictionary.iteritems():
+        for k, v in list(dictionary.items()):
             if not isinstance(k, str):
                 log.error("BAD KEY: %s", ".".join([current_key_tree, str(k)]))
                 dictionary[str(k)] = dictionary.pop(k)

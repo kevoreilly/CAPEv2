@@ -21,8 +21,11 @@ To sum up, this command does the following:
    storages: file system, SQL database, and MongoDB/ElasticSearch database. Use it only
    if you are sure you would clean up all the data.
 
-After executing the ``uv run --no-sync python utils/cleaners.py --clean`` utility, you must restart CAPE service as it destroys the database.::
+After executing the ``uv run --no-sync python utils/cleaners.py --clean`` utility,
+CAPE drops and recreates the empty SQL schema and directory layout. Restart CAPE
+services afterward so the ``machines`` table is repopulated and running services
+reopen recreated log and database handles::
 
-   $ sudo systemctl restart cape
+   $ sudo systemctl restart cape cape-processor cape-web guac-web
 
 After any other option, you don't need to restart the service.

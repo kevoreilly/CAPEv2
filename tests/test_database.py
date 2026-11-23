@@ -2114,4 +2114,33 @@ class TestDatabaseEngine:
         assert loaded.get_attribute("main_task_id") == 42
         assert loaded.get_attribute("task_acl") == {"owner": 7}
 
+    def test_drop_and_create_schema_rebuilds_file_sqlite_and_alembic_version(self, tmp_path):
+        from lib.cuckoo.core.database import AlembicVersion, SCHEMA_VERSION
+
+        db_dir = tmp_path / "db"
+        db_file = db_dir / "cuckoo.db"
+        file_db = _Database(dsn=f"sqlite:///{db_file}", schema_check=False)
+        try:
+            with file_db.transaction():
+                t1 = file_db.add_url("https://example.invalid/one")
+                t2 = file_db.add_url("https://example.invalid/two")
+            assert (t1, t2) == (1, 2)
+
+            file_db.drop()
+            file_db.engine.dispose()
+            shutil.rmtree(db_dir)
+            assert not db_dir.exists()
+
+            assert file_db.create_schema() is None
+            assert db_file.is_file()
+            with file_db.transaction():
+                assert file_db.get_tasks_status_count() == {}
+                version = file_db.session.scalar(select(AlembicVersion))
+                assert version is not None
+                assert version.version_num == SCHEMA_VERSION
+                assert file_db.add_url("https://example.invalid/fresh") == 1
+        finally:
+            file_db.session.remove()
+            file_db.engine.dispose()
+
 

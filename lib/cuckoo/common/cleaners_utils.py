@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from multiprocessing.pool import ThreadPool
 from typing import Callable, Optional, Union
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, inspect, select
 
 from lib.cuckoo.common.config import Config, _BaseConfig
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -31,7 +31,7 @@ from lib.cuckoo.core.data.task import (
     TASK_REPORTED,
     Task
 )
-from lib.cuckoo.core.startup import create_structure, init_console_logging
+from lib.cuckoo.core.startup import check_webgui_mongo, create_structure, init_console_logging
 
 log = logging.getLogger(__name__)
 
@@ -779,21 +779,40 @@ def dist_delete_data(data, dist_session_maker):
 def cuckoo_clean():
     """Clean up cuckoo setup.
     It deletes logs, all stored data from file system and configured databases (SQL
-    and MongoDB.
+    and MongoDB), then recreates the empty directory layout and SQL schema.
     """
     # Init logging.
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
-    create_structure()
+    has_task_acl = False
+    try:
+        has_task_acl = "task_acl" in inspect(db.engine).get_table_names()
+    except Exception as e:
+        log.warning("Unable to inspect database tables before clean: %s", e)
 
     # Drop all tables.
     db.drop()
+
+    if has_task_acl:
+        from lib.tenancy.acl import drop_acl_schema
+
+        drop_acl_schema(db.engine)
+
+    # Release open sessions and pooled handles before deleting `db/` so
+    # file-backed SQLite closes its file descriptor prior to rmtree.
+    db.session.remove()
+    db.engine.dispose()
 
     if repconf.mongodb.enabled:
         try:
             mongo_drop_database(mdb)
         except Exception as e:
             log.error("Can't drop MongoDB. Error %s", str(e))
+        else:
+            try:
+                check_webgui_mongo(exit_on_connection_failure=False)
+            except Exception as e:
+                log.error("Can't recreate MongoDB indexes. Error %s", str(e))
 
     elif repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
         analyses = all_docs(index=get_analysis_index(), query={"query": {"match_all": {}}}, _source=["info.id"])
@@ -817,18 +836,35 @@ def cuckoo_clean():
             except (IOError, OSError) as e:
                 log.warning("Error removing directory %s: %s", path, e)
 
-    # Delete all compiled Python objects ("*.pyc").
+    # Delete all compiled Python objects ("*.pyc"), skipping virtualenvs and VCS metadata.
+    skip_pyc_dirs = {".venv", "venv", ".git"}
     for dirpath, dirnames, filenames in os.walk(CUCKOO_ROOT):
+        dirnames[:] = [d for d in dirnames if d not in skip_pyc_dirs]
         for fname in filenames:
             if not fname.endswith(".pyc"):
                 continue
 
-            path = os.path.join(CUCKOO_ROOT, dirpath, fname)
+            path = os.path.join(dirpath, fname)
 
             try:
                 path_delete(path)
             except (IOError, OSError) as e:
                 log.warning("Error removing file %s: %s", path, e)
+
+    # Recreate directory layout and SQL schema after deletion so running web/API
+    # services do not fail with missing tables before CAPE services are restarted.
+    create_structure()
+    db.create_schema()
+
+    if has_task_acl:
+        from lib.tenancy.acl import ensure_acl_schema
+
+        ensure_acl_schema(db.engine)
+
+    log.info(
+        "Cleanup complete. Restart CAPE services (e.g. `sudo systemctl restart cape cape-processor cape-web guac-web`) "
+        "to repopulate the machines table and reopen log/database handles."
+    )
 
 
 def cuckoo_clean_failed_tasks():

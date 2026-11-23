@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+SyslogIdentifier=cape-sigma-update
 User=cape
 Group=cape
 WorkingDirectory=/opt/zircolite

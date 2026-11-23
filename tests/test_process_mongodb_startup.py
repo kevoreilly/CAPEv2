@@ -21,7 +21,7 @@ def test_main_reconciles_mongodb_indexes_before_modules(monkeypatch):
     monkeypatch.setattr(
         process,
         "init_modules",
-        Mock(side_effect=lambda: calls.append(("modules", {}))),
+        Mock(side_effect=lambda **kwargs: calls.append(("modules", kwargs))),
     )
     monkeypatch.setattr(
         process,
@@ -34,8 +34,70 @@ def test_main_reconciles_mongodb_indexes_before_modules(monkeypatch):
 
     assert calls == [
         ("mongo", {"exit_on_connection_failure": False}),
-        ("modules", {}),
+        ("modules", {"machinery": False, "auxiliary": False}),
     ]
+
+
+def test_init_modules_skips_machinery_and_auxiliary_when_disabled(monkeypatch):
+    from lib.cuckoo.core import startup
+
+    imported_packages = []
+    imported_plugins = []
+    snapshot_calls = []
+
+    monkeypatch.setattr(startup, "import_package", lambda pkg: imported_packages.append(pkg.__name__))
+    monkeypatch.setattr(startup, "import_plugin", lambda name: imported_plugins.append(name))
+    monkeypatch.setattr(startup, "check_snapshot_state", lambda: snapshot_calls.append(True))
+    monkeypatch.setattr(startup, "list_plugins", lambda: {})
+    monkeypatch.setattr("lib.cuckoo.common.hooks.bootstrap_tenancy", lambda cfg: False)
+
+    startup.init_modules(machinery=False, auxiliary=False)
+    assert "modules.auxiliary" not in imported_packages
+    assert imported_plugins == []
+    assert snapshot_calls == []
+
+    imported_packages.clear()
+    startup.init_modules()
+    assert "modules.auxiliary" in imported_packages
+    assert len(imported_plugins) == 1
+    assert snapshot_calls == [True]
+
+
+def test_process_init_logging_removes_preexisting_stderr_stream_handler(tmp_path, monkeypatch):
+    import logging
+
+    root = logging.getLogger()
+    orig_handlers = list(root.handlers)
+    orig_level = root.level
+    stray_stderr = logging.StreamHandler(sys.stderr)
+    root.addHandler(stray_stderr)
+    monkeypatch.setattr(process, "CUCKOO_ROOT", str(tmp_path))
+
+    created = ()
+    try:
+        created = process.init_logging(debug=False)
+        assert stray_stderr not in root.handlers
+        stderr_handlers = [h for h in root.handlers if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr]
+        assert len(stderr_handlers) == 1
+        assert isinstance(stderr_handlers[0], process.ConsoleHandler)
+    finally:
+        for h in created:
+            if h:
+                root.removeHandler(h)
+                h.close()
+        root.handlers[:] = orig_handlers
+        root.setLevel(orig_level)
+
+
+def test_systemd_uv_units_define_syslog_identifier():
+    from pathlib import Path
+
+    systemd_dir = Path(__file__).resolve().parent.parent / "systemd"
+    uv_units = [p for p in sorted(systemd_dir.glob("*.service")) if "/uv " in p.read_text(encoding="utf-8")]
+    assert uv_units
+    for unit in uv_units:
+        text = unit.read_text(encoding="utf-8")
+        assert f"SyslogIdentifier={unit.stem}" in text, f"{unit.name} missing SyslogIdentifier={unit.stem}"
 
 
 def test_build_arg_parser_reads_conf_and_custom_processor_env(tmp_path):

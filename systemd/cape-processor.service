@@ -6,6 +6,7 @@ After=cape-rooter.service
 
 [Service]
 Type=exec
+SyslogIdentifier=cape-processor
 WorkingDirectory=/opt/CAPEv2
 # Default configuration via environment variables
 Environment=CAPE_PROCESSING_TIMEOUT=900

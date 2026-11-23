@@ -153,10 +153,14 @@ Inspect ``/tmp/cape-poetry-freeze.txt`` and reinstall any host-built or optional
 
 .. code-block:: bash
 
-    # libvirt-python (KVM hosts)
+    # libvirt-python (KVM hosts — match the host libvirt version from libvirt.pc;
+    # install libvirt-dev pkg-config first if libvirt.pc is missing on distro KVM hosts)
     PKG_CONFIG_PATH="$(dirname "$(find /usr/local/lib /usr/lib -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1)")"
+    LIBVIRT_VER="$(PKG_CONFIG_PATH="$PKG_CONFIG_PATH" pkg-config --modversion libvirt)"
     sudo -Hu cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
-        /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python libvirt-python==11.9.0
+        /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python "libvirt-python==${LIBVIRT_VER}" \
+        || sudo -Hu cape env PKG_CONFIG_PATH="$PKG_CONFIG_PATH" \
+        /usr/local/bin/uv pip install --python /opt/CAPEv2/.venv/bin/python "libvirt-python<=${LIBVIRT_VER}"
 
     # yara-x (prebuilt wheel with cuckoo module included; note YARA-X does not provide
     # the legacy `magic` module — use `sudo bash installer/cape2.sh yara` if needed)

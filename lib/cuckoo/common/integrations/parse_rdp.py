@@ -1,25 +1,31 @@
 import argparse
 import base64
 import datetime
+import ipaddress
 import json
 import logging
 import sys
 from contextlib import suppress
+from functools import lru_cache
 from hashlib import sha1, sha256
 from struct import unpack
 
-MISSED_DEPS = False
+from cryptography import x509 as cx509
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import pkcs7
+from cryptography.x509 import verification
+from cryptography.x509.oid import ExtensionOID
+
 try:
     import mscerts
-    from asn1crypto import pem, x509
-    from certvalidator import CertificateValidator, ValidationContext
-    from cryptography import x509 as cx509
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.serialization import pkcs7
-    from cryptography.x509.oid import ExtensionOID
 except ImportError:
-    print("pip3 install certvalidator asn1crypto mscerts")
-    MISSED_DEPS = True
+    mscerts = None
+
+try:
+    import certifi
+except ImportError:
+    certifi = None
+
 try:
     import re2 as re
 except ImportError:
@@ -72,7 +78,48 @@ property_patterns = {
 log = logging.getLogger()
 
 
-def validate_sig(hostname, alternate_faddress, pkcs7_certificates):
+_PEM_CERT_RE = re.compile(rb"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", re.S)
+
+
+@lru_cache(maxsize=4)
+def _load_trust_store(ca_bundle_path):
+    """Load valid PEM certificates from a CA bundle into a cryptography Store."""
+    trust_roots = []
+    with open(ca_bundle_path, "rb") as f:
+        pem_data = f.read()
+    for match in _PEM_CERT_RE.finditer(pem_data):
+        with suppress(ValueError):
+            trust_roots.append(cx509.load_pem_x509_certificate(match.group(0)))
+    return verification.Store(trust_roots) if trust_roots else None
+
+
+def _get_ca_bundle_path():
+    if mscerts is not None:
+        return mscerts.where()
+    if certifi is not None:
+        return certifi.where()
+    return None
+
+
+def _parse_verification_subject(raw_host):
+    host = (raw_host or "").strip()
+    if not host:
+        return None
+    if host.startswith("["):
+        end = host.find("]")
+        if end != -1:
+            host = host[1:end]
+    elif host.count(":") == 1:
+        host_part, port_part = host.rsplit(":", 1)
+        if port_part.isdigit():
+            host = host_part
+    try:
+        return cx509.IPAddress(ipaddress.ip_address(host))
+    except ValueError:
+        return cx509.DNSName(host)
+
+
+def validate_sig(hostname, alternate_faddress, pkcs7_certificates, ca_bundle_path=None):
     sign_data = {
         "can_sign": False,
         "usage_error": "",
@@ -82,35 +129,49 @@ def validate_sig(hostname, alternate_faddress, pkcs7_certificates):
         "main_valid": False,
         "alt_valid": False,
     }
-    if MISSED_DEPS:
+    if not pkcs7_certificates:
+        return sign_data
+    bundle_path = ca_bundle_path or _get_ca_bundle_path()
+    if not bundle_path:
+        sign_data["general_error"] = "No CA trust bundle available (install certifi or mscerts)"
         return sign_data
     try:
-        ca_bundle_path = mscerts.where()
-        trust_roots = []
-        with open(ca_bundle_path, "rb") as f:
-            pem_data = f.read()
-            for _, _, der_bytes in pem.unarmor(pem_data, multiple=True):
-                trust_roots.append(der_bytes)
-        certs = [x509.Certificate.load(cert.public_bytes(serialization.Encoding.DER)) for cert in pkcs7_certificates]
-        context = ValidationContext(trust_roots=trust_roots)
-        main_cert = certs[0]
-        validator = CertificateValidator(main_cert, intermediate_certs=certs[1:], validation_context=context)
+        store = _load_trust_store(bundle_path)
+        if store is None:
+            sign_data["general_error"] = f"No valid CA certificates loaded from {bundle_path}"
+            return sign_data
+        main_cert = pkcs7_certificates[0]
+        intermediates = list(pkcs7_certificates[1:])
         try:
-            validator.validate_usage({"digital_signature"})
+            key_usage = main_cert.extensions.get_extension_for_oid(ExtensionOID.KEY_USAGE).value
+            if key_usage.digital_signature:
+                sign_data["can_sign"] = True
+            else:
+                sign_data["usage_error"] = "Certificate key usage does not permit digital_signature"
+        except cx509.ExtensionNotFound:
             sign_data["can_sign"] = True
         except Exception as e:
             sign_data["usage_error"] = f"{e}"
-        try:
-            validator.validate_tls(hostname)
-            sign_data["main_valid"] = True
-        except Exception as e:
-            sign_data["validation_errors"].append(f"{e}")
-        if alternate_faddress:
+
+        main_subject = _parse_verification_subject(hostname)
+        if main_subject is not None:
             try:
-                validator.validate_tls(alternate_faddress)
-                sign_data["alt_valid"] = True
+                verifier = verification.PolicyBuilder().store(store).build_server_verifier(main_subject)
+                verifier.verify(main_cert, intermediates)
+                sign_data["main_valid"] = True
             except Exception as e:
                 sign_data["validation_errors"].append(f"{e}")
+
+        if alternate_faddress:
+            alt_subject = _parse_verification_subject(alternate_faddress)
+            if alt_subject is not None:
+                try:
+                    verifier = verification.PolicyBuilder().store(store).build_server_verifier(alt_subject)
+                    verifier.verify(main_cert, intermediates)
+                    sign_data["alt_valid"] = True
+                except Exception as e:
+                    sign_data["validation_errors"].append(f"{e}")
+
         if sign_data["main_valid"] or sign_data["alt_valid"]:
             sign_data["valid"] = True
     except Exception as e:
@@ -181,7 +242,7 @@ def parse_rdp_file(file_path):
                         rdp_properties["signature_sha256"] = sha256(signature_bytes).hexdigest()
                         certs = pkcs7.load_der_pkcs7_certificates(signature_bytes)
                         rdp_properties["certificate_chain_validation"] = validate_sig(
-                            f"{rdp_properties['full_address']}", f"{rdp_properties['alternate_full_address']}", certs
+                            f"{rdp_properties['full_address']}", f"{rdp_properties.get('alternate_full_address', '')}", certs
                         )
                         for cert in certs:
                             cert_info = {

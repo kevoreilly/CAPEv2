@@ -1308,3 +1308,206 @@ def test_status_thread_handles_interpreter_shutdown_without_banning_or_error_spa
 
 
 
+
+
+def test_fetcher_and_failed_cleaner_drain_disabled_node_with_inflight_tasks(dist_sqlite):
+    """Disabled nodes with unfinished/unretrieved tasks continue draining until complete."""
+    import queue
+    import threading
+    from unittest.mock import MagicMock, patch
+
+    import utils.dist as dist_mod
+
+    with dist_sqlite() as s, s.begin():
+        enabled_node = Node(name="worker-active", url="http://10.0.0.10:8000/apiv2/", apikey="k1", enabled=True)
+        draining_node = Node(name="worker-draining", url="http://10.0.0.11:8000/apiv2/", apikey="k2", enabled=False)
+        idle_disabled = Node(name="worker-idle", url="http://10.0.0.12:8000/apiv2/", apikey="k3", enabled=False)
+        s.add_all([enabled_node, draining_node, idle_disabled])
+        s.flush()
+
+        inflight = Task(
+            path="p",
+            category="url",
+            package="",
+            timeout=1,
+            priority=1,
+            options="",
+            machine="",
+            platform="windows",
+            tags="",
+            custom="",
+            memory=False,
+            clock=None,
+            enforce_timeout=False,
+            main_task_id=701,
+        )
+        inflight.node_id = draining_node.id
+        inflight.task_id = 55
+        s.add(inflight)
+        s.flush()
+        draining_id = draining_node.id
+        inflight_pk = inflight.id
+
+    retriever = dist_mod.Retriever()
+    retriever.stop_dist = threading.Event()
+    retriever.status_count = {}
+    retriever.current_queue = {}
+    retriever.fetcher_queue = queue.Queue()
+    retriever.cleaner_queue = queue.Queue()
+
+    polled_urls = []
+
+    def fake_fetch(status, url, apikey, action="fetch", since=0):
+        polled_urls.append((status, url))
+        if status == "reported" and "10.0.0.11" in url:
+            return [{"id": 55}]
+        return []
+
+    with patch("utils.dist.node_fetch_tasks", side_effect=fake_fetch):
+        retriever._fetcher_pass({})
+
+    assert ("reported", "http://10.0.0.10:8000/apiv2/") in polled_urls
+    assert ("reported", "http://10.0.0.11:8000/apiv2/") in polled_urls
+    assert all("10.0.0.12" not in u for _, u in polled_urls)
+    assert list(retriever.fetcher_queue.queue) == [({"id": 55}, draining_id)]
+
+    # _failed_cleaner_pass also sweeps the draining node so failed in-flight tasks complete draining.
+    polled_urls.clear()
+
+    def fake_fetch_failed(status, url, apikey, action="fetch", since=0):
+        polled_urls.append((status, url))
+        if "10.0.0.11" in url:
+            return [{"id": 55}]
+        return []
+
+    mock_main_db = MagicMock()
+    with (
+        patch("utils.dist.node_fetch_tasks", side_effect=fake_fetch_failed),
+        patch("utils.dist.main_db", mock_main_db),
+    ):
+        retriever._failed_cleaner_pass()
+
+    assert ("failed_analysis|failed_processing", "http://10.0.0.11:8000/apiv2/") in polled_urls
+    assert all("10.0.0.12" not in u for _, u in polled_urls)
+    mock_main_db.set_status.assert_called_once_with(701, dist_mod.TASK_FAILED_REPORTING)
+
+    # Once all tasks on the disabled node are finished/retrieved, neither loop polls it anymore.
+    with dist_sqlite() as s:
+        t = s.get(Task, inflight_pk)
+        assert t.finished is True and t.retrieved is True
+
+    polled_urls.clear()
+    with patch("utils.dist.node_fetch_tasks", side_effect=fake_fetch):
+        retriever._fetcher_pass({})
+    assert polled_urls == [("reported", "http://10.0.0.10:8000/apiv2/")]
+
+
+def test_delete_node_unmount_guards_inflight_and_get_node_reports_drain_state(dist_sqlite, monkeypatch):
+    """DELETE /node/{name}?unmount=true rejects unmount while draining and unmounts once drained."""
+    import types
+    from unittest.mock import patch
+
+    import utils.dist as dist_mod
+
+    class _FakeHTTPException(Exception):
+        def __init__(self, status_code: int, detail: str):
+            super().__init__(detail)
+            self.status_code = status_code
+            self.detail = detail
+
+    class _FakeFastAPI:
+        def __init__(self, **_kwargs):
+            self.routes = {}
+
+        def _reg(self, method, path):
+            def _dec(fn):
+                self.routes[(method, path)] = fn
+                return fn
+
+            return _dec
+
+        def get(self, path):
+            return self._reg("GET", path)
+
+        def post(self, path):
+            return self._reg("POST", path)
+
+        def put(self, path):
+            return self._reg("PUT", path)
+
+        def delete(self, path):
+            return self._reg("DELETE", path)
+
+    fake_fastapi = types.ModuleType("fastapi")
+    fake_fastapi.FastAPI = _FakeFastAPI
+    fake_fastapi.HTTPException = _FakeHTTPException
+    fake_fastapi.Depends = lambda x: x
+    fake_fastapi.Security = lambda x: x
+    fake_security = types.ModuleType("fastapi.security")
+    fake_security.APIKeyHeader = lambda **kwargs: kwargs
+    fake_pydantic = types.ModuleType("pydantic")
+    fake_pydantic.BaseModel = object
+
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi)
+    monkeypatch.setitem(sys.modules, "fastapi.security", fake_security)
+    monkeypatch.setitem(sys.modules, "pydantic", fake_pydantic)
+    monkeypatch.setattr(dist_mod, "FastAPI", _FakeFastAPI)
+    monkeypatch.setattr(dist_mod, "HTTPException", _FakeHTTPException)
+    monkeypatch.setattr(dist_mod, "NFS_FETCH", True)
+
+    with dist_sqlite() as s, s.begin():
+        node = Node(name="worker-drain", url="http://10.0.0.21:8000/apiv2/", apikey="k", enabled=True)
+        s.add(node)
+        s.flush()
+        t = Task(
+            path="p",
+            category="url",
+            package="",
+            timeout=1,
+            priority=1,
+            options="",
+            machine="",
+            platform="windows",
+            tags="",
+            custom="",
+            memory=False,
+            clock=None,
+            enforce_timeout=False,
+            main_task_id=801,
+        )
+        t.node_id = node.id
+        t.task_id = 12
+        s.add(t)
+        s.flush()
+        task_pk = t.id
+
+    app = dist_mod.create_app("sqlite:///:memory:")
+    get_node_fn = app.routes[("GET", "/node/{name}")]
+    delete_node_fn = app.routes[("DELETE", "/node/{name}")]
+
+    assert get_node_fn("worker-drain") == {
+        "name": "worker-drain",
+        "url": "http://10.0.0.21:8000/apiv2/",
+        "enabled": True,
+        "in_flight": 1,
+    }
+
+    with patch("utils.dist.send_socket_command") as mock_sock:
+        with pytest.raises(_FakeHTTPException) as exc_info:
+            delete_node_fn("worker-drain", unmount=True)
+        assert exc_info.value.status_code == 409
+        mock_sock.assert_not_called()
+
+    # The node was disabled so draining has started even though unmount was deferred.
+    assert get_node_fn("worker-drain")["enabled"] is False
+    assert get_node_fn("worker-drain")["in_flight"] == 1
+
+    # Complete the task and retry DELETE with unmount=True.
+    with dist_sqlite() as s, s.begin():
+        row = s.get(Task, task_pk)
+        row.finished = True
+        row.retrieved = True
+
+    with patch("utils.dist.send_socket_command") as mock_sock:
+        assert delete_node_fn("worker-drain", unmount=True) is None
+        mock_sock.assert_called_once_with(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry", "10.0.0.21", "worker-drain")

@@ -113,21 +113,20 @@ def add_nfs_entry(hostname: str, worker_folder: str):
         # new line strip
         if fstab[-1] == "":
             fstab = fstab[:-1]
-        if any(
-            entry.startswith(f"{hostname}:") or f" {worker_path} nfs " in entry
-            for entry in fstab
-            if not entry.startswith("#")
-        ):
+        active_entries = [entry for entry in fstab if not entry.startswith("#")]
+        if any(entry.startswith(f"{hostname}:") and f" {worker_path} nfs " in entry for entry in active_entries):
             return
+        # Remove any stale entry mapped to the same mount point (e.g. worker replaced at a new IP)
+        fstab = [entry for entry in fstab if entry.startswith("#") or f" {worker_path} nfs " not in entry]
 
         # hostname:/opt/CAPEv2 /opt/CAPEv2/2 nfs _netdev,nofail,noatime,nolock,intr,tcp,actimeo=1800,x-systemd.automount,x-systemd.mount-timeout=30s 0 0
         fstab.append(f"{hostname}:/opt/CAPEv2 {worker_path} nfs _netdev,nofail,noatime,nolock,intr,tcp,actimeo=1800,x-systemd.automount,x-systemd.mount-timeout=30s 0 0")
-        _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
+        _ = path_write_file("/etc/fstab", "\n".join(fstab) + "\n", mode="text")
 
         try:
             subprocess.check_output(["mount", worker_path])
         except Exception as e:
-            print("add_nfs_entry error on mount: %s", str(e))
+            log.error("add_nfs_entry error on mount: %s", e)
 
 
 def remove_nfs_entry(hostname: str, worker_folder: str):
@@ -144,7 +143,7 @@ def remove_nfs_entry(hostname: str, worker_folder: str):
         try:
             subprocess.check_output(["umount", worker_path])
         except Exception as e:
-            print("remove_nfs_entry error on umount: %s", str(e))
+            log.error("remove_nfs_entry error on umount: %s", e)
 
 
 handlers = {

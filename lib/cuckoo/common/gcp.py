@@ -353,11 +353,17 @@ class GCP(object):
                         if not instance["name"].startswith(instance_name_pattern):
                             continue
                         ips = [
-                            # Need to replace to internal IP not natIP
                             access["natIP"]
                             for net_iface in instance.get("networkInterfaces", [])
                             for access in net_iface.get("accessConfigs", [])
+                            if access.get("natIP")
                         ]
+                        if not ips:
+                            ips = [
+                                net_iface["networkIP"]
+                                for net_iface in instance.get("networkInterfaces", [])
+                                if net_iface.get("networkIP")
+                            ]
                         servers.setdefault(instance["name"], ips)
                 except Exception as e:
                     log.exception(e)
@@ -386,12 +392,27 @@ class GCP(object):
 
     def autodiscovery(self):
         autodiscovery_interval = 600
+        dist_url = "http://localhost:9003/node"
+        worker_apikey = ""
         if hasattr(gcp_cfg, "distributed"):
             autodiscovery_interval = int(gcp_cfg.distributed.get("autodiscovery_interval", 600))
+            dist_url = gcp_cfg.distributed.get("dist_url") or dist_url
+            worker_apikey = gcp_cfg.distributed.get("apikey") or ""
+
+        headers = {}
+        try:
+            dist_cfg = Config("distributed")
+            auth_token = dist_cfg.distributed.get("auth_token")
+            if auth_token:
+                headers["X-API-Token"] = auth_token
+        except Exception as e:
+            log.debug("Could not load distributed auth_token for autodiscovery: %s", e)
+
         while True:
             servers = self.list_instances()
             if not servers:
                 time.sleep(autodiscovery_interval)
+                continue
 
             for name, ips in servers.items():
                 for ip in ips:
@@ -401,12 +422,17 @@ class GCP(object):
                         if not up:
                             continue
                         try:
+                            payload = {"name": name, "url": f"http://{ip}:8000/apiv2/", "enabled": True}
+                            if worker_apikey:
+                                payload["apikey"] = worker_apikey
                             r = requests.post(
-                                "http://localhost:9003/node",
-                                data={"name": name, "url": f"http://{ip}:8000/apiv2/", "enabled": True},
-                            )  # -F apikey=apikey
+                                dist_url,
+                                json=payload,
+                                headers=headers,
+                                timeout=30,
+                            )
                             if not r.ok:
-                                log.error("Can't registger worker with IP: %s. status_code: %d ", ip, r.status_code)
+                                log.error("Can't register worker with IP: %s. status_code: %d", ip, r.status_code)
                         except Exception as e:
                             log.exception(e)
                         break

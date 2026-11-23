@@ -193,12 +193,6 @@ class _Database(TasksMixIn,
             self.engine.pool_timeout = self.cfg.database.timeout
         else:
             self.engine.pool_timeout = 60
-        # Create schema.
-        try:
-            Base.metadata.create_all(self.engine)
-        except SQLAlchemyError as e:  # pragma: no cover
-            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
-
         # Get db session.
         self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
         self.session = scoped_session(self.session_factory)
@@ -221,14 +215,8 @@ class _Database(TasksMixIn,
             session.execute(delete_stmt)
         """
 
-        # Deal with schema versioning.
-        try:
-            with self.session_factory() as tmp_session, tmp_session.begin():
-                last = tmp_session.scalar(select(AlembicVersion))
-                if last is None:
-                    tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
-        except SQLAlchemyError as e:  # pragma: no cover
-            raise CuckooDatabaseError(f"Unable to set schema version: {e}")
+        # Create schema and deal with schema versioning.
+        last = self.create_schema()
 
         # Check if db version is the expected one.
         if last is not None and last.version_num != SCHEMA_VERSION and schema_check and "pytest" not in sys.modules:  # pragma: no cover
@@ -405,12 +393,44 @@ class _Database(TasksMixIn,
         self.session.add(instance)
         return instance
 
+    def create_schema(self):
+        """Create all tables and seed the schema version row if missing.
+
+        @return: existing AlembicVersion row if already present, else None.
+        """
+        if self.engine.url.drivername.startswith("sqlite"):
+            db_path = self.engine.url.database
+            if db_path and db_path != ":memory:" and self.engine.url.query.get("mode") != "memory":
+                db_dir = os.path.dirname(os.path.abspath(db_path))
+                if db_dir and not path_exists(db_dir):
+                    try:
+                        create_folder(folder=db_dir)
+                    except CuckooOperationalError as e:
+                        raise CuckooDatabaseError(f"Unable to create database directory: {e}") from e
+
+        # Create schema.
+        try:
+            Base.metadata.create_all(self.engine)
+        except SQLAlchemyError as e:  # pragma: no cover
+            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}") from e
+
+        # Deal with schema versioning.
+        try:
+            with self.session_factory() as tmp_session, tmp_session.begin():
+                last = tmp_session.scalar(select(AlembicVersion))
+                if last is None:
+                    tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
+                return last
+        except SQLAlchemyError as e:  # pragma: no cover
+            raise CuckooDatabaseError(f"Unable to set schema version: {e}") from e
+
     def drop(self):
         """Drop all tables."""
+        self.session.remove()
         try:
             Base.metadata.drop_all(self.engine, checkfirst=True)
         except SQLAlchemyError as e:
-            raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
+            raise CuckooDatabaseError(f"Unable to drop database tables: {e}") from e
 
 
     # ---- Guac session helpers ----

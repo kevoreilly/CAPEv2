@@ -241,8 +241,8 @@ class Scheduler:
 
         task: Optional[Task] = None
         machine: Optional[Machine] = None
-        # Cache available machine stats to avoid repeated DB queries within the loop.
-        available_tags_stats = self.get_available_machine_stats()
+        # Lazily computed only if a task is unserviceable, avoiding a DB query on every scheduler tick.
+        configured_machine_summary: Optional[str] = None
 
         # Get the list of pending tasks in the order that they should be processed.
         # Fetch in chunks to prevent locking the entire table and running out of memory.
@@ -272,33 +272,21 @@ class Scheduler:
                 try:
                     machine = self.machinery_manager.find_machine_to_service_task(task_candidate)
                 except CuckooUnserviceableTaskError:
-                    requested_tags = ", ".join(tag.name for tag in task_candidate.tags)
-                    log_message = (
-                        "Task #{task_id}: {status} unserviceable task because no matching machine could be found. "
-                        "Requested tags: '{tags}'. Available machine tags: {available}. "
-                        "Please check your machinery configuration."
+                    if configured_machine_summary is None:
+                        configured_machine_summary = self._format_configured_machine_summary()
+                    requested = self._format_task_requirements(task_candidate)
+                    status = "Failing" if self.cfg.cuckoo.fail_unserviceable else "Unserviceable"
+                    log.info(
+                        "Task #%s: %s unserviceable task because no matching machine could be found. "
+                        "Requested: %s. %s. Please check your machinery configuration.",
+                        task_candidate.id,
+                        status,
+                        requested,
+                        configured_machine_summary,
                     )
-
                     if self.cfg.cuckoo.fail_unserviceable:
-                        log.info(
-                            log_message.format(
-                                task_id=task_candidate.id,
-                                status="Failing",
-                                tags=requested_tags,
-                                available=available_tags_stats,
-                            )
-                        )
                         self.db.set_status(task_candidate.id, TASK_FAILED_ANALYSIS)
                         failed_in_chunk += 1
-                    else:
-                        log.info(
-                            log_message.format(
-                                task_id=task_candidate.id,
-                                status="Unserviceable",
-                                tags=requested_tags,
-                                available=available_tags_stats,
-                            )
-                        )
                     continue
 
                 if machine:
@@ -312,27 +300,56 @@ class Scheduler:
 
         return task, machine
 
-    def get_available_machine_stats(self) -> DefaultDict[str, int]:
-        available_machine_stats = defaultdict(int)
-        for machine in self.db.get_available_machines():
-            for tag in machine.tags:
-                if tag:
-                    available_machine_stats[tag.name] += 1
-            if machine.platform:
-                available_machine_stats[machine.platform] += 1
+    @staticmethod
+    def _collect_machine_stats(machines) -> DefaultDict[str, int]:
+        stats: DefaultDict[str, int] = defaultdict(int)
+        for machine in machines:
+            attrs = {tag.name for tag in (getattr(machine, "tags", None) or ()) if tag and getattr(tag, "name", None)}
+            if getattr(machine, "platform", None):
+                attrs.add(machine.platform)
+            if getattr(machine, "arch", None):
+                attrs.add(machine.arch)
+            for attr in attrs:
+                stats[attr] += 1
+        return stats
 
-        return available_machine_stats
+    def _format_task_requirements(self, task_candidate: Task) -> str:
+        parts = []
+        machine_req = getattr(task_candidate, "machine", None)
+        if machine_req:
+            parts.append(f"machine='{machine_req}'")
+        platform_req = getattr(task_candidate, "platform", None)
+        if platform_req:
+            parts.append(f"platform='{platform_req}'")
+        package_req = getattr(task_candidate, "package", None)
+        if package_req:
+            req_fn = getattr(self.db, "_package_vm_requires_check", None)
+            os_tags = req_fn(package_req) if callable(req_fn) else []
+            if os_tags:
+                parts.append(f"package='{package_req}' (requires any of: {', '.join(os_tags)})")
+            else:
+                parts.append(f"package='{package_req}'")
+        requested_tags = ", ".join(
+            tag.name for tag in (getattr(task_candidate, "tags", None) or ()) if tag and getattr(tag, "name", None)
+        )
+        parts.append(f"tags='{requested_tags}'")
+        return ", ".join(parts)
+
+    def _format_configured_machine_summary(self) -> str:
+        list_machines = getattr(self.db, "list_machines", None)
+        machines = list_machines(include_reserved=True) if callable(list_machines) else self.db.get_available_machines()
+        total = len(machines)
+        available = sum(1 for m in machines if not getattr(m, "locked", False))
+        reserved = sum(1 for m in machines if getattr(m, "reserved", False))
+        stats = dict(sorted(self._collect_machine_stats(machines).items()))
+        reserved_info = f", {reserved} reserved" if reserved else ""
+        return f"Configured machines ({total} total, {available} available{reserved_info}): {stats}"
+
+    def get_available_machine_stats(self) -> DefaultDict[str, int]:
+        return self._collect_machine_stats(self.db.get_available_machines())
 
     def get_locked_machine_stats(self) -> DefaultDict[str, int]:
-        locked_machine_stats = defaultdict(int)
-        for machine in self.db.list_machines(locked=True):
-            for tag in machine.tags:
-                if tag:
-                    locked_machine_stats[tag.name] += 1
-            if machine.platform:
-                locked_machine_stats[machine.platform] += 1
-
-        return locked_machine_stats
+        return self._collect_machine_stats(self.db.list_machines(locked=True))
 
     def get_pending_task_stats(self) -> DefaultDict[str, int]:
         pending_task_stats = defaultdict(int)

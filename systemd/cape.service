@@ -5,6 +5,7 @@ Wants=cape-rooter.service
 After=cape-rooter.service
 
 [Service]
+SyslogIdentifier=cape
 WorkingDirectory=/opt/CAPEv2/
 ExecStart=/usr/local/bin/uv run --no-sync python cuckoo.py
 User=cape

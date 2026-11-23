@@ -429,6 +429,12 @@ def init_logging(debug=False):
 
     Raises:
         PermissionError: If there is an issue creating or accessing the log file, typically due to incorrect user permissions.
+
+    Handlers:
+        - ch - console handler
+        - slh - syslog handler
+        - fh - file handle -> process.log
+    """
     # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
     # If basicConfig was already called by something and had a StreamHandler added,
     # replace it with a ConsoleHandler.
@@ -436,13 +442,6 @@ def init_logging(debug=False):
         if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
             log.removeHandler(h)
             h.close()
-    """
-    """
-    Handlers:
-        - ch - console handler
-        - slh - syslog handler
-        - fh - file handle -> process.log
-    """
 
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
@@ -889,7 +888,7 @@ def main():
     handlers = init_logging(debug=args.debug)
     if args.id == "auto":
         check_webgui_mongo(exit_on_connection_failure=False)
-    init_modules()
+    init_modules(machinery=False, auxiliary=False)
     if args.id == "auto":
         autoprocess(
             parallel=args.parallel,

@@ -3,6 +3,7 @@ Description=CAPE distributed
 Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]
+SyslogIdentifier=cape-dist
 WorkingDirectory=/opt/CAPEv2/utils/
 ExecStart=/usr/local/bin/uv run --no-sync python dist.py -ef
 User=cape

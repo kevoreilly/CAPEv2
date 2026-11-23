@@ -5,6 +5,7 @@ Wants=network-online.target
 After=syslog.target network.target
 
 [Service]
+SyslogIdentifier=cape-rooter
 WorkingDirectory=/opt/CAPEv2/utils/
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/local/bin/uv run --no-sync python rooter.py -g cape

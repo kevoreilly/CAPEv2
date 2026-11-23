@@ -130,8 +130,10 @@ class NoStatusLogFilter(logging.Filter):
         return "GET /status" not in record.getMessage()
 
 
-logging.getLogger("werkzeug").addFilter(NoStatusLogFilter())
-logging.getLogger("_internal").addFilter(NoStatusLogFilter())
+_no_status_filter = NoStatusLogFilter()
+logging.getLogger("uvicorn.access").addFilter(_no_status_filter)
+logging.getLogger("werkzeug").addFilter(_no_status_filter)
+logging.getLogger("_internal").addFilter(_no_status_filter)
 
 dist_ignore_patterns = shutil.ignore_patterns(*[pattern.strip() for pattern in dist_conf.distributed.ignore_patterns.split(",")])
 STATUSES = {}

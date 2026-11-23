@@ -410,3 +410,66 @@ def test_init_console_logging_idempotent_and_preserves_lower_level():
         root_log.handlers = orig_handlers
         root_log.setLevel(orig_level)
 
+
+def test_dist_no_status_log_filter_registered_on_uvicorn_access():
+    import copy
+    import logging.config
+    import sys
+    from unittest.mock import MagicMock
+
+    import uvicorn.config
+
+    root_log = logging.getLogger()
+    orig_handlers = list(root_log.handlers)
+    orig_level = root_log.level
+    added_fastapi_stub = False
+    if "fastapi" not in sys.modules:
+        try:
+            import fastapi  # noqa: F401
+        except ImportError:
+            _mock_fastapi = MagicMock()
+            sys.modules["fastapi"] = _mock_fastapi
+            sys.modules["fastapi.security"] = _mock_fastapi.security
+            added_fastapi_stub = True
+
+    try:
+        import utils.dist as dist_mod
+
+        access_logger = logging.getLogger("uvicorn.access")
+        assert any(isinstance(f, dist_mod.NoStatusLogFilter) for f in access_logger.filters)
+
+        logging.config.dictConfig(copy.deepcopy(uvicorn.config.LOGGING_CONFIG))
+        assert any(isinstance(f, dist_mod.NoStatusLogFilter) for f in access_logger.filters)
+
+        status_rec = access_logger.makeRecord(
+            name="uvicorn.access",
+            level=logging.INFO,
+            fn=__file__,
+            lno=1,
+            msg='%s - "%s %s HTTP/%s" %d',
+            args=("10.0.0.1:0", "GET", "/status", "1.1", 200),
+            exc_info=None,
+        )
+        node_rec = access_logger.makeRecord(
+            name="uvicorn.access",
+            level=logging.INFO,
+            fn=__file__,
+            lno=1,
+            msg='%s - "%s %s HTTP/%s" %d',
+            args=("10.0.0.1:0", "POST", "/node", "1.1", 200),
+            exc_info=None,
+        )
+        assert not access_logger.filter(status_rec)
+        assert access_logger.filter(node_rec)
+    finally:
+        for h in list(root_log.handlers):
+            if h not in orig_handlers:
+                root_log.removeHandler(h)
+                h.close()
+        root_log.handlers = orig_handlers
+        root_log.setLevel(orig_level)
+        if added_fastapi_stub:
+            sys.modules.pop("fastapi.security", None)
+            sys.modules.pop("fastapi", None)
+
+

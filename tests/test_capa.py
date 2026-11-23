@@ -4,7 +4,7 @@
 
 import importlib
 import sys
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -80,3 +80,90 @@ def test_capa_version_compatibility_gate(monkeypatch, custom_conf_path, capsys, 
         ConfigMeta.refresh()
         monkeypatch.undo()
         importlib.reload(capa_mod)
+
+
+# capa.loader.collect_metadata() signatures of the supported capa majors.
+# capa 10.0.0 removed the os_ parameter (mandiant/capa#3076).
+def _collect_metadata_capa9(argv, input_path, input_format, os_, rules_path, extractor, capabilities):
+    return SimpleNamespace(analysis=SimpleNamespace(), os_=os_)
+
+
+def _collect_metadata_capa10(argv, input_path, input_format, rules_path, extractor, capabilities):
+    return SimpleNamespace(analysis=SimpleNamespace(), os_=None)
+
+
+def _install_fake_loaded_capa(monkeypatch, collect_metadata):
+    """Make capa_mod look as if capa and its rules were loaded, with a stubbed analysis pipeline."""
+    extractor = object()
+    fake_capa = SimpleNamespace(
+        features=SimpleNamespace(
+            common=SimpleNamespace(),
+            extractors=SimpleNamespace(
+                cape=SimpleNamespace(
+                    extractor=SimpleNamespace(CapeExtractor=SimpleNamespace(from_report=lambda results: extractor))
+                )
+            ),
+        ),
+        loader=SimpleNamespace(
+            BACKEND_VIV="vivisect",
+            get_extractor=lambda *args, **kwargs: extractor,
+            collect_metadata=collect_metadata,
+            compute_layout=lambda rules, extractor, matches: "layout",
+        ),
+        capabilities=SimpleNamespace(
+            common=SimpleNamespace(find_capabilities=lambda rules, extractor, disable_progress=True: SimpleNamespace(matches={}))
+        ),
+    )
+    fake_rd = SimpleNamespace(
+        ResultDocument=SimpleNamespace(from_capa=lambda meta, rules, matches: {"os": meta.os_, "layout": meta.analysis.layout})
+    )
+
+    monkeypatch.setattr(capa_mod, "_ensure_capa_loaded", lambda force=False: True)
+    monkeypatch.setattr(capa_mod, "render_dictionary", lambda doc: doc)
+    monkeypatch.setattr(capa_mod, "rules", object())
+    monkeypatch.setattr(capa_mod, "signatures", [])
+    monkeypatch.setattr(capa_mod, "capa", fake_capa, raising=False)
+    monkeypatch.setattr(capa_mod, "rd", fake_rd, raising=False)
+    monkeypatch.setattr(capa_mod, "FORMAT_AUTO", "auto", raising=False)
+    monkeypatch.setattr(capa_mod, "OS_AUTO", "auto", raising=False)
+    for name in ("EmptyReportError", "UnsupportedFormatError", "ValidationError"):
+        monkeypatch.setattr(capa_mod, name, type(name, (Exception,), {}), raising=False)
+    monkeypatch.setitem(sys.modules, "capa.helpers", ModuleType("capa.helpers"))
+
+
+@pytest.mark.parametrize(
+    ("collect_metadata", "expected_os"),
+    [(_collect_metadata_capa9, "auto"), (_collect_metadata_capa10, None)],
+    ids=["capa9", "capa10"],
+)
+@pytest.mark.parametrize(
+    "run_capa",
+    [
+        lambda path: capa_mod._run_capa_static(path, skip_packed=False),
+        lambda path: capa_mod._run_capa_report(path, {"behavior": {}}),
+    ],
+    ids=["static", "report"],
+)
+def test_capa_collect_metadata_signature_compatibility(monkeypatch, tmp_path, collect_metadata, expected_os, run_capa):
+    sample = tmp_path / "sample.exe"
+    sample.write_bytes(b"MZ")
+    _install_fake_loaded_capa(monkeypatch, collect_metadata)
+
+    assert run_capa(str(sample)) == {"os": expected_os, "layout": "layout"}
+
+
+def test_capa_loader_imports_cape_extractor(monkeypatch):
+    # capa 9 imported the CAPE report extractor at the top of capa.loader; capa 10 imports it lazily.
+    # _run_capa_report() needs it, so loading capa must import it explicitly.
+    pytest.importorskip("capa.features.extractors.cape.extractor")
+    import capa.features.extractors
+
+    for name in [m for m in sys.modules if m.startswith("capa.features.extractors.cape")]:
+        monkeypatch.delitem(sys.modules, name)
+    monkeypatch.delattr(capa.features.extractors, "cape", raising=False)
+    monkeypatch.setattr(capa_mod, "path_exists", lambda _: False)
+    monkeypatch.setattr(capa_mod, "_CAPA_MODULES_LOADED", False)
+
+    capa_mod._ensure_capa_loaded(force=True)
+
+    assert hasattr(capa.features.extractors, "cape")

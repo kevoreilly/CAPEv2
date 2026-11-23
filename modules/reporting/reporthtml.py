@@ -3,7 +3,6 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import base64
-import codecs
 import logging
 import os
 
@@ -90,7 +89,7 @@ class ReportHTML(Report):
                 for file_name in os.listdir(bingraph_path):
                     file_path = os.path.join(bingraph_path, file_name)
                     sha256 = os.path.basename(file_path).split("-", 1)[0]
-                    with codecs.open(file_path, "r", encoding="utf-8") as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         bingraph_dict_content[sha256] = f.read()
 
             if bingraph_dict_content:
@@ -146,7 +145,7 @@ class ReportHTML(Report):
                         "debugger": debugger,
                     }
                 )
-                with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
+                with open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                     report.write(html)
             except Exception as e:
                 log.exception("Failed to generate HTML report: %s", e)

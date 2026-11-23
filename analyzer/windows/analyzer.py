@@ -550,7 +550,7 @@ class Analyzer:
         if os.path.exists("data\\dump.sst"):
             try:
                 _ = subprocess.check_output(
-                    ["certutil", "-addstore", "-enterprise", "Root", "data\\dump.sst"], universal_newlines=True, startupinfo=si
+                    ["certutil", "-addstore", "-enterprise", "Root", "data\\dump.sst"], text=True, startupinfo=si
                 )
             except Exception as e:
                 log.error("Can't update certificates: %s", str(e))

@@ -410,9 +410,9 @@ def create_structure():
 
 def check_linux_dist():
     ubuntu_versions = ("20.04", "22.04", "24.04")
-    with suppress(AttributeError):
-        platform_details = platform.dist()
-        if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
+    with suppress(AttributeError, OSError):
+        os_release = platform.freedesktop_os_release()
+        if os_release.get("ID", "").lower() != "ubuntu" or os_release.get("VERSION_ID") not in ubuntu_versions:
             log.info(
                 "[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s",
                 ubuntu_versions,

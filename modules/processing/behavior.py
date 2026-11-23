@@ -183,7 +183,11 @@ class ParseProcessLog(list):
     def __repr__(self):
         return f"<ParseProcessLog log-path: {self._log_path}>"
 
-    def __nonzero__(self):
+    def __bool__(self):
+        if self.options.ram_boost:
+            return bool(self.api_call_cache) and self.api_call_cache[0] is not None
+        if not self.fd or not self.parser:
+            return False
         return self.wait_for_lastcall()
 
     def reset(self):

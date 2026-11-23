@@ -65,7 +65,7 @@ class VirtualBox(Machinery):
 
         try:
             if subprocess.call(
-                virtualbox_args, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True
+                virtualbox_args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True
             ):
                 raise CuckooMachineError("VBoxManage exited with error restoring the machine's snapshot")
         except OSError as e:
@@ -76,7 +76,7 @@ class VirtualBox(Machinery):
         try:
             proc = subprocess.Popen(
                 [self.options.virtualbox.path, "startvm", label, "--type", self.options.virtualbox.mode],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
@@ -101,7 +101,7 @@ class VirtualBox(Machinery):
         try:
             proc = subprocess.Popen(
                 [self.options.virtualbox.path, "controlvm", label, "poweroff"],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
@@ -136,7 +136,7 @@ class VirtualBox(Machinery):
         try:
             proc = subprocess.Popen(
                 [self.options.virtualbox.path, "list", "vms"],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
@@ -168,7 +168,7 @@ class VirtualBox(Machinery):
         try:
             proc = subprocess.Popen(
                 [self.options.virtualbox.path, "showvminfo", label, "--machinereadable"],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,
@@ -206,7 +206,7 @@ class VirtualBox(Machinery):
         try:
             subprocess.call(
                 [self.options.virtualbox.path, "debugvm", label, "dumpvmcore", "--filename", path],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 close_fds=True,

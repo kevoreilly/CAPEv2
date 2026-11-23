@@ -43,7 +43,7 @@ def extract_details(file: str, *, filetype: str, **kwargs) -> ExtractorReturnTyp
             # msiextract in different way that 7z, we need to add subfolder support
             output = run_tool(
                 [integration_conf.msi_extract.binary, file, "--directory", tempdir],
-                universal_newlines=True,
+                text=True,
                 stderr=subprocess.PIPE,
             )
         if output:
@@ -55,7 +55,7 @@ def extract_details(file: str, *, filetype: str, **kwargs) -> ExtractorReturnTyp
         else:
             output = run_tool(
                 [sevenzip_binary, "e", f"-o{tempdir}", "-y", file],
-                universal_newlines=True,
+                text=True,
                 stderr=subprocess.PIPE,
             )
             valid_msi_filetypes = ["PE32", "text", "Microsoft Cabinet archive"]

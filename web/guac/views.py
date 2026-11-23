@@ -513,9 +513,9 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
                     import socket
                     import time
                     import requests
-                    import pytz
                     import datetime
                     import io
+                    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
                     ip = machine.ip
                     port = 8000
@@ -560,9 +560,9 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
 
                         # Timezone conversion to EST (America/New_York)
                         try:
-                            tz = pytz.timezone("America/New_York")
+                            tz = ZoneInfo("America/New_York")
                             now_est = datetime.datetime.now(tz)
-                        except ImportError:
+                        except (ZoneInfoNotFoundError, KeyError):
                             now_utc = datetime.datetime.now(datetime.timezone.utc)
                             if 3 < now_utc.month < 11:
                                 offset = datetime.timedelta(hours=-4)

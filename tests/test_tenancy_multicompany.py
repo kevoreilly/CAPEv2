@@ -1128,6 +1128,7 @@ def test_gcs_refetch_banned_inherits_source_scope_and_rebinds_dist(db, temp_pe32
     from pathlib import Path
     import sys
 
+    from sqlalchemy import select
     from sqlalchemy.orm import Session
 
     import lib.cuckoo.common.gcp as gcp_mod
@@ -1165,7 +1166,7 @@ def test_gcs_refetch_banned_inherits_source_scope_and_rebinds_dist(db, temp_pe32
 
         fake_dist.gcs_refetch_banned("1d", samples_bucket="test-bucket")
         with Session(db.engine) as s:
-            all_tasks = s.query(Task).order_by(Task.id).all()
+            all_tasks = s.scalars(select(Task).order_by(Task.id)).all()
             assert len(all_tasks) == 2
             new_tid = all_tasks[-1].id
             assert new_tid != src_tid

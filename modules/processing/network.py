@@ -419,7 +419,7 @@ class Pcap:
                         inaddrarpa = resolve_doh(ptr_name, rdtype="PTR")
                 else:
                     with suppress(Exception):
-                        inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text().rstrip(".")
+                        inaddrarpa = d.resolve(from_address(ip), "PTR").rrset[0].to_text().rstrip(".")
             hostname = ip_to_hostname.get(ip, "")
             country_name, asn, asn_name = self._get_cn(ip)
             enriched_hosts.append(

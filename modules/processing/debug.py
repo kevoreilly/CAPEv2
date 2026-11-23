@@ -2,8 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import codecs
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.path_utils import path_exists
@@ -24,7 +22,7 @@ class Debug(Processing):
         if path_exists(self.log_path):
             try:
                 buf_size = self.options.get("buffer", 8192)
-                with codecs.open(self.log_path, "rb", "utf-8") as f:
+                with open(self.log_path, "r", encoding="utf-8", newline="") as f:
                     content = f.read()
                 debug["log"] = truncate_str(content, buf_size)
             except ValueError as e:

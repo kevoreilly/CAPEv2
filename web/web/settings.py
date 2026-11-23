@@ -115,9 +115,7 @@ SITE_ID = 1
 # to load the internationalization machinery.
 USE_I18N = True
 
-# Deprecated in Django 5.0
-# If you set this to False, Django will not format dates, numbers and calendars according to the current locale.
-USE_L10N = True
+# Removed in Django 5.0 (localized formatting is always enabled).
 
 # Disabling time zone support and using local time for web interface and storage.
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
@@ -246,7 +244,6 @@ MIDDLEWARE = [
 OTP_TOTP_ISSUER = "CAPE Sandbox"
 
 # Header/protection related
-SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = "DENY"
 
 ROOT_URLCONF = "web.urls"

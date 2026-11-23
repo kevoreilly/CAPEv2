@@ -19,10 +19,10 @@ jobs:
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         # Use x86 python because of https://github.com/kevoreilly/CAPEv2/issues/168
         with:
           python-version: ${{ matrix.python-version }}

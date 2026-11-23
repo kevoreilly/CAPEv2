@@ -2,13 +2,21 @@ import asyncio
 import copy
 import inspect
 from functools import wraps
-from typing import Any, Dict, List, no_type_check_decorator
+from typing import Any, Dict, List, no_type_check
 
 from . import introspection as intr
 from ._private.util import parse_annotation, replace_fds_with_idx, replace_idx_with_fds, signature_contains_type
 from .constants import PropertyAccess
 from .errors import SignalDisabledError
 from .signature import SignatureBodyMismatchError, SignatureTree, Variant
+
+
+def _no_type_check_decorator(decorator):
+    @wraps(decorator)
+    def wrapped_decorator(*args, **kwargs):
+        return no_type_check(decorator(*args, **kwargs))
+
+    return wrapped_decorator
 
 
 class _Method:
@@ -83,7 +91,7 @@ def method(name: str = None, disabled: bool = False):
     if type(disabled) is not bool:
         raise TypeError("disabled must be a bool")
 
-    @no_type_check_decorator
+    @_no_type_check_decorator
     def decorator(fn):
         @wraps(fn)
         def wrapped(*args, **kwargs):
@@ -158,7 +166,7 @@ def signal(name: str = None, disabled: bool = False):
     if type(disabled) is not bool:
         raise TypeError("disabled must be a bool")
 
-    @no_type_check_decorator
+    @_no_type_check_decorator
     def decorator(fn):
         fn_name = name or fn.__name__
         signal = _Signal(fn, fn_name, disabled)
@@ -286,7 +294,7 @@ def dbus_property(access: PropertyAccess = PropertyAccess.READWRITE, name: str =
     if type(disabled) is not bool:
         raise TypeError("disabled must be a bool")
 
-    @no_type_check_decorator
+    @_no_type_check_decorator
     def decorator(fn):
         options = {"name": name, "access": access, "disabled": disabled}
         return _Property(fn, options=options)
@@ -452,7 +460,7 @@ class ServiceInterface:
     def _get_property_value(interface, prop, callback):
         # XXX MUST CHECK TYPE RETURNED BY GETTER
         try:
-            if asyncio.iscoroutinefunction(prop.prop_getter):
+            if inspect.iscoroutinefunction(prop.prop_getter):
                 task = asyncio.ensure_future(prop.prop_getter(interface))
 
                 def get_property_callback(task):
@@ -475,7 +483,7 @@ class ServiceInterface:
     def _set_property_value(interface, prop, value, callback):
         # XXX MUST CHECK TYPE TO SET
         try:
-            if asyncio.iscoroutinefunction(prop.prop_setter):
+            if inspect.iscoroutinefunction(prop.prop_setter):
                 task = asyncio.ensure_future(prop.prop_setter(interface, value))
 
                 def set_property_callback(task):

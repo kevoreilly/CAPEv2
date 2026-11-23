@@ -31,9 +31,10 @@ from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 import requests
 from requests.adapters import HTTPAdapter
+import urllib3
 from urllib3.util.retry import Retry
 
-requests.packages.urllib3.disable_warnings()
+urllib3.disable_warnings()
 
 http_session = requests.Session()
 http_session.verify = False

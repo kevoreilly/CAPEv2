@@ -587,7 +587,7 @@ def delete_folder(folder):
     import os
     import stat
 
-    def remove_readonly(func, path, excinfo):
+    def remove_readonly(func, path, exc):
         try:
             # Attempt to heal permissions of the file/dir to make it writable and deletable
             os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
@@ -607,7 +607,7 @@ def delete_folder(folder):
 
     if path_exists(folder):
         try:
-            shutil.rmtree(folder, onerror=remove_readonly)
+            shutil.rmtree(folder, onexc=remove_readonly)
             if path_exists(folder):
                 raise OSError(f"Directory {folder} was not completely removed due to permission errors on child files.")
         except OSError as e:

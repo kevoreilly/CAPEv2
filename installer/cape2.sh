@@ -921,6 +921,7 @@ function install_libvirt() {
     local pc_dir=""
     find_libvirt_pc() {
         pc_file=""
+        local prefix="${LIBVIRT_PC_PREFIX:-}"
         if [ -n "${PKG_CONFIG_PATH:-}" ]; then
             local pc_dirs=()
             IFS=":" read -ra pc_dirs <<< "$PKG_CONFIG_PATH"
@@ -931,20 +932,52 @@ function install_libvirt() {
                 fi
             done
         fi
+        if [ -z "$prefix" ] && command -v virsh >/dev/null 2>&1; then
+            local virsh_bin virsh_prefix
+            virsh_bin=$(command -v virsh 2>/dev/null || true)
+            virsh_bin=$(readlink -f "$virsh_bin" 2>/dev/null || echo "$virsh_bin")
+            virsh_prefix=$(dirname "$(dirname "$virsh_bin")")
+            if [ -n "$virsh_prefix" ] && [ "$virsh_prefix" != "/" ] && [ "$virsh_prefix" != "/usr" ] && [ "$virsh_prefix" != "/usr/local" ]; then
+                for pc_dir in \
+                    "${virsh_prefix}/lib64/pkgconfig" \
+                    "${virsh_prefix}/lib/$(uname -m)-linux-gnu/pkgconfig" \
+                    "${virsh_prefix}/lib/pkgconfig"; do
+                    if [ -f "$pc_dir/libvirt.pc" ]; then
+                        pc_file="$pc_dir/libvirt.pc"
+                        return 0
+                    fi
+                done
+            fi
+        fi
         for pc_dir in \
-            /usr/local/lib/x86_64-linux-gnu/pkgconfig \
-            /usr/local/lib/aarch64-linux-gnu/pkgconfig \
-            /usr/local/lib/pkgconfig \
-            /usr/lib/x86_64-linux-gnu/pkgconfig \
-            /usr/lib/aarch64-linux-gnu/pkgconfig \
-            /usr/lib/pkgconfig; do
+            "${prefix}/usr/local/lib64/pkgconfig" \
+            "${prefix}/usr/local/lib/x86_64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/local/lib/aarch64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/local/lib/pkgconfig" \
+            "${prefix}/usr/lib64/pkgconfig" \
+            "${prefix}/usr/lib/x86_64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/lib/aarch64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/lib/pkgconfig"; do
             if [ -f "$pc_dir/libvirt.pc" ]; then
                 pc_file="$pc_dir/libvirt.pc"
                 return 0
             fi
         done
-        pc_file=$(find /usr/local/lib /usr/lib -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1)
-        if [ -z "$pc_file" ] && command -v pkg-config >/dev/null 2>&1; then
+        local search_roots=()
+        local root
+        for root in \
+            "${prefix}/usr/local/lib64" \
+            "${prefix}/usr/lib64" \
+            "${prefix}/usr/local/lib" \
+            "${prefix}/usr/lib"; do
+            if [ -d "$root" ]; then
+                search_roots+=("$root")
+            fi
+        done
+        if [ ${#search_roots[@]} -gt 0 ]; then
+            pc_file=$(find "${search_roots[@]}" -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1 || true)
+        fi
+        if [ -z "$pc_file" ] && [ -z "$prefix" ] && command -v pkg-config >/dev/null 2>&1; then
             pc_dir=$(pkg-config --variable=pcfiledir libvirt 2>/dev/null || true)
             if [ -n "$pc_dir" ] && [ -f "$pc_dir/libvirt.pc" ]; then
                 pc_file="$pc_dir/libvirt.pc"

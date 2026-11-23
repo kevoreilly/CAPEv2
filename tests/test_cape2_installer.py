@@ -551,3 +551,116 @@ def test_migrate_to_uv_reinstalls_batch_deobfuscator_from_poetry_freeze(tmp_path
         f"pip install --python {cape_root}/.venv/bin/python -U git+https://github.com/DissectMalware/batch_deobfuscator"
         in uv_calls
     )
+
+
+def test_install_libvirt_discovers_usr_lib64_pkgconfig(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    cape_root.mkdir()
+    sysroot = tmp_path / "sysroot"
+    pc_dir = sysroot / "usr" / "lib64" / "pkgconfig"
+    pc_dir.mkdir(parents=True)
+    (pc_dir / "libvirt.pc").write_text("Name: libvirt\nVersion: 11.10.0\n", encoding="utf-8")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(
+        fake_bin / "pkg-config",
+        '#!/bin/bash\nif [ "$1" = "--modversion" ]; then echo "11.10.0"; else echo ""; fi\n',
+    )
+    _write_exe(fake_bin / "uv", f'#!/bin/bash\necho "PKG_CONFIG_PATH=$PKG_CONFIG_PATH ARGS=$*" >> "{uv_log}"\n')
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "LIB_VERSION=11.9.0\n"
+        "UV_PYTHON_DIR=/usr/local/share/uv/python\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_PIP=pip\n"
+        "PKG_CONFIG_PATH=''\n"
+        f"LIBVIRT_PC_PREFIX={str(sysroot)!r}\n"
+        f"eval \"$(awk '/^function install_libvirt\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "install_libvirt\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+
+    logged = uv_log.read_text(encoding="utf-8").strip()
+    assert f"PKG_CONFIG_PATH={pc_dir}" in logged
+    assert f"pip install --python {cape_root}/.venv/bin/python libvirt-python==11.10.0" in logged
+
+
+def test_install_libvirt_discovers_custom_virsh_prefix_and_find_lib64(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    cape_root.mkdir()
+    opt_prefix = tmp_path / "opt_libvirt"
+    opt_bin = opt_prefix / "bin"
+    opt_pc_dir = opt_prefix / "lib64" / "pkgconfig"
+    opt_bin.mkdir(parents=True)
+    opt_pc_dir.mkdir(parents=True)
+    _write_exe(opt_bin / "virsh", "#!/bin/bash\necho 12.6.0\n")
+    (opt_pc_dir / "libvirt.pc").write_text("Name: libvirt\nVersion: 12.6.0\n", encoding="utf-8")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(
+        fake_bin / "pkg-config",
+        '#!/bin/bash\nif [ "$1" = "--modversion" ]; then echo "12.6.0"; else echo ""; fi\n',
+    )
+    _write_exe(fake_bin / "uv", f'#!/bin/bash\necho "PKG_CONFIG_PATH=$PKG_CONFIG_PATH ARGS=$*" >> "{uv_log}"\n')
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "LIB_VERSION=11.9.0\n"
+        "UV_PYTHON_DIR=/usr/local/share/uv/python\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_PIP=pip\n"
+        "PKG_CONFIG_PATH=''\n"
+        f"eval \"$(awk '/^function install_libvirt\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "install_libvirt\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{opt_bin}:{fake_bin}:{env.get('PATH', '')}"
+    subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+
+    logged = uv_log.read_text(encoding="utf-8").strip()
+    assert f"PKG_CONFIG_PATH={opt_pc_dir}" in logged
+    assert f"pip install --python {cape_root}/.venv/bin/python libvirt-python==12.6.0" in logged
+
+    # Also verify find fallback under sysroot/usr/lib64 when /usr/local/lib64 does not exist (pipefail-safe)
+    sysroot = tmp_path / "find_sysroot"
+    nested_pc_dir = sysroot / "usr" / "lib64" / "custom" / "pkgconfig"
+    nested_pc_dir.mkdir(parents=True)
+    (nested_pc_dir / "libvirt.pc").write_text("Name: libvirt\nVersion: 12.6.0\n", encoding="utf-8")
+    uv_log.unlink()
+
+    script_find = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "LIB_VERSION=11.9.0\n"
+        "UV_PYTHON_DIR=/usr/local/share/uv/python\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_PIP=pip\n"
+        "PKG_CONFIG_PATH=''\n"
+        f"LIBVIRT_PC_PREFIX={str(sysroot)!r}\n"
+        f"eval \"$(awk '/^function install_libvirt\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "install_libvirt\n"
+    )
+    subprocess.run(["bash", "-c", script_find], env=env, capture_output=True, text=True, check=True)
+    logged_find = uv_log.read_text(encoding="utf-8").strip()
+    assert f"PKG_CONFIG_PATH={nested_pc_dir}" in logged_find
+    assert f"pip install --python {cape_root}/.venv/bin/python libvirt-python==12.6.0" in logged_find

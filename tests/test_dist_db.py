@@ -1234,3 +1234,77 @@ def test_retriever_free_space_mon_and_backpressure(tmp_path, monkeypatch):
     assert fetched == [(77, 3)]
 
 
+def test_status_thread_handles_interpreter_shutdown_without_banning_or_error_spam(caplog):
+    import logging
+    import threading
+    from unittest.mock import MagicMock, patch
+
+    import utils.dist as dist_mod
+
+    dist_mod._SHUTDOWN_EVENT.clear()
+    try:
+        stop_event = threading.Event()
+        st = dist_mod.StatusThread(stop_event=stop_event)
+
+        # 1. Pre-existing shutdown skips executor creation completely.
+        stop_event.set()
+        with patch.object(dist_mod, "ThreadPoolExecutor") as mock_pool:
+            assert st._submit_parallel(1, [(10, 100), (11, 101)]) == []
+            mock_pool.assert_not_called()
+
+        # 2. RuntimeError("cannot schedule new futures after interpreter shutdown") mid-batch
+        #    keeps already-submitted results and leaves remaining tasks untouched (not banned).
+        stop_event.clear()
+        dist_mod._SHUTDOWN_EVENT.clear()
+        submitted_future = MagicMock()
+        submitted_future.result.return_value = True
+
+        class _ShutdownExecutor:
+            def __init__(self, **_kw):
+                self.calls = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+            def submit(self, fn, dist_id, node_id, main_task_id):
+                self.calls += 1
+                if self.calls == 1:
+                    return submitted_future
+                raise RuntimeError("cannot schedule new futures after interpreter shutdown")
+
+        with (
+            patch.object(dist_mod, "ThreadPoolExecutor", _ShutdownExecutor),
+            patch.object(dist_mod, "as_completed", side_effect=lambda fs: list(fs)),
+            caplog.at_level(logging.INFO),
+        ):
+            results = st._submit_parallel(1, [(10, 100), (11, 101)])
+
+        assert results == [((10, 100), True, False)]
+        assert dist_mod._SHUTDOWN_EVENT.is_set()
+        assert "Stopping parallel task submission during interpreter shutdown" in caplog.text
+
+        # 3. StatusThread.run exits cleanly without calling handle_loop_error on interpreter shutdown.
+        dist_mod._SHUTDOWN_EVENT.clear()
+        stop_event = threading.Event()
+        st = dist_mod.StatusThread(stop_event=stop_event)
+        loop_errors = []
+
+        def _raise_shutdown(_statuses, _mq, _mso):
+            raise RuntimeError("cannot schedule new futures after interpreter shutdown")
+
+        with (
+            patch.object(st, "_init_queues", return_value=True),
+            patch.object(st, "_status_pass", side_effect=_raise_shutdown),
+            patch.object(dist_mod, "handle_loop_error", side_effect=lambda w, e: loop_errors.append((w, e))),
+        ):
+            st.run()
+
+        assert loop_errors == []
+    finally:
+        dist_mod._SHUTDOWN_EVENT.clear()
+
+
+

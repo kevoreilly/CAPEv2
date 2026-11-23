@@ -5,6 +5,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import argparse
+import atexit
 import contextlib
 import hashlib
 import ipaddress
@@ -229,6 +230,16 @@ def handle_loop_error(where: str, exc: BaseException):
         restart_db_connection()
     else:
         log.exception("Error in %s: %s", where, exc)
+
+
+_SHUTDOWN_EVENT = threading.Event()
+atexit.register(_SHUTDOWN_EVENT.set)
+
+
+def _is_shutting_down(stop_event=None) -> bool:
+    if sys.is_finalizing() or _SHUTDOWN_EVENT.is_set():
+        return True
+    return stop_event is not None and stop_event.is_set()
 
 
 binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
@@ -939,7 +950,7 @@ class Retriever(threading.Thread):
 
         log.info("Retriever supervisor started. Monitoring %d threads.", len(thread_targets))
 
-        while not self.stop_dist.is_set():
+        while not (self.stop_dist.is_set() or _SHUTDOWN_EVENT.is_set()):
             for target_func, name, args in thread_targets:
                 thread = active_threads.get(name)
 
@@ -1512,6 +1523,10 @@ class StatusThread(threading.Thread):
         The main loop that continuously checks the status of nodes and submits tasks.
     """
 
+    def __init__(self, *args, stop_event=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stop_event = stop_event if stop_event is not None else _SHUTDOWN_EVENT
+
     def submit_tasks(self, node_name, pend_tasks_num, options_like=False, force_push_push=False):
         """
         Submits tasks to a specified node.
@@ -1723,13 +1738,25 @@ class StatusThread(threading.Thread):
         Returns a list of ((dist_id, main_task_id), submitted, raised). raised is True when node_submit_task
         raised; such tasks are left untouched and retried on a later pass.
         """
+        stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
+        if _is_shutting_down(stop_event):
+            return []
         results = []
         max_workers = int(dist_conf.distributed.dist_threads)
         with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="submit") as executor:
-            future_to_info = {
-                executor.submit(node_submit_task, dist_id, node_id, main_task_id): (dist_id, main_task_id)
-                for dist_id, main_task_id in tasks
-            }
+            future_to_info = {}
+            for dist_id, main_task_id in tasks:
+                if _is_shutting_down(stop_event):
+                    break
+                try:
+                    future = executor.submit(node_submit_task, dist_id, node_id, main_task_id)
+                except RuntimeError as e:
+                    if _is_shutting_down(stop_event) or "interpreter shutdown" in str(e):
+                        log.info("Stopping parallel task submission during interpreter shutdown")
+                        _SHUTDOWN_EVENT.set()
+                        break
+                    raise
+                future_to_info[future] = (dist_id, main_task_id)
             for future in as_completed(future_to_info):
                 info = future_to_info[future]
                 try:
@@ -1770,25 +1797,37 @@ class StatusThread(threading.Thread):
     def run(self):
         global retrieve, STATUSES
         MINIMUMQUEUE = {}
+        stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
 
         # handle another user case,
         # when master used to only store data and not process samples
         # Startup reads are retried so a database that is still starting does not kill the thread.
-        while True:
+        master_storage_only = None
+        while not _is_shutting_down(stop_event):
             try:
                 master_storage_only = self._init_queues(MINIMUMQUEUE)
                 break
             except Exception as e:
+                if _is_shutting_down(stop_event) or (isinstance(e, RuntimeError) and "interpreter shutdown" in str(e)):
+                    log.info("Status thread stopping during shutdown")
+                    return
                 handle_loop_error("status startup", e)
-                time.sleep(INTERVAL)
+                if stop_event.wait(INTERVAL):
+                    return
+        if master_storage_only is None:
+            return
 
         statuses = {}
-        while True:
+        while not _is_shutting_down(stop_event):
             try:
                 self._status_pass(statuses, MINIMUMQUEUE, master_storage_only)
             except Exception as e:
+                if _is_shutting_down(stop_event) or (isinstance(e, RuntimeError) and "interpreter shutdown" in str(e)):
+                    log.info("Status thread stopping during shutdown")
+                    break
                 handle_loop_error("status", e)
-            time.sleep(INTERVAL)
+            if stop_event.wait(INTERVAL):
+                break
 
     def _init_queues(self, MINIMUMQUEUE: dict) -> bool:
         """Load per-node queue sizes / VM tags and return whether the master only stores data."""
@@ -1822,7 +1861,10 @@ class StatusThread(threading.Thread):
             STATUSES.pop(name, None)
 
         # Request a status update on all CAPE nodes.
+        stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
         for node in nodes:
+            if _is_shutting_down(stop_event):
+                break
             status = node_status(node.url, node.name, node.apikey)
             if not status:
                 log.error("No data from node: %s", node.name)
@@ -2512,10 +2554,12 @@ def main():
     # Starts Daemon Server
     app = create_app(database_connection=dist_conf.distributed.db)
 
+    _SHUTDOWN_EVENT.clear()
     t = StatusThread(name="status")
     t.daemon = True
     t.start()
 
+    retrieve = None
     if not args.submit_only and not dist_conf.distributed.get("submit_only"):
         retrieve = Retriever(name="supervisor")
         retrieve.daemon = True
@@ -2525,7 +2569,13 @@ def main():
 
     import uvicorn
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
+    try:
+        uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
+    finally:
+        _SHUTDOWN_EVENT.set()
+        if retrieve is not None and hasattr(retrieve, "stop_dist"):
+            retrieve.stop_dist.set()
+        t.join(timeout=10)
 
 
 if __name__ == "__main__":

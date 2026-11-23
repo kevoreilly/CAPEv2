@@ -22,6 +22,9 @@ def _install_fake_capa_tree(monkeypatch, ver_str: str):
         "capa.engine",
         "capa.features",
         "capa.features.common",
+        "capa.features.extractors",
+        "capa.features.extractors.cape",
+        "capa.features.extractors.cape.extractor",
         "capa.features.freeze",
         "capa.features.freeze.features",
         "capa.loader",
@@ -73,6 +76,7 @@ def test_capa_version_compatibility_gate(monkeypatch, custom_conf_path, capsys, 
         captured = capsys.readouterr().out
         assert ("FLARE-CAPA missed or incompatible version" not in captured) is expected_compatible
         if expected_compatible:
+            assert "FLARE-CAPA missed:" not in captured
             assert capa_mod.capa_compatible_versions == {"9", "10"}
     finally:
         if conf_file.exists():
@@ -163,7 +167,9 @@ def test_capa_loader_imports_cape_extractor(monkeypatch):
     monkeypatch.delattr(capa.features.extractors, "cape", raising=False)
     monkeypatch.setattr(capa_mod, "path_exists", lambda _: False)
     monkeypatch.setattr(capa_mod, "_CAPA_MODULES_LOADED", False)
+    monkeypatch.setattr(capa_mod, "HAVE_FLARE_CAPA", capa_mod.HAVE_FLARE_CAPA)
+    monkeypatch.setattr(capa_mod, "rules", False)
 
     capa_mod._ensure_capa_loaded(force=True)
 
-    assert hasattr(capa.features.extractors, "cape")
+    assert hasattr(capa_mod.capa.features.extractors.cape.extractor, "CapeExtractor")

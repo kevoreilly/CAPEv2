@@ -87,7 +87,7 @@ if process_cfg.malduck.enabled:
         # del tmp_modules
         assert "test_malduck" in malduck_modules_names
     except ImportError:
-        log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+        log.info("Missed MalDuck -> uv pip install git+https://github.com/CERT-Polska/malduck/")
 """
 
 if process_cfg.CAPE_extractors.enabled:

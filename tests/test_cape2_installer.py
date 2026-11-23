@@ -295,6 +295,7 @@ def test_migrate_to_uv_installs_yara_x_and_seeds_env_files(tmp_path):
     script = (
         "set -euo pipefail\n"
         f"CAPE_ROOT={str(cape_root)!r}\n"
+        f"FREEZE_FILE={str(tmp_path / 'poetry-freeze.txt')!r}\n"
         "USER=cape\n"
         "DISABLE_LIBVIRT=1\n"
         "UV_PYTHON_VERSION=3.14\n"
@@ -452,3 +453,101 @@ def test_root_systemd_units_disable_bytecode_and_installer_uses_sudo_hu():
     assert "/usr/bin/systemctl reload-or-restart guac-web" in cape2_src
     assert '[ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"; cargo install --path cli' in cape2_src
     assert "apt-get install -y locate" not in cape2_src
+
+
+def test_install_libvirt_matches_host_pkg_config_version_and_falls_back_to_lte(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    cape_root.mkdir()
+    pc_dir = tmp_path / "pkgconfig"
+    pc_dir.mkdir()
+    (pc_dir / "libvirt.pc").write_text("Name: libvirt\nVersion: 10.0.0\n", encoding="utf-8")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(
+        fake_bin / "pkg-config",
+        '#!/bin/bash\nif [ "$1" = "--modversion" ]; then echo "10.0.0"; else echo ""; fi\n',
+    )
+    # Fail exact pin to verify fallback uses <=10.0.0 (not unpinned latest).
+    _write_exe(
+        fake_bin / "uv",
+        f'#!/bin/bash\necho "$*" >> "{uv_log}"\n'
+        'case "$*" in *libvirt-python==10.0.0*) exit 1 ;; *) exit 0 ;; esac\n',
+    )
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "LIB_VERSION=11.9.0\n"
+        "UV_PYTHON_DIR=/usr/local/share/uv/python\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_PIP=pip\n"
+        f"PKG_CONFIG_PATH={str(pc_dir)!r}\n"
+        f"eval \"$(awk '/^function install_libvirt\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "install_libvirt\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+
+    calls = uv_log.read_text(encoding="utf-8").splitlines()
+    assert calls == [
+        f"pip install --python {cape_root}/.venv/bin/python libvirt-python==10.0.0",
+        f"pip install --python {cape_root}/.venv/bin/python libvirt-python<=10.0.0",
+    ]
+
+
+def test_migrate_to_uv_reinstalls_batch_deobfuscator_from_poetry_freeze(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    (cape_root / "conf" / "default").mkdir(parents=True)
+    (cape_root / "systemd").mkdir(parents=True)
+    (cape_root / "pyproject.toml").write_text("[project]\nname = 'CAPEv2'\n", encoding="utf-8")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(fake_bin / "chown", "#!/bin/bash\nexit 0\n")
+    _write_exe(fake_bin / "crontab", "#!/bin/bash\nexit 1\n")
+    _write_exe(fake_bin / "systemctl", "#!/bin/bash\nexit 0\n")
+    _write_exe(fake_bin / "poetry", '#!/bin/bash\necho "batch-deobfuscator==0.1.0"\n')
+    _write_exe(fake_bin / "uv", f'#!/bin/bash\necho "$*" >> "{uv_log}"\n')
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        f"FREEZE_FILE={str(tmp_path / 'poetry-freeze.txt')!r}\n"
+        "USER=cape\n"
+        "DISABLE_LIBVIRT=1\n"
+        "UV_PYTHON_VERSION=3.14\n"
+        f"UV_PYTHON_DIR={str(tmp_path / 'uv_py')!r}\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_CMD='run --no-sync'\n"
+        "PYTHON_MGR_PIP=pip\n"
+        "PYTHON_MGR_INSTALL_PYPROJECT='sync --locked --no-install-project --inexact --python 3.14'\n"
+        f"SYSTEMD_UNIT_DIR={str(tmp_path / 'systemd_empty')!r}\n"
+        "install_uv_and_python() { mkdir -p \"$UV_PYTHON_DIR\"; }\n"
+        f"eval \"$(awk '/^function seed_default_env_files\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        f"eval \"$(awk '/^function sync_installed_systemd_units\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        f"eval \"$(awk '/^function rewrite_poetry_crontab_stream\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        f"eval \"$(awk '/^function migrate_to_uv\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "migrate_to_uv\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+
+    uv_calls = uv_log.read_text(encoding="utf-8")
+    assert (
+        f"pip install --python {cape_root}/.venv/bin/python -U git+https://github.com/DissectMalware/batch_deobfuscator"
+        in uv_calls
+    )

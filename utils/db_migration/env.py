@@ -24,7 +24,7 @@ sys.path.append(os.path.join(curdir, "..", ".."))
 from lib.cuckoo.core.database import Base, _Database
 
 # Get database connection string from cuckoo configuration.
-url = _Database(schema_check=False).engine.url.__to_string__(hide_password=False)
+url = _Database(schema_check=False).engine.url.render_as_string(hide_password=False)
 target_metadata = Base.metadata
 
 

@@ -369,7 +369,7 @@ class QEMU(Machinery):
                 if vm_config.get("snapshot", False) and vm_config.get("image", False):
                     try:
                         snalshot_list = subprocess.check_output(
-                            [self.qemu_img, "snapshot", "-l", vm_config["image"]], universal_newlines=True
+                            [self.qemu_img, "snapshot", "-l", vm_config["image"]], text=True
                         )
                         if vm_config["snapshot"] not in snalshot_list:
                             log.error("Snapshot: %s doesn't exist for VM: %s", vm_config["snapshot"], vm_label)
@@ -403,7 +403,7 @@ class QEMU(Machinery):
             try:
                 proc = subprocess.Popen(
                     [self.qemu_img, "create", "-f", "qcow2", "-F", "qcow2", "-b", vm_options.image, snapshot_path],
-                    universal_newlines=True,
+                    text=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
@@ -452,7 +452,7 @@ class QEMU(Machinery):
 
         try:
             proc = subprocess.Popen(
-                final_cmdline, universal_newlines=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                final_cmdline, text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             self.state[vm_info.name] = proc
         except OSError as e:

@@ -1088,11 +1088,11 @@ class Signature:
         ips = []
 
         try:
-            answers = myresolver.query(hostname, "A")
+            answers = myresolver.resolve(hostname, "A")
             for rdata in answers:
                 n = dns.reversename.from_address(rdata.address)
                 try:
-                    answers_inv = myresolver.query(n, "PTR")
+                    answers_inv = myresolver.resolve(n, "PTR")
                     ips.extend(rdata.address for _ in answers_inv)
                 except dns.resolver.NoAnswer:
                     ips.append(rdata.address)

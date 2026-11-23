@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from .task import Task
 
 from datetime import datetime, timezone
-import pytz
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 try:
     from sqlalchemy import (
         Column,
@@ -36,10 +36,13 @@ tz_name = cfg.cuckoo.get("timezone", "utc")
 
 def _utcnow_naive():
     """Returns the current time in the configured timezone as a naive datetime object."""
-    try:
-        tz = pytz.timezone(tz_name)
-    except pytz.UnknownTimeZoneError:
+    if not tz_name or tz_name.strip().lower() == "utc":
         tz = timezone.utc
+    else:
+        try:
+            tz = ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, KeyError):
+            tz = timezone.utc
     return datetime.now(tz).replace(tzinfo=None)
 
 # Secondary table used in association Machine - Tag.

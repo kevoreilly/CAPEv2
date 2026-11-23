@@ -1,5 +1,6 @@
 import array
 import asyncio
+import inspect
 import logging
 import socket
 from asyncio import Queue
@@ -118,7 +119,7 @@ class MessageBus(BaseMessageBus):
     ):
         super().__init__(bus_address, bus_type, ProxyObject)
         self._negotiate_unix_fd = negotiate_unix_fd
-        self._loop = asyncio.get_event_loop()
+        self._loop = asyncio.get_running_loop()
         self._unmarshaller = self._create_unmarshaller()
 
         self._writer = _MessageWriter(self)
@@ -341,7 +342,7 @@ class MessageBus(BaseMessageBus):
         return await self._disconnect_future
 
     def _make_method_handler(self, interface, method):
-        if not asyncio.iscoroutinefunction(method.fn):
+        if not inspect.iscoroutinefunction(method.fn):
             return super()._make_method_handler(interface, method)
 
         def handler(msg, send_reply):

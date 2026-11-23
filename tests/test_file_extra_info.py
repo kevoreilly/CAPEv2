@@ -758,7 +758,7 @@ def test_eziriz_deobfuscate_stages_isolated_workdir_and_moves_slayed(
     assert cmd[0] == expected_binary
     assert cmd[1:-1] == expected_args_prefix
     assert cmd[-1].endswith(os.path.join("_work", filename))
-    assert kwargs["universal_newlines"] is True
+    assert kwargs["text"] is True
     assert kwargs["stdin"] == subprocess.DEVNULL
     assert kwargs["stderr"] == subprocess.STDOUT
 
@@ -940,7 +940,7 @@ def test_de4dot_deobfuscate_paths_args_and_embedded_collection(tmp_path, monkeyp
     cmd, kwargs = seen_calls[0]
     assert cmd[:-4] == [expected_binary, "--dont-rename"]
     assert cmd[-4:-1] == ["-f", str(sample), "-o"]
-    assert kwargs["universal_newlines"] is True
+    assert kwargs["text"] is True
     assert kwargs["stdin"] == subprocess.DEVNULL
     assert kwargs["stderr"] == subprocess.STDOUT
 

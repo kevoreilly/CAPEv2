@@ -22,9 +22,9 @@ class ProcmonLog(list):
             if element.tag != "event":
                 continue
 
-            yield {child.tag: child.text for child in element.getchildren()}
+            yield {child.tag: child.text for child in element}
 
-    def __nonzero__(self):
+    def __bool__(self):
         # For documentation on this please refer to MonitorProcessLog.
         return True
 

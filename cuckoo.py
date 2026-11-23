@@ -154,53 +154,51 @@ def _log_critical_error(exc: CuckooCriticalError, debug: bool = False):
 def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     cur_path = Path.cwd()
     os.chdir(CUCKOO_ROOT)
-
-    logo()
-    check_working_directory()
-    check_configs()
-    create_structure()
-    init_database()
-
-    if artwork:
-        import time
-
-        try:
-            while True:
-                time.sleep(1)
-                logo()
-        except KeyboardInterrupt:
-            return
-        finally:
-            os.chdir(cur_path)
-
-    if quiet:
-        level = logging.WARN
-    elif debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    log.setLevel(level)
-    init_logging(level)
-
-    _acquire_cuckoo_lock()
     try:
-        check_webgui_mongo()
-        init_modules()
-        with Database().session.begin():
-            init_tasks()
-        init_rooter(apply_state=True)  # scheduler owns the rooter state reset (codex P1)
-        init_routing(apply_nexthop_state=True)  # scheduler owns the nexthop sweep/build/arm (codex P2)
-        check_tcpdump_permissions()
+        logo()
+        check_working_directory()
+        check_configs()
+        create_structure()
+        init_database()
 
-        # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
-        if test:
+        if artwork:
+            import time
+
+            try:
+                while True:
+                    time.sleep(1)
+                    logo()
+            except KeyboardInterrupt:
+                return
+
+        if quiet:
+            level = logging.WARN
+        elif debug:
+            level = logging.DEBUG
+        else:
+            level = logging.INFO
+        log.setLevel(level)
+        init_logging(level)
+
+        _acquire_cuckoo_lock()
+        try:
+            check_webgui_mongo()
+            init_modules()
+            with Database().session.begin():
+                init_tasks()
+            init_rooter(apply_state=True)  # scheduler owns the rooter state reset (codex P1)
+            init_routing(apply_nexthop_state=True)  # scheduler owns the nexthop sweep/build/arm (codex P2)
+            check_tcpdump_permissions()
+
+            # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
+            if test:
+                _release_cuckoo_lock()
+                return
+
+            ResultServer()
+        except BaseException:
             _release_cuckoo_lock()
-            return
-
-        ResultServer()
-    except BaseException:
-        _release_cuckoo_lock()
-        raise
+            raise
     finally:
         os.chdir(cur_path)
 

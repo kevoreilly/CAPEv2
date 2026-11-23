@@ -314,6 +314,7 @@ def test_cuckoo_init_acquires_lock_before_mutating_tasks_or_routing(monkeypatch,
     fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
     cuckoo_mod._release_cuckoo_lock()
 
+    orig_cwd = os.getcwd()
     try:
         with pytest.raises(CuckooStartupError, match="PID 99999"):
             cuckoo_mod.cuckoo_init()
@@ -321,6 +322,7 @@ def test_cuckoo_init_acquires_lock_before_mutating_tasks_or_routing(monkeypatch,
         fcntl.flock(holder, fcntl.LOCK_UN)
         holder.close()
 
+    assert os.getcwd() == orig_cwd
     assert "init_tasks" not in called
     assert "init_rooter" not in called
     assert "init_routing" not in called

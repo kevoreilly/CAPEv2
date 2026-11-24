@@ -1042,3 +1042,39 @@ class TestServerResilienceAndConcurrency:
         assert results["local_status_code"] == 200
         assert agent.state["status"] == agent.Status.COMPLETE
 
+    def test_shutdown_uses_public_server_shutdown_api(self):
+        import threading
+
+        srv = agent.MiniHTTPServer()
+        shutdown_called = threading.Event()
+        fake_server = mock.MagicMock()
+        fake_server.shutdown.side_effect = shutdown_called.set
+        srv.s = fake_server
+
+        @srv.route("/kill")
+        def _kill():
+            srv.shutdown()
+            return agent.json_success("Quit the CAPE Agent")
+
+        handler_obj = mock.MagicMock()
+        handler_obj.path = "/kill"
+        handler_obj.command = "GET"
+
+        agent.request.client_ip = "127.0.0.1"
+        agent.request.method = "GET"
+        srv.handle(handler_obj)
+
+        assert shutdown_called.wait(timeout=5.0)
+        fake_server.shutdown.assert_called_once_with()
+        assert handler_obj.close_connection is True
+        assert not hasattr(fake_server, "_BaseServer__shutdown_request") or not isinstance(
+            fake_server.__dict__.get("_BaseServer__shutdown_request"), bool
+        )
+
+    def test_mini_http_server_is_picklable_for_spawn_and_forkserver(self):
+        import pickle
+
+        restored = pickle.loads(pickle.dumps(agent.app))
+        assert isinstance(restored, agent.MiniHTTPServer)
+
+

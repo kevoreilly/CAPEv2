@@ -27,7 +27,7 @@ from email.message import EmailMessage
 from email.parser import BytesHeaderParser
 from email.policy import default as email_policy
 from io import BufferedIOBase, BytesIO, StringIO
-from threading import Lock, local as thread_local
+from threading import Lock, Thread, local as thread_local
 from typing import Any, Dict, IO, Iterable, Optional, Tuple, Union
 from urllib.parse import parse_qs
 from zipfile import ZipFile
@@ -109,6 +109,7 @@ TERMINAL_STATUSES = [Status.COMPLETE, Status.FAILED, Status.EXCEPTION]
 
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
+_SHUTDOWN_LOCK = Lock()
 ANALYZER_FOLDER = ""
 agent_mutexes: dict = {}
 """Holds handles of mutexes held by the agent."""
@@ -569,6 +570,7 @@ class MiniHTTPServer:
 
         # Reference back to the server.
         self.handler.httpd = self
+        self._shutdown_started = False
 
         self.routes = {
             "GET": [],
@@ -583,6 +585,7 @@ class MiniHTTPServer:
         event = None,
     ):
         self.handler.httpd = self
+        self._shutdown_started = False
         request.environ["werkzeug.server.shutdown"] = self.shutdown
         self.s = _AgentTCPServer((str(host), port), self.handler)
 
@@ -640,24 +643,30 @@ class MiniHTTPServer:
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
 
-            if request.shutdown_requested or (
-                hasattr(self, "s") and getattr(self.s, "_BaseServer__shutdown_request", False)
-            ):
+            if request.shutdown_requested:
                 self.close_connection = True
                 obj.close_connection = True
                 if hasattr(self, "s"):
-                    setattr(self.s, "_BaseServer__shutdown_request", True)
+                    self._trigger_server_shutdown()
         finally:
             request.in_handle = False
 
+    def _trigger_server_shutdown(self):
+        with _SHUTDOWN_LOCK:
+            if self._shutdown_started:
+                return
+            self._shutdown_started = True
+        Thread(target=self.s.shutdown, daemon=True).start()
+
     def shutdown(self):
-        # BaseServer also features a .shutdown() method, but you can't use
-        # that from the same thread as that will deadlock the whole thing.
+        # Calling BaseServer.shutdown() directly on the serve_forever() thread
+        # would deadlock, so defer until after response flush inside handle()
+        # and run shutdown() on a daemon thread via the public API.
         if hasattr(self, "s"):
             if request.in_handle:
                 request.shutdown_requested = True
             else:
-                setattr(self.s, "_BaseServer__shutdown_request", True)
+                self._trigger_server_shutdown()
         else:
             # When running unit tests in Windows, the system would hang here,
             # until this `exit(1)` was added.

@@ -2,6 +2,7 @@ import glob
 import logging
 import os
 import subprocess
+import sys
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
@@ -32,8 +33,8 @@ class During_script(Thread, Auxiliary):
             self.file_path = matched_files[0]
             self.file_ext = os.path.splitext(self.file_path)[-1]
             self.do_run = True
-            if self.file_ext == ".py":
-                self.executable = ["python.exe", "-u"]
+            if self.file_ext.lower() == ".py":
+                self.executable = [sys.executable or "python.exe", "-u"]
             elif self.file_ext == ".ps1":
                 self.executable = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "bypass", "-File"]
             else:

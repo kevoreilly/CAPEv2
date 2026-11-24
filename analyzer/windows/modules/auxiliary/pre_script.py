@@ -2,6 +2,7 @@ import glob
 import logging
 import os
 import subprocess
+import sys
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
@@ -54,8 +55,8 @@ class Pre_script(Auxiliary):
                 self.pre_script_args_list = []
 
             # Setting Executable for python if the file ext is py else powershell
-            if self.file_ext == ".py":
-                self.executable = ["python.exe"]
+            if self.file_ext.lower() == ".py":
+                self.executable = [sys.executable or "python.exe"]
             elif self.file_ext == ".ps1":
                 self.executable = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "bypass", "-File"]
             else:

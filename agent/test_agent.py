@@ -223,17 +223,20 @@ class TestAgent:
             assert r.json()["message"] == "Quit the CAPE Agent"
         except requests.exceptions.ConnectionError:
             pass
-        shutil.rmtree(DIRPATH, ignore_errors=True)
+        finally:
+            shutil.rmtree(DIRPATH, ignore_errors=True)
+            if self.agent_process is not None:
+                if sys.platform == "win32":
+                    # shutdown will hang on win32 without this
+                    self.agent_process.terminate()
+
+                # Ensure agent process completes; release resources.
+                self.agent_process.join(timeout=5.0)
+                if self.agent_process.is_alive():
+                    self.agent_process.terminate()
+                    self.agent_process.join(timeout=2.0)
+                self.agent_process.close()
         assert not os.path.isdir(DIRPATH)
-
-        if self.agent_process is not None:
-            if sys.platform == "win32":
-                # shutdown will hang on win32 without this
-                self.agent_process.terminate()
-
-            # Ensure agent process completes; release resources.
-            self.agent_process.join()
-            self.agent_process.close()
 
     @staticmethod
     def non_existent_directory():
@@ -967,4 +970,75 @@ class TestMultipartStreamParser:
         finally:
             spilled.close()
         assert dest_path.read_bytes() == payload
+
+
+class TestServerResilienceAndConcurrency:
+    """Tests for TCP listen backlog, thread-local request isolation, and disconnect suppression."""
+
+    def test_agent_tcp_server_config_and_disconnect_handling(self):
+        assert agent._AgentTCPServer.request_queue_size >= 128
+        assert agent._AgentTCPServer.daemon_threads is True
+        assert agent._AgentTCPServer.allow_reuse_address is True
+
+        srv = agent.MiniHTTPServer()
+
+        @srv.route("/status")
+        def _status():
+            return agent.json_success("Analysis status", status="running")
+
+        handler_obj = mock.MagicMock()
+        handler_obj.path = "/status"
+        handler_obj.command = "GET"
+        handler_obj.wfile.write.side_effect = ConnectionResetError(104, "Connection reset by peer")
+
+        agent.request.client_ip = "127.0.0.1"
+        agent.request.method = "GET"
+        # Should suppress ConnectionResetError without raising
+        srv.handle(handler_obj)
+
+    def test_request_context_thread_local_isolation(self, monkeypatch):
+        import threading
+
+        monkeypatch.setitem(agent.state, "client_ip", "192.168.122.1")
+        monkeypatch.setitem(agent.state, "status", agent.Status.RUNNING)
+        monkeypatch.setitem(agent.state, "description", "")
+        monkeypatch.setitem(agent.state, "async_subprocess", None)
+
+        barrier = threading.Barrier(2)
+        results: dict = {}
+
+        def host_get_status():
+            agent.request.client_ip = "192.168.122.1"
+            agent.request.method = "GET"
+            agent.request.form = {}
+            barrier.wait(timeout=5)
+            # Even after loopback thread mutates agent.request on its own thread,
+            # this thread must still see client_ip == "192.168.122.1" and method == "GET".
+            allowed = agent.app.is_client_allowed("/status", agent.request.method)
+            resp = agent.get_status()
+            results["host_allowed"] = allowed
+            results["host_status_code"] = resp.status_code
+
+        def local_post_browser_ext():
+            agent.request.client_ip = "127.0.0.1"
+            agent.request.method = "POST"
+            agent.request.form = {"status": "complete", "description": "done"}
+            barrier.wait(timeout=5)
+            allowed = agent.app.is_client_allowed("/status", agent.request.method)
+            resp = agent.put_status()
+            results["local_allowed"] = allowed
+            results["local_status_code"] = resp.status_code
+
+        t1 = threading.Thread(target=host_get_status)
+        t2 = threading.Thread(target=local_post_browser_ext)
+        t1.start()
+        t2.start()
+        t1.join(timeout=5)
+        t2.join(timeout=5)
+
+        assert results["host_allowed"] is True
+        assert results["host_status_code"] == 200
+        assert results["local_allowed"] is True
+        assert results["local_status_code"] == 200
+        assert agent.state["status"] == agent.Status.COMPLETE
 

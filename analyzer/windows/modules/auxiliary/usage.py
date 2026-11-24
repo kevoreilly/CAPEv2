@@ -4,14 +4,30 @@
 
 import logging
 import time
-from ctypes import byref, create_string_buffer, sizeof
+from ctypes import POINTER, byref, c_char_p, c_void_p, create_string_buffer, sizeof
 from threading import Thread
 
 from lib.common.abstracts import Auxiliary
-from lib.common.defines import DWORD, KERNEL32, MEMORYSTATUSEX, PDH, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PVOID
+from lib.common.defines import DWORD, KERNEL32, LONG, MEMORYSTATUSEX, PDH, PDH_FMT_COUNTERVALUE, PDH_FMT_DOUBLE, PVOID
 from lib.common.results import NetlogFile
 
 log = logging.getLogger(__name__)
+
+# Explicit PDH prototypes for 64-bit Python handle/pointer safety.
+PDH.PdhOpenQueryA.argtypes = [c_char_p, c_void_p, POINTER(PVOID)]
+PDH.PdhOpenQueryA.restype = LONG
+PDH.PdhExpandWildCardPathA.argtypes = [c_char_p, c_char_p, c_void_p, POINTER(DWORD), DWORD]
+PDH.PdhExpandWildCardPathA.restype = LONG
+PDH.PdhAddCounterA.argtypes = [PVOID, c_char_p, c_void_p, POINTER(PVOID)]
+PDH.PdhAddCounterA.restype = LONG
+PDH.PdhCollectQueryData.argtypes = [PVOID]
+PDH.PdhCollectQueryData.restype = LONG
+PDH.PdhGetFormattedCounterValue.argtypes = [PVOID, DWORD, POINTER(DWORD), POINTER(PDH_FMT_COUNTERVALUE)]
+PDH.PdhGetFormattedCounterValue.restype = LONG
+PDH.PdhRemoveCounter.argtypes = [PVOID]
+PDH.PdhRemoveCounter.restype = LONG
+PDH.PdhCloseQuery.argtypes = [PVOID]
+PDH.PdhCloseQuery.restype = LONG
 
 
 class Usage(Auxiliary, Thread):
@@ -44,16 +60,16 @@ class Usage(Auxiliary, Thread):
         meminfo.dwLength = sizeof(MEMORYSTATUSEX)
 
         phquery = PVOID()
-        PDH.PdhOpenQuery(None, None, byref(phquery))
+        PDH.PdhOpenQueryA(None, None, byref(phquery))
         buflen = DWORD()
         buflen.value = 0
-        PDH.PdhExpandWildCardPathA(None, "\\Processor(*)\\% Processor Time", None, byref(buflen), 0)
+        PDH.PdhExpandWildCardPathA(None, b"\\Processor(*)\\% Processor Time", None, byref(buflen), 0)
         buf = create_string_buffer(buflen.value + 1)
-        PDH.PdhExpandWildCardPathA(None, "\\Processor(*)\\% Processor Time", buf, byref(buflen), 0)
+        PDH.PdhExpandWildCardPathA(None, b"\\Processor(*)\\% Processor Time", buf, byref(buflen), 0)
         counters = buf.raw.rstrip(b"\x00").split(b"\x00")
         counter_handles = []
         for counter in counters:
-            if b"_Total" in counter:
+            if not counter or b"_Total" in counter:
                 continue
             phcounter = PVOID()
             PDH.PdhAddCounterA(phquery, counter, None, byref(phcounter))

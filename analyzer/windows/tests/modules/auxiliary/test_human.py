@@ -578,6 +578,17 @@ class TestHumanUIAIntegration(unittest.TestCase):
         fake_uia.close.assert_called_once()
         self.assertIsNone(human_mod.UIA_CLIENT)
 
+    def test_user32_win64_prototypes_declared(self):
+        from ctypes import wintypes
+
+        self.assertEqual(human_mod.USER32.GetForegroundWindow.restype, wintypes.HWND)
+        self.assertEqual(human_mod.USER32.WindowFromPoint.restype, wintypes.HWND)
+        self.assertEqual(human_mod.USER32.EnumWindows.restype, wintypes.BOOL)
+        self.assertEqual(human_mod.USER32.EnumChildWindows.restype, wintypes.BOOL)
+        self.assertEqual(human_mod.USER32.SendNotifyMessageW.restype, wintypes.BOOL)
+        self.assertEqual(human_mod.USER32.GetClassNameW.argtypes[0], wintypes.HWND)
+        self.assertEqual(human_mod.USER32.SetForegroundWindow.argtypes, [wintypes.HWND])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-from ctypes import byref, c_bool, c_void_p, sizeof
+from ctypes import byref, c_void_p, sizeof
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
 from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
@@ -12,12 +12,6 @@ from lib.common.exceptions import CuckooError
 log = logging.getLogger(__name__)
 
 INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
-
-# Ensure snapshot handle is not truncated on 64-bit.
-KERNEL32.CreateToolhelp32Snapshot.restype = c_void_p
-# Ensure bool return types are not sign-extended on 64-bit.
-KERNEL32.Process32First.restype = c_bool
-KERNEL32.Process32Next.restype = c_bool
 
 
 class TLSDumpMasterSecrets(Auxiliary):

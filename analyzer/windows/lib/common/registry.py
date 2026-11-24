@@ -25,7 +25,7 @@ RegCreateKeyExW.argtypes = (
     LPCWSTR,
     DWORD,
     DWORD,
-    DWORD,
+    c_void_p,
     POINTER(HANDLE),
     POINTER(DWORD),
 )
@@ -102,7 +102,7 @@ def set_regkey(rootkey, subkey, name, type_, value):
         length = len(value)
 
     res_handle = HANDLE()
-    res = RegCreateKeyExW(rootkey, subkey, 0, None, 0, winreg.KEY_ALL_ACCESS, 0, byref(res_handle), None)
+    res = RegCreateKeyExW(rootkey, subkey, 0, None, 0, winreg.KEY_ALL_ACCESS, None, byref(res_handle), None)
     if not res:
         RegSetValueExW(res_handle, name, 0, type_, value, length)
         RegCloseKey(res_handle)

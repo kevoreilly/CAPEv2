@@ -9,7 +9,7 @@ import random
 from uuid import UUID
 
 from lib.common.abstracts import Auxiliary
-from lib.common.defines import PWSTR, SHARD_PATHA, SHELL32
+from lib.common.defines import PWSTR, SHARD_PATHW, SHELL32
 from lib.common.rand import random_string
 from lib.common.registry import set_regkey_full
 from lib.core.config import Config
@@ -72,7 +72,7 @@ class RecentFiles(Auxiliary):
             open(filepath, "wb").write(os.urandom(random.randint(30, 999999)))
             log.debug("Wrote 'recentfile' %s to disk.", filepath)
 
-            SHELL32.SHAddToRecentDocs(SHARD_PATHA, filepath)
+            SHELL32.SHAddToRecentDocs(SHARD_PATHW, PWSTR(filepath))
 
             set_regkey_full(
                 "HKEY_CURRENT_USER\\Software\\Microsoft\\Office\\14.0\\" "Word\\File MRU\\Item %d" % (idx + 1),

@@ -106,6 +106,7 @@ class Package:
         for path in self.get_paths():
             basedir = path[0]
             sys32 = len(path) > 1 and path[1].lower() == "system32"
+            sysnative = len(path) > 1 and path[1].lower() == "sysnative"
             if basedir == "SystemRoot":
                 system_root = os.getenv("SystemRoot")
                 if system_root:
@@ -117,6 +118,9 @@ class Package:
                         # Fallback for 64-bit Python where sysnative is not available
                         if "PE32+" in file_type:
                             yield os.path.join(system_root, *path[1:])
+                    elif sysnative:
+                        # Fallback for 64-bit Python where sysnative is not available
+                        yield os.path.join(system_root, "system32", *path[2:])
             elif basedir == "ProgramFiles":
                 if os.getenv("ProgramFiles(x86)"):
                     yield os.path.join(os.getenv("ProgramFiles(x86)"), *path[1:])

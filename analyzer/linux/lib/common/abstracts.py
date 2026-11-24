@@ -7,6 +7,7 @@ import logging
 import shlex
 import stat
 import subprocess
+import sys
 from threading import Lock, Thread
 
 from lib.api.process import Process
@@ -169,10 +170,12 @@ class Package:
             exec_string = f"/usr/bin/perl {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".py"):
-            exec_string = f"/usr/bin/python3 {quoted_path}"
+            python_bin = shlex.quote(sys.executable or "/usr/bin/python3")
+            exec_string = f"{python_bin} {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".whl"):
-            exec_string = f"/usr/bin/python3 -m pip install {quoted_path}"
+            python_bin = shlex.quote(sys.executable or "/usr/bin/python3")
+            exec_string = f"{python_bin} -m pip install --break-system-packages {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".deb"):
             exec_string = f"/usr/bin/dpkg -i {quoted_path}"

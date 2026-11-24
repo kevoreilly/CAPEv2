@@ -59,7 +59,7 @@ def test_extracted_elf_rejects_external_symlink_before_chmod(package, tmp_path):
 
 @pytest.mark.parametrize("suffix, interpreter, contents", [
     (".sh", "/usr/bin/bash", "printf 'literal-ok\\n'"),
-    (".py", "/usr/bin/python3", "print('literal-ok')"),
+    (".py", sys.executable, "print('literal-ok')"),
     (".pl", "/usr/bin/perl", 'print "literal-ok\\n";'),
 ])
 def test_interpreted_member_paths_are_shell_literals(package, tmp_path, suffix, interpreter, contents):
@@ -78,6 +78,32 @@ def test_interpreted_member_paths_are_shell_literals(package, tmp_path, suffix, 
     package.execute = execute
     assert package.execute_interesting_file(str(tmp_path), target.name, str(target)) == 4242
     assert outputs == [b"literal-ok\n"]
+
+
+def test_python_and_wheel_packages_use_sys_executable_and_break_system_packages(package, tmp_path, monkeypatch):
+    from lib.core import packages as core_packages
+    from modules.packages.python import Python
+    from modules.packages.python_whl import Python_whl
+
+    monkeypatch.setattr(core_packages, "NetlogFile", Mock)
+    monkeypatch.setattr(sys, "executable", "/opt/python3.14/bin/python3")
+
+    whl = tmp_path / "sample.whl"
+    whl.write_bytes(b"PK\x03\x04")
+    commands = []
+    package.execute = lambda cmd: commands.append(cmd) or 99
+    assert package.execute_interesting_file(str(tmp_path), whl.name, str(whl)) == 99
+    assert commands == [f"/opt/python3.14/bin/python3 -m pip install --break-system-packages {shlex.quote(str(whl))}"]
+
+    py_pkg = Python("/tmp/script.py", options={})
+    py_pkg.prepare()
+    assert py_pkg.target == "/opt/python3.14/bin/python3"
+    assert py_pkg.args == ["/tmp/script.py"]
+
+    whl_pkg = Python_whl("/tmp/pkg.whl", options={})
+    whl_pkg.prepare()
+    assert whl_pkg.target == "/opt/python3.14/bin/python3 -m pip install --break-system-packages"
+    assert whl_pkg.args == ["/tmp/pkg.whl"]
 
 
 def test_interpreted_script_rejects_external_symlink(package, tmp_path):

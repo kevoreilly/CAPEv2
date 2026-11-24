@@ -141,3 +141,48 @@ class TestAnalyzer(unittest.TestCase):
         )
         mock_thread.return_value.start.assert_called_once_with()
 
+    def test_all_auxiliary_modules_import_cleanly(self):
+        """Importing all Linux auxiliary modules must not crash when optional deps are absent."""
+        import importlib
+        import pkgutil
+        from modules import auxiliary
+
+        prefix = f"{auxiliary.__name__}."
+        imported = []
+        for _loader, name, ispkg in pkgutil.iter_modules(auxiliary.__path__, prefix):
+            if ispkg:
+                continue
+            importlib.import_module(name)
+            imported.append(name)
+
+        self.assertIn("modules.auxiliary.filecollector", imported)
+        self.assertIn("modules.auxiliary.human", imported)
+        self.assertIn("modules.auxiliary.screenshots", imported)
+
+    def test_screenshot_pillow_major_version_check(self):
+        """Double-digit Pillow versions (e.g. 12.x) must not trigger the <5 upgrade warning."""
+        import importlib
+        import sys
+        import types
+
+        fake_pil = types.ModuleType("PIL")
+        fake_pil.__version__ = "12.3.0"
+        fake_pil.ImageDraw = types.ModuleType("PIL.ImageDraw")
+        fake_chops = types.ModuleType("PIL.ImageChops")
+        fake_chops.difference = lambda a, b: None
+
+        try:
+            with patch.dict(sys.modules, {"PIL": fake_pil, "PIL.ImageChops": fake_chops, "PIL.ImageDraw": fake_pil.ImageDraw}):
+                import lib.api.screenshot as screenshot_mod
+
+                with self.assertNoLogs("lib.api.screenshot", level="INFO"):
+                    importlib.reload(screenshot_mod)
+                self.assertTrue(screenshot_mod.HAVE_PIL)
+
+                fake_pil.__version__ = "4.3.0"
+                with self.assertLogs("lib.api.screenshot", level="INFO") as logs:
+                    importlib.reload(screenshot_mod)
+                self.assertTrue(any("upgrade Pillow" in msg for msg in logs.output))
+        finally:
+            sys.modules.pop("lib.api.screenshot", None)
+

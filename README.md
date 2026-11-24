@@ -162,7 +162,7 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 
 ## Installation recommendations and scripts for optimal performance
 * Python3
-    * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
+    * agent.py - Python versions > 3.10 and < 3.13 are preferred. You can download the proper `Windows`_ / `Linux`_ installer from the `official website`_.
     * host runs inside `uv` using a `uv`-managed **Python 3.14** runtime (`.python-version`) installed into `/usr/local/share/uv/python`, decoupling CAPEv2 from the host OS Python (works on Ubuntu 22.04 and 24.04).
     * **Migrating existing Poetry deployments**: run `sudo bash installer/cape2.sh migrate-uv` or follow the step-by-step [Poetry to uv Infrastructure Migration Guide](docs/book/src/installation/uv_migration.rst).
 

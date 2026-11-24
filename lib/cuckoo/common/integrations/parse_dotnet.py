@@ -23,7 +23,7 @@ class DotNETExecutable:
     def _get_custom_attrs(self) -> List[Dict[str, str]]:
         try:
             ret = []
-            output = subprocess.check_output(["/usr/bin/monodis", "--customattr", self.file_path], universal_newlines=False).split(
+            output = subprocess.check_output(["/usr/bin/monodis", "--customattr", self.file_path], text=False).split(
                 b"\n"
             )
             for line in output[1:]:
@@ -62,7 +62,7 @@ class DotNETExecutable:
     def _get_assembly_refs(self) -> List[Dict[str, str]]:
         try:
             ret = []
-            output = subprocess.check_output(["/usr/bin/monodis", "--assemblyref", self.file_path], universal_newlines=False).split(
+            output = subprocess.check_output(["/usr/bin/monodis", "--assemblyref", self.file_path], text=False).split(
                 b"\n"
             )
             for idx, line in enumerate(output):
@@ -90,7 +90,7 @@ class DotNETExecutable:
     def _get_assembly_info(self) -> Dict[str, str]:
         try:
             ret = {}
-            output = subprocess.check_output(["/usr/bin/monodis", "--assembly", self.file_path], universal_newlines=False).split(
+            output = subprocess.check_output(["/usr/bin/monodis", "--assembly", self.file_path], text=False).split(
                 b"\n"
             )
             for line in output:
@@ -109,7 +109,7 @@ class DotNETExecutable:
     def _get_type_refs(self) -> List[Dict[str, str]]:
         try:
             ret = []
-            output = subprocess.check_output(["/usr/bin/monodis", "--typeref", self.file_path], universal_newlines=False).split(
+            output = subprocess.check_output(["/usr/bin/monodis", "--typeref", self.file_path], text=False).split(
                 b"\n"
             )
             for line in output[1:]:

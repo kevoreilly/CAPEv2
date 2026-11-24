@@ -5,6 +5,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import argparse
+import atexit
 import contextlib
 import hashlib
 import ipaddress
@@ -26,14 +27,15 @@ from itertools import combinations
 from logging import handlers
 from urllib.parse import urlparse, urljoin
 
-from sqlalchemy import and_, or_, select, func, delete, case, update
+from sqlalchemy import and_, or_, select, func, delete, case, update, exists
 from sqlalchemy.exc import DBAPIError, OperationalError, SQLAlchemyError
 from sqlalchemy.exc import TimeoutError as SQLTimeoutError
 import requests
 from requests.adapters import HTTPAdapter
+import urllib3
 from urllib3.util.retry import Retry
 
-requests.packages.urllib3.disable_warnings()
+urllib3.disable_warnings()
 
 http_session = requests.Session()
 http_session.verify = False
@@ -129,8 +131,10 @@ class NoStatusLogFilter(logging.Filter):
         return "GET /status" not in record.getMessage()
 
 
-logging.getLogger("werkzeug").addFilter(NoStatusLogFilter())
-logging.getLogger("_internal").addFilter(NoStatusLogFilter())
+_no_status_filter = NoStatusLogFilter()
+logging.getLogger("uvicorn.access").addFilter(_no_status_filter)
+logging.getLogger("werkzeug").addFilter(_no_status_filter)
+logging.getLogger("_internal").addFilter(_no_status_filter)
 
 dist_ignore_patterns = shutil.ignore_patterns(*[pattern.strip() for pattern in dist_conf.distributed.ignore_patterns.split(",")])
 STATUSES = {}
@@ -226,6 +230,16 @@ def handle_loop_error(where: str, exc: BaseException):
         restart_db_connection()
     else:
         log.exception("Error in %s: %s", where, exc)
+
+
+_SHUTDOWN_EVENT = threading.Event()
+atexit.register(_SHUTDOWN_EVENT.set)
+
+
+def _is_shutting_down(stop_event=None) -> bool:
+    if sys.is_finalizing() or _SHUTDOWN_EVENT.is_set():
+        return True
+    return stop_event is not None and stop_event.is_set()
 
 
 binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
@@ -859,6 +873,34 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
     return check
 
 
+def _select_active_or_draining_nodes(db):
+    """Return enabled nodes plus disabled nodes that still have unfinished/unretrieved tasks."""
+    has_inflight_tasks = exists(
+        select(Task.id).where(
+            Task.node_id == Node.id,
+            Task.finished.is_(False),
+            Task.retrieved.is_(False),
+            Task.deleted.is_(False),
+        )
+    )
+    return db.scalars(select(Node).where(or_(Node.enabled.is_(True), has_inflight_tasks))).all()
+
+
+def _count_node_inflight_tasks(db, node_id: int) -> int:
+    """Count unfinished, unretrieved tasks still assigned to a worker node."""
+    return (
+        db.scalar(
+            select(func.count(Task.id)).where(
+                Task.node_id == node_id,
+                Task.finished.is_(False),
+                Task.retrieved.is_(False),
+                Task.deleted.is_(False),
+            )
+        )
+        or 0
+    )
+
+
 # class Retriever():
 class Retriever(threading.Thread):
     """
@@ -936,7 +978,7 @@ class Retriever(threading.Thread):
 
         log.info("Retriever supervisor started. Monitoring %d threads.", len(thread_targets))
 
-        while not self.stop_dist.is_set():
+        while not (self.stop_dist.is_set() or _SHUTDOWN_EVENT.is_set()):
             for target_func, name, args in thread_targets:
                 thread = active_threads.get(name)
 
@@ -1108,7 +1150,7 @@ class Retriever(threading.Thread):
     def _failed_cleaner_pass(self):
         """One failed_cleaner sweep. The HTTP call to each node runs outside any transaction."""
         with dist_transaction() as db:
-            nodes = db.scalars(select(Node).where(Node.enabled.is_(True))).all()
+            nodes = _select_active_or_draining_nodes(db)
         for node in nodes:
             tasks_data = node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete")
             if not tasks_data:
@@ -1169,9 +1211,9 @@ class Retriever(threading.Thread):
             time.sleep(5)
 
     def _fetcher_pass(self, last_checks: dict):
-        """One fetcher sweep over enabled nodes. HTTP calls to nodes run outside any transaction."""
+        """One fetcher sweep over enabled and draining nodes. HTTP calls to nodes run outside any transaction."""
         with dist_transaction() as db:
-            nodes = db.scalars(select(Node).where(Node.enabled.is_(True))).all()
+            nodes = _select_active_or_draining_nodes(db)
         for node in nodes:
             self.status_count.setdefault(node.name, 0)
             last_checks.setdefault(node.name, 0)
@@ -1509,6 +1551,10 @@ class StatusThread(threading.Thread):
         The main loop that continuously checks the status of nodes and submits tasks.
     """
 
+    def __init__(self, *args, stop_event=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stop_event = stop_event if stop_event is not None else _SHUTDOWN_EVENT
+
     def submit_tasks(self, node_name, pend_tasks_num, options_like=False, force_push_push=False):
         """
         Submits tasks to a specified node.
@@ -1720,13 +1766,25 @@ class StatusThread(threading.Thread):
         Returns a list of ((dist_id, main_task_id), submitted, raised). raised is True when node_submit_task
         raised; such tasks are left untouched and retried on a later pass.
         """
+        stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
+        if _is_shutting_down(stop_event):
+            return []
         results = []
         max_workers = int(dist_conf.distributed.dist_threads)
         with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="submit") as executor:
-            future_to_info = {
-                executor.submit(node_submit_task, dist_id, node_id, main_task_id): (dist_id, main_task_id)
-                for dist_id, main_task_id in tasks
-            }
+            future_to_info = {}
+            for dist_id, main_task_id in tasks:
+                if _is_shutting_down(stop_event):
+                    break
+                try:
+                    future = executor.submit(node_submit_task, dist_id, node_id, main_task_id)
+                except RuntimeError as e:
+                    if _is_shutting_down(stop_event) or "interpreter shutdown" in str(e):
+                        log.info("Stopping parallel task submission during interpreter shutdown")
+                        _SHUTDOWN_EVENT.set()
+                        break
+                    raise
+                future_to_info[future] = (dist_id, main_task_id)
             for future in as_completed(future_to_info):
                 info = future_to_info[future]
                 try:
@@ -1767,25 +1825,37 @@ class StatusThread(threading.Thread):
     def run(self):
         global retrieve, STATUSES
         MINIMUMQUEUE = {}
+        stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
 
         # handle another user case,
         # when master used to only store data and not process samples
         # Startup reads are retried so a database that is still starting does not kill the thread.
-        while True:
+        master_storage_only = None
+        while not _is_shutting_down(stop_event):
             try:
                 master_storage_only = self._init_queues(MINIMUMQUEUE)
                 break
             except Exception as e:
+                if _is_shutting_down(stop_event) or (isinstance(e, RuntimeError) and "interpreter shutdown" in str(e)):
+                    log.info("Status thread stopping during shutdown")
+                    return
                 handle_loop_error("status startup", e)
-                time.sleep(INTERVAL)
+                if stop_event.wait(INTERVAL):
+                    return
+        if master_storage_only is None:
+            return
 
         statuses = {}
-        while True:
+        while not _is_shutting_down(stop_event):
             try:
                 self._status_pass(statuses, MINIMUMQUEUE, master_storage_only)
             except Exception as e:
+                if _is_shutting_down(stop_event) or (isinstance(e, RuntimeError) and "interpreter shutdown" in str(e)):
+                    log.info("Status thread stopping during shutdown")
+                    break
                 handle_loop_error("status", e)
-            time.sleep(INTERVAL)
+            if stop_event.wait(INTERVAL):
+                break
 
     def _init_queues(self, MINIMUMQUEUE: dict) -> bool:
         """Load per-node queue sizes / VM tags and return whether the master only stores data."""
@@ -1819,7 +1889,10 @@ class StatusThread(threading.Thread):
             STATUSES.pop(name, None)
 
         # Request a status update on all CAPE nodes.
+        stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
         for node in nodes:
+            if _is_shutting_down(stop_event):
+                break
             status = node_status(node.url, node.name, node.apikey)
             if not status:
                 log.error("No data from node: %s", node.name)
@@ -2172,9 +2245,10 @@ def create_app(database_connection):
     def get_node(name: str):
         with dist_transaction() as db:
             node = db.scalar(select(Node).where(Node.name == name))
+            in_flight = _count_node_inflight_tasks(db, node.id) if node else 0
         if not node:
             raise HTTPException(status_code=404, detail="Node doesn't exist")
-        return dict(name=node.name, url=node.url)
+        return dict(name=node.name, url=node.url, enabled=node.enabled, in_flight=in_flight)
 
     @app.put("/node/{name}")
     def put_node(name: str, payload: NodeUpdate):
@@ -2211,11 +2285,30 @@ def create_app(database_connection):
         return dict(error=False, error_value=f"Successfully modified node: {name}")
 
     @app.delete("/node/{name}")
-    def delete_node(name: str):
+    def delete_node(name: str, unmount: bool = False):
+        node_url = None
+        in_flight = 0
         with dist_transaction() as db:
             node = db.scalar(select(Node).where(Node.name == name))
             if node:
                 node.enabled = False
+                node_url = node.url
+                if unmount:
+                    in_flight = _count_node_inflight_tasks(db, node.id)
+        if unmount and node_url:
+            if in_flight > 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Node {name} still has {in_flight} in-flight task(s); wait for drain before unmounting",
+                )
+            if NFS_FETCH:
+                hostname = urlparse(node_url).hostname or urlparse(node_url).netloc.split(":")[0]
+                if hostname and hostname != main_server_name:
+                    try:
+                        nfs_host = validate_nfs_hostname(hostname)
+                    except ValueError as exc:
+                        raise HTTPException(status_code=400, detail=str(exc)) from exc
+                    send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[nfs_host, name])
         return None
 
     @app.get("/status")
@@ -2509,10 +2602,12 @@ def main():
     # Starts Daemon Server
     app = create_app(database_connection=dist_conf.distributed.db)
 
+    _SHUTDOWN_EVENT.clear()
     t = StatusThread(name="status")
     t.daemon = True
     t.start()
 
+    retrieve = None
     if not args.submit_only and not dist_conf.distributed.get("submit_only"):
         retrieve = Retriever(name="supervisor")
         retrieve.daemon = True
@@ -2522,7 +2617,13 @@ def main():
 
     import uvicorn
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
+    try:
+        uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
+    finally:
+        _SHUTDOWN_EVENT.set()
+        if retrieve is not None and hasattr(retrieve, "stop_dist"):
+            retrieve.stop_dist.set()
+        t.join(timeout=10)
 
 
 if __name__ == "__main__":

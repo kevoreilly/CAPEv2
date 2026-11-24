@@ -403,3 +403,140 @@ def test_free_space_monitor_validation_throttling_and_state_recovery(tmp_path, m
     assert stop_states == [(True, 10)]
 
 
+def test_cuckoo_clean_recreates_schema_dirs_and_preserves_venv_pyc(tmp_path, monkeypatch):
+    from sqlalchemy import inspect, select
+
+    from lib.cuckoo.core import startup
+    from lib.cuckoo.core.database import AlembicVersion, SCHEMA_VERSION, _Database
+
+    db_file = tmp_path / "db" / "cuckoo.db"
+    file_db = _Database(dsn=f"sqlite:///{db_file}", schema_check=False)
+    try:
+        with file_db.transaction():
+            assert file_db.add_url("https://example.invalid/1") == 1
+            assert file_db.add_url("https://example.invalid/2") == 2
+
+        stale_report = tmp_path / "storage" / "analyses" / "1" / "report.json"
+        stale_report.parent.mkdir(parents=True)
+        stale_report.write_text("{}", encoding="utf-8")
+
+        stale_log = tmp_path / "log" / "cuckoo.log"
+        stale_log.parent.mkdir(parents=True)
+        stale_log.write_text("old log", encoding="utf-8")
+
+        repo_pyc = tmp_path / "pkg" / "mod.pyc"
+        repo_pyc.parent.mkdir(parents=True)
+        repo_pyc.write_bytes(b"pyc")
+
+        venv_pyc = tmp_path / ".venv" / "lib" / "dep.pyc"
+        venv_pyc.parent.mkdir(parents=True)
+        venv_pyc.write_bytes(b"dep")
+
+        git_pyc = tmp_path / ".git" / "ignored.pyc"
+        git_pyc.parent.mkdir(parents=True)
+        git_pyc.write_bytes(b"git")
+
+        monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
+        monkeypatch.setattr(startup, "CUCKOO_ROOT", str(tmp_path))
+        monkeypatch.setattr(cleaners_utils, "db", file_db)
+        monkeypatch.setattr(cleaners_utils.repconf.mongodb, "enabled", False)
+        monkeypatch.setattr(cleaners_utils.repconf.elasticsearchdb, "enabled", False)
+
+        cleaners_utils.cuckoo_clean()
+
+        assert not stale_report.exists()
+        assert not stale_log.exists()
+        assert not repo_pyc.exists()
+        assert venv_pyc.exists()
+        assert git_pyc.exists()
+
+        for expected_dir in (
+            tmp_path / "log",
+            tmp_path / "storage" / "analyses",
+            tmp_path / "storage" / "binaries",
+            tmp_path / "storage" / "guacrecordings",
+            tmp_path / "data" / "feeds",
+        ):
+            assert expected_dir.is_dir()
+
+        assert db_file.is_file()
+        tables = set(inspect(file_db.engine).get_table_names())
+        assert "tasks" in tables
+        assert "alembic_version" in tables
+        assert "task_acl" not in tables
+
+        with file_db.transaction():
+            assert file_db.get_tasks_status_count() == {}
+            assert file_db.count_tasks() == 0
+            version = file_db.session.scalar(select(AlembicVersion))
+            assert version is not None
+            assert version.version_num == SCHEMA_VERSION
+            assert file_db.add_url("https://example.invalid/fresh") == 1
+    finally:
+        file_db.session.remove()
+        file_db.engine.dispose()
+
+
+def test_cuckoo_clean_resets_task_acl_when_present(db, tmp_path, monkeypatch):
+    from sqlalchemy import inspect
+
+    from lib.cuckoo.core import startup
+    from lib.tenancy.acl import _acl_schema_ready, ensure_acl_schema_once, get_task_acl, set_task_acl
+
+    ensure_acl_schema_once(db.engine)
+    assert db.engine in _acl_schema_ready
+    with db.transaction():
+        tid = db.add_url("https://example.invalid/private")
+        set_task_acl(db.session, tid, user_id=7, tenant_id=2, visibility="private")
+        assert get_task_acl(db.session, tid) is not None
+
+    monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(startup, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(cleaners_utils, "db", db)
+    monkeypatch.setattr(cleaners_utils.repconf.mongodb, "enabled", False)
+    monkeypatch.setattr(cleaners_utils.repconf.elasticsearchdb, "enabled", False)
+
+    cleaners_utils.cuckoo_clean()
+
+    assert "task_acl" in inspect(db.engine).get_table_names()
+    assert db.engine not in _acl_schema_ready
+    with db.transaction():
+        fresh_tid = db.add_url("https://example.invalid/after-clean")
+        assert fresh_tid == 1
+        assert get_task_acl(db.session, fresh_tid) is None
+
+
+def test_cuckoo_clean_mongo_recreates_indexes_only_after_drop_succeeds(db, tmp_path, monkeypatch):
+    from lib.cuckoo.core import startup
+
+    monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(startup, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(cleaners_utils, "db", db)
+    monkeypatch.setattr(cleaners_utils.repconf.mongodb, "enabled", True)
+    monkeypatch.setattr(cleaners_utils.repconf.elasticsearchdb, "enabled", False)
+    monkeypatch.setattr(cleaners_utils, "mdb", "cuckoo", raising=False)
+
+    events = []
+    monkeypatch.setattr(cleaners_utils, "mongo_drop_database", lambda name: events.append(("drop", name)), raising=False)
+    monkeypatch.setattr(
+        cleaners_utils,
+        "check_webgui_mongo",
+        lambda exit_on_connection_failure=True: events.append(("indexes", exit_on_connection_failure)),
+    )
+
+    cleaners_utils.cuckoo_clean()
+    assert events == [("drop", "cuckoo"), ("indexes", False)]
+
+    events.clear()
+    monkeypatch.setattr(
+        cleaners_utils,
+        "mongo_drop_database",
+        lambda _name: (_ for _ in ()).throw(RuntimeError("mongo down")),
+        raising=False,
+    )
+    cleaners_utils.cuckoo_clean()
+    assert events == []
+    with db.transaction():
+        assert db.get_tasks_status_count() == {}
+
+

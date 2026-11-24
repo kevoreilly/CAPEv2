@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import codecs
 import logging
 import time
 from contextlib import suppress
@@ -30,7 +29,7 @@ class AnalysisInfo(Processing):
         """Test if the analysis had a timeout"""
         if path_exists(self.log_path):
             try:
-                with codecs.open(self.log_path, "rb", "utf-8") as f:
+                with open(self.log_path, "r", encoding="utf-8", newline="") as f:
                     analysis_log = f.read()
                 if "INFO: Analysis timeout hit, terminating analysis" in analysis_log:
                     return True
@@ -47,7 +46,7 @@ class AnalysisInfo(Processing):
             package = package["name"]
         if not package and path_exists(self.log_path):
             try:
-                with codecs.open(self.log_path, "rb", "utf-8") as f:
+                with open(self.log_path, "r", encoding="utf-8", newline="") as f:
                     analysis_log = f.read()
             except ValueError as e:
                 raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e

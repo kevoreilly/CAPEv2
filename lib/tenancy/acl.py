@@ -79,6 +79,12 @@ def ensure_acl_schema(engine) -> None:
 _acl_schema_ready: "weakref.WeakSet[Any]" = weakref.WeakSet()
 
 
+def drop_acl_schema(engine) -> None:
+    """Drop the `task_acl` table if it exists and clear the per-engine readiness cache."""
+    AclBase.metadata.drop_all(engine, tables=[TaskAcl.__table__], checkfirst=True)
+    _acl_schema_ready.discard(engine)
+
+
 def ensure_acl_schema_once(engine) -> None:
     """`ensure_acl_schema` at most once per engine per process.
 

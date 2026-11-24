@@ -3,6 +3,7 @@ Description=CAPE fstab utils
 Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]
+SyslogIdentifier=cape-fstab
 WorkingDirectory=/opt/CAPEv2/utils/
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/usr/local/bin/uv run --no-sync python fstab.py -g cape

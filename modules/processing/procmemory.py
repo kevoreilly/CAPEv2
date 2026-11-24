@@ -6,7 +6,7 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Processing
-from lib.cuckoo.common.cape_utils import cape_name_from_yara
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, sort_dumps_by_detection
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File, ProcDump
 from lib.cuckoo.common.path_utils import path_exists, path_write_file
@@ -150,4 +150,4 @@ class ProcessMemory(Processing):
                     cape_name = cape_name_from_yara(proc, process_id, self.results)
                     if cape_name:
                         add_family_detection(self.results, cape_name, "Yara", proc["sha256"])
-        return results
+        return sort_dumps_by_detection(results)

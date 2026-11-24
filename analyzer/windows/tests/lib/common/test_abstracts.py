@@ -116,3 +116,24 @@ class TestPackageExecuteMonitorHandle(unittest.TestCase):
         proc.retain_monitor_handle.assert_not_called()
         proc.resume.assert_called_once()
         proc.close.assert_called_once()
+
+
+class TestPackageEnumPaths(unittest.TestCase):
+    def test_system_drive_and_home_drive_add_separator(self):
+        class DrivePkg(abstracts.Package):
+            PATHS = [
+                ("SystemDrive", "nodejs", "node.exe"),
+                ("HomeDrive", "Python314", "python.exe"),
+            ]
+
+        pkg = DrivePkg()
+        with patch.dict(os.environ, {"SystemDrive": "C:", "HomeDrive": "D:\\"}):
+            paths = list(pkg.enum_paths())
+
+        self.assertEqual(
+            paths,
+            [
+                os.path.join("C:\\", "nodejs", "node.exe"),
+                os.path.join("D:\\", "Python314", "python.exe"),
+            ],
+        )

@@ -177,7 +177,7 @@ def cleanup_rooter():
 
     cleaned = [line for line in stdout.split("\n") if line and "CAPE-rooter" not in line]
 
-    p = subprocess.Popen([ServicePaths.iptables_restore], stdin=subprocess.PIPE, universal_newlines=True)
+    p = subprocess.Popen([ServicePaths.iptables_restore], stdin=subprocess.PIPE, text=True)
     p.communicate(input="\n".join(cleaned))
 
     run_iptables("-F", "CAPE_ACCEPTED_SEGMENTS")
@@ -195,7 +195,7 @@ def cleanup_rooter():
                 output = subprocess.check_output(
                     [IPTABLES_LEGACY, "-t", "mangle", "-S", chain],
                     stderr=subprocess.DEVNULL,
-                    universal_newlines=True,
+                    text=True,
                 )
                 for line in reversed(output.strip().splitlines()):
                     if "CAPE-rooter" in line and line.startswith("-A "):
@@ -209,7 +209,7 @@ def nic_available(interface):
     """Check if specified network interface is available."""
     try:
         subprocess.check_call(
-            [settings.ip, "link", "show", interface], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
+            [settings.ip, "link", "show", interface], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
         return True
     except subprocess.CalledProcessError:
@@ -222,7 +222,7 @@ def nic_up(interface):
     live egress (round-robin/random would otherwise bind a task to a dead exit)."""
     try:
         out = subprocess.check_output(
-            [settings.ip, "-o", "link", "show", interface], stderr=subprocess.PIPE, universal_newlines=True
+            [settings.ip, "-o", "link", "show", interface], stderr=subprocess.PIPE, text=True
         )
     except subprocess.CalledProcessError:
         return False
@@ -239,7 +239,7 @@ def rt_available(rt_table):
             [settings.ip, "route", "list", "table", rt_table],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
+            text=True,
         )
         return True
     except subprocess.CalledProcessError:

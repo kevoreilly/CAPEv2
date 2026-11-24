@@ -27,7 +27,7 @@ runs:
         echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
     - name: Set up uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v7
       with:
         python-version: ${{ inputs.python-version }}
         enable-cache: true

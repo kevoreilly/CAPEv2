@@ -17,7 +17,10 @@ if __name__ == "__main__":
         "-tr", "--time-range", help="Time range can be specified as: 1d, 22h, 55m, etc", action="store", required=False
     )
     parser.add_argument(
-        "--clean", help="Remove all tasks and samples and their associated data", action="store_true", required=False
+        "--clean",
+        help="Remove all tasks, samples, logs, and storage, and recreate the empty database schema (restart CAPE services afterward)",
+        action="store_true",
+        required=False,
     )
     parser.add_argument("--failed-clean", help="Remove all tasks marked as failed", action="store_true", required=False)
     parser.add_argument("--banned-clean", help="Remove all tasks marked as banned", action="store_true", required=False)

@@ -166,3 +166,40 @@ def test_remove_nfs_entry_requires_worker_folder_and_uses_exact_prefix_match(tmp
         assert f"10.0.0.10:/opt/CAPEv2 {worker10_path} nfs" in updated_fstab
         assert f"10.0.0.1:/opt/CAPEv2 {worker1_path} nfs" not in updated_fstab
         mock_umount.assert_called_once_with(["umount", worker1_path])
+
+
+
+def test_add_nfs_entry_replaces_stale_host_when_unmounted(tmp_path):
+    workers_dir = tmp_path / "workers"
+    workers_dir.mkdir()
+    worker_path = os.path.realpath(str(workers_dir / "worker-a"))
+
+    initial_fstab = "\n".join(
+        [
+            "# /etc/fstab",
+            f"10.0.0.10:/opt/CAPEv2 {worker_path} nfs _netdev 0 0",
+        ]
+    )
+
+    with (
+        patch.object(fstab, "CUCKOO_ROOT", str(tmp_path)),
+        patch.object(fstab, "path_mount_point", return_value=False),
+        patch.object(fstab, "path_read_file", return_value=initial_fstab),
+        patch.object(fstab, "path_write_file") as mock_write,
+        patch.object(fstab.subprocess, "check_output") as mock_mount,
+    ):
+        fstab.dist_conf.NFS.mount_folder = "workers"
+        fstab.dist_conf.NFS.allowed_networks = ""
+
+        # Same host + path is already present -> idempotent no-op.
+        fstab.add_nfs_entry("10.0.0.10", "worker-a")
+        mock_write.assert_not_called()
+        mock_mount.assert_not_called()
+
+        # New IP for the same unmounted worker path replaces the stale fstab entry.
+        fstab.add_nfs_entry("10.0.0.25", "worker-a")
+        mock_write.assert_called_once()
+        written_fstab = mock_write.call_args[0][1]
+        assert f"10.0.0.10:/opt/CAPEv2 {worker_path} nfs" not in written_fstab
+        assert f"10.0.0.25:/opt/CAPEv2 {worker_path} nfs" in written_fstab
+        mock_mount.assert_called_once_with(["mount", worker_path])

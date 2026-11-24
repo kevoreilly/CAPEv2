@@ -4,6 +4,7 @@ After=network.target postgresql.service mongod.service
 
 [Service]
 Type=simple
+SyslogIdentifier=cape-pubsub
 User=cape
 Group=cape
 WorkingDirectory=/opt/CAPEv2

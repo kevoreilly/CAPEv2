@@ -919,43 +919,82 @@ function install_libvirt() {
     echo '[+] Installing libvirt-python'
     local pc_file=""
     local pc_dir=""
-    if [ -n "${PKG_CONFIG_PATH:-}" ]; then
-        local pc_dirs=()
-        IFS=":" read -ra pc_dirs <<< "$PKG_CONFIG_PATH"
-        for pc_dir in "${pc_dirs[@]}"; do
-            if [ -f "$pc_dir/libvirt.pc" ]; then
-                pc_file="$pc_dir/libvirt.pc"
-                break
-            fi
-        done
-    fi
-    if [ -z "$pc_file" ]; then
-        for pc_dir in \
-            /usr/local/lib/x86_64-linux-gnu/pkgconfig \
-            /usr/local/lib/aarch64-linux-gnu/pkgconfig \
-            /usr/local/lib/pkgconfig \
-            /usr/lib/x86_64-linux-gnu/pkgconfig \
-            /usr/lib/aarch64-linux-gnu/pkgconfig \
-            /usr/lib/pkgconfig; do
-            if [ -f "$pc_dir/libvirt.pc" ]; then
-                pc_file="$pc_dir/libvirt.pc"
-                break
-            fi
-        done
-    fi
-    if [ -z "$pc_file" ]; then
-        pc_file=$(find /usr/local/lib /usr/lib -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1)
-    fi
-    if [ -z "$pc_file" ] && command -v pkg-config >/dev/null 2>&1; then
-        pc_dir=$(pkg-config --variable=pcfiledir libvirt 2>/dev/null || true)
-        if [ -n "$pc_dir" ] && [ -f "$pc_dir/libvirt.pc" ]; then
-            pc_file="$pc_dir/libvirt.pc"
+    find_libvirt_pc() {
+        pc_file=""
+        local prefix="${LIBVIRT_PC_PREFIX:-}"
+        if [ -n "${PKG_CONFIG_PATH:-}" ]; then
+            local pc_dirs=()
+            IFS=":" read -ra pc_dirs <<< "$PKG_CONFIG_PATH"
+            for pc_dir in "${pc_dirs[@]}"; do
+                if [ -f "$pc_dir/libvirt.pc" ]; then
+                    pc_file="$pc_dir/libvirt.pc"
+                    return 0
+                fi
+            done
         fi
+        if [ -z "$prefix" ] && command -v virsh >/dev/null 2>&1; then
+            local virsh_bin virsh_prefix
+            virsh_bin=$(command -v virsh 2>/dev/null || true)
+            virsh_bin=$(readlink -f "$virsh_bin" 2>/dev/null || echo "$virsh_bin")
+            virsh_prefix=$(dirname "$(dirname "$virsh_bin")")
+            if [ -n "$virsh_prefix" ] && [ "$virsh_prefix" != "/" ] && [ "$virsh_prefix" != "/usr" ] && [ "$virsh_prefix" != "/usr/local" ]; then
+                for pc_dir in \
+                    "${virsh_prefix}/lib64/pkgconfig" \
+                    "${virsh_prefix}/lib/$(uname -m)-linux-gnu/pkgconfig" \
+                    "${virsh_prefix}/lib/pkgconfig"; do
+                    if [ -f "$pc_dir/libvirt.pc" ]; then
+                        pc_file="$pc_dir/libvirt.pc"
+                        return 0
+                    fi
+                done
+            fi
+        fi
+        for pc_dir in \
+            "${prefix}/usr/local/lib64/pkgconfig" \
+            "${prefix}/usr/local/lib/x86_64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/local/lib/aarch64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/local/lib/pkgconfig" \
+            "${prefix}/usr/lib64/pkgconfig" \
+            "${prefix}/usr/lib/x86_64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/lib/aarch64-linux-gnu/pkgconfig" \
+            "${prefix}/usr/lib/pkgconfig"; do
+            if [ -f "$pc_dir/libvirt.pc" ]; then
+                pc_file="$pc_dir/libvirt.pc"
+                return 0
+            fi
+        done
+        local search_roots=()
+        local root
+        for root in \
+            "${prefix}/usr/local/lib64" \
+            "${prefix}/usr/lib64" \
+            "${prefix}/usr/local/lib" \
+            "${prefix}/usr/lib"; do
+            if [ -d "$root" ]; then
+                search_roots+=("$root")
+            fi
+        done
+        if [ ${#search_roots[@]} -gt 0 ]; then
+            pc_file=$(find "${search_roots[@]}" -maxdepth 4 -name 'libvirt.pc' 2>/dev/null | head -n1 || true)
+        fi
+        if [ -z "$pc_file" ] && [ -z "$prefix" ] && command -v pkg-config >/dev/null 2>&1; then
+            pc_dir=$(pkg-config --variable=pcfiledir libvirt 2>/dev/null || true)
+            if [ -n "$pc_dir" ] && [ -f "$pc_dir/libvirt.pc" ]; then
+                pc_file="$pc_dir/libvirt.pc"
+            fi
+        fi
+    }
+
+    find_libvirt_pc
+    if [ -z "$pc_file" ] && command -v dpkg >/dev/null 2>&1 && dpkg -s libvirt0 >/dev/null 2>&1; then
+        echo '[+] Distro libvirt detected without development headers; installing libvirt-dev and pkg-config'
+        sudo apt-get install -y libvirt-dev pkg-config || true
+        find_libvirt_pc
     fi
 
     if [ -z "$pc_file" ]; then
-        echo "[-] libvirt headers not found, skipping libvirt-python installation. Please install it using: sudo bash ./kvm-qemu.sh libvirt."
-        return
+        echo "[-] libvirt headers not found, skipping libvirt-python installation. Please install libvirt-dev or run: sudo bash ./kvm-qemu.sh libvirt."
+        return 1
     fi
 
     if ! command -v pkg-config >/dev/null 2>&1; then
@@ -966,13 +1005,31 @@ function install_libvirt() {
     export_path=$(dirname "$pc_file")
     export PKG_CONFIG_PATH="$export_path"
 
-    (
-        cd "$CAPE_ROOT" || exit 1
-        sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
-            "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python==${LIB_VERSION}" \
-            || sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
-            "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" libvirt-python
-    )
+    local detected_ver=""
+    local raw_ver=""
+    raw_ver=$(PKG_CONFIG_PATH="$export_path" pkg-config --modversion libvirt 2>/dev/null || true)
+    if [[ "$raw_ver" =~ ^([0-9]+(\.[0-9]+)+) ]]; then
+        detected_ver="${BASH_REMATCH[1]}"
+    fi
+
+    if [ -n "$detected_ver" ]; then
+        echo "[+] Detected host libvirt ${detected_ver} via ${pc_file}"
+        (
+            cd "$CAPE_ROOT" || exit 1
+            sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python==${detected_ver}" \
+                || sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python<=${detected_ver}"
+        )
+    else
+        (
+            cd "$CAPE_ROOT" || exit 1
+            sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" "libvirt-python==${LIB_VERSION}" \
+                || sudo -Hu "${USER}" env PKG_CONFIG_PATH="$export_path" UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+                "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" libvirt-python
+        )
+    fi
 }
 
 function install_mongo(){
@@ -1870,13 +1927,14 @@ function migrate_to_uv() {
     cd "$CAPE_ROOT" || return 1
 
     local enabled_services
-    enabled_services=$(systemctl list-unit-files --type=service,timer "cape*" "guac-web*" --state=enabled --no-legend 2>/dev/null | awk '{print $1}' | grep -v '@\.')
+    enabled_services=$(systemctl list-unit-files --type=service,timer "cape*" "guac-web*" --state=enabled --no-legend 2>/dev/null | awk '{print $1}' | grep -v '@\.' || true)
     sudo systemctl stop "cape*.service" "cape*.timer" guac-web.service 2>/dev/null || true
 
-    local freeze_file="/tmp/cape-poetry-freeze.txt"
+    local freeze_file="${FREEZE_FILE:-/tmp/cape-poetry-freeze.txt}"
     local extra_args=""
     local had_volatility3=0
     local had_libvirt=0
+    local had_batch_deobfuscator=0
     local poetry_bin=""
     if [ -x /etc/poetry/bin/poetry ]; then
         poetry_bin="/etc/poetry/bin/poetry"
@@ -1889,14 +1947,15 @@ function migrate_to_uv() {
     if [ -n "$poetry_bin" ]; then
         echo "[+] Saving Poetry package snapshot to ${freeze_file} (using ${poetry_bin})"
         sudo -Hu "${USER}" "$poetry_bin" --directory "$CAPE_ROOT" run pip freeze > "$freeze_file" 2>/dev/null || true
-        grep -qi '^google-cloud-storage==' "$freeze_file" && extra_args="$extra_args --extra gcp"
-        grep -qi '^boto3==' "$freeze_file" && extra_args="$extra_args --extra s3"
-        grep -qi '^azure-storage-blob==' "$freeze_file" && extra_args="$extra_args --extra azure"
-        grep -qi '^plyara==' "$freeze_file" && extra_args="$extra_args --extra yara"
-        grep -qi '^fastmcp==' "$freeze_file" && extra_args="$extra_args --extra mcp"
-        grep -qi '^fastapi==' "$freeze_file" && extra_args="$extra_args --group dist"
-        grep -qi '^volatility3==' "$freeze_file" && had_volatility3=1
-        grep -qi '^libvirt-python==' "$freeze_file" && had_libvirt=1
+        grep -qi '^google-cloud-storage==' "$freeze_file" && extra_args="$extra_args --extra gcp" || true
+        grep -qi '^boto3==' "$freeze_file" && extra_args="$extra_args --extra s3" || true
+        grep -qi '^azure-storage-blob==' "$freeze_file" && extra_args="$extra_args --extra azure" || true
+        grep -qi '^plyara==' "$freeze_file" && extra_args="$extra_args --extra yara" || true
+        grep -qi '^fastmcp==' "$freeze_file" && extra_args="$extra_args --extra mcp" || true
+        grep -qi '^fastapi==' "$freeze_file" && extra_args="$extra_args --group dist" || true
+        grep -qi '^volatility3==' "$freeze_file" && had_volatility3=1 || true
+        grep -qi '^libvirt-python==' "$freeze_file" && had_libvirt=1 || true
+        grep -qiE '^batch[-_]deobfuscator([= @]|$)' "$freeze_file" && had_batch_deobfuscator=1 || true
     fi
 
     install_uv_and_python || {
@@ -1919,12 +1978,22 @@ function migrate_to_uv() {
     }
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ] && { [ "$had_libvirt" -eq 1 ] || command -v virsh >/dev/null 2>&1; }; then
-        install_libvirt
+        if ! install_libvirt; then
+            echo "[!] Failed to install libvirt-python into ${CAPE_ROOT}/.venv."
+            echo "    Ensure libvirt-dev and pkg-config are installed, then re-run: sudo bash ${CAPE_ROOT}/installer/cape2.sh libvirt"
+        fi
     fi
 
     echo "[+] Installing yara-x into ${CAPE_ROOT}/.venv"
     sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
         "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" yara-x
+
+    if [ "$had_batch_deobfuscator" -eq 1 ]; then
+        echo "[+] Reinstalling batch_deobfuscator into ${CAPE_ROOT}/.venv"
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+            "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" -U git+https://github.com/DissectMalware/batch_deobfuscator \
+            || echo "[!] Failed to reinstall batch_deobfuscator"
+    fi
 
     if [ "$had_volatility3" -eq 1 ]; then
         install_volatility3

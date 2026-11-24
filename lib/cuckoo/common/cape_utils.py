@@ -87,7 +87,7 @@ if process_cfg.malduck.enabled:
         # del tmp_modules
         assert "test_malduck" in malduck_modules_names
     except ImportError:
-        log.info("Missed MalDuck -> pip3 install git+https://github.com/CERT-Polska/malduck/")
+        log.info("Missed MalDuck -> uv pip install git+https://github.com/CERT-Polska/malduck/")
 """
 
 if process_cfg.CAPE_extractors.enabled:
@@ -422,3 +422,38 @@ def cape_name_from_yara(details: dict, pid: int, results: dict) -> str:
             if name not in results["detections2pid"][str(pid)]:
                 results["detections2pid"][str(pid)].append(name)
             return name
+
+
+def sort_dumps_by_detection(files: Iterable[Mapping]) -> list:
+    """Sort dumped or dropped file entries so items with detections appear first, then by size descending."""
+    if not isinstance(files, Iterable) or isinstance(files, (str, bytes, Mapping)):
+        return files
+
+    def _item_signals(entry: Mapping):
+        vt = entry.get("virustotal")
+        vt_positives = bool(vt.get("positives")) if isinstance(vt, Mapping) else False
+        return (
+            bool(entry.get("cape_yara")),
+            bool(entry.get("yara")),
+            bool(entry.get("clamav")),
+            vt_positives,
+            bool(entry.get("flare_capa")),
+        )
+
+    def _sort_key(item):
+        if not isinstance(item, Mapping):
+            return (False, False, False, False, False, 0)
+        signals = _item_signals(item)
+        extracted_pes = item.get("extracted_pe")
+        if isinstance(extracted_pes, Iterable) and not isinstance(extracted_pes, (str, bytes, Mapping)):
+            for pe in extracted_pes:
+                if isinstance(pe, Mapping):
+                    signals = tuple(a or b for a, b in zip(signals, _item_signals(pe)))
+        try:
+            size = int(item.get("size") or 0)
+        except (TypeError, ValueError):
+            size = 0
+        return (*signals, size)
+
+    return sorted(files, key=_sort_key, reverse=True)
+

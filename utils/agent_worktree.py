@@ -78,7 +78,7 @@ def run(cmd: List[str], cwd: Optional[str] = None, check: bool = True) -> str:
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True,
+        text=True,
     )
     if check and proc.returncode != 0:
         raise CommandError(cmd, proc.returncode, proc.stderr)

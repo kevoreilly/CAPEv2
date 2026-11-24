@@ -361,7 +361,7 @@ class File:
                 try:
                     proc = subprocess.run(
                         ["file", "-b", "-L", "--mime-type", self.file_path],
-                        universal_newlines=True,
+                        text=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.DEVNULL,
                         check=False,

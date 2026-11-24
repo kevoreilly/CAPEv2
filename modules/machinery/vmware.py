@@ -65,7 +65,7 @@ class VMware(Machinery):
         try:
             p = subprocess.Popen(
                 [self.options.vmware.path, "listSnapshots", vmx_path],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -97,7 +97,7 @@ class VMware(Machinery):
         try:
             p = subprocess.Popen(
                 [self.options.vmware.path, "start", vmx_path, self.options.vmware.mode],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -119,7 +119,7 @@ class VMware(Machinery):
             try:
                 if subprocess.call(
                     [self.options.vmware.path, "stop", vmx_path, "hard"],
-                    universal_newlines=True,
+                    text=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 ):
@@ -139,7 +139,7 @@ class VMware(Machinery):
         try:
             if subprocess.call(
                 [self.options.vmware.path, "revertToSnapshot", vmx_path, snapshot],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ):
@@ -154,7 +154,7 @@ class VMware(Machinery):
         """
         try:
             p = subprocess.Popen(
-                [self.options.vmware.path, "list"], universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                [self.options.vmware.path, "list"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             output, error = p.communicate()
         except OSError as e:
@@ -182,7 +182,7 @@ class VMware(Machinery):
         try:
             subprocess.call(
                 [self.options.vmware.path, "snapshot", vmx_path, "memdump"],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -200,7 +200,7 @@ class VMware(Machinery):
         try:
             subprocess.call(
                 [self.options.vmware.path, "deleteSnapshot", vmx_path, "memdump"],
-                universal_newlines=True,
+                text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )

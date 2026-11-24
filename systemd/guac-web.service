@@ -6,6 +6,7 @@ Wants=guacd.service
 
 [Service]
 Type=exec
+SyslogIdentifier=guac-web
 WorkingDirectory=/opt/CAPEv2/web
 # Default Granian settings; override via /opt/CAPEv2/conf/guac-web.env
 # or /opt/CAPEv2/custom/conf/guac-web.env

@@ -12,6 +12,7 @@ import signal
 import socket
 import struct
 import tempfile
+import time
 from contextlib import suppress
 from threading import Lock, Thread
 
@@ -36,7 +37,7 @@ from lib.cuckoo.common.abstracts import ProtocolHandler
 # https://github.com/cuckoosandbox/cuckoo/blob/13cbe0d9e457be3673304533043e992ead1ea9b2/cuckoo/core/resultserver.py#L9
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.files import open_exclusive, open_inclusive
 from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
@@ -1009,9 +1010,17 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         try:
             sock.bind((self.listen_ip, self.port))
         except OSError as e:
+            with suppress(OSError):
+                sock.close()
             log.error("Worker for %s failed to bind on %s:%s: %s", self.ip, self.listen_ip, self.port, e)
             return
-        sock.listen(32)
+        try:
+            sock.listen(32)
+        except OSError as e:
+            with suppress(OSError):
+                sock.close()
+            log.error("Worker for %s failed to listen on %s:%s: %s", self.ip, self.listen_ip, self.port, e)
+            return
 
         server = SingleVMResultServerWorker(
             sock,
@@ -1053,6 +1062,38 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         return self._main_task_id.value or None
 
 
+def _describe_port_holder(ip: str, port: int):
+    """Best-effort lookup of the process listening on ip:port for EADDRINUSE diagnostics."""
+    try:
+        import psutil
+
+        my_pid = os.getpid()
+        listen_status = getattr(psutil, "CONN_LISTEN", "LISTEN")
+        wildcard_ips = ("", "0.0.0.0", "::")
+        for conn in psutil.net_connections(kind="inet"):
+            if conn.status != listen_status or not conn.laddr:
+                continue
+            if conn.laddr.port != port:
+                continue
+            if ip not in wildcard_ips and conn.laddr.ip not in wildcard_ips and conn.laddr.ip != ip:
+                continue
+            pid = conn.pid
+            if not pid or pid == my_pid:
+                continue
+            try:
+                proc = psutil.Process(pid)
+                name = proc.name()
+                cmdline = " ".join(proc.cmdline()[:4])
+                if cmdline:
+                    return f"PID {pid} ({name}: {cmdline})"
+                return f"PID {pid} ({name})"
+            except Exception:
+                return f"PID {pid}"
+    except Exception:
+        return None
+    return None
+
+
 class ResultServer(metaclass=Singleton):
     """Manager for the ResultServer worker and task state.
 
@@ -1067,6 +1108,8 @@ class ResultServer(metaclass=Singleton):
 
         self.multiworker = cfg.resultserver.get("multiworker", False)
         self.ip = cfg.resultserver.ip
+        self._sock = None
+        self.instance = None
 
         if self.multiworker:
             self.workers = {}  # ip -> ResultServerWorkerProcess
@@ -1080,39 +1123,78 @@ class ResultServer(metaclass=Singleton):
         ip = cfg.resultserver.ip
         port = cfg.resultserver.port
         pool_size = cfg.resultserver.pool_size
+        force_port = cfg.resultserver.get("force_port", True)
+        if force_port is None:
+            force_port = True
+        raw_retries = cfg.resultserver.get("bind_retries", 3)
+        bind_retries = max(0, int(3 if raw_retries is None else raw_retries))
+        raw_delay = cfg.resultserver.get("bind_retry_delay", 0.5)
+        bind_retry_delay = max(0.0, float(0.5 if raw_delay is None else raw_delay))
 
-        sock = gevent.socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        attempts = 0
+        while True:
+            sock = gevent.socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                sock.bind((ip, port))
+                break
+            except OSError as e:
+                with suppress(OSError):
+                    sock.close()
 
-        try:
-            sock.bind((ip, port))
-        except (OSError, socket.error) as e:
-            if e.errno == errno.EADDRINUSE:
-                raise CuckooCriticalError(
-                    f"Cannot bind ResultServer on port {port} because it was in use, bailing"
-                    "This might happen because CAPE is already running in the background as cape.service"
-                    "sudo systemctl stop cape.service"
-                    "to stop the background service. You can also run the just use the background service without starting it again here in the terminal."
-                )
-            elif e.errno == errno.EADDRNOTAVAIL:
-                raise CuckooCriticalError(
-                    f"Unable to bind ResultServer on {ip}:{port} {e}. This "
-                    "usually happens when you start Cuckoo without "
-                    "bringing up the virtual interface associated with "
-                    "the ResultServer IP address. Please refer to "
-                    "https://cuckoo.sh/docs/faq/#troubles-problem "
-                    "for more information"
-                    "One more reason this might happen is if you don't correctly set the IP of the resultserver in cuckoo.conf."
-                    "Make sure the resultserver IP is set to the host IP"
-                )
-            else:
-                raise CuckooCriticalError(f"Unable to bind ResultServer on {ip}:{port} {e}")
+                if e.errno == errno.EADDRINUSE:
+                    if not force_port and 0 < port < 65535:
+                        log.warning(
+                            "ResultServer port %s:%d is already in use (force_port=no), trying port %d",
+                            ip,
+                            port,
+                            port + 1,
+                        )
+                        port += 1
+                        continue
+
+                    if attempts < bind_retries:
+                        attempts += 1
+                        log.warning(
+                            "ResultServer port %s:%d is in use, retrying (%d/%d) in %.1fs...",
+                            ip,
+                            port,
+                            attempts,
+                            bind_retries,
+                            bind_retry_delay,
+                        )
+                        time.sleep(bind_retry_delay)
+                        continue
+
+                    holder = _describe_port_holder(ip, port)
+                    holder_info = f"\nPort {ip}:{port} is currently held by {holder}." if holder else ""
+                    raise CuckooStartupError(
+                        f"Cannot bind ResultServer on {ip}:{port}: address already in use.{holder_info}\n"
+                        "This usually happens because CAPE is already running in the background as cape.service.\n"
+                        "Run 'sudo systemctl stop cape.service' to stop the background service, "
+                        "or use the running background service instead of starting another instance here."
+                    ) from None
+                elif e.errno == errno.EADDRNOTAVAIL:
+                    raise CuckooStartupError(
+                        f"Unable to bind ResultServer on {ip}:{port}: {e}.\n"
+                        "This usually happens when the virtual network interface for the ResultServer IP is not up, "
+                        "or when [resultserver] ip in conf/cuckoo.conf is not set to a valid host IP.\n"
+                        "See https://cuckoo.sh/docs/faq/#troubles-problem for more information."
+                    ) from None
+                else:
+                    raise CuckooStartupError(f"Unable to bind ResultServer on {ip}:{port}: {e}") from None
 
         # We allow user to specify port 0 to get a random port, report it back
         # here
         _, self.port = sock.getsockname()
-        sock.listen(128)
+        try:
+            sock.listen(128)
+        except OSError as e:
+            with suppress(OSError):
+                sock.close()
+            raise CuckooStartupError(f"Unable to listen on ResultServer {ip}:{self.port}: {e}") from None
 
+        self._sock = sock
         self.thread = Thread(target=self.create_server, args=(sock, pool_size))
         self.thread.daemon = True
         self.thread.start()
@@ -1177,6 +1259,29 @@ class ResultServer(metaclass=Singleton):
                 if worker.is_alive():
                     worker.kill()
         self.workers.clear()
+
+    def shutdown(self):
+        """Stop the ResultServer (legacy listener or multiworker processes)."""
+        if getattr(self, "multiworker", False):
+            self.shutdown_workers()
+            return
+        instance = getattr(self, "instance", None)
+        if instance is not None:
+            with suppress(Exception):
+                instance.stop(timeout=2)
+            self.instance = None
+        sock = getattr(self, "_sock", None)
+        if sock is not None:
+            with suppress(OSError):
+                sock.close()
+            self._sock = None
+
+    @classmethod
+    def shutdown_if_running(cls):
+        """Shut down the ResultServer singleton if it was instantiated."""
+        instance = Singleton._instances.pop(cls, None)
+        if instance is not None:
+            instance.shutdown()
 
     def create_server(self, sock, pool_size):
         if pool_size:

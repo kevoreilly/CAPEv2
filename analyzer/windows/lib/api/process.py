@@ -937,7 +937,7 @@ class Process:
 
     def set_terminate_event(self):
         """Sets the termination event for the process."""
-        if self.h_process == 0:
+        if not self.h_process:
             self.open()
 
         event_name = TERMINATE_EVENT + str(self.pid)
@@ -972,7 +972,7 @@ class Process:
         """Terminate process.
         @return: operation status.
         """
-        if self.h_process == 0:
+        if not self.h_process:
             self.open()
 
         if KERNEL32.TerminateProcess(self.h_process, 1):
@@ -986,7 +986,7 @@ class Process:
         """Determines if a process is 64bit.
         @return: True if 64bit, False if not
         """
-        if self.h_process == 0:
+        if not self.h_process:
             self.open()
 
         with contextlib.suppress(Exception):

@@ -17,7 +17,7 @@ from .settings import *  # noqa: F403
 LANGUAGE_CODE = "en-us"
 
 ADMINS = (
-    # ("Your Name", "your_email@example.com"),
+    # "your_email@example.com",
 )
 
 MANAGERS = ADMINS

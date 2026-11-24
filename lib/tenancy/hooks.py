@@ -1021,12 +1021,12 @@ def wrap_submission_and_web_utils(
                 viewer = get_current_viewer()
                 if viewer is None or viewer.see_all:
                     return _orig(self, *args, **kwargs)
-                from sqlalchemy import func
+                from sqlalchemy import func, select
 
                 from lib.cuckoo.core.data.task import Task
 
-                q = self.session.query(func.count(func.distinct(Task.sample_id))).filter(Task.sample_id.isnot(None))
-                return default_sql_task_query_filter(q, viewer).scalar() or 0
+                stmt = select(func.count(func.distinct(Task.sample_id))).where(Task.sample_id.isnot(None))
+                return self.session.execute(default_sql_task_query_filter(stmt, viewer)).scalar() or 0
 
             _wrapped_count_samples._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             _record_attr_patch(samples_cls, "count_samples", orig_count_samples)
@@ -1042,16 +1042,18 @@ def wrap_submission_and_web_utils(
                     return _orig(self, sha256, hours=hours)
                 from datetime import datetime, timedelta, timezone
 
+                from sqlalchemy import select
+
                 from lib.cuckoo.core.data.task import Task
 
                 sample = self.find_sample(sha256=sha256)
                 if not sample:
                     return False
-                q = self.session.query(Task).filter(Task.sample_id == sample.id)
+                stmt = select(Task).where(Task.sample_id == sample.id)
                 if hours and int(hours) > 0:
                     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-                    q = q.filter(Task.added_on >= now_utc - timedelta(hours=int(hours)))
-                return default_sql_task_query_filter(q, viewer).first() is not None
+                    stmt = stmt.where(Task.added_on >= now_utc - timedelta(hours=int(hours)))
+                return self.session.scalars(default_sql_task_query_filter(stmt, viewer)).first() is not None
 
             _wrapped_check_uniq._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             _record_attr_patch(samples_cls, "check_file_uniq", orig_check_uniq)

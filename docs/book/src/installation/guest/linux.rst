@@ -52,7 +52,7 @@ Install support file dependencies using native 32-bit packages::
 
     $ sudo apt update
     $ sudo apt install python3-pip systemtap-runtime -y
-    $ sudo pip3 install pyinotify Pillow pyscreenshot pyautogui --break-system-packages
+    $ sudo pip3 install Pillow pyautogui --break-system-packages
 
 64-bit (x86_64 / amd64) guests
 ------------------------------
@@ -60,7 +60,10 @@ Install support file dependencies using standard native 64-bit packages::
 
     $ sudo apt update
     $ sudo apt install python3 python3-pip systemtap-runtime -y
-    $ sudo pip3 install pyinotify Pillow pyscreenshot pyautogui --break-system-packages
+    $ sudo pip3 install Pillow pyautogui --break-system-packages
+
+.. note::
+    ``filecollector`` uses the Linux kernel ``inotify`` API directly via ``ctypes`` (no ``pyinotify`` package is required on Python 3.12+/3.14+). Screenshots use Pillow and the vendored D-Bus portal/GNOME client without requiring ``pyscreenshot``.
 
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 

@@ -14,20 +14,21 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.14"]
+        architecture: ["x86", "x64"]
 
     steps:
       - name: Check out repository code
         uses: actions/checkout@v7
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }} (${{ matrix.architecture }})
         uses: actions/setup-python@v7
-        # Use x86 python because of https://github.com/kevoreilly/CAPEv2/issues/168
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          architecture: 'x86'
+          architecture: ${{ matrix.architecture }}
 
       - name: Install dependencies
         run: pip install --upgrade pytest requests

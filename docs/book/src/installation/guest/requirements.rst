@@ -11,10 +11,10 @@ Install Python
 Python is a strict requirement for the CAPE guest component (*analyzer*) to run properly.
 
 You can download the proper `Windows`_ / `Linux`_ installer from the `official website`_.
-Python versions > 3.10 and < 3.13 are preferred.
+Python 3.10 through 3.14+ is supported on Windows 10+ / Windows Server 2016+ guests; 64-bit Python 3.14 is recommended so modern binary wheels (such as Pillow) install cleanly without compiling from source.
 
 .. important::
-    When installing Python, it is recommended to select the `Add Python <version> to PATH` option. And remove from that PATH `%USERPROFILE%\AppData\Local\Microsoft\WindowsApps`
+    When installing Python with the traditional installer, select the ``Add Python <version> to PATH`` option and remove the Microsoft Store stub from ``PATH`` (``%USERPROFILE%\AppData\Local\Microsoft\WindowsApps``) if you do not use the Python Install Manager (PEP 773). If you install Python 3.14+ via the official Python Install Manager (``pymanager``), keep its ``WindowsApps`` shim directory intact or add the managed runtime directory to ``PATH``.
 
     .. image:: ../../_images/screenshots/python_guest_win10_installation_PATH.png
         :align: center

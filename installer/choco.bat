@@ -9,4 +9,4 @@ powershell -Command "if ($PSVersionTable.PSVersion.Major -ge 5 -and $PSVersionTa
 choco upgrade chocolatey
 choco install -y dotnetfx dotnet4.7.2 dotnet vcredist-all wixtoolset msxml4.sp3 msxml6.sp1
 
-pip3 install pillow pywintrace
+pip3 install pillow https://github.com/fireeye/pywintrace/releases/download/v0.3.0/pywintrace-0.3.0-py3-none-any.whl

@@ -5,7 +5,6 @@
 import collections
 import hashlib
 import importlib
-import inspect
 import logging
 import os
 # from contextlib import suppress
@@ -32,7 +31,7 @@ integrations_conf = Config("integrations")
 
 rules: Any = False
 signatures: list[Any] = []
-capa_compatible_versions = {"9", "10"}
+capa_compatible_versions = {"10"}
 rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
 signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
 HAVE_FLARE_CAPA = False
@@ -71,7 +70,7 @@ def _ensure_capa_loaded(force: bool = False) -> bool:
         from packaging import version
 
         # if version.parse(python_version()) >= version.parse("3.10.0"):
-        capa_compatible_versions = {"9", "10"}
+        capa_compatible_versions = {"10"}
 
         # ToDo use major?
         if version.parse(capa_version).base_version.split(".")[0] not in capa_compatible_versions:
@@ -391,24 +390,6 @@ def _preflight_capa_static(file_path: str, skip_packed: bool) -> bool:
     return True
 
 
-def _collect_metadata(input_path, input_format: str, extractor, capabilities):
-    """Call capa.loader.collect_metadata() for every supported capa major.
-
-    capa 10 removed the os_ parameter (mandiant/capa#3076) that capa 9 still requires.
-    """
-    kwargs = {
-        "argv": [],
-        "input_path": input_path,
-        "input_format": input_format,
-        "rules_path": [path_object(rules_path)],
-        "extractor": extractor,
-        "capabilities": capabilities,
-    }
-    if "os_" in inspect.signature(capa.loader.collect_metadata).parameters:
-        kwargs["os_"] = OS_AUTO
-    return capa.loader.collect_metadata(**kwargs)
-
-
 def _run_capa_static(file_path: str, disable_progress: bool = True, skip_packed: bool = True) -> Dict[str, Any]:
     """Run static FLARE-CAPA extraction in the current process (intended for isolated execution)."""
     if not _ensure_capa_loaded(force=True) or not rules:
@@ -463,7 +444,7 @@ def _run_capa_static(file_path: str, disable_progress: bool = True, skip_packed:
         )
         capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
         # collect metadata (used only to make rendering more complete)
-        meta = _collect_metadata(file_path_object, input_format, extractor, capabilities)
+        meta = capa.loader.collect_metadata([], file_path_object, input_format, [path_object(rules_path)], extractor, capabilities)
         meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities.matches)
 
         # ...as python dictionary, simplified as textable but in dictionary
@@ -501,7 +482,7 @@ def _run_capa_report(file_path: str, results: dict, disable_progress: bool = Tru
 
         capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
         # collect metadata (used only to make rendering more complete)
-        meta = _collect_metadata(file_path_object, FORMAT_AUTO, extractor, capabilities)
+        meta = capa.loader.collect_metadata([], file_path_object, FORMAT_AUTO, [path_object(rules_path)], extractor, capabilities)
         meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities.matches)
 
         # ...as python dictionary, simplified as textable but in dictionary

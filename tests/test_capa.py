@@ -57,7 +57,7 @@ def _install_fake_capa_tree(monkeypatch, ver_str: str):
 @pytest.mark.parametrize(
     ("capa_ver", "expected_compatible"),
     [
-        ("9.3.1", True),
+        ("9.3.1", False),
         ("10.0.0", True),
         ("8.0.0", False),
         ("11.0.0", False),
@@ -77,7 +77,7 @@ def test_capa_version_compatibility_gate(monkeypatch, custom_conf_path, capsys, 
         assert ("FLARE-CAPA missed or incompatible version" not in captured) is expected_compatible
         if expected_compatible:
             assert "FLARE-CAPA missed:" not in captured
-            assert capa_mod.capa_compatible_versions == {"9", "10"}
+            assert capa_mod.capa_compatible_versions == {"10"}
     finally:
         if conf_file.exists():
             conf_file.unlink()
@@ -86,17 +86,12 @@ def test_capa_version_compatibility_gate(monkeypatch, custom_conf_path, capsys, 
         importlib.reload(capa_mod)
 
 
-# capa.loader.collect_metadata() signatures of the supported capa majors.
-# capa 10.0.0 removed the os_ parameter (mandiant/capa#3076).
-def _collect_metadata_capa9(argv, input_path, input_format, os_, rules_path, extractor, capabilities):
-    return SimpleNamespace(analysis=SimpleNamespace(), os_=os_)
-
-
+# capa.loader.collect_metadata() signature since capa 10.0.0, which removed the os_ parameter (mandiant/capa#3076).
 def _collect_metadata_capa10(argv, input_path, input_format, rules_path, extractor, capabilities):
-    return SimpleNamespace(analysis=SimpleNamespace(), os_=None)
+    return SimpleNamespace(analysis=SimpleNamespace())
 
 
-def _install_fake_loaded_capa(monkeypatch, collect_metadata):
+def _install_fake_loaded_capa(monkeypatch):
     """Make capa_mod look as if capa and its rules were loaded, with a stubbed analysis pipeline."""
     extractor = object()
     fake_capa = SimpleNamespace(
@@ -111,7 +106,7 @@ def _install_fake_loaded_capa(monkeypatch, collect_metadata):
         loader=SimpleNamespace(
             BACKEND_VIV="vivisect",
             get_extractor=lambda *args, **kwargs: extractor,
-            collect_metadata=collect_metadata,
+            collect_metadata=_collect_metadata_capa10,
             compute_layout=lambda rules, extractor, matches: "layout",
         ),
         capabilities=SimpleNamespace(
@@ -119,7 +114,7 @@ def _install_fake_loaded_capa(monkeypatch, collect_metadata):
         ),
     )
     fake_rd = SimpleNamespace(
-        ResultDocument=SimpleNamespace(from_capa=lambda meta, rules, matches: {"os": meta.os_, "layout": meta.analysis.layout})
+        ResultDocument=SimpleNamespace(from_capa=lambda meta, rules, matches: {"layout": meta.analysis.layout})
     )
 
     monkeypatch.setattr(capa_mod, "_ensure_capa_loaded", lambda force=False: True)
@@ -136,11 +131,6 @@ def _install_fake_loaded_capa(monkeypatch, collect_metadata):
 
 
 @pytest.mark.parametrize(
-    ("collect_metadata", "expected_os"),
-    [(_collect_metadata_capa9, "auto"), (_collect_metadata_capa10, None)],
-    ids=["capa9", "capa10"],
-)
-@pytest.mark.parametrize(
     "run_capa",
     [
         lambda path: capa_mod._run_capa_static(path, skip_packed=False),
@@ -148,12 +138,12 @@ def _install_fake_loaded_capa(monkeypatch, collect_metadata):
     ],
     ids=["static", "report"],
 )
-def test_capa_collect_metadata_signature_compatibility(monkeypatch, tmp_path, collect_metadata, expected_os, run_capa):
+def test_capa_collect_metadata_signature(monkeypatch, tmp_path, run_capa):
     sample = tmp_path / "sample.exe"
     sample.write_bytes(b"MZ")
-    _install_fake_loaded_capa(monkeypatch, collect_metadata)
+    _install_fake_loaded_capa(monkeypatch)
 
-    assert run_capa(str(sample)) == {"os": expected_os, "layout": "layout"}
+    assert run_capa(str(sample)) == {"layout": "layout"}
 
 
 def test_capa_loader_imports_cape_extractor(monkeypatch):

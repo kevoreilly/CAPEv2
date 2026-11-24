@@ -32,6 +32,7 @@ IN_ISDIR = 0x40000000
 _WATCH_MASK = IN_CREATE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM
 _EVENT_HEADER = struct.Struct("=iIII")
 _POLL_TIMEOUT_SEC = 0.5
+_STOP_DELAY_SEC = 2
 _READ_BUF_SIZE = 65536
 
 _DEFAULT_IGNORED_ROOT_DIRS = frozenset(
@@ -165,6 +166,11 @@ class NativeInotifyWatcher:
 
             if (ev_mask & IN_ISDIR) and (ev_mask & (IN_CREATE | IN_MOVED_TO)):
                 self.add_watch(pathname, mask=mask, rec=True)
+                # Catch files created inside the new directory before its watch attached.
+                for dirpath, _, filenames in os.walk(pathname, followlinks=False):
+                    self._add_single_watch(dirpath, mask)
+                    for filename in filenames:
+                        events.append((IN_CREATE, os.path.join(dirpath, filename)))
 
             events.append((ev_mask, pathname))
         return events
@@ -194,7 +200,8 @@ class FileCollector(Auxiliary):
         if not self.enabled:
             return False
 
-        time.sleep(2)  # wait a while to process stuff in the queue
+        if _STOP_DELAY_SEC > 0:
+            time.sleep(_STOP_DELAY_SEC)  # wait a while to process stuff in the queue
         self.do_run = False
         if self.thread is not None:
             self.thread.join(timeout=5)

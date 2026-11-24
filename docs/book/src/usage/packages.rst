@@ -22,19 +22,38 @@ The following is a list of the existing packages in alphabetical order:
         **Options**:
             * ``class``: specify the name of the class to be executed. This option is mandatory for correct execution.
 
-    * ``archive``: used to run and analyze **archives such as ISO, VHD and anything else that 7-Zip can extract** via ``7z.exe``.
+    * ``archive``: consolidated archive package used to extract and analyze **ZIP, RAR, 7z, ISO, VHD, UDF, TAR, GZ, BZ2, XZ, CAB, and compound archives**.
 
-        Explanation how it works can be found in this `Technical Session for CyberShock 2022, presented by CCCS <https://youtu.be/-70Mlkmtdds?t=13013>`_.
+        Explanation of the original archive workflow can be found in this `Technical Session for CyberShock 2022, presented by CCCS <https://youtu.be/-70Mlkmtdds?t=13013>`_.
 
         *NB*: Passing ``file=`` as a task option will ensure that the entire archive is passed to the victim VM and extracted there,
-        prior to executing files of interest within in the extracted folder.
+        prior to executing files of interest within the extracted folder.
+        If a ``__configuration.json`` manifest is present in the archive root (or specified via ``json_config``),
+        CAPE automatically applies its ``path_to_extract`` moves and executes ``target_file`` with no extra options required:
+
+        .. code-block:: json
+
+            {
+                "path_to_extract": {
+                    "a.exe": "%USERPROFILE%\\Desktop\\a\\b\\c",
+                    "folder_b": "%appdata%"
+                },
+                "target_file": "a.exe"
+            }
 
         **Options**:
-            * ``arguments``: specify arguments to pass to the DLL through commandline.
-            * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
-            * ``file``: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute *sample.exe*.
-            * ``function``: specify the function to be executed. If none is specified, CAPE will try to run the entry at ordinal 1.
+            * ``appdata``: *[yes/no]* (Windows) extract and execute from the ``APPDATA`` directory instead of ``C:\<archive_name>``.
+            * ``arguments``: specify arguments to pass to the DLL or PE/ELF executable through commandline.
+            * ``curdir``: (Windows) specify a custom directory to extract into and execute from.
+            * ``dllloader``: (Windows) specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
+            * ``enable_multi_password``: *[yes/no, true/false, on/off, 1]* split ``password`` on ``:`` and try each candidate in order.
+            * ``extractor``: select the extraction backend. Defaults to ``auto`` (Windows: ``7z`` -> ``winrar`` -> ``zipfile`` -> ``tarfile`` -> ``rarfile``; Linux: ``7z``/``7zz`` -> ``unrar`` -> ``zipfile`` -> ``tarfile``). Setting an explicit backend (e.g. ``extractor=winrar`` or ``extractor=7z``) disables automatic fallback.
+            * ``file``: specify the name of the file contained in the archive to execute. Overrides ``target_file`` in ``__configuration.json``; if neither is specified, CAPE auto-executes discovered executables up to ``max_executables``.
+            * ``function``: (Windows) specify the function to be executed for DLLs. If none is specified, CAPE will try to run the entry at ordinal 1.
+            * ``json_config``: (Windows) override the compound manifest filename (default ``__configuration.json``).
+            * ``max_executables``: maximum number of archive members to auto-execute when ``file`` is not set (default ``16``).
             * ``password``: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password "*infected*".
+            * ``recursion_depth``: depth of nested archive extraction (default ``0``; single-member nested archives are still unwrapped 1 level unless ``recursion_depth=0`` is explicitly passed). Uses ``diec.exe`` (Windows) or ``file`` (Linux) when installed, falling back to built-in magic/extension detection.
 
     * ``chm``: used to run and analyze **Microsoft Compiled HTML Help files** via ``hh.exe``.
     * ``chrome``: used to open **the given URL** via ``chrome.exe``.
@@ -128,14 +147,7 @@ The following is a list of the existing packages in alphabetical order:
         **Options**:
             * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
 
-    * ``rar``: extracts **WinRAR Compressed Archive files** via the rarfile Python package, and runs an executable file (if it exists), with ``cmd.exe``.
-
-        *NB*: The rarfile Python package must be installed on the guest.
-
-        **Options**:
-            * ``arguments``: specify any command line argument to pass to the initial process of the submitted malware.
-            * ``file``: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute *sample.exe*.
-            * ``password``: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password "*infected*".
+    * ``rar``: *(deprecated alias for ``archive``)* kept for backward compatibility with existing API/CLI submissions; resolves to ``archive``.
 
     * ``reg``: used to run and analyze **Registry files** via ``reg.exe``.
     * ``regsvr``: used to run and analyze **Dynamically Linked Libraries** via ``regsvr32.exe``.
@@ -179,39 +191,8 @@ The following is a list of the existing packages in alphabetical order:
     * ``xls2016``: used to run and analyze **Microsoft Excel documents** via Microsoft Office 2016's ``excel.exe``.
     * ``xslt``: used to run and analyze **eXtensible Stylesheet Language Transformation Files** via ``wmic.exe``.
     * ``xps``: used to run and analyze **XML Paper Specification Files** via ``xpsrchvw.exe``.
-    * ``zip_compound``: used to run and analyze **Zip archives** with more specific settings.
-
-        *NB*: Either ``file`` option must be set, or a ``__configuration.json`` file must be present in the zip file.
-        Sample json file:
-
-        .. code-block:: json
-
-            {
-                "path_to_extract": {
-                    "a.exe": "%USERPROFILE%\\Desktop\\a\\b\\c",
-                    "folder_b": "%appdata%"
-                },
-                "target_file":"a.exe"
-            }
-
-        **Options**:
-            * ``appdata``: *[yes/no]* if enabled, create custom folders in the APPDATA directory.
-            * ``arguments``: specify arguments to pass to the DLL through commandline.
-            * ``curdir``: specify the directory to create custom folders.
-            * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
-            * ``file``: specify the name of the file contained in the archive to execute. If none is specified, a ``__configuration.json`` file must be present in the zip file.
-            * ``function``: specify the function to be executed. If none is specified, CAPE will try to run the entry at ordinal 1.
-            * ``password``: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password "*infected*".
-
-    * ``zip``: extract **Zip archives** via the zipfile Python package, and runs an executable file (if it exists), with ``cmd.exe``.
-
-        **Options**:
-            * ``appdata``: *[yes/no]* if enabled, create custom folders in the APPDATA directory.
-            * ``arguments``: specify arguments to pass to the DLL through commandline.
-            * ``dllloader``: specify a process name to use to fake the DLL launcher name instead of ``rundll32.exe`` (this is used to fool possible anti-sandboxing tricks of certain malware).
-            * ``file``: specify the name of the file contained in the archive to execute. If none is specified, CAPE will try to execute *sample.exe*.
-            * ``function``: specify the function to be executed. If none is specified, CAPE will try to run the entry at ordinal 1.
-            * ``password``: specify the password of the archive. If none is specified, CAPE will try to extract the archive without password or use the password "*infected*".
+    * ``zip_compound``: *(deprecated alias for ``archive``)* kept for backward compatibility; ``archive`` automatically processes ``__configuration.json`` manifests.
+    * ``zip``: *(deprecated alias for ``archive``)* kept for backward compatibility with existing API/CLI submissions; resolves to ``archive``.
 
 You can find more details on how to start creating analysis packages in the
 :doc:`../customization/packages` customization chapter.

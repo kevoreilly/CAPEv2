@@ -249,6 +249,8 @@ class Analyzer:
         """
         if self.config.package:
             suggestion = "ff" if self.config.package == "ie" else self.config.package
+        elif self.config.category == "archive":
+            suggestion = "archive"
         elif self.config.category != "file":
             suggestion = "url"
         else:

@@ -86,7 +86,7 @@ from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
 from lib.core.config import Config
-from lib.core.packages import choose_package
+from lib.core.packages import choose_package, resolve_package_alias
 from lib.core.pipe import PipeDispatcher, PipeForwarder, PipeServer, disconnect_pipes
 from lib.core.privileges import grant_debug_privilege
 from lib.core.startup import create_folders, disconnect_logger, init_logging, set_clock
@@ -522,7 +522,12 @@ class Analyzer:
 
         else:
             package = self.config.package
-            log.info('analysis package specified: "%s"', package)
+            resolved_package = resolve_package_alias(package)
+            if resolved_package != package:
+                log.info('analysis package "%s" is deprecated; using "%s"', package, resolved_package)
+                package = resolved_package
+            else:
+                log.info('analysis package specified: "%s"', package)
 
         # Generate the package path.
         package_name = f"modules.packages.{package}"
@@ -532,9 +537,9 @@ class Analyzer:
             pkg_module = importlib.import_module(package_name)
             log.debug('imported analysis package "%s"', package)
         except ImportError as e:
-            raise CuckooError(f'unable to import package "{self.package_name}", does not exist') from e
+            raise CuckooError(f'unable to import package "{package_name}", does not exist') from e
         except Exception as e:
-            raise CuckooError(f'Unable to import package "{self.package_name}", does not exist') from e
+            raise CuckooError(f'Unable to import package "{package_name}", does not exist') from e
 
         # get the members inside the module
         members = inspect.getmembers(pkg_module)
@@ -545,7 +550,7 @@ class Analyzer:
 
         num_pkg_classes = len(pkg_classes)
         if num_pkg_classes != 1:
-            raise CuckooError(f"expected a single Package subclass in {self.package_name}, got {num_pkg_classes}")
+            raise CuckooError(f"expected a single Package subclass in {package_name}, got {num_pkg_classes}")
 
         # Initialize the single analysis package class
         log.debug('initializing analysis package "%s"...', package)

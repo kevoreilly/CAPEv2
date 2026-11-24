@@ -4,6 +4,50 @@
 
 import re
 
+PACKAGE_ALIASES = {
+    "zip": "archive",
+    "rar": "archive",
+    "zip_compound": "archive",
+}
+
+_ARCHIVE_FILE_TYPES = (
+    "Zip",
+    "RAR archive",
+    "7-zip archive",
+    "ISO 9660",
+    "POSIX tar archive",
+    "gzip compressed data",
+    "bzip2 compressed data",
+    "XZ compressed data",
+    "Microsoft Cabinet archive",
+)
+
+_ARCHIVE_EXTENSIONS = (
+    ".zip",
+    ".rar",
+    ".7z",
+    ".iso",
+    ".udf",
+    ".vhd",
+    ".vhdx",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".bz2",
+    ".tbz",
+    ".tbz2",
+    ".xz",
+    ".txz",
+    ".cab",
+)
+
+
+def resolve_package_alias(package):
+    """Map deprecated archive package names onto the consolidated 'archive' package."""
+    if not package:
+        return package
+    return PACKAGE_ALIASES.get(package, package)
+
 
 def choose_package(file_type, file_name, exports, target):
     """Choose analysis package due to file type and file extension.
@@ -63,10 +107,8 @@ def choose_package(file_type, file_name, exports, target):
         return "ppt"
     elif b"MANIFEST" in file_content or "Java Jar" in file_type or "Java archive" in file_type or file_name.endswith(".jar"):
         return "jar"
-    elif "Zip" in file_type:
-        return "zip"
-    elif "RAR archive" in file_type or file_name.endswith(".rar"):
-        return "rar"
+    elif any(archive_type in file_type for archive_type in _ARCHIVE_FILE_TYPES) or file_name.endswith(_ARCHIVE_EXTENSIONS):
+        return "archive"
     elif "Macromedia Flash" in file_type or file_name.endswith((".swf", ".fws")):
         return "swf"
     elif (
@@ -145,8 +187,6 @@ def choose_package(file_type, file_name, exports, target):
         return "ichitaro"
     elif file_name.endswith(".reg"):
         return "reg"
-    elif "ISO 9660" in file_type or file_name.endswith((".iso", ".udf", ".vhd")):
-        return "archive"
     elif file_name.endswith(".a3x"):
         return "autoit"
     elif file_name.endswith(("cmd", "bat")) or b"@echo off" in file_content.lower():

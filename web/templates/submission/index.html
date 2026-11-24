@@ -355,6 +355,10 @@
                                                                     <td class="text-end"><code>max_executables</code></td>
                                                                     <td>Limit of auto-executing archive members</td>
                                                                 </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>extractor</code></td>
+                                                                    <td>Archive extraction backend (<code>auto</code>, <code>7z</code>, <code>unrar</code>, <code>zipfile</code>, <code>tarfile</code>)</td>
+                                                                </tr>
                                                             </tbody>
                                                         </table>
                                                     </div>
@@ -563,7 +567,7 @@
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>file</code></td>
-                                                                    <td>Name of file to execute (Zip/Rar)</td>
+                                                                    <td>Name of file to execute (Archive)</td>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>password</code></td>
@@ -636,6 +640,14 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>max_executables</code></td>
                                                                     <td>Limit of auto-executing archive members</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>extractor</code></td>
+                                                                    <td>Archive extraction backend (<code>auto</code>, <code>7z</code>, <code>winrar</code>, <code>zipfile</code>, <code>tarfile</code>, <code>rarfile</code>)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>json_config</code></td>
+                                                                    <td>Custom compound archive manifest filename (default <code>__configuration.json</code>)</td>
                                                                 </tr>
                                                             </tbody>
                                                         </table>

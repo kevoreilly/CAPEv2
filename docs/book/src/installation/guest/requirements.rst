@@ -47,19 +47,30 @@ to download and install the proper packages according to your Python version.
 Archive packages
 ================
 
-Install archive extraction tools inside the Windows guest before saving its
-snapshot. The ``archive`` package requires 7-Zip. Install it in the standard
-``7-Zip`` directory under ``Program Files`` or ``Program Files (x86)``, so the
-analyzer can find ``7z.exe``. Installing 7-Zip on the CAPE host does not satisfy
-this requirement.
+The consolidated ``archive`` package works out of the box on a stock Windows
+guest for ZIP, TAR, GZ, BZ2, and XZ archives using Python's standard library
+(``zipfile`` and ``tarfile``).
 
-If you set ``recursion_depth`` above zero, also install Detect It Easy in the
-guest with its extra database and ``diec.exe`` in the ``die`` directory under
-``Program Files`` or ``Program Files (x86)``. Detect It Easy is not needed for
-non-recursive extraction with this package.
+For full archive format coverage (``.7z``, ``.rar``, ``.iso``, ``.vhd``,
+``.cab``, AES-256 encrypted ZIPs) or explicit ``extractor=7z`` /
+``extractor=winrar`` selection, install 7-Zip (and optionally WinRAR) inside
+the Windows guest before saving its snapshot:
 
-The ``rar`` package has its own Python dependency. See :doc:`../../usage/packages`
-for its prerequisites and the other archive package options.
+- Install 7-Zip in the standard ``7-Zip`` directory under ``Program Files`` or
+  ``Program Files (x86)`` so the analyzer can find ``7z.exe``. Installing
+  7-Zip on the CAPE host does not satisfy this requirement.
+- Optionally install WinRAR in ``Program Files\WinRAR\WinRAR.exe`` (used as a
+  fallback in ``extractor=auto`` mode or directly via ``extractor=winrar``).
+- Optionally install the ``rarfile`` Python package in the guest if you want
+  to use ``extractor=rarfile`` (or as a RAR fallback).
+
+If you set ``recursion_depth`` above zero, ``archive`` uses Detect It Easy
+(``diec.exe`` in ``Program Files\die`` or ``Program Files (x86)\die`` with its
+extra database) when present, and falls back to built-in magic/extension
+detection when ``diec.exe`` is not installed.
+
+See :doc:`../../usage/packages` for all ``archive`` options and backward-compatible
+aliases (``zip``, ``rar``, ``zip_compound``).
 
 Additional Software
 ===================

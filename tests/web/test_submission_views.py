@@ -193,19 +193,23 @@ class TestSubmissionViews(SimpleTestCase):
         self.assertEqual(expected_description, actual_description)
         self.assertEqual(expected_options, actual["option_names"])
 
-    def test_get_package_rar_info(self):
-        """Get the package info from rar.py."""
+    def test_get_package_archive_info(self):
+        """Get the package info from archive.py."""
         context = {
             "ARCHIVE_OPTIONS": (2, 5, 1, 3),
             "DLL_OPTIONS": (3, 4, 2, 5),
+            "OPT_APPDATA": 6,
+            "OPT_CURDIR": 7,
+            "OPT_JSON_CONFIG": 8,
+            "OPT_MULTI_PASSWORD": 9,
         }
-        actual = get_package_info(self.windows_package_dir, "rar.py", "windows", context)
+        actual = get_package_info(self.windows_package_dir, "archive.py", "windows", context)
         self.assertIn("name", actual)
-        self.assertEqual("rar", actual["name"])
+        self.assertEqual("archive", actual["name"])
         self.assertIn("summary", actual)
         self.assertIn("description", actual)
         self.assertIn("option_names", actual)
-        self.assertEqual([1, 2, 3, 4, 5], actual["option_names"])
+        self.assertEqual([1, 2, 3, 4, 5, 6, 7, 8, 9], actual["option_names"])
 
     def test_get_package_one(self):
         """Get the package info from one.py."""
@@ -250,7 +254,7 @@ class TestSubmissionViews(SimpleTestCase):
         actual = get_lib_common_constants(platform="windows")
         self.assertIsInstance(actual, dict)
         self.assertEqual("runasx86", actual["OPT_RUNASX86"])
-        self.assertCountEqual(("file", "password", "recursion_depth", "max_executables"), actual["ARCHIVE_OPTIONS"])
+        self.assertCountEqual(("file", "password", "recursion_depth", "max_executables", "extractor"), actual["ARCHIVE_OPTIONS"])
         self.assertCountEqual(("arguments", "dllloader", "function"), actual["DLL_OPTIONS"])
         self.assertIn("SystemDrive", actual["TRUSTED_PATH_TEXT"])
         self.assertIn("SystemDrive", actual["MSOFFICE_TRUSTED_PATH"])

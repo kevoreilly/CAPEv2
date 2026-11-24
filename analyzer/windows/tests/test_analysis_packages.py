@@ -60,7 +60,9 @@ class TestAnalysisPackages(unittest.TestCase):
 
     def test_archive(self):
         pkg_class = self.class_from_analysis_package("modules.packages.archive")
-        pkg_class()
+        obj = pkg_class()
+        for expected_opt in ("appdata", "curdir", "extractor", "file", "json_config", "max_executables", "password", "recursion_depth"):
+            self.assertIn(expected_opt, obj.option_names)
 
     def test_autoit(self):
         pkg_class = self.class_from_analysis_package("modules.packages.autoit")
@@ -246,12 +248,6 @@ class TestAnalysisPackages(unittest.TestCase):
         obj = pkg_class()
         self.assertEqual(expected_summary, obj.summary)
 
-    def test_rar(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.rar")
-        expected_summary = "Unpacks a .rar archive with the given password and execute the contents appropriately."
-        obj = pkg_class()
-        self.assertEqual(expected_summary, obj.summary)
-
     def test_reg(self):
         pkg_class = self.class_from_analysis_package("modules.packages.reg")
         pkg_class()
@@ -302,12 +298,4 @@ class TestAnalysisPackages(unittest.TestCase):
 
     def test_xslt(self):
         pkg_class = self.class_from_analysis_package("modules.packages.xslt")
-        pkg_class()
-
-    def test_zip(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.zip")
-        pkg_class()
-
-    def test_zip_compound(self):
-        pkg_class = self.class_from_analysis_package("modules.packages.zip_compound")
         pkg_class()

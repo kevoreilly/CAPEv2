@@ -17,6 +17,38 @@ from lib.common.results import NetlogFile, append_buffer_to_host
 
 log = logging.getLogger(__name__)
 
+PACKAGE_ALIASES = {
+    "zip": "archive",
+    "rar": "archive",
+    "zip_compound": "archive",
+}
+
+_ARCHIVE_FILE_TYPES = (
+    "POSIX tar archive",
+    "Zip archive",
+    "7-zip archive data",
+    "RAR archive data",
+    "ISO 9660 CD-ROM filesystem data",
+    "gzip compressed data",
+    "bzip2 compressed data",
+    "XZ compressed data",
+)
+
+_ARCHIVE_EXTENSIONS = (
+    ".tar",
+    ".zip",
+    ".7z",
+    ".rar",
+    ".iso",
+    ".tgz",
+    ".gz",
+    ".tbz",
+    ".tbz2",
+    ".bz2",
+    ".txz",
+    ".xz",
+)
+
 
 def choose_package_class(file_type=None, file_name="", suggestion=None):
     if suggestion is not None:
@@ -28,6 +60,11 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
             log.info(file_type)
             log.info(file_name)
             name = "generic"
+
+    resolved_name = PACKAGE_ALIASES.get(name, name)
+    if resolved_name != name:
+        log.info('Analysis package "%s" is deprecated; using "%s"', name, resolved_name)
+        name = resolved_name
 
     full_name = f"modules.packages.{name}"
     try:
@@ -58,22 +95,12 @@ def _found_target_class(module, name):
 
 def _guess_package_name(file_type, file_name):
     try:
+        file_type = file_type or ""
+        file_name = (file_name or "").lower()
         if "Bourne-Again" in file_type or "bash" in file_type or file_name.endswith(".sh"):
             return "bash"
-        elif "POSIX tar archive" in file_type or file_name.endswith("tar"):
+        elif any(archive_type in file_type for archive_type in _ARCHIVE_FILE_TYPES) or file_name.endswith(_ARCHIVE_EXTENSIONS):
             return "archive"
-        elif "Zip archive" in file_type or file_name.endswith(".zip"):
-            return "zip"
-        elif "7-zip archive data" in file_type or file_name.endswith(".7z"):
-            return "archive"
-        elif "RAR archive data" in file_type or file_name.endswith(".rar"):
-            return "archive"
-        elif "ISO 9660 CD-ROM filesystem data" in file_type or file_name.endswith(".iso"):
-            return "archive"
-        elif "gzip compressed data" in file_type or file_name.endswith((".tgz", ".gz")):
-            return "zip"
-        elif "bzip2 compressed data" in file_type or file_name.endswith((".tbz", ".tbz2")):
-            return "zip"
         elif "PDF document" in file_type or file_name.endswith(".pdf"):
             return "pdf"
         elif "Composite Document File V2 Document" in file_type or file_name.endswith(".doc"):

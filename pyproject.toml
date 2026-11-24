@@ -152,7 +152,6 @@ django_find_project = false
 DJANGO_SETTINGS_MODULE = "web.settings"
 pythonpath = [".", "web"]
 testpaths = ["tests", "agent"]
-norecursedirs = "tests/zip_compound"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [

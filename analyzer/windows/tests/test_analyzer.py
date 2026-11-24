@@ -489,8 +489,8 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         test.options = MagicMock()
         test.config.package = "rar"
         pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.rar", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Rar")
+        self.assertEqual("modules.packages.archive", pkg_name)
+        self.assertEqual(pkg_class.__class__.__name__, "Archive")
 
     def test_choose_package_reg(self):
         test = analyzer.Analyzer()
@@ -615,8 +615,8 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         test.options = MagicMock()
         test.config.package = "zip"
         pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.zip", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "Zip")
+        self.assertEqual("modules.packages.archive", pkg_name)
+        self.assertEqual(pkg_class.__class__.__name__, "Archive")
 
     def test_choose_package_zip_compound(self):
         test = analyzer.Analyzer()
@@ -624,8 +624,32 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         test.options = MagicMock()
         test.config.package = "zip_compound"
         pkg_name, pkg_class = test.choose_package()
-        self.assertEqual("modules.packages.zip_compound", pkg_name)
-        self.assertEqual(pkg_class.__class__.__name__, "ZipCompound")
+        self.assertEqual("modules.packages.archive", pkg_name)
+        self.assertEqual(pkg_class.__class__.__name__, "Archive")
+
+    def test_choose_package_autodetects_archives_as_archive(self):
+        for file_name, file_type in (
+            ("sample.zip", "Zip archive data, at least v2.0 to extract"),
+            ("sample.rar", "RAR archive data, v5"),
+            ("sample.7z", "7-zip archive data, version 0.4"),
+            ("sample.iso", "ISO 9660 CD-ROM filesystem data"),
+            ("sample.tar.gz", "gzip compressed data"),
+            ("sample.tar.xz", "XZ compressed data"),
+        ):
+            with self.subTest(file_name=file_name):
+                self._assert_autodetected_package("test_email.eml", "archive", "Archive", file_type=file_type)
+                test = analyzer.Analyzer()
+                test.config = MagicMock()
+                test.options = MagicMock()
+                test.config.package = ""
+                test.config.category = "file"
+                test.config.file_name = file_name
+                test.config.file_type = "data"
+                test.config.exports = ""
+                test.target = os.path.join(os.path.dirname(__file__), "test_data", "test_email.eml")
+                pkg_name, pkg_class = test.choose_package()
+                self.assertEqual("modules.packages.archive", pkg_name)
+                self.assertEqual("Archive", pkg_class.__class__.__name__)
 
     def _assert_autodetected_package(self, file_name, expected_pkg_module, expected_pkg_class_name, file_type="ASCII text"):
         """Helper: auto-detect a package from a file in test_data and assert the result."""

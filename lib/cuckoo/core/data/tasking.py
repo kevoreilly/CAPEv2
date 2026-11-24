@@ -507,9 +507,9 @@ class TasksMixIn:
             check_shellcode = False
 
         if not package:
-            if "file=" in options:
-                # set zip as package when specifying file= in options
-                package = "zip"
+            if "file" in get_options(options):
+                # set archive as package when specifying file= in options
+                package = "archive"
             else:
                 # Checking original file as some filetypes doesn't require demux
                 package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)

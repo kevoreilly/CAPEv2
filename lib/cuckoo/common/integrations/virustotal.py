@@ -215,7 +215,7 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
 
             if cache_setting:
                 try:
-                    db_file = mongo_find_one("files", {"sha256": sha256})
+                    db_file = mongo_find_one("files", {"_id": sha256})
                     if db_file and "virustotal" in db_file:
                         return db_file["virustotal"]
                 except Exception as e:

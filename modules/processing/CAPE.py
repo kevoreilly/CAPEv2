@@ -404,7 +404,7 @@ class CAPE(Processing):
 
         if processing_conf.CAPE.file_cache or (reporting_conf.mongodb.enabled and category in ("static", "file")):
             try:
-                db_file = mongo_find_one("files", {"sha256": sha256})
+                db_file = mongo_find_one("files", {"_id": sha256})
                 if db_file and (
                     processing_conf.CAPE.file_cache
                     or self.task.get("id") in db_file.get("_task_ids", [])

@@ -160,6 +160,19 @@ def is_uia_surrogate_command_line(cmdline):
     return not cmdline[match.end() :].strip()
 
 
+def is_uia_surrogate_process(proc, filepath, analyzer=None):
+    """Return True if proc is a DcomLaunch-spawned UIA cross-bitness dllhost surrogate."""
+    if not is_windows_dllhost_path(filepath):
+        return False
+    cmdline = proc.get_command_line()
+    if not is_uia_surrogate_command_line(cmdline):
+        return False
+    dcom_pid = analyzer.get_dcomlaunch_pid() if analyzer is not None else None
+    if not isinstance(dcom_pid, int) or dcom_pid <= 0:
+        return False
+    return proc.get_parent_pid() == dcom_pid
+
+
 def pid_from_service_name(servicename):
     sc_handle = ADVAPI32.OpenSCManagerA(None, None, 0x0001)
     serv_handle = ADVAPI32.OpenServiceW(sc_handle, servicename, 0x0005)
@@ -487,18 +500,6 @@ class Analyzer:
             if isinstance(dcom_pid, int) and dcom_pid > 0:
                 self.DCOMLAUNCH_PID = dcom_pid
         return self.DCOMLAUNCH_PID
-
-    def is_uia_surrogate_process(self, proc, filepath):
-        """Return True if proc is a DcomLaunch-spawned UIA cross-bitness dllhost surrogate."""
-        if not is_windows_dllhost_path(filepath):
-            return False
-        cmdline = proc.get_command_line()
-        if not is_uia_surrogate_command_line(cmdline):
-            return False
-        dcom_pid = self.get_dcomlaunch_pid()
-        if not dcom_pid:
-            return False
-        return proc.get_parent_pid() == dcom_pid
 
     def choose_package(self):
         # If no analysis package was specified at submission, we try to select one automatically.
@@ -1304,7 +1305,7 @@ class CommandPipeHandler:
             if (
                 not in_protected_path(filepath)
                 and not self.analyzer.files.is_protected_filename(filename)
-                and not self.analyzer.is_uia_surrogate_process(proc, filepath)
+                and not is_uia_surrogate_process(proc, filepath, self.analyzer)
             ):
                 self.analyzer.process_list.add_pid(process_id)
                 log.info("Announce process name : %s", filename)
@@ -1565,7 +1566,7 @@ class CommandPipeHandler:
         if (
             not in_protected_path(filepath)
             and not self.analyzer.files.is_protected_filename(filename)
-            and not self.analyzer.is_uia_surrogate_process(proc, filepath)
+            and not is_uia_surrogate_process(proc, filepath, self.analyzer)
         ):
             # Add the new process ID to the list of monitored processes.
             self.analyzer.process_list.add_pid(process_id)
@@ -1617,7 +1618,7 @@ class CommandPipeHandler:
                         self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
-                    if self.analyzer.is_uia_surrogate_process(proc, filepath):
+                    if is_uia_surrogate_process(proc, filepath, self.analyzer):
                         log.info("Skipping injection into UIA cross-bitness surrogate process %s (pid: %d)", filename, process_id)
                     elif not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
                         if process_id not in INJECT_LIST:

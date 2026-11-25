@@ -263,11 +263,12 @@ def add_file_to_path(src_path, dst_path, overwrite=False):
 
 
 def run_script(script_path, args, timeout):
-    exec = script_path + args
-    if script_path.endwith(".py"):
-        subprocess.check_output("python " + exec, timeout=timeout, stderr=subprocess.STDOUT)
+    exec_args = script_path + args
+    if script_path.endswith(".py"):
+        python_bin = sys.executable or "python"
+        subprocess.check_output(f'"{python_bin}" {exec_args}', timeout=timeout, stderr=subprocess.STDOUT)
     else:
-        subprocess.check_output(exec, timeout=timeout, stderr=subprocess.STDOUT)
+        subprocess.check_output(exec_args, timeout=timeout, stderr=subprocess.STDOUT)
     log.info("Running script %s with parameters %s on the victim vm", str(script_path), str(args))
 
 
@@ -288,7 +289,7 @@ def identify_registry_value_type(value):
         return REG_BINARY
     elif isinstance(value, int):
         return REG_DWORD
-    elif isinstance(value, None):
+    elif value is None:
         return REG_NONE
     elif isinstance(value, str):
         return REG_SZ

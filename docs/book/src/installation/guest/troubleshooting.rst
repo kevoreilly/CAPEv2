@@ -44,6 +44,47 @@ Additionally, you should always try to see if you are able to manually replicate
         :align: center  
 
 
+.. _troubleshooting_libvirt_socket:
+
+Libvirt ``virtqemud-sock`` missing
+==================================
+
+If ``cape.service`` fails at startup with::
+
+    libvirt: XML-RPC error : Failed to connect socket to '/var/run/libvirt/virtqemud-sock': No such file or directory
+    CRITICAL: CuckooStartupError: Failed to connect to libvirt with DSN 'qemu:///system'. Error: Failed to connect socket to '/var/run/libvirt/virtqemud-sock': No such file or directory
+
+neither the monolithic ``/var/run/libvirt/libvirt-sock`` nor the modular ``/var/run/libvirt/virtqemud-sock`` socket exists (with ``remote_mode=auto``, libvirt checks ``libvirt-sock`` first and falls back to ``virtqemud-sock``).
+
+This happens when mutually exclusive monolithic (``libvirtd.service``) and modular (``virtqemud.*``) systemd units are enabled together (they declare ``Conflicts=`` with each other), or when ``libvirtd.service`` runs without ``libvirtd.socket`` enabled (upstream ``libvirtd`` exits after 120 seconds of idle time and removes ``libvirt-sock``).
+
+Enable **one** daemon mode on the KVM host and disable the other:
+
+**Option A — Modular daemons (libvirt 11+ default):**
+
+.. code-block:: bash
+
+    sudo systemctl daemon-reload
+    sudo systemctl disable --now libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket 2>/dev/null || true
+    sudo systemctl enable --now virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket virtnetworkd.socket virtstoraged.socket virtlogd.socket virtqemud.service
+
+**Option B — Monolithic ``libvirtd``:**
+
+.. code-block:: bash
+
+    sudo systemctl daemon-reload
+    sudo systemctl disable --now virtqemud.service virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket virtnetworkd.service virtnetworkd.socket virtstoraged.service virtstoraged.socket 2>/dev/null || true
+    sudo systemctl enable --now libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket virtlogd.socket libvirtd.service
+
+Verify socket creation and ``cape`` user access (inspect ``sudo journalctl -u virtqemud -u libvirtd -n 40 --no-pager`` if startup fails):
+
+.. code-block:: bash
+
+    ls -la /var/run/libvirt/
+    sudo -u cape virsh -c qemu:///system list --all
+    sudo systemctl restart cape
+
+
 No Internet connection in the guest
 ===================================
 There are reasons galore why your guest VM has no Internet connection when an analysis is fired up. Before digging into this problem, please make sure you followed the steps at :ref:`Network Configuration` to set up both the virtual machine and its connections. Furthermore, you should read the :ref:`routing` chapter in order to know and understand the different routing modes as well as the :ref:`rooter` chapter to understand what the ``Rooter`` is. 

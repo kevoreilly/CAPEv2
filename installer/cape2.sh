@@ -1977,7 +1977,9 @@ function migrate_to_uv() {
         return 1
     }
 
+    local is_kvm_host=0
     if [ "$DISABLE_LIBVIRT" -eq 0 ] && { [ "$had_libvirt" -eq 1 ] || command -v virsh >/dev/null 2>&1; }; then
+        is_kvm_host=1
         if ! install_libvirt; then
             echo "[!] Failed to install libvirt-python into ${CAPE_ROOT}/.venv."
             echo "    Ensure libvirt-dev and pkg-config are installed, then re-run: sudo bash ${CAPE_ROOT}/installer/cape2.sh libvirt"
@@ -2014,6 +2016,16 @@ function migrate_to_uv() {
     if crontab -u "${USER}" -l 2>/dev/null | grep -Eq '^[^#]*poetry'; then
         echo "[!] Custom Poetry entries found in ${USER} crontab (migrate manually):"
         crontab -u "${USER}" -l 2>/dev/null | grep -E '^[^#]*poetry'
+    fi
+
+    if [ "$is_kvm_host" -eq 1 ]; then
+        local libvirt_run_dir="${LIBVIRT_RUN_DIR:-/var/run/libvirt}"
+        if [ ! -S "${libvirt_run_dir}/libvirt-sock" ] && [ ! -S "${libvirt_run_dir}/virtqemud-sock" ]; then
+            echo "[!] Neither ${libvirt_run_dir}/libvirt-sock nor ${libvirt_run_dir}/virtqemud-sock exists."
+            echo "    If cape.service fails with \"Failed to connect socket to '/var/run/libvirt/virtqemud-sock'\","
+            echo "    enable either modular (virtqemud.socket/service) or monolithic (libvirtd.socket/service) systemd units"
+            echo "    and disable the conflicting mode (see docs/book/src/installation/uv_migration.rst)."
+        fi
     fi
 
     if [ -n "$enabled_services" ]; then

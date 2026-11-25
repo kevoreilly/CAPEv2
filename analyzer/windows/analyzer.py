@@ -11,6 +11,7 @@ import logging
 import ntpath
 import os
 import pkgutil
+import re
 import socket
 import struct
 import subprocess
@@ -114,6 +115,62 @@ INTERACTIVE_MODE = False
 PID = os.getpid()
 PPID = Process(pid=PID).get_parent_pid()
 HIDE_PIDS = None
+
+# Windows UI Automation cross-bitness COM surrogates (UIAutomationCore.dll).
+# Activated by DcomLaunch whenever the analyzer's human auxiliary queries a
+# window of the opposite bitness (32-bit analyzer -> 64-bit window or vice versa).
+UIA_SURROGATE_APPIDS = frozenset(
+    {
+        "{49f171dd-b51a-40d3-9a6c-52d674cc729d}",  # UIAutomationCrossBitnessHook64
+        "{60a90a2f-858d-42af-8929-82be9d99e8a1}",  # UIAutomationCrossBitnessHook32
+    }
+)
+_DLLHOST_PROCESSID_RE = re.compile(r"(?:^|\s)[/-]processid:(\{[0-9a-f-]{36}\})(?:\s|$)", re.IGNORECASE)
+
+
+def is_windows_dllhost_path(filepath):
+    """Return True if filepath points to System32 or SysWOW64 dllhost.exe."""
+    if isinstance(filepath, bytes):
+        filepath = filepath.decode("utf-8", errors="ignore")
+    if not isinstance(filepath, str) or not filepath:
+        return False
+
+    norm = filepath.replace("/", "\\").lower()
+    if norm.startswith(("\\\\?\\", "\\??\\")):
+        norm = norm[4:]
+    if ntpath.basename(norm) != "dllhost.exe":
+        return False
+
+    system_root = os.environ.get("SystemRoot", "C:\\Windows").replace("/", "\\")
+    _, win_rel = ntpath.splitdrive(system_root)
+    win_rel = win_rel.strip("\\").lower() or "windows"
+    rel_pattern = rf"{re.escape(win_rel)}\\(?:system32|syswow64)\\dllhost\.exe"
+    return bool(re.fullmatch(rf"(?:[a-z]:|\\device\\[^\\]+)\\{rel_pattern}", norm))
+
+
+def is_uia_surrogate_command_line(cmdline):
+    """Return True if cmdline invokes one of Windows' UIA cross-bitness surrogates."""
+    if not isinstance(cmdline, str) or not cmdline:
+        return False
+    match = _DLLHOST_PROCESSID_RE.search(cmdline)
+    if not match:
+        return False
+    if match.group(1).lower() not in UIA_SURROGATE_APPIDS:
+        return False
+    return not cmdline[match.end() :].strip()
+
+
+def is_uia_surrogate_process(proc, filepath, analyzer=None):
+    """Return True if proc is a DcomLaunch-spawned UIA cross-bitness dllhost surrogate."""
+    if not is_windows_dllhost_path(filepath):
+        return False
+    cmdline = proc.get_command_line()
+    if not is_uia_surrogate_command_line(cmdline):
+        return False
+    dcom_pid = analyzer.get_dcomlaunch_pid() if analyzer is not None else None
+    if not isinstance(dcom_pid, int) or dcom_pid <= 0:
+        return False
+    return proc.get_parent_pid() == dcom_pid
 
 
 def pid_from_service_name(servicename):
@@ -274,6 +331,7 @@ class Analyzer:
 
         self.CRITICAL_PROCESS_LIST = []
         self.SERVICES_PID = None
+        self.DCOMLAUNCH_PID = None
         self.MONITORED_SERVICES = False
         self.MONITORED_WMI = False
         self.MONITORED_DCOM = False
@@ -430,6 +488,18 @@ class Analyzer:
 
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
+
+    def get_dcomlaunch_pid(self):
+        """Return and cache the PID of the DcomLaunch service host."""
+        if self.DCOMLAUNCH_PID is None:
+            try:
+                dcom_pid = pid_from_service_name("DcomLaunch")
+            except Exception as e:
+                log.debug("Failed to query DcomLaunch PID: %s", e)
+                return None
+            if isinstance(dcom_pid, int) and dcom_pid > 0:
+                self.DCOMLAUNCH_PID = dcom_pid
+        return self.DCOMLAUNCH_PID
 
     def choose_package(self):
         # If no analysis package was specified at submission, we try to select one automatically.
@@ -1232,7 +1302,11 @@ class CommandPipeHandler:
             proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
             filepath = proc.get_filepath()
             filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
-            if not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
+            if (
+                not in_protected_path(filepath)
+                and not self.analyzer.files.is_protected_filename(filename)
+                and not is_uia_surrogate_process(proc, filepath, self.analyzer)
+            ):
                 self.analyzer.process_list.add_pid(process_id)
                 log.info("Announce process name : %s", filename)
             proc.close()
@@ -1267,6 +1341,7 @@ class CommandPipeHandler:
             self.analyzer.MONITORED_DCOM = True
             dcom_pid = pid_from_service_name("DcomLaunch")
             if dcom_pid:
+                self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
                 servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                 self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                 filepath = servproc.get_filepath()
@@ -1282,6 +1357,7 @@ class CommandPipeHandler:
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
+                    self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
                     servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
                     filepath = servproc.get_filepath()
@@ -1345,6 +1421,7 @@ class CommandPipeHandler:
                 self.analyzer.MONITORED_DCOM = True
                 dcom_pid = pid_from_service_name("DcomLaunch")
                 if dcom_pid:
+                    self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
                     servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
 
                     self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
@@ -1486,7 +1563,11 @@ class CommandPipeHandler:
         filepath = proc.get_filepath()
         filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
 
-        if not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
+        if (
+            not in_protected_path(filepath)
+            and not self.analyzer.files.is_protected_filename(filename)
+            and not is_uia_surrogate_process(proc, filepath, self.analyzer)
+        ):
             # Add the new process ID to the list of monitored processes.
             self.analyzer.process_list.add_pid(process_id)
 
@@ -1514,8 +1595,6 @@ class CommandPipeHandler:
                 # monitored already, otherwise we would generate
                 # polluted logs.
                 if process_id not in self.analyzer.process_list.pids:
-                    if process_id not in INJECT_LIST:
-                        INJECT_LIST.append(process_id)
                     # Open the process and inject the DLL.
                     proc = Process(
                         options=self.analyzer.options,
@@ -1539,7 +1618,11 @@ class CommandPipeHandler:
                         self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
-                    if not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
+                    if is_uia_surrogate_process(proc, filepath, self.analyzer):
+                        log.info("Skipping injection into UIA cross-bitness surrogate process %s (pid: %d)", filename, process_id)
+                    elif not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
+                        if process_id not in INJECT_LIST:
+                            INJECT_LIST.append(process_id)
                         _ = proc.inject(interest)
                         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                         self.analyzer.NUM_INJECTED += 1

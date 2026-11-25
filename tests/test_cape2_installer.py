@@ -1,8 +1,10 @@
 """Unit tests for installer/cape2.sh config template copying and systemd unit sync."""
 from pathlib import Path
 import os
+import socket
 import stat
 import subprocess
+import tempfile
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -664,3 +666,62 @@ def test_install_libvirt_discovers_custom_virsh_prefix_and_find_lib64(tmp_path):
     logged_find = uv_log.read_text(encoding="utf-8").strip()
     assert f"PKG_CONFIG_PATH={nested_pc_dir}" in logged_find
     assert f"pip install --python {cape_root}/.venv/bin/python libvirt-python==12.6.0" in logged_find
+
+
+def test_migrate_to_uv_warns_when_libvirt_sockets_missing(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    (cape_root / "conf" / "default").mkdir(parents=True)
+    (cape_root / "systemd").mkdir(parents=True)
+    (cape_root / "pyproject.toml").write_text("[project]\nname = 'CAPEv2'\n", encoding="utf-8")
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(fake_bin / "chown", "#!/bin/bash\nexit 0\n")
+    _write_exe(fake_bin / "crontab", "#!/bin/bash\nexit 1\n")
+    _write_exe(fake_bin / "systemctl", "#!/bin/bash\nexit 0\n")
+    _write_exe(fake_bin / "uv", "#!/bin/bash\nexit 0\n")
+    _write_exe(fake_bin / "virsh", "#!/bin/bash\nexit 0\n")
+
+    def _run_migrate(run_dir: str) -> subprocess.CompletedProcess:
+        script = (
+            "set -euo pipefail\n"
+            f"CAPE_ROOT={str(cape_root)!r}\n"
+            f"FREEZE_FILE={str(tmp_path / 'poetry-freeze.txt')!r}\n"
+            "USER=cape\n"
+            "DISABLE_LIBVIRT=0\n"
+            "UV_PYTHON_VERSION=3.14\n"
+            f"UV_PYTHON_DIR={str(tmp_path / 'uv_py')!r}\n"
+            f"LIBVIRT_RUN_DIR={run_dir!r}\n"
+            f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+            "PYTHON_MGR_CMD='run --no-sync'\n"
+            "PYTHON_MGR_PIP=pip\n"
+            "PYTHON_MGR_INSTALL_PYPROJECT='sync --locked --no-install-project --inexact --python 3.14'\n"
+            f"SYSTEMD_UNIT_DIR={str(tmp_path / 'systemd_empty')!r}\n"
+            'install_uv_and_python() { mkdir -p "$UV_PYTHON_DIR"; }\n'
+            "install_libvirt() { return 0; }\n"
+            f"eval \"$(awk '/^function seed_default_env_files\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+            f"eval \"$(awk '/^function sync_installed_systemd_units\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+            f"eval \"$(awk '/^function rewrite_poetry_crontab_stream\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+            f"eval \"$(awk '/^function migrate_to_uv\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+            "migrate_to_uv\n"
+        )
+        env = dict(os.environ)
+        env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+        return subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
+
+    with tempfile.TemporaryDirectory(dir="/tmp", prefix="lv_") as run_dir:
+        missing_res = _run_migrate(run_dir)
+        assert f"Neither {run_dir}/libvirt-sock nor {run_dir}/virtqemud-sock exists." in missing_res.stdout
+        assert "Failed to connect socket to '/var/run/libvirt/virtqemud-sock'" in missing_res.stdout
+
+        for sock_name in ("virtqemud-sock", "libvirt-sock"):
+            sock_path = os.path.join(run_dir, sock_name)
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as srv:
+                srv.bind(sock_path)
+                present_res = _run_migrate(run_dir)
+            os.unlink(sock_path)
+            assert "Neither " not in present_res.stdout

@@ -288,6 +288,45 @@ Run these checks after restarting services:
 
     # 4. Run a smoke submission and verify processing + web UI report rendering
 
+Troubleshooting
+===============
+
+``Failed to connect socket to '/var/run/libvirt/virtqemud-sock'``
+-----------------------------------------------------------------
+
+If ``cape.service`` fails immediately after ``migrate-uv`` restarts services with::
+
+    libvirt: XML-RPC error : Failed to connect socket to '/var/run/libvirt/virtqemud-sock': No such file or directory
+    CRITICAL: CuckooStartupError: Failed to connect to libvirt with DSN 'qemu:///system'. Error: Failed to connect socket to '/var/run/libvirt/virtqemud-sock': No such file or directory
+
+the cause is usually the host libvirt systemd units rather than the ``uv`` / ``libvirt-python`` build. While ``migrate-uv`` stops CAPE services to install Python 3.14 and rebuild ``libvirt-python``, an idle monolithic ``libvirtd.service`` without ``libvirtd.socket`` enabled exits after 120 seconds (``--timeout 120``) and removes ``/var/run/libvirt/libvirt-sock``, or conflicting monolithic (``libvirtd``) and modular (``virtqemud``) units prevent either socket from starting.
+
+Enable **one** daemon mode on the KVM host (see :ref:`troubleshooting_libvirt_socket` for details):
+
+**Option A — Modular daemons (libvirt 11+ default):**
+
+.. code-block:: bash
+
+    sudo systemctl daemon-reload
+    sudo systemctl disable --now libvirtd.service libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket 2>/dev/null || true
+    sudo systemctl enable --now virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket virtnetworkd.socket virtstoraged.socket virtlogd.socket virtqemud.service
+
+**Option B — Monolithic ``libvirtd``:**
+
+.. code-block:: bash
+
+    sudo systemctl daemon-reload
+    sudo systemctl disable --now virtqemud.service virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket virtnetworkd.service virtnetworkd.socket virtstoraged.service virtstoraged.socket 2>/dev/null || true
+    sudo systemctl enable --now libvirtd.socket libvirtd-ro.socket libvirtd-admin.socket virtlogd.socket libvirtd.service
+
+Then verify socket access and restart CAPE:
+
+.. code-block:: bash
+
+    ls -la /var/run/libvirt/
+    sudo -u cape virsh -c qemu:///system list --all
+    sudo systemctl restart cape
+
 Cleaning Up Poetry (After Verification)
 =======================================
 

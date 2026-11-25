@@ -97,6 +97,8 @@ class ServiceDll(Package):
         try:
             with OpenKeyEx(HKEY_LOCAL_MACHINE, service_path, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY) as key:
                 DeleteValue(key, "WOW64")
+        except FileNotFoundError:
+            log.debug("WOW64 registry value not present for service '%s'", servicename)
         except Exception as e:
             log.info("Error deleting WOW64 registry value: %s", e)
             return
@@ -113,8 +115,8 @@ class ServiceDll(Package):
     def start(self, path):
         try:
             servicename = self.options.get(OPT_SERVICENAME, "CAPEService").encode("utf8")
-            if servicename == "blank":
-                servicename = " ".encode("utf8")
+            if servicename == b"blank":
+                servicename = b" "
             servicedesc = self.options.get(OPT_SERVICEDESC, "CAPE Service").encode("utf8")
             arguments = self.options.get(OPT_ARGUMENTS)
             path = check_file_extension(path, ".dll")
@@ -124,7 +126,7 @@ class ServiceDll(Package):
             if arguments:
                 dllpath += f" {arguments}"
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
-            if scm_handle == 0:
+            if not scm_handle:
                 log.info("Failed to open SCManager")
                 log.info(ctypes.FormatError())
                 return
@@ -143,9 +145,10 @@ class ServiceDll(Package):
                 None,
                 None,
             )
-            if service_handle == 0:
+            if not service_handle:
                 log.info("Failed to create service '%s'", servicename.decode())
                 log.info(ctypes.FormatError())
+                ADVAPI32.CloseServiceHandle(scm_handle)
                 return
             log.info("Created service '%s'", servicename.decode())
             self.set_keys(servicename.decode(), dllpath)

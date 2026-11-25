@@ -119,6 +119,7 @@ WM_CLOSE = 0x00000010
 BM_CLICK = 0x000000F5
 
 SHARD_PATHA = 0x00000002
+SHARD_PATHW = 0x00000003
 
 GENERIC_READ = 0x80000000
 GENERIC_WRITE = 0x40000000
@@ -450,6 +451,22 @@ KERNEL32.Process32Next.argtypes = [HANDLE, LPVOID]
 KERNEL32.Process32Next.restype = BOOL
 KERNEL32.DeviceIoControl.argtypes = [HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPVOID, LPVOID]
 KERNEL32.DeviceIoControl.restype = BOOL
+KERNEL32.Sleep.argtypes = [DWORD]
+KERNEL32.Sleep.restype = None
+KERNEL32.SetLocalTime.argtypes = [LPVOID]
+KERNEL32.SetLocalTime.restype = BOOL
+KERNEL32.GetSystemInfo.argtypes = [LPVOID]
+KERNEL32.GetSystemInfo.restype = None
+KERNEL32.GlobalMemoryStatusEx.argtypes = [LPVOID]
+KERNEL32.GlobalMemoryStatusEx.restype = BOOL
+KERNEL32.QueryDosDeviceA.argtypes = [LPVOID, LPVOID, DWORD]
+KERNEL32.QueryDosDeviceA.restype = DWORD
+if hasattr(KERNEL32, "Wow64DisableWow64FsRedirection"):
+    KERNEL32.Wow64DisableWow64FsRedirection.argtypes = [POINTER(HANDLE)]
+    KERNEL32.Wow64DisableWow64FsRedirection.restype = BOOL
+if hasattr(KERNEL32, "Wow64RevertWow64FsRedirection"):
+    KERNEL32.Wow64RevertWow64FsRedirection.argtypes = [HANDLE]
+    KERNEL32.Wow64RevertWow64FsRedirection.restype = BOOL
 
 ADVAPI32.OpenSCManagerA.argtypes = [LPVOID, LPVOID, DWORD]
 ADVAPI32.OpenSCManagerA.restype = HANDLE
@@ -486,3 +503,9 @@ USER32.GetWindowThreadProcessId.restype = DWORD
 
 SHELL32.IsUserAnAdmin.argtypes = []
 SHELL32.IsUserAnAdmin.restype = BOOL
+SHELL32.SHGetFolderPathW.argtypes = [HWND, c_int, HANDLE, DWORD, PWSTR]
+SHELL32.SHGetFolderPathW.restype = c_long
+SHELL32.SHGetKnownFolderPath.argtypes = [LPVOID, DWORD, HANDLE, POINTER(PWSTR)]
+SHELL32.SHGetKnownFolderPath.restype = c_long
+SHELL32.SHAddToRecentDocs.argtypes = [DWORD, LPVOID]
+SHELL32.SHAddToRecentDocs.restype = None

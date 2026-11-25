@@ -75,9 +75,9 @@ class Service(Package):
             path = check_file_extension(path, ".exe")
             binpath = f'"{path}"'.encode("utf8")
             if arguments:
-                binpath += f" {arguments}"
+                binpath += f" {arguments}".encode("utf8")
             scm_handle = ADVAPI32.OpenSCManagerA(None, None, SC_MANAGER_ALL_ACCESS)
-            if scm_handle == 0:
+            if not scm_handle:
                 log.info("Failed to open SCManager")
                 log.info(ctypes.FormatError())
                 return
@@ -96,11 +96,12 @@ class Service(Package):
                 None,
                 None,
             )
-            if service_handle == 0:
+            if not service_handle:
                 log.info("Failed to create service")
                 log.info(ctypes.FormatError())
+                ADVAPI32.CloseServiceHandle(scm_handle)
                 return
-            log.info("Created service (handle: 0x%s)", service_handle)
+            log.info("Created service (handle: 0x%x)", service_handle)
             servproc = Process(options=self.options, config=self.config, pid=self.config.services_pid)
             filepath = servproc.get_filepath()
             servproc.inject(interest=filepath, nosleepskip=True)

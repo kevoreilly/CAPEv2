@@ -237,3 +237,46 @@ class ProcessTests(unittest.TestCase):
             p_real.h_thread = None
 
         self.assertEqual(closed, [0x1234, 0x5678])
+
+    def test_kernel_analyze_win64_skips_wow64_and_encodes_ioctls(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            for fname in ("zer0m0n_x64.sys", "logs_dispatcher.exe"):
+                with open(os.path.join(dll_dir, fname), "wb") as fh:
+                    fh.write(b"MZ")
+
+            proc = Process(pid=1234)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            orig_cwd = os.getcwd()
+            os.chdir(tmpdir)
+            try:
+                with (
+                    patch("lib.api.process.is_os_64bit", return_value=True),
+                    patch("lib.api.process.sys.maxsize", 2**63 - 1),
+                    patch("lib.api.process.os.system"),
+                    patch("lib.api.process.Config", return_value=fake_cfg),
+                    patch.object(Process, "get_parent_pid", return_value=42),
+                    patch.dict(os.environ, {"TEMP": tmpdir}),
+                    patch("lib.api.process.KERNEL32") as mock_k32,
+                ):
+                    mock_k32.CreateProcessW.return_value = True
+                    mock_k32.CreateFileW.return_value = 0x5555
+                    mock_k32.CreateToolhelp32Snapshot.return_value = 0x6666
+                    mock_k32.Process32First.return_value = False
+
+                    self.assertTrue(proc.kernel_analyze())
+
+                mock_k32.Wow64DisableWow64FsRedirection.assert_not_called()
+                mock_k32.Wow64RevertWow64FsRedirection.assert_not_called()
+                self.assertIs(mock_k32.CreateProcessW.call_args[0][4], False)
+                self.assertEqual(mock_k32.DeviceIoControl.call_count, 2)
+                for call in mock_k32.DeviceIoControl.call_args_list:
+                    self.assertIsInstance(call[0][2], bytes)
+                closed = [call[0][0] for call in mock_k32.CloseHandle.call_args_list]
+                self.assertIn(0x6666, closed)
+                self.assertIn(0x5555, closed)
+            finally:
+                os.chdir(orig_cwd)

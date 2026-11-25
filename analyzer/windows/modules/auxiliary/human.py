@@ -60,6 +60,39 @@ SM_CXSCREEN = 0
 SM_CYSCREEN = 1
 SM_CXFULLSCREEN = 16
 SM_CYFULLSCREEN = 17
+
+# Explicit USER32 prototypes for 64-bit Python HWND/pointer safety.
+USER32.GetSystemMetrics.argtypes = [c_int]
+USER32.GetSystemMetrics.restype = c_int
+USER32.GetForegroundWindow.argtypes = []
+USER32.GetForegroundWindow.restype = wintypes.HWND
+USER32.WindowFromPoint.argtypes = [wintypes.POINT]
+USER32.WindowFromPoint.restype = wintypes.HWND
+USER32.EnumWindows.argtypes = [c_void_p, wintypes.LPARAM]
+USER32.EnumWindows.restype = wintypes.BOOL
+USER32.EnumChildWindows.argtypes = [wintypes.HWND, c_void_p, wintypes.LPARAM]
+USER32.EnumChildWindows.restype = wintypes.BOOL
+USER32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, c_int]
+USER32.GetClassNameW.restype = c_int
+USER32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, c_int]
+USER32.GetWindowTextW.restype = c_int
+USER32.GetCursorPos.argtypes = [POINTER(wintypes.POINT)]
+USER32.GetCursorPos.restype = wintypes.BOOL
+USER32.SetCursorPos.argtypes = [c_int, c_int]
+USER32.SetCursorPos.restype = wintypes.BOOL
+USER32.IsWindowEnabled.argtypes = [wintypes.HWND]
+USER32.IsWindowEnabled.restype = wintypes.BOOL
+USER32.IsWindowVisible.argtypes = [wintypes.HWND]
+USER32.IsWindowVisible.restype = wintypes.BOOL
+USER32.SetForegroundWindow.argtypes = [wintypes.HWND]
+USER32.SetForegroundWindow.restype = wintypes.BOOL
+USER32.SendNotifyMessageW.argtypes = [wintypes.HWND, wintypes.UINT, c_void_p, c_void_p]
+USER32.SendNotifyMessageW.restype = wintypes.BOOL
+USER32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, c_void_p]
+USER32.keybd_event.restype = None
+USER32.mouse_event.argtypes = [wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, c_void_p]
+USER32.mouse_event.restype = None
+
 RESOLUTION = {"x": USER32.GetSystemMetrics(SM_CXSCREEN), "y": USER32.GetSystemMetrics(SM_CYSCREEN)}
 RESOLUTION_WITHOUT_TASKBAR = {"x": USER32.GetSystemMetrics(SM_CXFULLSCREEN), "y": USER32.GetSystemMetrics(SM_CYFULLSCREEN)}
 

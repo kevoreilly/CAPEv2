@@ -75,9 +75,10 @@ from lib.common.defines import (
     PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESSENTRY32,
     PSAPI,
+    SHELL32,
     SIZE_T,
-    STARTUPINFO,
     STARTUPINFOEXW,
+    STARTUPINFOW,
     STILL_ACTIVE,
     SYSTEM_INFO,
     TOKEN_PRIVILEGES,
@@ -453,7 +454,7 @@ class Process:
     def get_folder_path(self, csidl):
         """Use SHGetFolderPathW to get the system folder path for a given CSIDL."""
         buf = create_unicode_buffer(MAX_PATH)
-        windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buf)
+        SHELL32.SHGetFolderPathW(None, csidl, None, 0, buf)
         return buf.value
 
     def get_image_name(self):
@@ -651,22 +652,22 @@ class Process:
         log.info("[-] Service : %s", service_name)
 
         _ = Path(new_inf).write_text(inf_data)
-        os_is_64bit = is_os_64bit()
-        if os_is_64bit:
-            wow64 = c_ulong(0)
-            KERNEL32.Wow64DisableWow64FsRedirection(byref(wow64))
+        wow64_disabled = False
+        wow64 = HANDLE(0)
+        if is_os_64bit() and sys.maxsize == 2**31 - 1:
+            wow64_disabled = bool(KERNEL32.Wow64DisableWow64FsRedirection(byref(wow64)))
 
         os.system(f'cmd /c "rundll32 setupapi.dll, InstallHinfSection DefaultInstall 132 {new_inf}"')
         os.system(f"net start {service_name}")
 
-        si = STARTUPINFO()
+        si = STARTUPINFOW()
         si.cb = sizeof(si)
         pi = PROCESS_INFORMATION()
         cr = CREATE_NEW_CONSOLE
 
-        ldp = KERNEL32.CreateProcessW(new_exe, None, None, None, None, cr, None, os.getenv("TEMP"), byref(si), byref(pi))
+        ldp = KERNEL32.CreateProcessW(new_exe, None, None, None, False, cr, None, os.getenv("TEMP"), byref(si), byref(pi))
         if not ldp:
-            if os_is_64bit:
+            if wow64_disabled:
                 KERNEL32.Wow64RevertWow64FsRedirection(wow64)
             log.error("Failed starting %s.exe", exe_name)
             return False
@@ -680,36 +681,43 @@ class Process:
 
         log.info("Sending startup information")
         hFile = KERNEL32.CreateFileW(PATH_KERNEL_DRIVER, GENERIC_READ | GENERIC_WRITE, 0, None, OPEN_EXISTING, 0, None)
-        if os_is_64bit:
+        if wow64_disabled:
             KERNEL32.Wow64RevertWow64FsRedirection(wow64)
 
         if hFile and hFile != HANDLE(-1).value:
-            p = Process(pid=os.getpid())
-            ppid = p.get_parent_pid()
-            pid_vboxservice = 0
-            pid_vboxtray = 0
+            try:
+                p = Process(pid=os.getpid())
+                ppid = p.get_parent_pid()
+                pid_vboxservice = 0
+                pid_vboxtray = 0
 
-            # get pid of VBoxService.exe and VBoxTray.exe
-            proc_info = PROCESSENTRY32()
-            proc_info.dwSize = sizeof(PROCESSENTRY32)
+                # get pid of VBoxService.exe and VBoxTray.exe
+                proc_info = PROCESSENTRY32()
+                proc_info.dwSize = sizeof(PROCESSENTRY32)
 
-            snapshot = KERNEL32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-            flag = KERNEL32.Process32First(snapshot, byref(proc_info))
-            while flag:
-                if proc_info.sz_exeFile == "VBoxService.exe":
-                    log.info("VBoxService.exe found!")
-                    pid_vboxservice = proc_info.th32ProcessID
-                elif proc_info.sz_exeFile == "VBoxTray.exe":
-                    pid_vboxtray = proc_info.th32ProcessID
-                    log.info("VBoxTray.exe found!")
+                snapshot = KERNEL32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+                if snapshot and snapshot != HANDLE(-1).value:
+                    try:
+                        flag = KERNEL32.Process32First(snapshot, byref(proc_info))
+                        while flag:
+                            if proc_info.sz_exeFile == b"VBoxService.exe":
+                                log.info("VBoxService.exe found!")
+                                pid_vboxservice = proc_info.th32ProcessID
+                            elif proc_info.sz_exeFile == b"VBoxTray.exe":
+                                pid_vboxtray = proc_info.th32ProcessID
+                                log.info("VBoxTray.exe found!")
 
-                flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
+                            flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
+                    finally:
+                        KERNEL32.CloseHandle(snapshot)
 
-            bytes_returned = c_ulong(0)
-            msg = f"{self.pid}_{ppid}_{os.getpid()}_{pi.dwProcessId}_{pid_vboxservice}_{pid_vboxtray}\0"
-            KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
-            msg = f"{Path.cwd()}\0"
-            KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, msg, len(msg), None, 0, byref(bytes_returned), None)
+                bytes_returned = c_ulong(0)
+                msg = f"{self.pid}_{ppid}_{os.getpid()}_{pi.dwProcessId}_{pid_vboxservice}_{pid_vboxtray}\0".encode("utf-8")
+                KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
+                msg = f"{Path.cwd()}\0".encode("utf-8")
+                KERNEL32.DeviceIoControl(hFile, IOCTL_CUCKOO_PATH, msg, len(msg), None, 0, byref(bytes_returned), None)
+            finally:
+                KERNEL32.CloseHandle(hFile)
         else:
             log.warning("Failed to access kernel driver")
 
@@ -838,7 +846,7 @@ class Process:
                 path,
                 get_error_string(last_error),
             )
-            fallback_startup_info = STARTUPINFO()
+            fallback_startup_info = STARTUPINFOW()
             fallback_startup_info.cb = sizeof(fallback_startup_info)
             fallback_startup_info.dwFlags = 1
             fallback_startup_info.wShowWindow = 1

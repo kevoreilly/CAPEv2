@@ -137,3 +137,21 @@ class TestPackageEnumPaths(unittest.TestCase):
                 os.path.join("D:\\", "Python314", "python.exe"),
             ],
         )
+
+    def test_sysnative_falls_back_to_system32_for_64bit_python(self):
+        class PowerShellPkg(abstracts.Package):
+            PATHS = [
+                ("SystemRoot", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+            ]
+
+        pkg = PowerShellPkg()
+        with patch.dict(os.environ, {"SystemRoot": "C:\\Windows"}):
+            paths = list(pkg.enum_paths())
+
+        self.assertEqual(
+            paths,
+            [
+                os.path.join("C:\\Windows", "sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+                os.path.join("C:\\Windows", "system32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+            ],
+        )

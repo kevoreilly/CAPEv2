@@ -737,6 +737,7 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.pipe_handler._handle_interop(None)
         self.assertEqual(1, len(ana.CRITICAL_PROCESS_LIST))
         self.assertTrue(ana.MONITORED_DCOM)
+        self.assertEqual(random_pid, ana.DCOMLAUNCH_PID)
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         self.assertIn(random_pid, ana.CRITICAL_PROCESS_LIST)
         mock_pid_from_service_name.assert_called_once()
@@ -1020,6 +1021,206 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.assertEqual(1, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_skips_uia_surrogate_x64(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3872,4000")
+            self.assertEqual(0, len(analyzer.INJECT_LIST))
+
+        mock_proc.inject.assert_not_called()
+        mock_proc.close.assert_called_once()
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.assertEqual(0, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_skips_uia_surrogate_x86(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\SysWOW64\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\SysWOW64\DllHost.exe /Processid:{60A90A2F-858D-42AF-8929-82BE9D99E8A1}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = False
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3873,4001")
+            self.assertEqual(0, len(analyzer.INJECT_LIST))
+
+        mock_proc.inject.assert_not_called()
+        mock_proc.close.assert_called_once()
+        self.assertEqual(0, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_injects_non_uia_dllhost_surrogate(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\system32\DllHost.exe /Processid:{3AD05575-8857-4850-9277-11B85BDB8E09}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3874,4002")
+            self.assertEqual([3874], analyzer.INJECT_LIST)
+
+        mock_proc.inject.assert_called_once()
+        self.assertEqual(1, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_injects_spoofed_uia_surrogate_wrong_parent(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D}"
+        )
+        mock_proc.get_parent_pid.return_value = 9999
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3875,4003")
+            self.assertEqual([3875], analyzer.INJECT_LIST)
+
+        mock_proc.inject.assert_called_once()
+        self.assertEqual(1, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_injects_spoofed_uia_surrogate_wrong_path(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"C:\Users\Public\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Users\Public\Windows\System32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3876,4004")
+            self.assertEqual([3876], analyzer.INJECT_LIST)
+
+        mock_proc.get_command_line.assert_not_called()
+        mock_proc.inject.assert_called_once()
+
+    @patch("analyzer.Process")
+    def test_handle_process_protected_filename_not_recorded_in_inject_list(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"C:\Python312\python.exe"
+        mock_proc.is_64bit.return_value = False
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3877,4005")
+            self.assertEqual([], analyzer.INJECT_LIST)
+
+        mock_proc.inject.assert_not_called()
+        self.assertEqual(0, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_inject_process_skips_uia_surrogate(self, mock_process):
+        ana = self.analyzer
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_process.return_value = mock_proc
+
+        self.pipe_handler._inject_process(process_id=3878, thread_id=4006, mode=0)
+        self.assertNotIn(3878, ana.process_list.pids)
+        self.assertFalse(ana.process_lock.locked())
+        mock_proc.inject.assert_not_called()
+        mock_proc.close.assert_called_once()
+
+    @patch("analyzer.Process")
+    def test_handle_kprocess_skips_uia_surrogate(self, mock_process):
+        ana = self.analyzer
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\SysWOW64\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\SysWOW64\DllHost.exe /Processid:{60A90A2F-858D-42AF-8929-82BE9D99E8A1}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_process.return_value = mock_proc
+
+        self.pipe_handler._handle_kprocess(data=b"3879")
+        self.assertNotIn(3879, ana.process_list.pids)
+        self.assertFalse(ana.process_lock.locked())
+        mock_proc.close.assert_called_once()
+
+
+class TestUiaSurrogateHelpers(unittest.TestCase):
+    def test_is_windows_dllhost_path(self):
+        with patch.dict(os.environ, {"SystemRoot": r"C:\Windows"}, clear=False):
+            self.assertTrue(analyzer.is_windows_dllhost_path(r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"))
+            self.assertTrue(analyzer.is_windows_dllhost_path(r"\Device\HarddiskVolume3\Windows\SysWOW64\DllHost.exe"))
+            self.assertTrue(analyzer.is_windows_dllhost_path(r"C:\Windows\System32\DllHost.exe"))
+            self.assertTrue(analyzer.is_windows_dllhost_path(r"C:\Windows\SysWOW64\dllhost.exe"))
+            self.assertTrue(analyzer.is_windows_dllhost_path(r"\\?\C:\Windows\System32\DllHost.exe"))
+            self.assertTrue(analyzer.is_windows_dllhost_path(br"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"))
+            self.assertFalse(analyzer.is_windows_dllhost_path(r"C:\Users\Public\Windows\System32\dllhost.exe"))
+            self.assertFalse(analyzer.is_windows_dllhost_path(r"\Device\HarddiskVolume2\Temp\Windows\System32\dllhost.exe"))
+            self.assertFalse(analyzer.is_windows_dllhost_path(r"C:\Windows\System32\svchost.exe"))
+            self.assertFalse(analyzer.is_windows_dllhost_path(""))
+            self.assertFalse(analyzer.is_windows_dllhost_path(None))
+
+    def test_is_uia_surrogate_command_line(self):
+        self.assertTrue(
+            analyzer.is_uia_surrogate_command_line(
+                r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D}"
+            )
+        )
+        self.assertTrue(
+            analyzer.is_uia_surrogate_command_line(
+                r'"C:\Windows\SysWOW64\DllHost.exe" -processid:{60a90a2f-858d-42af-8929-82be9d99e8a1} '
+            )
+        )
+        self.assertFalse(
+            analyzer.is_uia_surrogate_command_line(
+                r"C:\Windows\system32\DllHost.exe /Processid:{3AD05575-8857-4850-9277-11B85BDB8E09}"
+            )
+        )
+        self.assertFalse(
+            analyzer.is_uia_surrogate_command_line(
+                r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D} /extra"
+            )
+        )
+        self.assertFalse(analyzer.is_uia_surrogate_command_line(r"C:\Windows\system32\DllHost.exe"))
+        self.assertFalse(analyzer.is_uia_surrogate_command_line(""))
+        self.assertFalse(analyzer.is_uia_surrogate_command_line(None))
 
 
 class TestAnalyzerEnforceTimeoutPackageFailure(unittest.TestCase):

@@ -1,6 +1,8 @@
 import ctypes
 import logging
 import os
+import subprocess
+import sys
 import threading
 import unittest
 from unittest.mock import MagicMock, patch
@@ -280,3 +282,128 @@ class ProcessTests(unittest.TestCase):
                 self.assertIn(0x5555, closed)
             finally:
                 os.chdir(orig_cwd)
+
+    def _write_unicode_string_into_buf(self, buf_ptr, text: str) -> int:
+        from lib.api.process import _UNICODE_STRING_PTR
+
+        encoded = text.encode("utf-16le")
+        hdr_size = ctypes.sizeof(_UNICODE_STRING_PTR)
+        buf_addr = ctypes.addressof(buf_ptr._obj)
+        us = _UNICODE_STRING_PTR(
+            Length=len(encoded),
+            MaximumLength=len(encoded) + 2,
+            Buffer=buf_addr + hdr_size,
+        )
+        ctypes.memmove(buf_addr, ctypes.byref(us), hdr_size)
+        ctypes.memmove(buf_addr + hdr_size, encoded, len(encoded))
+        return hdr_size + len(encoded) + 2
+
+    def test_get_command_line_parses_unicode_string(self):
+        from lib.api.process import PROCESS_COMMAND_LINE_INFORMATION
+
+        expected = r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D}"
+
+        def fake_ntquery(h_proc, info_class, buf_ptr, buf_len, ret_len_ptr):
+            self.assertEqual(info_class, PROCESS_COMMAND_LINE_INFORMATION)
+            written = self._write_unicode_string_into_buf(buf_ptr, expected)
+            ret_len_ptr._obj.value = written
+            return 0
+
+        with patch("lib.api.process.NTDLL") as mock_ntdll, patch("lib.api.process.KERNEL32"):
+            mock_ntdll.NtQueryInformationProcess.side_effect = fake_ntquery
+            proc = Process(pid=3872, h_process=0x1234)
+            try:
+                self.assertEqual(proc.get_command_line(), expected)
+            finally:
+                proc.h_process = None
+
+    def test_get_command_line_retries_on_info_length_mismatch(self):
+        from lib.api.process import _UNICODE_STRING_PTR
+
+        expected = "C:\\Windows\\system32\\DllHost.exe " + ("A" * 3000)
+        needed = ctypes.sizeof(_UNICODE_STRING_PTR) + len(expected.encode("utf-16le")) + 2
+        calls = []
+
+        def fake_ntquery(h_proc, info_class, buf_ptr, buf_len, ret_len_ptr):
+            calls.append(buf_len)
+            if buf_len < needed:
+                ret_len_ptr._obj.value = needed
+                return -1073741820  # STATUS_INFO_LENGTH_MISMATCH (0xC0000004)
+            written = self._write_unicode_string_into_buf(buf_ptr, expected)
+            ret_len_ptr._obj.value = written
+            return 0
+
+        with patch("lib.api.process.NTDLL") as mock_ntdll, patch("lib.api.process.KERNEL32"):
+            mock_ntdll.NtQueryInformationProcess.side_effect = fake_ntquery
+            proc = Process(pid=3872, h_process=0x1234)
+            try:
+                self.assertEqual(proc.get_command_line(), expected)
+            finally:
+                proc.h_process = None
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[1], needed)
+
+    def test_get_command_line_returns_empty_on_unsupported_info_class(self):
+        with patch("lib.api.process.NTDLL") as mock_ntdll, patch("lib.api.process.KERNEL32"):
+            mock_ntdll.NtQueryInformationProcess.return_value = -1073741821  # STATUS_INVALID_INFO_CLASS
+            proc = Process(pid=3872, h_process=0x1234)
+            try:
+                self.assertEqual(proc.get_command_line(), "")
+            finally:
+                proc.h_process = None
+
+    def test_get_command_line_returns_empty_when_open_fails(self):
+        with patch("lib.api.process.NTDLL") as mock_ntdll, patch("lib.api.process.KERNEL32") as mock_k32:
+            mock_k32.OpenProcess.return_value = 0
+            proc = Process(pid=9999)
+            self.assertEqual(proc.get_command_line(), "")
+            mock_ntdll.NtQueryInformationProcess.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == "win32", "Requires native Windows NtQueryInformationProcess")
+    def test_get_command_line_live_current_process(self):
+        proc = Process(pid=os.getpid())
+        try:
+            cmdline = proc.get_command_line()
+        finally:
+            proc.close()
+        self.assertTrue(cmdline)
+        self.assertIn("python", cmdline.lower())
+
+    @unittest.skipUnless(sys.platform == "win32", "Requires native Windows NtQueryInformationProcess")
+    def test_get_command_line_and_parent_pid_live_cross_bitness(self):
+        from lib.api.process import is_os_64bit
+
+        if not is_os_64bit():
+            self.skipTest("Cross-bitness test requires 64-bit Windows")
+
+        system_root = os.environ.get("SystemRoot", r"C:\Windows")
+        if sys.maxsize > 2**32:
+            target_exe = os.path.join(system_root, "SysWOW64", "cmd.exe")
+            expect_64bit = False
+        else:
+            target_exe = os.path.join(system_root, "Sysnative", "cmd.exe")
+            expect_64bit = True
+
+        if not os.path.isfile(target_exe):
+            self.skipTest(f"Opposite-bitness cmd.exe not found at {target_exe}")
+
+        marker = "CAPEV2_CROSS_BITNESS_CMDLINE_CHECK"
+        child = subprocess.Popen(
+            [target_exe, "/k", f"rem {marker}"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        proc = Process(pid=child.pid)
+        try:
+            self.assertEqual(proc.is_64bit(), expect_64bit)
+            self.assertIn(marker, proc.get_command_line())
+            self.assertEqual(proc.get_parent_pid(), os.getpid())
+            self.assertTrue(proc.get_filepath().lower().endswith("\\cmd.exe"))
+        finally:
+            proc.close()
+            if child.stdin:
+                child.stdin.close()
+            child.terminate()
+            child.wait(timeout=5)

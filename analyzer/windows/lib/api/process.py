@@ -19,6 +19,8 @@ from ctypes import (
     ArgumentError,
     Array,
     POINTER,
+    Structure,
+    addressof,
     byref,
     c_buffer,
     c_char,
@@ -85,6 +87,7 @@ from lib.common.defines import (
     TH32CS_SNAPPROCESS,
     THREAD_ALL_ACCESS,
     UNICODE_STRING,
+    USHORT,
 )
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
@@ -105,6 +108,29 @@ IOCTL_CUCKOO_PATH = 0x22200C
 
 PATH_KERNEL_DRIVER = "\\\\.\\DriverSSDT"
 LOGSERVER_POOL = {}
+
+PROCESS_COMMAND_LINE_INFORMATION = 60
+STATUS_BUFFER_OVERFLOW = 0x80000005
+STATUS_INFO_LENGTH_MISMATCH = 0xC0000004
+STATUS_BUFFER_TOO_SMALL = 0xC0000023
+_COMMAND_LINE_RETRY_STATUSES = frozenset(
+    {
+        STATUS_BUFFER_OVERFLOW,
+        STATUS_INFO_LENGTH_MISMATCH,
+        STATUS_BUFFER_TOO_SMALL,
+    }
+)
+_MAX_COMMAND_LINE_BUFFER_SIZE = 0x100000
+
+
+class _UNICODE_STRING_PTR(Structure):
+    """UNICODE_STRING variant exposing Buffer as a raw pointer for length-bounded reads."""
+
+    _fields_ = [
+        ("Length", USHORT),
+        ("MaximumLength", USHORT),
+        ("Buffer", c_void_p),
+    ]
 
 log = logging.getLogger(__name__)
 
@@ -448,6 +474,43 @@ class Process:
                     return string_at(us.Buffer, us.Length).decode("utf-16le", errors="ignore")
             except Exception as e:
                 log.info(e)
+
+        return ""
+
+    def get_command_line(self):
+        """Get process command line via ProcessCommandLineInformation (Windows 8.1+).
+        @return: decoded command line string, or empty string if unavailable.
+        """
+        if not _is_valid_handle(self.h_process):
+            if self._open_failed or not self.open() or not _is_valid_handle(self.h_process):
+                return ""
+
+        buf = create_string_buffer(4096)
+        size = c_ulong(0)
+        try:
+            ret = NTDLL.NtQueryInformationProcess(
+                self.h_process, PROCESS_COMMAND_LINE_INFORMATION, byref(buf), sizeof(buf), byref(size)
+            )
+            if (
+                not NT_SUCCESS(ret)
+                and (ret & 0xFFFFFFFF) in _COMMAND_LINE_RETRY_STATUSES
+                and sizeof(buf) < size.value <= _MAX_COMMAND_LINE_BUFFER_SIZE
+            ):
+                buf = create_string_buffer(size.value)
+                ret = NTDLL.NtQueryInformationProcess(
+                    self.h_process, PROCESS_COMMAND_LINE_INFORMATION, byref(buf), sizeof(buf), byref(size)
+                )
+
+            if NT_SUCCESS(ret) and size.value >= sizeof(_UNICODE_STRING_PTR):
+                us = _UNICODE_STRING_PTR.from_buffer_copy(buf.raw[: sizeof(_UNICODE_STRING_PTR)])
+                if us.Buffer and us.Length:
+                    buf_addr = addressof(buf)
+                    if buf_addr <= us.Buffer and us.Buffer + us.Length <= buf_addr + sizeof(buf):
+                        offset = us.Buffer - buf_addr
+                        return buf.raw[offset : offset + us.Length].decode("utf-16le", errors="ignore")
+                    return string_at(us.Buffer, us.Length).decode("utf-16le", errors="ignore")
+        except Exception as e:
+            log.debug("Failed getting command line for pid %d: %s", self.pid, e)
 
         return ""
 

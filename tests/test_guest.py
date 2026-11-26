@@ -371,3 +371,106 @@ def test_wait_for_completion_propagates_agent_terminal_status(monkeypatch, agent
 
     gm.wait_for_completion()
     assert db_statuses == [expected_db_status]
+
+
+def test_agent_multipart_boundary_lwsp_crlf_split_across_chunks():
+    from io import BytesIO
+
+    import agent.agent as agent_mod
+
+    boundary = "BOUNDARY123"
+    payload = b"hello world binary\x00\x01\x02"
+    # Trailing LWSP on opening and closing boundaries splits CRLF across small chunks.
+    body = (
+        f"--{boundary}      \r\n"
+        'Content-Disposition: form-data; name="file"; filename="sample.bin"\r\n'
+        "Content-Type: application/octet-stream\r\n"
+        "\r\n"
+    ).encode() + payload + f"\r\n--{boundary}      \r\n".encode() + (
+        'Content-Disposition: form-data; name="field"\r\n\r\nvalue123'
+        f"\r\n--{boundary}--\r\n"
+    ).encode()
+
+    for chunk_size in (1, 2, 3, 5, 7, 13):
+        reader = agent_mod._BoundedReader(BytesIO(body), len(body))
+        form, files = agent_mod._parse_multipart_stream(
+            reader,
+            boundary.encode(),
+            chunk_size=chunk_size,
+            spool_max_bytes=1024,
+        )
+        try:
+            assert form == {"field": "value123"}
+            assert files["file"].read() == payload
+        finally:
+            for sink in files.values():
+                sink.close()
+
+
+def test_agent_spilled_temp_file_move_to_overwrite_and_exdev(tmp_path, monkeypatch):
+    import errno
+    import os
+    import stat
+
+    import agent.agent as agent_mod
+
+    # 1. Overwrite existing file cleanly without nesting; match POSIX umask mode.
+    dest = tmp_path / "target.bin"
+    dest.write_bytes(b"old")
+    spilled = agent_mod._SpilledTempFile()
+    spilled.write(b"new-content")
+    spilled.move_to(str(dest))
+    spilled.close()
+    assert dest.read_bytes() == b"new-content"
+    if os.name != "nt":
+        assert stat.S_IMODE(dest.stat().st_mode) == agent_mod._DEFAULT_FILE_MODE
+
+    # 2. EXDEV fallback copies atomically and removes source temp file.
+    real_replace = os.replace
+    calls = {"n": 0}
+
+    def fake_replace(src, dst):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError(errno.EXDEV, "Invalid cross-device link")
+        return real_replace(src, dst)
+
+    dest2 = tmp_path / "cross_dev.bin"
+    spilled2 = agent_mod._SpilledTempFile()
+    src_name = spilled2.name
+    spilled2.write(b"exdev-payload")
+    monkeypatch.setattr(os, "replace", fake_replace)
+    spilled2.move_to(str(dest2))
+    spilled2.close()
+    assert dest2.read_bytes() == b"exdev-payload"
+    assert not os.path.exists(src_name)
+
+
+def test_agent_status_lock_prevents_terminal_clobber():
+    import agent.agent as agent_mod
+
+    saved = dict(agent_mod.state)
+    try:
+        class _ExitedProc:
+            pid = 9999
+
+            def poll(self):
+                return 0
+
+        agent_mod.state["status"] = agent_mod.Status.RUNNING
+        agent_mod.state["description"] = ""
+        agent_mod.state["async_subprocess"] = _ExitedProc()
+
+        # Setting a terminal status clears async_subprocess so get_status does not clobber EXCEPTION with COMPLETE.
+        import json
+
+        agent_mod.request.form = {"status": "exception", "description": "boom"}
+        resp_put = agent_mod.put_status()
+        assert resp_put.status_code == 200
+        resp_get = agent_mod.get_status()
+        payload = json.loads(resp_get.json())
+        assert payload["status"] == "exception"
+        assert payload["description"] == "boom"
+    finally:
+        agent_mod.state.clear()
+        agent_mod.state.update(saved)

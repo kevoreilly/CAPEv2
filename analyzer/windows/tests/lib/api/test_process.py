@@ -140,6 +140,54 @@ class ProcessTests(unittest.TestCase):
             mock_k32.CloseHandle.assert_called_once_with(0xCAFE)
             self.assertNotIn(220, Process._monitor_handles)
 
+    def test_monitor_handle_lock_held_across_queries_and_close(self):
+        lock_states = []
+
+        def check_exit_code(h_proc, out_ptr):
+            lock_states.append(("GetExitCodeProcess", Process._monitor_handles_lock.locked()))
+            out_ptr._obj.value = 0
+            return 1
+
+        def check_image_name(h_proc, buf, size):
+            lock_states.append(("GetProcessImageFileNameA", Process._monitor_handles_lock.locked()))
+            buf.value = b"\\Device\\HarddiskVolume1\\locked.exe"
+            return len(buf.value)
+
+        def check_close(h_proc):
+            lock_states.append(("CloseHandle", Process._monitor_handles_lock.locked()))
+            return 1
+
+        with patch("lib.api.process.KERNEL32") as mock_k32, patch("lib.api.process.PSAPI") as mock_psapi:
+            mock_k32.GetExitCodeProcess.side_effect = check_exit_code
+            mock_psapi.GetProcessImageFileNameA.side_effect = check_image_name
+            mock_k32.CloseHandle.side_effect = check_close
+
+            # Seed retained monitor handle without cached image name so both exit_code() and get_image_name() query it.
+            with Process._monitor_handles_lock:
+                Process._monitor_handles[555] = (0xBEEF, "")
+            checker = Process(pid=555)
+            self.assertEqual(checker.exit_code(), 0)
+            self.assertEqual(checker.get_image_name(), "locked.exe")
+            Process.release_monitor_handle(555)
+
+        self.assertEqual(
+            lock_states,
+            [
+                ("GetExitCodeProcess", True),
+                ("GetProcessImageFileNameA", True),
+                ("CloseHandle", True),
+            ],
+        )
+
+    def test_resume_handles_unsigned_dword_failure(self):
+        with patch("lib.api.process.KERNEL32") as mock_k32:
+            mock_k32.ResumeThread.return_value = 0xFFFFFFFF
+            proc = Process(pid=777, h_thread=0x444)
+            self.assertFalse(proc.resume())
+
+            mock_k32.ResumeThread.return_value = 1
+            self.assertTrue(proc.resume())
+
     def test_retain_pid_monitor_handle_preserves_existing_handle_and_is_silent_on_failure(self):
         with patch("lib.api.process.KERNEL32") as mock_k32, patch("lib.api.process.PSAPI"):
             mock_k32.OpenProcess.return_value = 0x1111

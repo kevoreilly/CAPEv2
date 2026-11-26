@@ -27,9 +27,10 @@ IN_CREATE = 0x00000100
 IN_DELETE_SELF = 0x00000400
 IN_MOVE_SELF = 0x00000800
 IN_IGNORED = 0x00008000
+IN_DONT_FOLLOW = 0x02000000
 IN_ISDIR = 0x40000000
 
-_WATCH_MASK = IN_CREATE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM
+_WATCH_MASK = IN_CREATE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_MOVED_FROM | IN_DONT_FOLLOW
 _EVENT_HEADER = struct.Struct("=iIII")
 _POLL_TIMEOUT_SEC = 0.5
 _STOP_DELAY_SEC = 2
@@ -98,24 +99,31 @@ class NativeInotifyWatcher:
         if self._fd < 0:
             return
         abs_path = os.path.abspath(path)
+        if os.path.islink(abs_path):
+            return
         self._add_single_watch(abs_path, mask)
         if not rec:
             return
         for dirpath, dirnames, _ in os.walk(abs_path, followlinks=False):
             for dirname in list(dirnames):
                 subpath = os.path.join(dirpath, dirname)
-                if not self._add_single_watch(subpath, mask):
+                if os.path.islink(subpath) or not self._add_single_watch(subpath, mask):
                     dirnames.remove(dirname)
 
     def _add_single_watch(self, abs_path, mask):
+        if os.path.islink(abs_path):
+            return False
         if abs_path in self._path_to_wd:
             return True
-        wd = _LIBC.inotify_add_watch(self._fd, os.fsencode(abs_path), mask)
+        wd = _LIBC.inotify_add_watch(self._fd, os.fsencode(abs_path), mask | IN_DONT_FOLLOW)
         if wd < 0:
             err = ctypes.get_errno()
             if err not in (errno.ENOENT, errno.ENOTDIR, errno.EACCES, errno.ELOOP):
                 log.debug("inotify_add_watch failed for %s: %s", abs_path, os.strerror(err))
             return False
+        old_path = self._wd_to_path.get(wd)
+        if old_path is not None and old_path != abs_path:
+            self._path_to_wd.pop(old_path, None)
         self._wd_to_path[wd] = abs_path
         self._path_to_wd[abs_path] = wd
         return True
@@ -164,10 +172,11 @@ class NativeInotifyWatcher:
             else:
                 pathname = base_path
 
-            if (ev_mask & IN_ISDIR) and (ev_mask & (IN_CREATE | IN_MOVED_TO)):
+            if (ev_mask & IN_ISDIR) and (ev_mask & (IN_CREATE | IN_MOVED_TO)) and not os.path.islink(pathname):
                 self.add_watch(pathname, mask=mask, rec=True)
                 # Catch files created inside the new directory before its watch attached.
-                for dirpath, _, filenames in os.walk(pathname, followlinks=False):
+                for dirpath, dirnames, filenames in os.walk(pathname, followlinks=False):
+                    dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
                     self._add_single_watch(dirpath, mask)
                     for filename in filenames:
                         events.append((IN_CREATE, os.path.join(dirpath, filename)))
@@ -234,9 +243,10 @@ class FileCollector(Auxiliary):
         watcher.add_watch(watch_this, _WATCH_MASK, rec=False)
 
         for filename in os.listdir("/"):
-            if os.path.isdir(f"/{filename}") and filename not in _DEFAULT_IGNORED_ROOT_DIRS:
+            root_entry = f"/{filename}"
+            if os.path.isdir(root_entry) and not os.path.islink(root_entry) and filename not in _DEFAULT_IGNORED_ROOT_DIRS:
                 log.info("FileCollector trying to watch dir %s", filename)
-                watch_this = os.path.abspath(f"/{filename}")
+                watch_this = os.path.abspath(root_entry)
                 watcher.add_watch(watch_this, _WATCH_MASK, rec=True)
 
     def _process_path(self, pathname):

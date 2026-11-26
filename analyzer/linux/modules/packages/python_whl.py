@@ -15,4 +15,4 @@ class Python_whl(Package):
     def prepare(self):
         self.args = [self.target] + self.args
         python_bin = shlex.quote(sys.executable or "/usr/bin/python3")
-        self.target = f"{python_bin} -m pip install --break-system-packages"
+        self.target = f"/usr/bin/env PIP_BREAK_SYSTEM_PACKAGES=1 {python_bin} -m pip install"

@@ -348,8 +348,8 @@ class Process:
         pid = int(pid)
         with cls._monitor_handles_lock:
             entry = cls._monitor_handles.pop(pid, None)
-        if entry and _is_valid_handle(entry[0]):
-            KERNEL32.CloseHandle(entry[0])
+            if entry and _is_valid_handle(entry[0]):
+                KERNEL32.CloseHandle(entry[0])
 
     @classmethod
     def clear_monitor_handles(cls) -> None:
@@ -357,9 +357,9 @@ class Process:
         with cls._monitor_handles_lock:
             entries = list(cls._monitor_handles.values())
             cls._monitor_handles.clear()
-        for h_mon, _ in entries:
-            if _is_valid_handle(h_mon):
-                KERNEL32.CloseHandle(h_mon)
+            for h_mon, _ in entries:
+                if _is_valid_handle(h_mon):
+                    KERNEL32.CloseHandle(h_mon)
 
     def open(self):
         """Open a process and/or thread.
@@ -432,8 +432,13 @@ class Process:
         if h_proc is None and self.pid:
             with self._monitor_handles_lock:
                 mon = self._monitor_handles.get(int(self.pid))
-            if mon and _is_valid_handle(mon[0]):
-                h_proc = mon[0]
+                if mon and _is_valid_handle(mon[0]):
+                    exit_code = c_ulong(0)
+                    ok = KERNEL32.GetExitCodeProcess(mon[0], byref(exit_code))
+                    if not ok:
+                        log.debug("Failed getting exit code for %s", self)
+                        return None
+                    return exit_code.value
 
         if h_proc is None:
             self.open()
@@ -525,15 +530,25 @@ class Process:
         if self._cached_image_name:
             return self._cached_image_name
 
-        mon = None
+        h_proc = self.h_process if _is_valid_handle(self.h_process) else None
         if self.pid:
             with self._monitor_handles_lock:
                 mon = self._monitor_handles.get(int(self.pid))
-            if mon and mon[1]:
-                self._cached_image_name = mon[1]
-                return mon[1]
+                if mon and mon[1]:
+                    self._cached_image_name = mon[1]
+                    return mon[1]
+                if h_proc is None and mon and _is_valid_handle(mon[0]):
+                    image_name_buf = c_buffer(MAX_PATH)
+                    n = PSAPI.GetProcessImageFileNameA(mon[0], image_name_buf, MAX_PATH)
+                    if not n:
+                        log.debug("Failed getting image name for pid %d", self.pid)
+                        return ""
+                    image_name = image_name_buf.value.decode(errors="replace")
+                    name = image_name.split("\\")[-1]
+                    if name:
+                        self._cached_image_name = name
+                    return name
 
-        h_proc = self.h_process if _is_valid_handle(self.h_process) else (mon[0] if mon and _is_valid_handle(mon[0]) else None)
         if h_proc is None:
             if self._open_failed or not self.open() or not _is_valid_handle(self.h_process):
                 return ""
@@ -962,7 +977,7 @@ class Process:
 
         KERNEL32.Sleep(2000)
 
-        if KERNEL32.ResumeThread(self.h_thread) != -1:
+        if KERNEL32.ResumeThread(self.h_thread) not in (-1, 0xFFFFFFFF):
             log.info("Successfully resumed process with pid %d", self.pid)
             return True
         else:

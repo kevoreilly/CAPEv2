@@ -93,7 +93,7 @@ def test_python_and_wheel_packages_use_sys_executable_and_break_system_packages(
     commands = []
     package.execute = lambda cmd: commands.append(cmd) or 99
     assert package.execute_interesting_file(str(tmp_path), whl.name, str(whl)) == 99
-    assert commands == [f"/opt/python3.14/bin/python3 -m pip install --break-system-packages {shlex.quote(str(whl))}"]
+    assert commands == [f"/usr/bin/env PIP_BREAK_SYSTEM_PACKAGES=1 /opt/python3.14/bin/python3 -m pip install {shlex.quote(str(whl))}"]
 
     py_pkg = Python("/tmp/script.py", options={})
     py_pkg.prepare()
@@ -102,8 +102,44 @@ def test_python_and_wheel_packages_use_sys_executable_and_break_system_packages(
 
     whl_pkg = Python_whl("/tmp/pkg.whl", options={})
     whl_pkg.prepare()
-    assert whl_pkg.target == "/opt/python3.14/bin/python3 -m pip install --break-system-packages"
+    assert whl_pkg.target == "/usr/bin/env PIP_BREAK_SYSTEM_PACKAGES=1 /opt/python3.14/bin/python3 -m pip install"
     assert whl_pkg.args == ["/tmp/pkg.whl"]
+
+
+def test_ps1_package_class_lookup():
+    from lib.core.packages import choose_package_class
+    from modules.packages.ps1 import Ps1
+
+    assert choose_package_class(file_type="a pwsh script", file_name="payload.ps1") is Ps1
+    assert choose_package_class(suggestion="ps1") is Ps1
+
+
+def test_is_elf_image_accepts_32bit_and_64bit_elf(tmp_path):
+    import struct
+
+    from lib.common.parse_elf import is_elf_image
+
+    # Minimal valid ELF32 little-endian ET_EXEC header (52 bytes)
+    elf32 = bytearray(52)
+    elf32[0:4] = b"\x7fELF"
+    elf32[4] = 1  # ELFCLASS32
+    elf32[5] = 1  # ELFDATA2LSB
+    struct.pack_into("<HH", elf32, 16, 2, 3)  # ET_EXEC, EM_386
+    struct.pack_into("<HH", elf32, 46, 40, 2)  # e_shentsize=40, e_shnum=2
+    p32 = tmp_path / "sample32.elf"
+    p32.write_bytes(elf32)
+    assert is_elf_image(str(p32)) is True
+
+    # Minimal valid ELF64 big-endian ET_DYN header (64 bytes)
+    elf64 = bytearray(64)
+    elf64[0:4] = b"\x7fELF"
+    elf64[4] = 2  # ELFCLASS64
+    elf64[5] = 2  # ELFDATA2MSB
+    struct.pack_into(">HH", elf64, 16, 3, 62)  # ET_DYN, EM_X86_64
+    struct.pack_into(">HH", elf64, 58, 64, 1)  # e_shentsize=64, e_shnum=1
+    p64 = tmp_path / "sample64.elf"
+    p64.write_bytes(elf64)
+    assert is_elf_image(str(p64)) is True
 
 
 def test_interpreted_script_rejects_external_symlink(package, tmp_path):

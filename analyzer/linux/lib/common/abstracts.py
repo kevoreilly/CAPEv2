@@ -175,7 +175,7 @@ class Package:
             return self.execute(exec_string)
         elif file_name.lower().endswith(".whl"):
             python_bin = shlex.quote(sys.executable or "/usr/bin/python3")
-            exec_string = f"{python_bin} -m pip install --break-system-packages {quoted_path}"
+            exec_string = f"/usr/bin/env PIP_BREAK_SYSTEM_PACKAGES=1 {python_bin} -m pip install {quoted_path}"
             return self.execute(exec_string)
         elif file_name.lower().endswith(".deb"):
             exec_string = f"/usr/bin/dpkg -i {quoted_path}"

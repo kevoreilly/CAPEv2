@@ -1077,4 +1077,88 @@ class TestServerResilienceAndConcurrency:
         restored = pickle.loads(pickle.dumps(agent.app))
         assert isinstance(restored, agent.MiniHTTPServer)
 
+    def test_multipart_boundary_lwsp_crlf_split_across_chunks(self):
+        boundary = "BOUNDARY123"
+        payload = b"hello world binary\x00\x01\x02"
+        # Trailing LWSP on opening and closing boundaries splits CRLF across small chunks.
+        body = (
+            f"--{boundary}      \r\n"
+            'Content-Disposition: form-data; name="file"; filename="sample.bin"\r\n'
+            "Content-Type: application/octet-stream\r\n"
+            "\r\n"
+        ).encode() + payload + f"\r\n--{boundary}      \r\n".encode() + (
+            'Content-Disposition: form-data; name="field"\r\n\r\nvalue123'
+            f"\r\n--{boundary}--\r\n"
+        ).encode()
+
+        for chunk_size in (1, 2, 3, 5, 7, 13):
+            reader = agent._BoundedReader(io.BytesIO(body), len(body))
+            form, files = agent._parse_multipart_stream(
+                reader,
+                boundary.encode(),
+                chunk_size=chunk_size,
+                spool_max_bytes=1024,
+            )
+            try:
+                assert form == {"field": "value123"}
+                assert files["file"].read() == payload
+            finally:
+                for sink in files.values():
+                    sink.close()
+
+    def test_spilled_temp_file_move_to_overwrite_and_exdev(self, tmp_path, monkeypatch):
+        import errno
+        import stat
+
+        # 1. Overwrite existing file cleanly without nesting; match POSIX umask mode.
+        dest = tmp_path / "target.bin"
+        dest.write_bytes(b"old")
+        spilled = agent._SpilledTempFile()
+        spilled.write(b"new-content")
+        spilled.move_to(str(dest))
+        spilled.close()
+        assert dest.read_bytes() == b"new-content"
+        if os.name != "nt":
+            assert stat.S_IMODE(dest.stat().st_mode) == agent._DEFAULT_FILE_MODE
+
+        # 2. EXDEV fallback copies atomically and removes source temp file.
+        real_replace = os.replace
+        calls = {"n": 0}
+
+        def fake_replace(src, dst):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise OSError(errno.EXDEV, "Invalid cross-device link")
+            return real_replace(src, dst)
+
+        dest2 = tmp_path / "cross_dev.bin"
+        spilled2 = agent._SpilledTempFile()
+        src_name = spilled2.name
+        spilled2.write(b"exdev-payload")
+        monkeypatch.setattr(os, "replace", fake_replace)
+        spilled2.move_to(str(dest2))
+        spilled2.close()
+        assert dest2.read_bytes() == b"exdev-payload"
+        assert not os.path.exists(src_name)
+
+    def test_status_lock_prevents_terminal_clobber(self, monkeypatch):
+        class _ExitedProc:
+            pid = 9999
+
+            def poll(self):
+                return 0
+
+        monkeypatch.setitem(agent.state, "status", agent.Status.RUNNING)
+        monkeypatch.setitem(agent.state, "description", "")
+        monkeypatch.setitem(agent.state, "async_subprocess", _ExitedProc())
+        monkeypatch.setattr(agent.request, "form", {"status": "exception", "description": "boom"})
+
+        # Setting a terminal status clears async_subprocess so get_status does not clobber EXCEPTION with COMPLETE.
+        resp_put = agent.put_status()
+        assert resp_put.status_code == 200
+        resp_get = agent.get_status()
+        payload = json.loads(resp_get.json())
+        assert payload["status"] == "exception"
+        assert payload["description"] == "boom"
+
 

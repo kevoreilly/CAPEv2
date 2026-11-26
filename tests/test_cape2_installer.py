@@ -725,3 +725,56 @@ def test_migrate_to_uv_warns_when_libvirt_sockets_missing(tmp_path):
                 present_res = _run_migrate(run_dir)
             os.unlink(sock_path)
             assert "Neither " not in present_res.stdout
+
+
+def test_installer_nginx_yara_sneck_volatility3_and_systemd_symlink_fixes(tmp_path):
+    cape2_src = CAPE2_SH.read_text(encoding="utf-8")
+
+    # H-27: Nginx config uses valid Nginx >=1.25 QUIC/HTTP3 directives and escaped Nginx variables, without stray colon.
+    assert "listen 443 quic reuseport;" in cape2_src
+    assert "listen 443 http3 reuseport;" not in cape2_src
+    assert r"add_header QUIC-Status \$http3;" in cape2_src
+    assert r"return 301 https://\$host\$request_uri;" in cape2_src
+    assert r"try_files \$uri \$uri/ =404;" in cape2_src
+    assert "}:\nEOF" not in cape2_src
+
+    # H-28: install_yara_python forces rebuild under uv and removes yara-x so yara-python takes effect.
+    assert "--reinstall-package yara-python yara-python" in cape2_src
+
+    # M-36: migrate_to_uv detects PEP 610 volatility3 @ git+... freeze lines as well as volatility3==.
+    assert "grep -qiE '^volatility3([= @]|$)'" in cape2_src
+
+    # M-37: librenms_sneck_config matches both bin/python and bin/python3.
+    assert r"(poetry|uv|\.venv).*bin/python3? cuckoo.py" in cape2_src
+    assert r"(poetry|uv|\.venv).*bin/python3? rooter.py" in cape2_src
+    assert r"(poetry|uv|\.venv).*bin/python3? manage.py" in cape2_src
+
+    # L-6: sync_installed_systemd_units skips symlinked units in /lib/systemd/system too,
+    # avoiding mutating git-tracked files under $CAPE_ROOT/systemd/.
+    cape_root = tmp_path / "CAPEv2"
+    src_systemd = cape_root / "systemd"
+    dest_systemd = tmp_path / "lib_systemd"
+    fake_bin = tmp_path / "bin"
+    src_systemd.mkdir(parents=True)
+    dest_systemd.mkdir(parents=True)
+    fake_bin.mkdir(parents=True)
+
+    original_src = "[Service]\nExecStart=/usr/local/bin/uv run --no-sync python cuckoo.py\n"
+    (src_systemd / "cape.service").write_text(original_src, encoding="utf-8")
+    (dest_systemd / "cape.service").symlink_to(src_systemd / "cape.service")
+    _write_exe(fake_bin / "sudo", '#!/bin/bash\nexec "$@"\n')
+    _write_exe(fake_bin / "systemctl", "#!/bin/bash\nexit 0\n")
+
+    script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "PYTHON_MGR=/usr/local/bin/uv\n"
+        f"SYSTEMD_UNIT_DIR={str(dest_systemd)!r}\n"
+        f"eval \"$(awk '/^function sync_installed_systemd_units\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+        "sync_installed_systemd_units\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+    subprocess.run(["bash", "-c", script], env=env, check=True)
+    assert (dest_systemd / "cape.service").is_symlink()
+    assert (src_systemd / "cape.service").read_text(encoding="utf-8") == original_src

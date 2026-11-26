@@ -651,6 +651,16 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
                 self.assertEqual("modules.packages.archive", pkg_name)
                 self.assertEqual("Archive", pkg_class.__class__.__name__)
 
+    def test_choose_package_category_archive(self):
+        test = analyzer.Analyzer()
+        test.config = MagicMock()
+        test.options = MagicMock()
+        test.config.package = ""
+        test.config.category = "archive"
+        pkg_name, pkg_class = test.choose_package()
+        self.assertEqual("modules.packages.archive", pkg_name)
+        self.assertEqual("Archive", pkg_class.__class__.__name__)
+
     def _assert_autodetected_package(self, file_name, expected_pkg_module, expected_pkg_class_name, file_type="ASCII text"):
         """Helper: auto-detect a package from a file in test_data and assert the result."""
         file_path = os.path.join(os.path.dirname(__file__), "test_data", file_name)

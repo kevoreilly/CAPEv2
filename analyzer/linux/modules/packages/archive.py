@@ -17,7 +17,6 @@ from lib.common.constants import (
 )
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
-    ARCHIVE_EXTENSIONS,
     NON_RECURSIVE_CONTAINER_EXTENSIONS,
     attempt_multiple_passwords,
     extract_archive,
@@ -27,6 +26,7 @@ from lib.common.zip_utils import (
     is_probable_archive,
     is_rar_file,
     is_tar_or_compressed,
+    is_within_root,
     is_wrong_password_error,
     is_zip_file,
     unrar_extractor,
@@ -70,7 +70,7 @@ class Archive(Package):
     Set '{OPT_RECURSION_DEPTH}' for nested archive extraction (uses 'file' if installed,
     falling back to built-in magic/extension detection).
     """
-    option_names = sorted(set(ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
+    option_names = sorted(set(ARCHIVE_OPTIONS + (OPT_ARGUMENTS, OPT_MULTI_PASSWORD)))
 
     def _try_get_app(self, application: str):
         try:
@@ -231,9 +231,30 @@ class Archive(Package):
             os.path.relpath(p, root)
             for r, _, files in os.walk(root)
             for f in files
-            if (p := os.path.join(r, f)) not in extracted_archives
-            and os.path.commonpath((resolved_root, os.path.realpath(p))) == resolved_root
+            if (p := os.path.join(r, f)) not in extracted_archives and is_within_root(resolved_root, p)
         ]
+
+    def _resolve_target_member(self, root: str, file_name: str, file_names: list) -> str:
+        """Resolve OPT_FILE directly in root or inside nested-* extracted subdirectories."""
+        resolved_root = os.path.realpath(root)
+        direct_path = os.path.join(root, file_name)
+        if not is_within_root(resolved_root, direct_path):
+            return file_name
+        if os.path.exists(direct_path):
+            return file_name
+
+        norm_target = os.path.normpath(file_name.replace("\\", "/"))
+        for candidate in file_names:
+            norm_candidate = os.path.normpath(candidate.replace("\\", "/"))
+            if norm_candidate == norm_target:
+                return candidate
+            parts = [p for p in norm_candidate.split("/") if p not in ("", ".")]
+            while parts and parts[0].startswith("nested-"):
+                parts = parts[1:]
+            if parts and "/".join(parts) == norm_target:
+                return candidate
+
+        return file_name
 
     def start(self, path):
         # Children may still need sibling members after start() returns.
@@ -299,21 +320,22 @@ class Archive(Package):
                     break
         elif not has_explicit_recursion:
             initial_files = self._discover_extracted_files(root, extracted_archives)
-            if len(initial_files) == 1 and initial_files[0].lower().endswith(ARCHIVE_EXTENSIONS):
+            if len(initial_files) == 1:
                 nested_archive = os.path.join(root, initial_files[0])
-                output_dir = tempfile.mkdtemp(prefix="nested-", dir=root)
-                try:
-                    try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-                    self._extract_with_backend(
-                        nested_archive, output_dir, password, try_multiple_passwords, extractor
-                    )
-                    if os.listdir(output_dir):
-                        extracted_archives.add(nested_archive)
-                    else:
+                if is_probable_archive(nested_archive):
+                    output_dir = tempfile.mkdtemp(prefix="nested-", dir=root)
+                    try:
+                        try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+                        self._extract_with_backend(
+                            nested_archive, output_dir, password, try_multiple_passwords, extractor
+                        )
+                        if os.listdir(output_dir):
+                            extracted_archives.add(nested_archive)
+                        else:
+                            shutil.rmtree(output_dir, ignore_errors=True)
+                    except Exception as e:
                         shutil.rmtree(output_dir, ignore_errors=True)
-                except Exception as e:
-                    shutil.rmtree(output_dir, ignore_errors=True)
-                    log.warning("Single-member nested archive extraction failed for %s: %s", nested_archive, e)
+                        log.warning("Single-member nested archive extraction failed for %s: %s", nested_archive, e)
 
         # Discover actual extracted paths, including password-protected members.
         log.debug("Extracted archives:%s", extracted_archives)
@@ -349,6 +371,7 @@ class Archive(Package):
 
             return ret_list
         else:
-            file_path = os.path.join(root, file_name)
-            pid = self.execute_interesting_file(root, file_name, file_path)
+            resolved_member = self._resolve_target_member(root, file_name, file_names)
+            file_path = os.path.join(root, resolved_member)
+            pid = self.execute_interesting_file(root, resolved_member, file_path)
             return [pid] if pid is not None else []

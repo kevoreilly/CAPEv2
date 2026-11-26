@@ -483,3 +483,123 @@ def test_wget_delegates_to_common_archive_package(monkeypatch, tmp_path):
         pkg.finish()
         assert not Path(pkg.real_package._extraction_dir.name).exists()
 
+
+def test_archive_file_option_resolves_nested_and_extensionless_tar(monkeypatch, tmp_path):
+    import gzip
+    import io
+    import tarfile
+    from zipfile import ZipFile
+
+    monkeypatch.setattr(abstracts, "NetlogFile", Mock)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr(archive, "upload_extracted_files", Mock())
+
+    assert "arguments" in archive.Archive.option_names
+
+    # 1. Single-member nested ZIP with file= targeting inner member
+    inner = io.BytesIO()
+    with ZipFile(inner, "w") as zf:
+        zf.writestr("sub/run.sh", "echo nested\n")
+
+    outer = tmp_path / "outer.zip"
+    with ZipFile(outer, "w") as zf:
+        zf.writestr("inner.zip", inner.getvalue())
+
+    pkg = archive.Archive(options={"file": "sub/run.sh"})
+    pkg.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("missing"))
+    cmds = []
+    pkg.execute = lambda cmd: cmds.append(cmd) or 9101
+    try:
+        assert pkg.start(str(outer)) == [9101]
+        assert len(cmds) == 1
+        assert "sub/run.sh" in cmds[0]
+    finally:
+        pkg.finish()
+
+    # 2. Extensionless tar extracted by 7z from a .gz archive is unwrapped via magic
+    tar_buf = io.BytesIO()
+    with tarfile.open(fileobj=tar_buf, mode="w") as tf:
+        info = tarfile.TarInfo("drop.sh")
+        data = b"echo tar\n"
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+
+    gz_path = tmp_path / "archive.gz"
+    with gzip.open(gz_path, "wb") as gf:
+        gf.write(tar_buf.getvalue())
+
+    def fake_7z(_bin, src, dest, _pw, _multi):
+        if src == str(gz_path):
+            (Path(dest) / "archive").write_bytes(tar_buf.getvalue())
+        else:
+            (Path(dest) / "drop.sh").write_bytes(b"echo tar\n")
+
+    monkeypatch.setattr(archive, "extract_archive", fake_7z)
+    pkg_gz = archive.Archive(options={"file": "drop.sh"})
+    pkg_gz.get_path_app_in_path = Mock(side_effect=lambda name: "/usr/bin/7z" if name == "7z" else (_ for _ in ()).throw(archive.CuckooPackageError("missing")))
+    cmds_gz = []
+    pkg_gz.execute = lambda cmd: cmds_gz.append(cmd) or 9102
+    try:
+        assert pkg_gz.start(str(gz_path)) == [9102]
+        assert len(cmds_gz) == 1
+        assert "drop.sh" in cmds_gz[0]
+    finally:
+        pkg_gz.finish()
+
+
+def test_linux_zip_utils_unrar_wrong_password_and_zip_edge_cases(monkeypatch, tmp_path):
+    from zipfile import ZipFile
+    from lib.common import zip_utils
+
+    # 1. unrar_extractor checks wrong password BEFORE partial entries and appends trailing slash
+    out_dir = tmp_path / "unrar_out"
+    seen_cmds = []
+
+    def fake_run(cmd, **kwargs):
+        seen_cmds.append(cmd)
+        if "-pbad" in cmd:
+            (out_dir / "partial_dir").mkdir(exist_ok=True)
+            return Mock(returncode=11, stdout=b"", stderr=b"Wrong password")
+        (out_dir / "run.sh").write_text("echo ok\n")
+        return Mock(returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run)
+    entries = zip_utils.unrar_extractor(
+        "/usr/bin/unrar", str(out_dir), str(tmp_path / "enc.rar"), "bad:good", try_multiple_passwords=True
+    )
+    assert seen_cmds[0][-1].endswith(os.sep)
+    assert "run.sh" in entries
+    assert not (out_dir / "partial_dir").exists()
+
+    fail_dir = tmp_path / "unrar_fail"
+
+    def fake_run_fail(cmd, **kwargs):
+        (fail_dir / "empty_subdir").mkdir(exist_ok=True)
+        return Mock(returncode=11, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run_fail)
+    with pytest.raises(archive.CuckooPackageError, match="Wrong password"):
+        zip_utils.unrar_extractor("/usr/bin/unrar", str(fail_dir), str(tmp_path / "enc.rar"), "bad")
+    assert list(fail_dir.iterdir()) == []
+
+    # 2. extract_zip does not rename source archive when extracting into a separate directory
+    src_dir = tmp_path / "src"
+    dest_dir = tmp_path / "dest"
+    src_dir.mkdir()
+    same_zip = src_dir / "sample.zip"
+    with ZipFile(same_zip, "w") as zf:
+        zf.writestr("sample.zip", b"inner")
+
+    zip_utils.extract_zip(str(same_zip), str(dest_dir), recursive=False)
+    assert same_zip.exists()
+    assert not (src_dir / "sample.zip.old").exists()
+    assert (dest_dir / "sample.zip").read_bytes() == b"inner"
+
+    # 3. extract_zip wraps OSError on conflicting file/dir entries as CuckooPackageError
+    conflict = tmp_path / "conflict.zip"
+    with ZipFile(conflict, "w") as zf:
+        zf.writestr("a", b"file-a")
+        zf.writestr("a/b", b"file-b")
+    with pytest.raises(archive.CuckooPackageError, match="Unable to extract Zip file"):
+        zip_utils.extract_zip(str(conflict), str(tmp_path / "conflict_out"), recursive=False)
+

@@ -28,7 +28,6 @@ from lib.common.constants import (
 )
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
-    ARCHIVE_EXTENSIONS,
     NON_RECURSIVE_CONTAINER_EXTENSIONS,
     attempt_multiple_passwords,
     extract_archive,
@@ -40,6 +39,7 @@ from lib.common.zip_utils import (
     is_probable_archive,
     is_rar_file,
     is_tar_or_compressed,
+    is_within_root,
     is_wrong_password_error,
     is_zip_file,
     upload_extracted_files,
@@ -332,9 +332,31 @@ class Archive(Package):
             for r, _, files in os.walk(root)
             for f in files
             if (p := os.path.join(r, f)) not in extracted_archives
-            and os.path.commonpath((resolved_root, os.path.realpath(p))) == resolved_root
+            and is_within_root(resolved_root, p)
             and os.path.isfile(os.path.realpath(p))
         ]
+
+    def _resolve_target_member(self, root: str, file_name: str, file_names: list) -> str:
+        """Resolve OPT_FILE directly in root or inside nested-* extracted subdirectories."""
+        resolved_root = os.path.realpath(root)
+        direct_path = os.path.join(root, file_name)
+        if not is_within_root(resolved_root, direct_path):
+            return file_name
+        if os.path.exists(direct_path):
+            return file_name
+
+        norm_target = _normalize_relpath(file_name)
+        for candidate in file_names:
+            norm_candidate = _normalize_relpath(candidate)
+            if norm_candidate == norm_target:
+                return candidate
+            parts = [p for p in norm_candidate.split(os.sep) if p not in ("", ".")]
+            while parts and parts[0].startswith("nested-"):
+                parts = parts[1:]
+            if parts and os.sep.join(parts) == norm_target:
+                return candidate
+
+        return file_name
 
     def _move_staged_tree(self, staging_root: str, target_root: str):
         for item in os.listdir(staging_root):
@@ -352,16 +374,27 @@ class Archive(Package):
         """Apply __configuration.json moves and resolve target file if present."""
         resolved_root = os.path.realpath(root)
         json_path = os.path.join(root, json_filename)
-        resolved_json = os.path.realpath(json_path)
-        if os.path.commonpath((resolved_root, resolved_json)) != resolved_root:
+        if not is_within_root(resolved_root, json_path):
             raise CuckooPackageError(f"JSON configuration '{json_filename}' is outside the extraction directory")
 
         raw_json = extract_json_data(root, json_filename)
         if not raw_json:
             return None, None, False
+        if not isinstance(raw_json, dict):
+            raise CuckooPackageError(f"Invalid JSON configuration in '{json_filename}': expected JSON object")
 
-        json_dst_flds = raw_json.get("path_to_extract", {}) or {}
-        json_target = raw_json.get("target_file", "") or ""
+        json_dst_flds = raw_json.get("path_to_extract", {})
+        if json_dst_flds is None:
+            json_dst_flds = {}
+        if not isinstance(json_dst_flds, dict):
+            raise CuckooPackageError(f"Invalid 'path_to_extract' in '{json_filename}': expected JSON object")
+
+        json_target = raw_json.get("target_file", "")
+        if json_target is None:
+            json_target = ""
+        if not isinstance(json_target, str):
+            raise CuckooPackageError(f"Invalid 'target_file' in '{json_filename}': expected string")
+
         explicit_file = self.options.get(OPT_FILE)
         target_file = explicit_file or json_target
 
@@ -373,13 +406,21 @@ class Archive(Package):
         fin_target_path = os.path.join(root, target_file) if target_file else None
         norm_target = _normalize_relpath(target_file) if target_file else ""
         moved_any = False
+        moved_prefixes = []
 
         # Move files that are specified in JSON file
         for src_rel, dst_fld in json_dst_flds.items():
+            if not isinstance(src_rel, str) or not isinstance(dst_fld, str):
+                raise CuckooPackageError(
+                    f"Invalid 'path_to_extract' mapping in '{json_filename}': expected string keys and values"
+                )
             oldpath = os.path.join(root, src_rel)
-            resolved_old = os.path.realpath(oldpath)
-            if os.path.commonpath((resolved_root, resolved_old)) != resolved_root:
+            if not is_within_root(resolved_root, oldpath):
                 log.warning("Skipping path_to_extract entry '%s' outside extraction root", src_rel)
+                continue
+            resolved_old = os.path.realpath(oldpath)
+            if resolved_old == resolved_root:
+                log.warning("Skipping path_to_extract entry '%s' targeting extraction root itself", src_rel)
                 continue
             if not os.path.exists(oldpath):
                 log.warning("path_to_extract source '%s' not found in extracted archive", src_rel)
@@ -388,23 +429,36 @@ class Archive(Package):
             dst_fld = os.path.expandvars(dst_fld)
             create_custom_folders(dst_fld)
             # If a relative path is provided, take only the basename
-            fname = os.path.split(src_rel)[1]
+            clean_rel = src_rel.rstrip("\\/")
+            fname = os.path.split(clean_rel)[1]
             newpath = os.path.join(dst_fld, fname)
 
-            # We cannot just shutil.move src dirs if src name == dst name.
-            if os.path.isdir(oldpath):
-                log.debug("Resolved Dir: %s for folder '%s'", dst_fld, fname)
-                shutil.copytree(oldpath, newpath, dirs_exist_ok=True)
-                shutil.rmtree(oldpath)
-            else:
-                log.debug("Resolved Dir: %s for file '%s'", dst_fld, fname)
-                shutil.move(oldpath, newpath)
-            moved_any = True
+            if resolved_old != os.path.realpath(newpath):
+                # We cannot just shutil.move src dirs if src name == dst name.
+                if os.path.isdir(oldpath):
+                    log.debug("Resolved Dir: %s for folder '%s'", dst_fld, fname)
+                    shutil.copytree(oldpath, newpath, dirs_exist_ok=True)
+                    shutil.rmtree(oldpath)
+                else:
+                    log.debug("Resolved Dir: %s for file '%s'", dst_fld, fname)
+                    shutil.move(oldpath, newpath)
+                moved_any = True
+                moved_prefixes.append(_normalize_relpath(clean_rel))
 
             if norm_target and norm_target == _normalize_relpath(src_rel):
                 fin_target_path = newpath
                 self.options[OPT_CURDIR] = dst_fld
                 log.debug("New curdir value: %s", self.options[OPT_CURDIR])
+
+        if moved_prefixes:
+            file_names[:] = [
+                f
+                for f in file_names
+                if not any(
+                    (norm_f := _normalize_relpath(f)) == prefix or norm_f.startswith(prefix + os.sep)
+                    for prefix in moved_prefixes
+                )
+            ]
 
         # Only runs if a relative path is given for target file
         # Errors out if the file's containing folder is shifted
@@ -506,24 +560,25 @@ class Archive(Package):
             elif not has_explicit_recursion:
                 # Preserve legacy zip.py convenience: unwrap a single-member nested archive (1 level).
                 initial_files = self._discover_extracted_files(extract_root, extracted_archives)
-                if len(initial_files) == 1 and initial_files[0].lower().endswith(ARCHIVE_EXTENSIONS):
+                if len(initial_files) == 1:
                     nested_archive = os.path.join(extract_root, initial_files[0])
-                    output_dir = tempfile.mkdtemp(prefix="nested-", dir=extract_root)
-                    nested_dirs.add(output_dir)
-                    try:
-                        try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-                        self._extract_with_backend(
-                            nested_archive, output_dir, password, try_multiple_passwords, extractor
-                        )
-                        if os.listdir(output_dir):
-                            extracted_archives.add(nested_archive)
-                        else:
+                    if is_probable_archive(nested_archive):
+                        output_dir = tempfile.mkdtemp(prefix="nested-", dir=extract_root)
+                        nested_dirs.add(output_dir)
+                        try:
+                            try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+                            self._extract_with_backend(
+                                nested_archive, output_dir, password, try_multiple_passwords, extractor
+                            )
+                            if os.listdir(output_dir):
+                                extracted_archives.add(nested_archive)
+                            else:
+                                nested_dirs.discard(output_dir)
+                                shutil.rmtree(output_dir, ignore_errors=True)
+                        except Exception as e:
                             nested_dirs.discard(output_dir)
                             shutil.rmtree(output_dir, ignore_errors=True)
-                    except Exception as e:
-                        nested_dirs.discard(output_dir)
-                        shutil.rmtree(output_dir, ignore_errors=True)
-                        log.warning("Single-member nested archive extraction failed for %s: %s", nested_archive, e)
+                            log.warning("Single-member nested archive extraction failed for %s: %s", nested_archive, e)
 
             # Handle special characters that 7ZIP cannot
             # We have the file names according to 7ZIP output (file_names)
@@ -550,10 +605,14 @@ class Archive(Package):
         # Auto-detect __configuration.json (or explicit json_config option)
         json_config_opt = self.options.get(OPT_JSON_CONFIG)
         json_filename = json_config_opt or _DEFAULT_JSON_CONFIG
+        resolved_root = os.path.realpath(root)
+        json_candidate = os.path.join(root, json_filename)
+        if not is_within_root(resolved_root, json_candidate):
+            raise CuckooPackageError(f"JSON configuration '{json_filename}' is outside the extraction directory")
         compound_target_name = None
         compound_target_path = None
         compound_moved = False
-        if os.path.isfile(os.path.join(root, json_filename)):
+        if os.path.isfile(json_candidate):
             compound_target_name, compound_target_path, compound_moved = self._apply_compound_config(
                 root, json_filename, file_names
             )
@@ -561,7 +620,6 @@ class Archive(Package):
             log.warning("JSON Config File '%s' not found inside archive", json_filename)
 
         if not use_staging and not compound_moved:
-            resolved_root = os.path.realpath(root)
             total_bytes = 0
             if len(file_names) <= _MAX_ROOT_COPY_FILES:
                 for rel_path in file_names:
@@ -577,8 +635,7 @@ class Archive(Package):
                 dirs = []
                 for item in os.listdir(root):
                     d = os.path.join(root, item)
-                    resolved_d = os.path.realpath(d)
-                    if os.path.commonpath((resolved_root, resolved_d)) != resolved_root:
+                    if not is_within_root(resolved_root, d):
                         continue
                     if d in nested_dirs or d in extracted_archives:
                         continue
@@ -626,4 +683,5 @@ class Archive(Package):
             log.debug("Missing file option, auto executing: %s", interesting_files)
             return self.execute_files(root, interesting_files, max_executables=max_executables)
         else:
-            return self.execute_files(root, [file_name])
+            resolved_member = self._resolve_target_member(root, file_name, file_names)
+            return self.execute_files(root, [resolved_member])

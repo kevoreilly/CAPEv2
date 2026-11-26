@@ -856,10 +856,20 @@ def test_windows_winrar_extractor_reports_wrong_password(monkeypatch, tmp_path):
     spec.loader.exec_module(zip_utils)
 
     res = MagicMock(returncode=11, stdout=b"", stderr=b"Wrong password")
-    monkeypatch.setattr(zip_utils.subprocess, "run", MagicMock(return_value=res))
+    out_dir = tmp_path / "out"
+    seen_cmds = []
+
+    def fake_run(cmd, **kwargs):
+        seen_cmds.append(cmd)
+        (out_dir / "partial_subdir").mkdir(parents=True, exist_ok=True)
+        return res
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run)
 
     with pytest.raises(CuckooPackageError, match="Wrong password"):
-        zip_utils.winrar_extractor("C:\\WinRAR.exe", str(tmp_path / "out"), str(tmp_path / "enc.rar"), "bad")
+        zip_utils.winrar_extractor("C:\\WinRAR.exe", str(out_dir), str(tmp_path / "enc.rar"), "bad")
+    assert seen_cmds[0][-1].endswith(os.sep)
+    assert list(out_dir.iterdir()) == []
 
 def test_pipe_forwarder_socket_connect_error(monkeypatch):
     import ctypes

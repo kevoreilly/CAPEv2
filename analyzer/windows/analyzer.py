@@ -403,9 +403,9 @@ class Analyzer:
         destination = self.config.ip, self.config.port
         self.log_pipe_server = PipeServer(PipeForwarder, self.config.logpipe, destination=destination)
 
-        # We update the target according to its category. If it's a file, then
-        # we store the path.
-        if self.config.category == "file":
+        # We update the target according to its category. If it's a file or archive,
+        # then we store the path.
+        if self.config.category in ("file", "archive"):
             self.target = os.path.join(os.environ["TEMP"] + os.sep, str(self.config.file_name))
         # If it's a URL, well.. we store the URL.
         else:
@@ -509,6 +509,8 @@ class Analyzer:
             # If the analysis target is a file, we choose the package according to the file format.
             if self.config.category == "file":
                 package = choose_package(self.config.file_type, self.config.file_name, self.config.exports, self.target)
+            elif self.config.category == "archive":
+                package = "archive"
             # If it's a URL, we'll just use the default Internet Explorer package.
             else:
                 package = "ie"
@@ -579,7 +581,7 @@ class Analyzer:
         # task - one is able to override the starting path of the sample.
         # E.g., for some samples it might be useful to run from %APPDATA%
         # instead of %TEMP%.
-        if self.config.category == "file":
+        if self.config.category in ("file", "archive"):
             self.target = self.package.move_curdir(self.target)
         log.debug("New location of moved file: %s", self.target)
 

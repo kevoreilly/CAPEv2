@@ -189,6 +189,15 @@ def is_probable_archive(file_path) -> bool:
     return lower.endswith(ARCHIVE_EXTENSIONS)
 
 
+def is_within_root(resolved_root: str, target_path: str) -> bool:
+    """Return True if target_path resolves inside resolved_root, handling cross-drive paths safely."""
+    try:
+        resolved_target = os.path.realpath(target_path)
+        return os.path.commonpath((resolved_root, resolved_target)) == resolved_root
+    except ValueError:
+        return False
+
+
 def _safe_member_target(resolved_root: str, member_name: str):
     """Resolve an archive member path inside resolved_root, or return None if unsafe."""
     normalized = member_name.replace("\\", "/")
@@ -198,11 +207,7 @@ def _safe_member_target(resolved_root: str, member_name: str):
     if not parts or any(part == ".." or ":" in part for part in parts):
         return None
     target_path = os.path.join(resolved_root, *parts)
-    resolved_target = os.path.realpath(target_path)
-    try:
-        if os.path.commonpath((resolved_root, resolved_target)) != resolved_root:
-            return None
-    except ValueError:
+    if not is_within_root(resolved_root, target_path):
         return None
     return target_path
 
@@ -248,7 +253,7 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
         log.debug("%s - %s", result.stdout, result.stderr)
         if result.returncode == 0:
             return
-        if b"Wrong password" not in result.stderr + result.stdout:
+        if b"wrong password" not in (result.stderr + result.stdout).lower():
             details = (result.stderr or result.stdout).decode(errors="replace").strip()
             current_entries = set(os.listdir(extract_path)) if os.path.exists(extract_path) else set()
             if current_entries - existing_entries:
@@ -375,8 +380,11 @@ def extract_zip(
     os.makedirs(extract_path, exist_ok=True)
     existing_entries = set(os.listdir(extract_path))
 
-    # Test if zip file contains a file named as itself.
-    if is_overwritten(zip_path):
+    # Test if zip file contains a file named as itself in the same directory.
+    if (
+        os.path.realpath(os.path.dirname(os.path.abspath(zip_path))) == os.path.realpath(extract_path)
+        and is_overwritten(zip_path)
+    ):
         log.debug("ZIP file contains a file with the same name, original will be overwritten")
         # TODO: add random string.
         new_zip_path = f"{zip_path}.old"
@@ -447,6 +455,9 @@ def extract_zip(
                     log.debug("Password '%s' was unsuccessful in extracting the archive.", str(pword))
                     password_fail = True
                     continue
+                raise CuckooPackageError(f"Unable to extract Zip file: {e}") from e
+            except OSError as e:
+                _cleanup_new_entries(extract_path, existing_entries)
                 raise CuckooPackageError(f"Unable to extract Zip file: {e}") from e
 
         if password_fail:
@@ -576,8 +587,13 @@ def extract_rar_with_rarfile(archive_path, extract_path, password="infected", tr
         password_fail = False
         for candidate in candidates:
             try:
-                for info in archive.infolist():
-                    if info.is_symlink():
+                if candidate is not None:
+                    archive.setpassword(candidate)
+                infos = archive.infolist()
+                if not infos and needs_pw:
+                    raise rarfile.RarWrongPassword("Wrong password for encrypted RAR headers")
+                for info in infos:
+                    if getattr(info, "is_symlink", lambda: False)():
                         log.warning("Skipping symlink entry in RAR archive: %s", info.filename)
                         continue
                     target_path = _safe_member_target(resolved_root, info.filename)
@@ -601,6 +617,10 @@ def extract_rar_with_rarfile(archive_path, extract_path, password="infected", tr
                 continue
             except rarfile.BadRarFile as e:
                 _cleanup_new_entries(extract_path, existing_entries)
+                if needs_pw:
+                    log.debug("RAR password '%s' failed header decryption: %s", candidate, e)
+                    password_fail = True
+                    continue
                 raise CuckooPackageError("Invalid Rar file") from e
             except Exception as e:
                 _cleanup_new_entries(extract_path, existing_entries)
@@ -641,12 +661,13 @@ def get_infos(zip_path):
 def winrar_extractor(winrar_binary, extract_path, archive_path, password="infected", try_multiple_passwords=False):
     os.makedirs(extract_path, exist_ok=True)
     existing_entries = set(os.listdir(extract_path))
+    dest_arg = extract_path.rstrip("\\/") + os.sep
     passwords = _password_candidates(password, try_multiple_passwords)
     wrong_password = False
     last_error = ""
 
     for candidate in passwords:
-        cmd = [winrar_binary, "x", "-ibck", "-y", f"-p{candidate}", archive_path, extract_path]
+        cmd = [winrar_binary, "x", "-ibck", "-y", f"-p{candidate}", archive_path, dest_arg]
         log.debug(cmd)
         p = subprocess.run(
             cmd,
@@ -655,10 +676,6 @@ def winrar_extractor(winrar_binary, extract_path, archive_path, password="infect
             check=False,
         )
         log.debug("%s - %s", p.stdout, p.stderr)
-        current_entries = set(os.listdir(extract_path))
-        if current_entries != existing_entries:
-            return os.listdir(extract_path)
-
         combined = (p.stderr or b"") + (p.stdout or b"")
         combined_lower = combined.lower()
         if p.returncode == 11 or b"wrong password" in combined_lower or b"incorrect password" in combined_lower:
@@ -667,6 +684,17 @@ def winrar_extractor(winrar_binary, extract_path, archive_path, password="infect
             continue
 
         if p.returncode == 0:
+            return os.listdir(extract_path)
+
+        current_entries = set(os.listdir(extract_path))
+        if current_entries - existing_entries:
+            details = combined.decode(errors="replace").strip() or f"exit code {p.returncode}"
+            log.warning(
+                "WinRAR exited with code %s while extracting %s, continuing with extracted files: %s",
+                p.returncode,
+                archive_path,
+                details,
+            )
             return os.listdir(extract_path)
 
         last_error = combined.decode(errors="replace").strip() or f"exit code {p.returncode}"
@@ -703,7 +731,7 @@ def upload_extracted_files(root, files_at_root):
         try:
             file_path = os.path.join(root, entry)
             resolved_path = os.path.realpath(file_path)
-            if os.path.commonpath((resolved_root, resolved_path)) != resolved_root:
+            if not is_within_root(resolved_root, resolved_path):
                 log.warning("Skipping extracted file %s outside extraction root", entry)
                 continue
             if not os.path.isfile(resolved_path):

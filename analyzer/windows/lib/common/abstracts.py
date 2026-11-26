@@ -249,7 +249,14 @@ class Package:
         allowed_roots = [os.path.realpath(root)]
         if self.options.get(OPT_CURDIR):
             allowed_roots.append(os.path.realpath(os.path.expandvars(self.options[OPT_CURDIR])))
-        if not any(os.path.commonpath((r, resolved_path)) == r for r in allowed_roots):
+
+        def _is_within(parent, child):
+            try:
+                return os.path.commonpath((parent, child)) == parent
+            except ValueError:
+                return False
+
+        if not any(_is_within(r, resolved_path) for r in allowed_roots):
             raise CuckooPackageError("Executable is outside the extraction directory")
         try:
             st_mode = os.stat(resolved_path).st_mode

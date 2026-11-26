@@ -3,7 +3,7 @@ from the DB and writes terminal status. Engines differ in how they *run* tasks,
 not in how they pull them."""
 import logging
 
-from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_FAILED_PROCESSING, Task
+from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Task
 
 log = logging.getLogger(__name__)
 
@@ -33,5 +33,11 @@ class TaskSource:
     def mark_failed(self, task_id):
         # Always writes TASK_FAILED_PROCESSING regardless of which status this
         # source polls (the `failed_processing` constructor flag controls reads).
+        # Never downgrade a task that already completed reporting.
         with self.db.session.begin():
+            view_task = getattr(self.db, "view_task", None)
+            if callable(view_task):
+                task = view_task(task_id)
+                if task is not None and getattr(task, "status", None) == TASK_REPORTED:
+                    return
             self.db.set_status(task_id, TASK_FAILED_PROCESSING)

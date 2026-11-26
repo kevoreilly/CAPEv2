@@ -77,3 +77,17 @@ def test_fetch_with_failed_processing_returns_failed_tasks(db, temp_pe32):
     got = src.fetch(limit=10, exclude_ids=set())
     ids = [t.id for t in got]
     assert t1 in ids and t2 not in ids
+
+
+def test_mark_failed_does_not_overwrite_reported_task(db, temp_pe32):
+    from lib.cuckoo.core.data.task import TASK_REPORTED
+
+    with db.session.begin():
+        t1 = db.add_path(temp_pe32)
+        db.set_status(t1, TASK_REPORTED)
+
+    src = TaskSource(db)
+    src.mark_failed(t1)
+
+    with db.session.begin():
+        assert db.view_task(t1).status == TASK_REPORTED

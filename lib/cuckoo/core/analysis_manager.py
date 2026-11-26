@@ -398,6 +398,9 @@ class AnalysisManager(threading.Thread):
         if getattr(self, "stopped_by_user", False):
             self.log.info("Skipping machine memory dump for task #%s (stopped early by user)", self.task.id)
             return
+        if getattr(self, "stuck_vm_killed", False):
+            self.log.info("Skipping machine memory dump for task #%s (killed by stuck-VM watchdog)", self.task.id)
+            return
 
         assert self.machinery_manager and self.machine
 
@@ -497,15 +500,26 @@ class AnalysisManager(threading.Thread):
             return clock
 
         options["clock"] = self._db_unit(_prepare_guest_start, f"guest start preparation for task {self.task.id}")
-        guest_manager.start_analysis(options)
+        try:
+            guest_manager.start_analysis(options)
+        except Exception:
+            with contextlib.suppress(Exception):
+                guest_manager.set_status_in_db("failed")
+            raise
         self.guest_started_on = _utcnow_naive()
         try:
+            if self.stuck_vm_killed:
+                guest_manager.set_status_in_db("failed")
+                return False
             current_status = guest_manager.get_status_from_db()
             if current_status == "failed":
                 return False
             if current_status == "starting":
                 guest_manager.set_status_in_db("running")
                 guest_manager.wait_for_completion()
+                if self.stuck_vm_killed:
+                    guest_manager.set_status_in_db("failed")
+                    return False
                 post_status = guest_manager.get_status_from_db()
                 if post_status == "stopping":
                     self.stopped_by_user = True
@@ -513,6 +527,9 @@ class AnalysisManager(threading.Thread):
                     return False
             elif current_status == "stopping":
                 self.stopped_by_user = True
+            if self.stuck_vm_killed:
+                guest_manager.set_status_in_db("failed")
+                return False
             guest_manager.set_status_in_db("stopping")
         except Exception as e:
             self.log.exception("Unknown exception waiting for guest completion: %s", str(e))

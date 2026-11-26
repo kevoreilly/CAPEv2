@@ -70,9 +70,10 @@ class _CountingSource:
 
 
 class _MockFuture:
-    def __init__(self, running=False):
+    def __init__(self, running=False, done=False):
         self._cancelled = False
         self._running = running
+        self._done = done
 
     def cancel(self):
         self._cancelled = True
@@ -80,6 +81,9 @@ class _MockFuture:
 
     def cancelled(self):
         return self._cancelled
+
+    def done(self):
+        return self._done or self._cancelled
 
     def running(self):
         return self._running
@@ -681,6 +685,32 @@ def test_failure_remains_excluded_until_status_commit(db, temp_pe32, completion)
     assert engine._scheduled_at == {}
     assert engine._finalizing == set()
     assert engine._wake.is_set()
+
+
+def test_reaper_skips_finished_future_past_pickup_grace():
+    """A finished future (done()=True, running()=False) waiting for its _done
+    callback must not be misclassified as unstarted and marked failed."""
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=900,
+        stall_grace=300,
+        pickup_grace=10,
+    )
+    future = _MockFuture(running=False, done=True)
+    with engine._lock:
+        engine._pending[future] = 555
+        engine._scheduled_at[future] = time.monotonic() - 120  # past pickup_grace
+
+    engine._reap_stalled()
+
+    assert source.failed == []
+    assert not future._cancelled
+    with engine._lock:
+        assert future in engine._pending
 
 
 

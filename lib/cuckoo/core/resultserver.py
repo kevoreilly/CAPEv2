@@ -991,6 +991,7 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         self._task_id = _rs_spawn_ctx.Value("i", 0)
         self._main_task_id = _rs_spawn_ctx.Value("i", 0)
         self._ready = _rs_spawn_ctx.Event()
+        self._failed = _rs_spawn_ctx.Event()
 
     def run(self):
         """Entry point for the worker process. Sets up a standalone
@@ -1012,6 +1013,7 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         except OSError as e:
             with suppress(OSError):
                 sock.close()
+            self._failed.set()
             log.error("Worker for %s failed to bind on %s:%s: %s", self.ip, self.listen_ip, self.port, e)
             return
         try:
@@ -1019,17 +1021,26 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         except OSError as e:
             with suppress(OSError):
                 sock.close()
+            self._failed.set()
             log.error("Worker for %s failed to listen on %s:%s: %s", self.ip, self.listen_ip, self.port, e)
             return
 
-        server = SingleVMResultServerWorker(
-            sock,
-            self._task_id,
-            self.ip,
-            shared_main_task_id=self._main_task_id,
-            spawn="default",
-        )
-        gevent.spawn(server.watch_task_changes)
+        try:
+            server = SingleVMResultServerWorker(
+                sock,
+                self._task_id,
+                self.ip,
+                shared_main_task_id=self._main_task_id,
+                spawn="default",
+            )
+            gevent.spawn(server.watch_task_changes)
+        except Exception as e:
+            with suppress(OSError):
+                sock.close()
+            self._failed.set()
+            log.error("Worker for %s failed to initialize on %s:%s: %s", self.ip, self.listen_ip, self.port, e)
+            return
+
         self._ready.set()
         log.info("ResultServer worker for VM %s started on port %d (pid %d)", self.ip, self.port, os.getpid())
         server.serve_forever()
@@ -1038,8 +1049,15 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         """Register a task with this worker (called from parent process)."""
         self._main_task_id.value = int(main_task_id) if main_task_id else 0
         self._task_id.value = task_id
-        ready = self._ready.wait(timeout=10)
-        if not ready or not self.is_alive():
+        deadline = time.monotonic() + 10.0
+        ready = False
+        while time.monotonic() < deadline:
+            if self._ready.wait(timeout=0.05):
+                ready = True
+                break
+            if self._failed.is_set() or not self.is_alive():
+                break
+        if not ready or self._failed.is_set() or not self.is_alive():
             log.error(
                 "ResultServer worker for %s on %s:%s failed to become ready for task #%s",
                 self.ip,
@@ -1235,7 +1253,18 @@ class ResultServer(metaclass=Singleton):
             self.workers[machine.ip] = worker
             log.debug("Task #%d: Started worker for %s on port %d", task.id, machine.ip, machine.resultserver_port)
 
-        worker.set_task(task.id, main_task_id=main_task_id)
+        if not worker.set_task(task.id, main_task_id=main_task_id):
+            self.workers.pop(machine.ip, None)
+            if worker.is_alive():
+                worker.terminate()
+                worker.join(timeout=5)
+                if worker.is_alive():
+                    worker.kill()
+            with suppress(Exception):
+                worker.close()
+            raise CuckooOperationalError(
+                f"ResultServer worker for {machine.ip} on {self.ip}:{machine.resultserver_port} failed to start for task #{task.id}"
+            )
         log.debug("Task #%d: Registered with worker for %s", task.id, machine.ip)
 
     def _del_task_multiworker(self, task, machine):

@@ -1305,7 +1305,10 @@ def files_clean_before(timerange: str):
 
     files_folder_real = os.path.realpath(files_folder)
     referenced = set()
-    if repconf.mongodb.enabled and is_reporting_db_connected():
+    if repconf.mongodb.enabled:
+        if not is_reporting_db_connected():
+            log.warning("MongoDB is enabled but disconnected; skipping storage/files cleanup to preserve referenced artifacts")
+            return
         try:
             docs = mongo_find("files", {}, {"_id": 1, "sha256": 1})
             if docs:
@@ -1315,7 +1318,8 @@ def files_clean_before(timerange: str):
                         if isinstance(val, str) and len(val) == 64:
                             referenced.add(val.lower())
         except Exception as e:
-            log.error("Failed to fetch referenced files from MongoDB: %s", e)
+            log.error("Failed to fetch referenced files from MongoDB; aborting storage/files cleanup: %s", e)
+            return
 
     analyses_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses")
     if path_exists(analyses_folder):

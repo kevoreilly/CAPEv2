@@ -251,8 +251,8 @@ class AuditsMixIn:
             # Pass 2: Delete Root nodes that meet the criteria
             db_session.execute(orphaned_tpl_stmt.where(TestObjectiveTemplate.parent_id.is_(None)))
 
-    def store_objective_results(self, run_id: int, results: dict):
-        with self.session.session_factory() as db_sess, db_sess.begin():
+    def store_objective_results(self, run_id: int, results: dict, db_session: Optional[Session] = None):
+        def _apply(db_sess: Session):
             # Fetch the run with its objectives and templates pre-loaded
             stmt = (
                 select(TestRun)
@@ -265,7 +265,7 @@ class AuditsMixIn:
             run = db_sess.execute(stmt).unique().scalar_one_or_none()
 
             if not run:
-                log.error("Run %d not found for result assignment",run_id)
+                log.error("Run %d not found for result assignment", run_id)
                 return
 
             # Helper to traverse the results dict and update instances
@@ -289,14 +289,21 @@ class AuditsMixIn:
 
             # Store the whole thing for posterity
             run.raw_results = results
-            log.info("Updated objective states for Run %d",run_id)
+            log.info("Updated objective states for Run %d", run_id)
 
-    def evaluate_objective_results(self, test_run: TestRun):
-        log.info("Starting evaluation of test run #%d",test_run.id)
+        if db_session is not None:
+            _apply(db_session)
+            return
+
+        with self.session.session_factory() as db_sess, db_sess.begin():
+            _apply(db_sess)
+
+    def evaluate_objective_results(self, test_run: TestRun, db_session: Optional[Session] = None):
+        log.info("Starting evaluation of test run #%d", test_run.id)
         task_storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(test_run.cape_task_id))
-        validator = TestResultValidator( test_run.test_definition.module_path, task_storage)
+        validator = TestResultValidator(test_run.test_definition.module_path, task_storage)
         results_dict = validator.evaluate()
-        self.store_objective_results(test_run.id, results_dict)
+        self.store_objective_results(test_run.id, results_dict, db_session=db_session)
 
     def update_audit_tasks_status(self, db_session: Session, audit_session: TestSession):
         for run in audit_session.runs:
@@ -306,7 +313,7 @@ class AuditsMixIn:
                     new_status = task_status_to_run_status(cape_task.status)
                     if run.status != new_status:
                         if run.status != TEST_COMPLETE and new_status == TEST_COMPLETE:
-                            self.evaluate_objective_results(run)
+                            self.evaluate_objective_results(run, db_session=db_session)
                         run.status = new_status
 
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
@@ -334,6 +341,7 @@ class AuditsMixIn:
             # do just-in-time refresh of test run statuses
             if test_session:
                 self.update_audit_tasks_status(db_session, test_session)
+                db_session.flush()
                 db_session.expunge_all()
                 return test_session
             return None

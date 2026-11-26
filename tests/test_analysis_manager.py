@@ -1390,6 +1390,52 @@ class TestAnalysisManager:
         assert "Disabled route 'gw1'" in caplog.text
         assert "Disabled route 'nexthop'" not in caplog.text
 
+    def test_run_analysis_on_guest_marks_failed_on_stuck_vm_and_start_error(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+    ):
+        from lib.cuckoo.common.exceptions import CuckooGuestError
+
+        # 1. Watchdog stuck_vm_killed -> guest status set to "failed", returns False, memory dump skipped
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        am.cfg = mocker.MagicMock()
+        am.cfg.cuckoo.memory_dump = True
+        mocker.patch.object(am, "build_options", return_value={"id": task.id})
+        mocker.patch.object(am, "_db_unit", return_value="clock")
+
+        fake_gm = mocker.MagicMock()
+        fake_gm.get_status_from_db.return_value = "starting"
+
+        def _simulate_watchdog():
+            am.stuck_vm_killed = True
+
+        fake_gm.wait_for_completion.side_effect = _simulate_watchdog
+        mocker.patch("lib.cuckoo.core.analysis_manager.GuestManager", return_value=fake_gm)
+
+        assert am.run_analysis_on_guest() is False
+        fake_gm.set_status_in_db.assert_called_with("failed")
+        assert ("stopping",) not in [c.args for c in fake_gm.set_status_in_db.call_args_list]
+
+        dump_mock = mocker.patch.object(machinery_manager.machinery, "dump_memory")
+        am.dump_machine_memory()
+        dump_mock.assert_not_called()
+
+        # 2. start_analysis raising CuckooGuestError marks guest status "failed" before reraising
+        am2 = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(am2, "build_options", return_value={"id": task.id})
+        mocker.patch.object(am2, "_db_unit", return_value="clock")
+        fake_gm2 = mocker.MagicMock()
+        fake_gm2.start_analysis.side_effect = CuckooGuestError("agent dead")
+        mocker.patch("lib.cuckoo.core.analysis_manager.GuestManager", return_value=fake_gm2)
+
+        with pytest.raises(CuckooGuestError, match="agent dead"):
+            am2.run_analysis_on_guest()
+        fake_gm2.set_status_in_db.assert_called_once_with("failed")
+
 
 
 

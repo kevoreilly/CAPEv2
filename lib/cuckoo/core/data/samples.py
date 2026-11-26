@@ -366,24 +366,13 @@ class SamplesMixIn:
             if not sample:
                 # search in temp folder if not found in binaries
                 stmt = select(Task).join(Sample, Task.sample_id == Sample.id).where(query_filter == sample_hash)
-                db_sample = self.session.scalars(stmt).all()
+                with self.session.begin():
+                    db_sample = self.session.scalars(stmt).all()
+                    target_paths = [tmp_sample.target for tmp_sample in db_sample if tmp_sample.target] if db_sample else []
 
-                if db_sample is not None:
-                    """
-                    samples = [_f for _f in [tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample] if _f]
-                    # hash validation and if exist
-                    samples = [file_path for file_path in samples if path_exists(file_path)]
-                    for path in samples:
-                        with open(path, "rb") as f:
-                            if sample_hash == hashlib_sizes[len(sample_hash)](f.read()).hexdigest():
-                                sample = [path]
-                                break
-                    """
-                    # Use a generator expression for memory efficiency
-                    target_paths = (tmp_sample.to_dict().get("target", "") for tmp_sample in db_sample)
-
+                if target_paths:
                     # Filter for paths that exist
-                    existing_paths = (p for p in target_paths if p and path_exists(p))
+                    existing_paths = (p for p in target_paths if path_exists(p))
                     # ToDo review if we really want/need this
                     for path in existing_paths:
                         if sample_hash == self._hash_file_in_chunks(path, hashlib_sizes[len(sample_hash)]):

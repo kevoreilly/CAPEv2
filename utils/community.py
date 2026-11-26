@@ -105,10 +105,35 @@ def is_blocklisted(category: str, relpath: str, filepath: str) -> bool:
 
 
 def clean_category(folder: str) -> None:
-    """Delete the installed content of a category, rooted at CUCKOO_ROOT."""
+    """Delete untracked community content of a category, rooted at CUCKOO_ROOT, preserving git-tracked core files."""
     target = os.path.join(CUCKOO_ROOT, folder)
-    if path_exists(target):
+    if not path_exists(target):
+        return
+    tracked = core_tracked_files()
+    if not tracked:
         shutil.rmtree(target)
+        return
+
+    for root, dirs, files in os.walk(target, topdown=False):
+        for fname in files:
+            fpath = os.path.join(root, fname)
+            rel = os.path.normpath(os.path.relpath(fpath, CUCKOO_ROOT))
+            if rel in tracked:
+                continue
+            with suppress(OSError):
+                os.unlink(fpath)
+        for dname in dirs:
+            dpath = os.path.join(root, dname)
+            if os.path.islink(dpath):
+                rel = os.path.normpath(os.path.relpath(dpath, CUCKOO_ROOT))
+                if rel not in tracked:
+                    with suppress(OSError):
+                        os.unlink(dpath)
+            else:
+                with suppress(OSError):
+                    os.rmdir(dpath)
+    with suppress(OSError):
+        os.rmdir(target)
 
 
 def core_tracked_files():

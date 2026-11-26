@@ -161,7 +161,7 @@ def _make_group_and_policy(
         priority=priority,
         is_tenant_boundary=is_tenant_boundary,
         is_tenant_admin_group=is_tenant_admin_group,
-        tenant_id=gid if is_tenant_boundary else (parent_group.id if parent_group is not None else None),
+        tenant_id=None,
         parent_group=parent_group,
         inherit_parent_tasks=inherit_parent_tasks,
         inherit_parent_resources=inherit_parent_resources,

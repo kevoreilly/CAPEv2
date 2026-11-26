@@ -603,7 +603,7 @@ def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
     log.info("Refetching banned tasks added after %s from bucket %s", past_time, samples_bucket)
 
     with db.session.begin():
-        stmt = select(Task).where(Task.status == TASK_BANNED).where(Task.added_on >= past_time)
+        stmt = select(Task).where(Task.status == TASK_BANNED).where(Task.added_on >= past_time).order_by(Task.id)
         tasks = db.session.scalars(stmt).all()
         task_data = [
             {

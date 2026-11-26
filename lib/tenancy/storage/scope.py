@@ -30,6 +30,24 @@ def viewer_scope(user: Any) -> Optional[dict[str, Any]]:
         return {"_id": {"$in": []}}
 
 
+def _mongodb_enabled() -> bool:
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return bool(Config("reporting").mongodb.enabled)
+    except Exception:
+        return False
+
+
+def _elasticsearch_enabled() -> bool:
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return bool(Config("reporting").elasticsearchdb.enabled)
+    except Exception:
+        return False
+
+
 def viewer_can_view_sample(
     user: Any,
     *,
@@ -52,21 +70,54 @@ def viewer_can_view_sample(
         if scope is None:
             return True
 
-        from dev_utils.mongodb import mongo_find_one
-
+        sample_filter: dict[str, Any] = {}
         hash_q: dict[str, Any] = {}
         if sha256:
-            hash_q["target.file.sha256"] = sha256.lower()
+            val = sha256.lower()
+            sample_filter["sha256"] = val
+            hash_q["target.file.sha256"] = val
         elif sha1:
-            hash_q["target.file.sha1"] = sha1.lower()
+            val = sha1.lower()
+            sample_filter["sha1"] = val
+            hash_q["target.file.sha1"] = val
         elif md5:
-            hash_q["target.file.md5"] = md5.lower()
+            val = md5.lower()
+            sample_filter["md5"] = val
+            hash_q["target.file.md5"] = val
         elif sample_id is not None:
-            hash_q["target.file.id"] = int(sample_id)
+            val_int = int(sample_id)
+            sample_filter["sample_id"] = val_int
+            hash_q["target.file.id"] = val_int
         if not hash_q:
             return False
 
-        doc = mongo_find_one("analysis", {"$and": [hash_q, scope]}, {"_id": 1})
-        return doc is not None
+        if _mongodb_enabled():
+            from dev_utils.mongodb import mongo_find_one
+
+            doc = mongo_find_one("analysis", {"$and": [hash_q, scope]}, {"_id": 1})
+            return doc is not None
+
+        if _elasticsearch_enabled():
+            try:
+                from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index
+                from lib.tenancy.policy import viewer_scope_es_filter
+
+                field_name, field_val = next(iter(hash_q.items()))
+                filters: list[dict[str, Any]] = [{"term": {field_name: field_val}}]
+                es_filter = viewer_scope_es_filter(viewer)
+                if es_filter:
+                    filters.append(es_filter)
+                res = elastic_handler.search(
+                    index=get_analysis_index(),
+                    body={"query": {"bool": {"filter": filters}}, "size": 1},
+                )
+                if (res or {}).get("hits", {}).get("hits"):
+                    return True
+            except Exception:
+                pass
+
+        from lib.tenancy.middleware import default_sample_access_checker
+
+        return bool(default_sample_access_checker(viewer, sample_filter))
     except Exception:
         return False

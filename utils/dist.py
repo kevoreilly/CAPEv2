@@ -8,6 +8,7 @@ import argparse
 import atexit
 import contextlib
 import hashlib
+import hmac
 import ipaddress
 import json
 import logging
@@ -37,22 +38,51 @@ from urllib3.util.retry import Retry
 
 urllib3.disable_warnings()
 
-http_session = requests.Session()
-http_session.verify = False
-_http_adapter = HTTPAdapter(
-    pool_connections=20,
-    pool_maxsize=20,
-    max_retries=Retry(
-        total=3,
-        connect=3,
-        read=3,
-        backoff_factor=1,
-        allowed_methods=Retry.DEFAULT_ALLOWED_METHODS | {"POST"},
-        raise_on_status=False,
-    ),
+_HTTP_RETRY_IDEMPOTENT = Retry(
+    total=3,
+    connect=3,
+    read=3,
+    backoff_factor=1,
+    allowed_methods=Retry.DEFAULT_ALLOWED_METHODS,
+    raise_on_status=False,
 )
-http_session.mount("http://", _http_adapter)
-http_session.mount("https://", _http_adapter)
+_HTTP_RETRY_WITH_POST = Retry(
+    total=3,
+    connect=3,
+    read=3,
+    backoff_factor=1,
+    allowed_methods=Retry.DEFAULT_ALLOWED_METHODS | {"POST"},
+    raise_on_status=False,
+)
+
+
+class _ThreadLocalSessionProxy:
+    """Per-thread requests.Session proxy preserving TLS verification by default and test patchability."""
+
+    def __init__(self, retry_cfg: Retry):
+        self._retry_cfg = retry_cfg
+        self._local = threading.local()
+
+    def _get_session(self) -> requests.Session:
+        sess = getattr(self._local, "session", None)
+        if sess is None:
+            sess = requests.Session()
+            adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20, max_retries=self._retry_cfg)
+            sess.mount("http://", adapter)
+            sess.mount("https://", adapter)
+            self._local.session = sess
+        return sess
+
+    def __getattr__(self, name: str):
+        return getattr(self._get_session(), name)
+
+
+http_session = _ThreadLocalSessionProxy(_HTTP_RETRY_IDEMPOTENT)
+idempotent_post_session = _ThreadLocalSessionProxy(_HTTP_RETRY_WITH_POST)
+
+_NODE_LIFECYCLE_LOCK = threading.RLock()
+_ACTIVE_SUBMITS: dict[int, int] = {}
+_NODE_NFS_HOSTS: dict[str, str] = {}
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
@@ -318,22 +348,29 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
 
 def node_list_machines(url, apikey):
     """
-    Retrieves a list of machines from a CAPE node and yields Machine objects.
+    Retrieves a list of machines from a CAPE node and returns materialized Machine objects.
 
     Args:
         url (str): The base URL of the CAPE node.
         apikey (str): The API key for authentication.
 
-    Yields:
-        Machine: An instance of the Machine class with the machine's details.
+    Returns:
+        list[Machine]: Machine instances with the node's machine details.
 
     Raises:
         HTTPException: If the request to the CAPE node fails or returns an error.
     """
     try:
-        r = http_session.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
-        for machine in r.json()["data"]:
-            yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
+        r = http_session.get(
+            urljoin(url, "machines/list/"),
+            headers={"Authorization": f"Token {apikey}"},
+            verify=False,
+            timeout=30,
+        )
+        return [
+            Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
+            for machine in r.json()["data"]
+        ]
     except Exception as e:
         raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
 
@@ -346,16 +383,20 @@ def node_list_exitnodes(url, apikey):
         url (str): The base URL of the CAPE node.
         apikey (str): The API key for authorization.
 
-    Yields:
-        dict: Each exit node data as a dictionary.
+    Returns:
+        list: Exit node entries returned by the node.
 
     Raises:
         HTTPException: If the request fails or the response is invalid.
     """
     try:
-        r = http_session.get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
-        for exitnode in r.json()["data"]:
-            yield exitnode
+        r = http_session.get(
+            urljoin(url, "exitnodes/"),
+            headers={"Authorization": f"Token {apikey}"},
+            verify=False,
+            timeout=30,
+        )
+        return list(r.json()["data"])
     except Exception as e:
         raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
 
@@ -530,7 +571,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
 
     if not path_mount_point(worker_mount_root):
         log.error("[-] Worker: %s is not mounted to: %s!", worker_name, worker_mount_root)
-        return True
+        return False
 
     worker_path = os.path.join(worker_mount_root, "storage", "analyses", str(task_id))
 
@@ -598,7 +639,7 @@ def _delete_many(node, ids, nodes):
             log.info("[REMOVE] %-15s ==> CAPE ID: %s (Worker ID: %s)", nodes[node].name, ",".join(map(str, cape_ids)), ids)
         else:
             log.info("[REMOVE] %-15s ==> Worker ID: %s", nodes[node].name, ids)
-        res = http_session.post(
+        res = idempotent_post_session.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
             data={"ids": ids, "delete_mongo": False},
@@ -667,20 +708,37 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
 
     _tx = (lambda: nullcontext(db)) if db is not None else dist_transaction
 
-    with _tx() as rdb:
-        node = rdb.get(Node, node_id)
-        if node is None or ( hasattr(node, "url") is False and hasattr(rdb, "scalar") ):
-            node = rdb.scalar(select(Node).where(Node.id == node_id))
-        task = rdb.get(Task, task_id)
-        if node is None or task is None:
-            log.warning("node_submit_task: node %s or task %s no longer exists", node_id, task_id)
-            return False
-        if node.name == main_server_name:
-            return
-        # Remove the earlier appended comma
-        if task.tags and task.tags[-1] == ",":
-            task.tags = task.tags[:-1]
+    with _NODE_LIFECYCLE_LOCK:
+        with _tx() as rdb:
+            node = rdb.get(Node, node_id)
+            if node is None or (hasattr(node, "url") is False and hasattr(rdb, "scalar")):
+                node = rdb.scalar(select(Node).where(Node.id == node_id))
+            task = rdb.get(Task, task_id)
+            if node is None or task is None:
+                log.warning("node_submit_task: node %s or task %s no longer exists", node_id, task_id)
+                return False
+            if node.name == main_server_name:
+                return
+            if getattr(node, "enabled", True) is False:
+                log.info("node_submit_task: skipping disabled node %s for task %s", node.name, task_id)
+                return None
+            # Remove the earlier appended comma
+            if task.tags and task.tags[-1] == ",":
+                task.tags = task.tags[:-1]
+        _ACTIVE_SUBMITS[node.id] = _ACTIVE_SUBMITS.get(node.id, 0) + 1
 
+    try:
+        return _node_submit_task_body(task_id, node, task, _tx)
+    finally:
+        with _NODE_LIFECYCLE_LOCK:
+            remaining = _ACTIVE_SUBMITS.get(node.id, 1) - 1
+            if remaining <= 0:
+                _ACTIVE_SUBMITS.pop(node.id, None)
+            else:
+                _ACTIVE_SUBMITS[node.id] = remaining
+
+
+def _node_submit_task_body(task_id, node, task, _tx):
     check = False
     apikey = node.apikey
     task_attributes = {"main_task_id": task.main_task_id}
@@ -1581,12 +1639,21 @@ class StatusThread(threading.Thread):
             if node is None:
                 log.warning("submit_tasks: node %s no longer exists", node_name)
                 return False
+            if not node.enabled:
+                STATUSES.pop(node.name, None)
+                log.info("submit_tasks: node %s is disabled, skipping submission", node_name)
+                return False
             if node.name not in SERVER_TAGS:
                 self.load_vm_tags(db, node.id, node.name)
 
             # ToDo delete instead of select
             # check if we have tasks with no node_id and task_id, but with main_task_id
-            stmt = select(Task).where(Task.node_id.is_(None), Task.task_id.is_(None), Task.main_task_id.is_not(None))
+            stmt = select(Task).where(
+                Task.node_id.is_(None),
+                Task.task_id.is_(None),
+                Task.main_task_id.is_not(None),
+                Task.finished.is_(False),
+            )
             bad_tasks = db.scalars(stmt).all()
             if bad_tasks:
                 with main_db.session.begin():
@@ -1746,9 +1813,9 @@ class StatusThread(threading.Thread):
         results = self._submit_parallel(node_id, to_upload)
         with main_db.transaction(), dist_transaction() as db:
             for (dist_id, main_task_id), submitted, raised in results:
-                if submitted:
+                if submitted is True:
                     main_db.set_status(main_task_id, TASK_DISTRIBUTED)
-                elif not raised:
+                elif submitted is False and not raised:
                     log.info(
                         "something is wrong with submission of task %d (CAPE ID: %d) to node %s (Node ID: %d)",
                         dist_id,
@@ -2151,12 +2218,24 @@ def create_app(database_connection):
         exitnodes: Optional[bool] = None
         enabled: Optional[bool] = None
 
-    AUTH_TOKEN = dist_conf.distributed.get("auth_token")
+    def _load_raw_auth_token() -> str:
+        val = dist_conf.distributed.get("auth_token")
+        if isinstance(val, str):
+            return val.strip()
+        if val is None:
+            return ""
+        raw_cfg = dist_conf.get_config() if hasattr(dist_conf, "get_config") else None
+        raw_val = raw_cfg.get("distributed", {}).get("auth_token") if isinstance(raw_cfg, dict) else None
+        if isinstance(raw_val, str):
+            return raw_val.strip()
+        return str(val).strip()
+
+    AUTH_TOKEN = _load_raw_auth_token()
 
     api_key_header = APIKeyHeader(name="X-API-Token", auto_error=False)
 
     def verify_auth_token(api_key: str = Security(api_key_header)):
-        if AUTH_TOKEN and api_key != AUTH_TOKEN:
+        if AUTH_TOKEN and (not api_key or not hmac.compare_digest(str(api_key), AUTH_TOKEN)):
             raise HTTPException(status_code=401, detail="Invalid or missing auth token")
 
     app = FastAPI(title="Distributed CAPE", dependencies=[Depends(verify_auth_token)] if AUTH_TOKEN else [])
@@ -2236,6 +2315,7 @@ def create_app(database_connection):
                 node.enabled = payload.enabled
 
         if NFS_FETCH and nfs_host:
+            _NODE_NFS_HOSTS[payload.name] = nfs_host
             # Add entry to /etc/fstab, create folder and mount server
             send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[nfs_host, payload.name])
 
@@ -2285,16 +2365,18 @@ def create_app(database_connection):
         return dict(error=False, error_value=f"Successfully modified node: {name}")
 
     @app.delete("/node/{name}")
-    def delete_node(name: str, unmount: bool = False):
+    def delete_node(name: str, unmount: bool = False, nfs_host: Optional[str] = None):
         node_url = None
         in_flight = 0
-        with dist_transaction() as db:
-            node = db.scalar(select(Node).where(Node.name == name))
-            if node:
-                node.enabled = False
-                node_url = node.url
-                if unmount:
-                    in_flight = _count_node_inflight_tasks(db, node.id)
+        with _NODE_LIFECYCLE_LOCK:
+            with dist_transaction() as db:
+                node = db.scalar(select(Node).where(Node.name == name))
+                if node:
+                    node.enabled = False
+                    node_url = node.url
+                    STATUSES.pop(name, None)
+                    if unmount:
+                        in_flight = _count_node_inflight_tasks(db, node.id) + _ACTIVE_SUBMITS.get(node.id, 0)
         if unmount and node_url:
             if in_flight > 0:
                 raise HTTPException(
@@ -2302,13 +2384,23 @@ def create_app(database_connection):
                     detail=f"Node {name} still has {in_flight} in-flight task(s); wait for drain before unmounting",
                 )
             if NFS_FETCH:
-                hostname = urlparse(node_url).hostname or urlparse(node_url).netloc.split(":")[0]
-                if hostname and hostname != main_server_name:
+                explicit_host = nfs_host or _NODE_NFS_HOSTS.get(name)
+                url_host = urlparse(node_url).hostname or urlparse(node_url).netloc.split(":")[0]
+                if explicit_host:
                     try:
-                        nfs_host = validate_nfs_hostname(hostname)
+                        resolved_nfs_host = validate_nfs_hostname(explicit_host)
                     except ValueError as exc:
                         raise HTTPException(status_code=400, detail=str(exc)) from exc
-                    send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[nfs_host, name])
+                    send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[resolved_nfs_host, name])
+                elif url_host and url_host != main_server_name:
+                    try:
+                        resolved_nfs_host = validate_nfs_hostname(url_host)
+                    except ValueError:
+                        # Worker may have been registered with a separate private nfs_host before a restart;
+                        # let fstab.py match and unmount by validated worker mount point.
+                        resolved_nfs_host = ""
+                    send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[resolved_nfs_host, name])
+                _NODE_NFS_HOSTS.pop(name, None)
         return None
 
     @app.get("/status")

@@ -881,28 +881,28 @@ def test_node_submit_task_acl_probe_skips_object_storage_upload_and_marks_url_fa
         node_submit_task(10, 2, 44)
 
     assert hook_stages == ["acl_probe"]
-    assert mock_make_request.call_count == 4
-    assert mock_sleep.call_count == 2
+    assert mock_make_request.call_count == 1
+    assert mock_sleep.call_count == 0
     assert mock_task.finished is True
     assert mock_task.retrieved is True
     mock_main_db.set_status.assert_called_once_with(44, TASK_FAILED_REPORTING)
 
 
-def test_node_submit_task_retries_transient_disconnect_and_replays_file_body(tmp_path):
+def test_non_idempotent_submit_does_not_replay_on_disconnect_while_delete_many_retries(tmp_path):
     from http.client import RemoteDisconnected
     import io
+    from types import SimpleNamespace
     from unittest.mock import MagicMock, patch
 
     from urllib3.response import HTTPResponse
 
     from lib.cuckoo.common.dist_db import Node
-    from utils.dist import node_submit_task
+    from utils.dist import _delete_many, node_submit_task
 
     sample_file = tmp_path / "sample.bin"
-    sample_bytes = b"MZ" + b"A" * 128
-    sample_file.write_bytes(sample_bytes)
+    sample_file.write_bytes(b"MZ" + b"A" * 128)
 
-    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k")
+    mock_node = MagicMock(id=2, name="worker1", url="http://worker1/apiv2/", apikey="k", enabled=True)
     mock_task = MagicMock(
         id=10,
         main_task_id=44,
@@ -927,36 +927,44 @@ def test_node_submit_task_retries_transient_disconnect_and_replays_file_body(tmp
     mock_db = MagicMock()
     mock_db.get.side_effect = lambda model, pk: mock_node if model is Node else mock_task
 
-    sent_bodies = []
+    # 1. Non-idempotent POST tasks/create/file/ must NOT auto-replay on read disconnect (avoids orphan duplicate tasks)
+    submit_calls = 0
 
-    def fake_make_request(conn, method, url, **kwargs):
-        sent_bodies.append(kwargs.get("body", b""))
-        if len(sent_bodies) < 3:
-            raise RemoteDisconnected("Remote end closed connection without response")
-        return HTTPResponse(
-            body=io.BytesIO(b'{"data": {"task_ids": [901]}}'),
-            status=200,
-            preload_content=False,
-        )
+    def fail_submit(conn, method, url, **kwargs):
+        nonlocal submit_calls
+        submit_calls += 1
+        raise RemoteDisconnected("Remote end closed connection without response")
 
     with (
         patch("utils.dist.dist_transaction") as mock_tx,
         patch("utils.dist.main_db") as mock_main_db,
-        patch("urllib3.util.retry.time.sleep") as mock_sleep,
-        patch("urllib3.connectionpool.HTTPConnectionPool._make_request", side_effect=fake_make_request),
+        patch("urllib3.connectionpool.HTTPConnectionPool._make_request", side_effect=fail_submit),
     ):
         mock_tx.return_value.__enter__.return_value = mock_db
         mock_main_db.get_parent_sample_from_task.return_value = None
-        assert node_submit_task(10, 2, 44) is True
+        assert node_submit_task(10, 2, 44) is None
+    assert submit_calls == 1
 
-    assert len(sent_bodies) == 3
-    assert all(sample_bytes in body for body in sent_bodies)
-    assert sent_bodies[0] == sent_bodies[1] == sent_bodies[2]
+    # 2. Idempotent POST tasks/delete_many/ DOES retry on transient disconnect
+    delete_calls = 0
+
+    def retry_delete(conn, method, url, **kwargs):
+        nonlocal delete_calls
+        delete_calls += 1
+        if delete_calls < 3:
+            raise RemoteDisconnected("transient disconnect")
+        return HTTPResponse(body=io.BytesIO(b'{"error": false}'), status=200, preload_content=False)
+
+    nodes = {2: SimpleNamespace(name="worker1", url="http://worker1/apiv2/", apikey="k")}
+    with (
+        patch("utils.dist.dist_transaction") as mock_tx,
+        patch("urllib3.util.retry.time.sleep") as mock_sleep,
+        patch("urllib3.connectionpool.HTTPConnectionPool._make_request", side_effect=retry_delete),
+    ):
+        mock_tx.return_value.__enter__.return_value.scalars.return_value.all.return_value = []
+        assert _delete_many(2, "901", nodes) is True
+    assert delete_calls == 3
     assert mock_sleep.call_count == 1
-    assert mock_task.task_id == 901
-    assert mock_task.node_id == 2
-    assert mock_task.finished is False
-    mock_main_db.set_status.assert_not_called()
 
 
 def test_wrapped_validate_task_resolves_fallback_owner_for_recovered_task():
@@ -1511,3 +1519,204 @@ def test_delete_node_unmount_guards_inflight_and_get_node_reports_drain_state(di
     with patch("utils.dist.send_socket_command") as mock_sock:
         assert delete_node_fn("worker-drain", unmount=True) is None
         mock_sock.assert_called_once_with(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry", "10.0.0.21", "worker-drain")
+
+
+def test_dist_http_session_verifies_tls_is_thread_local_and_materializes_lists(monkeypatch):
+    import threading
+    from unittest.mock import MagicMock
+
+    import utils.dist as dist_mod
+
+    assert dist_mod.http_session.verify is True
+
+    sessions = []
+
+    def _grab():
+        sessions.append(dist_mod.http_session._get_session())
+
+    t1 = threading.Thread(target=_grab)
+    t2 = threading.Thread(target=_grab)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    assert len(sessions) == 2 and sessions[0] is not sessions[1]
+
+    # node_list_machines and node_list_exitnodes return materialized lists with explicit timeouts
+    calls = []
+
+    def _fake_get(url, **kw):
+        calls.append((url, kw))
+        resp = MagicMock()
+        if "machines" in url:
+            resp.json.return_value = {"data": [{"name": "vm1", "platform": "windows", "tags": ["x64"]}]}
+        else:
+            resp.json.return_value = {"data": ["exit1"]}
+        return resp
+
+    monkeypatch.setattr(dist_mod.http_session, "get", _fake_get)
+    machines = dist_mod.node_list_machines("http://worker/apiv2/", "k")
+    exits = dist_mod.node_list_exitnodes("http://worker/apiv2/", "k")
+    assert isinstance(machines, list) and len(machines) == 1
+    assert isinstance(exits, list) and exits == ["exit1"]
+    assert all(kw.get("timeout") == 30 for _, kw in calls)
+
+
+def test_dist_nfs_unmounted_returns_false_and_submit_does_not_overwrite_failed_reporting(dist_sqlite, monkeypatch):
+    from unittest.mock import MagicMock, patch
+
+    import utils.dist as dist_mod
+
+    # 1. Unmounted NFS worker must return False so report is not marked reported/deleted
+    monkeypatch.setattr(dist_mod, "path_mount_point", lambda _p: False)
+    assert dist_mod.node_get_report_nfs(10, "worker1", 100) is False
+
+    # 2. When node_submit_task returns None (already marked TASK_FAILED_REPORTING),
+    #    StatusThread.submit_tasks must NOT overwrite it with TASK_BANNED or delete dist.Task.
+    from types import SimpleNamespace
+    from sqlalchemy import select
+
+    with dist_sqlite() as s, s.begin():
+        node = Node(name="worker-sub", url="http://10.0.0.30:8000/apiv2/", apikey="k", enabled=True)
+        s.add(node)
+        s.flush()
+
+    st = dist_mod.StatusThread()
+    fake_main_task = SimpleNamespace(
+        id=909,
+        category="url",
+        target="http://example.invalid/",
+        package="",
+        timeout=60,
+        priority=1,
+        options="",
+        machine="",
+        platform="windows",
+        tags=[],
+        custom="",
+        memory=False,
+        clock=None,
+        enforce_timeout=False,
+        route="none",
+        tlp=None,
+        sample=None,
+    )
+    mock_main_db = MagicMock()
+    mock_main_db.list_tasks.return_value = [fake_main_task]
+    mock_main_db.transaction.return_value.__enter__.return_value = None
+
+    def _fake_submit_parallel(node_id, pairs):
+        # Simulate node_submit_task._mark_failed_reporting() setting finished=True, retrieved=True and returning None
+        with dist_sqlite() as s, s.begin():
+            for dist_id, _ in pairs:
+                t = s.get(Task, dist_id)
+                t.finished = True
+                t.retrieved = True
+        return [(pair, None, False) for pair in pairs]
+
+    with (
+        patch.object(dist_mod, "main_db", mock_main_db),
+        patch.object(st, "_submit_parallel", side_effect=_fake_submit_parallel),
+    ):
+        assert st.submit_tasks("worker-sub", 1) is True
+
+    mock_main_db.set_status.assert_not_called()
+    with dist_sqlite() as s:
+        row = s.scalar(select(Task).where(Task.main_task_id == 909))
+        assert row is not None and row.finished is True and row.retrieved is True
+
+
+def test_dist_auth_token_raw_string_and_delete_node_nfs_host_and_active_submit(dist_sqlite, monkeypatch, tmp_path):
+    import types
+    from unittest.mock import patch
+
+    import utils.dist as dist_mod
+    import utils.fstab as fstab_mod
+
+    class _FakeHTTPException(Exception):
+        def __init__(self, status_code: int, detail: str):
+            super().__init__(detail)
+            self.status_code = status_code
+            self.detail = detail
+
+    class _FakeFastAPI:
+        def __init__(self, **kwargs):
+            self.routes = {}
+            self.dependencies = kwargs.get("dependencies", [])
+
+        def _reg(self, method, path):
+            def _dec(fn):
+                self.routes[(method, path)] = fn
+                return fn
+
+            return _dec
+
+        get = lambda self, p: self._reg("GET", p)  # noqa: E731
+        post = lambda self, p: self._reg("POST", p)  # noqa: E731
+        put = lambda self, p: self._reg("PUT", p)  # noqa: E731
+        delete = lambda self, p: self._reg("DELETE", p)  # noqa: E731
+
+    fake_fastapi = types.ModuleType("fastapi")
+    fake_fastapi.FastAPI = _FakeFastAPI
+    fake_fastapi.HTTPException = _FakeHTTPException
+    fake_fastapi.Depends = lambda fn: fn
+    fake_fastapi.Security = lambda x: x
+    fake_security = types.ModuleType("fastapi.security")
+    fake_security.APIKeyHeader = lambda **kwargs: kwargs
+    fake_pydantic = types.ModuleType("pydantic")
+    fake_pydantic.BaseModel = object
+
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi)
+    monkeypatch.setitem(sys.modules, "fastapi.security", fake_security)
+    monkeypatch.setitem(sys.modules, "pydantic", fake_pydantic)
+    monkeypatch.setattr(dist_mod, "FastAPI", _FakeFastAPI)
+    monkeypatch.setattr(dist_mod, "HTTPException", _FakeHTTPException)
+    monkeypatch.setattr(dist_mod, "NFS_FETCH", True)
+
+    # 1. Numeric/boolean-coerced auth_token (e.g. "false" coerced to False) stays enforced as raw string
+    monkeypatch.setitem(dist_mod.dist_conf.distributed, "auth_token", False)
+    monkeypatch.setattr(dist_mod.dist_conf, "get_config", lambda: {"distributed": {"auth_token": "false"}})
+    app = dist_mod.create_app("sqlite:///:memory:")
+    assert len(app.dependencies) == 1
+    verify_fn = app.dependencies[0]
+    with pytest.raises(_FakeHTTPException) as exc:
+        verify_fn("wrong")
+    assert exc.value.status_code == 401
+    assert verify_fn("false") is None
+
+    # 2. Active in-flight submission blocks unmount (HTTP 409) even before Task.node_id is written
+    with dist_sqlite() as s, s.begin():
+        node = Node(name="worker-pub", url="https://public.example.invalid/apiv2/", apikey="k", enabled=True)
+        s.add(node)
+        s.flush()
+        node_id = node.id
+
+    delete_node_fn = app.routes[("DELETE", "/node/{name}")]
+    dist_mod._ACTIVE_SUBMITS[node_id] = 1
+    try:
+        with pytest.raises(_FakeHTTPException) as exc409:
+            delete_node_fn("worker-pub", unmount=True)
+        assert exc409.value.status_code == 409
+    finally:
+        dist_mod._ACTIVE_SUBMITS.pop(node_id, None)
+
+    # 3. Unmount for a worker whose URL hostname is public falls back cleanly to mount-point removal ("")
+    with patch("utils.dist.send_socket_command") as mock_sock:
+        assert delete_node_fn("worker-pub", unmount=True) is None
+        mock_sock.assert_called_once_with(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry", "", "worker-pub")
+
+    # 4. fstab.remove_nfs_entry("", "worker-pub") removes entry by validated mount path
+    mount_base = tmp_path / "workers"
+    mount_base.mkdir()
+    worker_dir = mount_base / "worker-pub"
+    worker_dir.mkdir()
+    fstab_content = f"10.0.0.99:/opt/CAPEv2 {worker_dir} nfs _netdev,nofail 0 0\n"
+    written = []
+    monkeypatch.setattr(fstab_mod, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(fstab_mod.dist_conf.NFS, "mount_folder", "workers")
+    monkeypatch.setattr(fstab_mod, "path_read_file", lambda _p, mode="text": fstab_content)
+    monkeypatch.setattr(fstab_mod, "path_write_file", lambda _p, data, mode="text": written.append(data))
+    monkeypatch.setattr(fstab_mod.subprocess, "check_output", lambda _cmd: b"")
+
+    fstab_mod.remove_nfs_entry("", "worker-pub")
+    assert written and str(worker_dir) not in written[0]

@@ -402,7 +402,15 @@ class GCP(object):
         headers = {}
         try:
             dist_cfg = Config("distributed")
-            auth_token = dist_cfg.distributed.get("auth_token")
+            val = dist_cfg.distributed.get("auth_token")
+            if isinstance(val, str):
+                auth_token = val.strip()
+            elif val is None:
+                auth_token = ""
+            else:
+                raw_cfg = dist_cfg.get_config() if hasattr(dist_cfg, "get_config") else None
+                raw_val = raw_cfg.get("distributed", {}).get("auth_token") if isinstance(raw_cfg, dict) else None
+                auth_token = raw_val.strip() if isinstance(raw_val, str) else str(val).strip()
             if auth_token:
                 headers["X-API-Token"] = auth_token
         except Exception as e:

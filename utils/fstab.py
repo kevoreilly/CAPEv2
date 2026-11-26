@@ -130,13 +130,15 @@ def add_nfs_entry(hostname: str, worker_folder: str):
 
 
 def remove_nfs_entry(hostname: str, worker_folder: str):
-    hostname = _validate_hostname(hostname)
+    validated_host = _validate_hostname(hostname) if hostname else ""
     worker_path = _resolve_worker_path(worker_folder)
 
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
-            if entry.startswith(f"{hostname}:") and f" {worker_path} nfs " in entry:
+            if entry.startswith("#"):
+                continue
+            if f" {worker_path} nfs " in entry and (not validated_host or entry.startswith(f"{validated_host}:")):
                 fstab.remove(entry)
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break

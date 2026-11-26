@@ -157,7 +157,8 @@ on_demand = no
 cape_payloads = yes
 submitted_shellcode = yes
 shellcode_depth = 262144
-# Identified shellcode frameworks only (Donut, sRDI, pe2shc etc.)
+# Identified shellcode frameworks only (Donut, sRDI, pe2shc etc.). Each framework is a module in
+# lib/cuckoo/common/integrations/shellcode_frameworks/: drop your own in there too (see README.md)
 framework_detections = yes
 # Payloads are recovered statically (Donut, sRDI etc. or shellcode decoded from an encoder or decoder loop)
 extract_payloads = yes

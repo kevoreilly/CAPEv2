@@ -603,3 +603,42 @@ def test_linux_zip_utils_unrar_wrong_password_and_zip_edge_cases(monkeypatch, tm
     with pytest.raises(archive.CuckooPackageError, match="Unable to extract Zip file"):
         zip_utils.extract_zip(str(conflict), str(tmp_path / "conflict_out"), recursive=False)
 
+
+def test_archive_recursion_skips_deb_and_symlinks(prepare_archive, monkeypatch, tmp_path):
+    outside_zip = tmp_path / "outside.zip"
+    outside_zip.write_bytes(b"PK\x03\x04fake")
+
+    package, extraction, upload = prepare_archive(
+        {"pkg.deb": b"!<arch>\ndebian-binary", "run.sh": b"echo safe\n"},
+        {"recursion_depth": 1},
+    )
+    package.get_path_app_in_path.side_effect = lambda name: "/usr/bin/file" if name == "file" else "/usr/bin/7z"
+
+    orig_extract = extraction.side_effect
+    extracted_sources = []
+
+    def extract_with_symlink(binary, source, root, password, multiple_passwords):
+        extracted_sources.append(source)
+        orig_extract(binary, source, root, password, multiple_passwords)
+        (Path(root) / "escape.zip").symlink_to(outside_zip)
+
+    extraction.side_effect = extract_with_symlink
+
+    file_invocations = []
+
+    def fake_run(cmd, **kwargs):
+        file_invocations.append(cmd[-1])
+        res = Mock()
+        res.stdout = "Debian binary package, data compression xz\n" if cmd[-1].endswith(".deb") else "ASCII text\n"
+        return res
+
+    monkeypatch.setattr(archive.subprocess, "run", fake_run)
+    try:
+        assert package.start(str(tmp_path / "sample.zip")) == [4242, 4242]
+        assert len(extracted_sources) == 1
+        assert all(not p.endswith("pkg.deb") for p in file_invocations)
+        assert all(not p.endswith("escape.zip") for p in file_invocations)
+        assert sorted(upload.call_args.args[1]) == ["pkg.deb", "run.sh"]
+    finally:
+        package.finish()
+

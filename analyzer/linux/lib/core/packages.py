@@ -99,26 +99,26 @@ def _guess_package_name(file_type, file_name):
         file_name = (file_name or "").lower()
         if "Bourne-Again" in file_type or "bash" in file_type or file_name.endswith(".sh"):
             return "bash"
+        elif file_name.endswith(".whl"):
+            return "python_whl"
+        elif "Microsoft Word" in file_type or file_name.endswith(".docx"):
+            return "doc"
+        elif "Debian binary package" in file_type or file_name.endswith(".deb"):
+            return "deb"
         elif any(archive_type in file_type for archive_type in _ARCHIVE_FILE_TYPES) or file_name.endswith(_ARCHIVE_EXTENSIONS):
             return "archive"
         elif "PDF document" in file_type or file_name.endswith(".pdf"):
             return "pdf"
         elif "Composite Document File V2 Document" in file_type or file_name.endswith(".doc"):
             return "doc"
-        elif "Microsoft Word" in file_type or file_name.endswith(".docx"):
-            return "doc"
         elif "ELF" in file_type:
             return "generic"
-        elif "Debian binary package" in file_type or file_name.endswith(".deb"):
-            return "deb"
         elif "Perl script text executable" in file_type or file_name.endswith(".pl"):
             return "perl"
         elif "Python script" in file_type or file_name.endswith(".py"):
             return "python"
         elif "a pwsh script" in file_type or file_name.endswith(".ps1"):
             return "ps1"
-        elif file_name.endswith(".whl"):
-            return "python_whl"
         elif "Unicode text" in file_type or file_name.endswith(".js"):
             return "js"
     except (TypeError, AttributeError):

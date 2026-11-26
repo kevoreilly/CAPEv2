@@ -204,6 +204,8 @@ class Archive(Package):
                 )
 
     def _is_nested_archive(self, file_path: str, file_util_path) -> bool:
+        if os.path.islink(file_path):
+            return False
         if os.path.basename(file_path).lower().endswith(NON_RECURSIVE_CONTAINER_EXTENSIONS):
             return False
 
@@ -290,6 +292,7 @@ class Archive(Package):
         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
         self._extract_with_backend(path, root, password, try_multiple_passwords, extractor)
 
+        resolved_root = os.path.realpath(root)
         extracted_files = set()
         extracted_archives = set()
         if recursion_depth > 0:
@@ -302,6 +305,8 @@ class Archive(Package):
                             continue
 
                         extracted_files.add(file_path)
+                        if os.path.islink(file_path) or not is_within_root(resolved_root, file_path):
+                            continue
                         if self._is_nested_archive(file_path, file_util_path):
                             packs.append(file_path)
 
@@ -322,7 +327,11 @@ class Archive(Package):
             initial_files = self._discover_extracted_files(root, extracted_archives)
             if len(initial_files) == 1:
                 nested_archive = os.path.join(root, initial_files[0])
-                if is_probable_archive(nested_archive):
+                if (
+                    not os.path.islink(nested_archive)
+                    and is_within_root(resolved_root, nested_archive)
+                    and is_probable_archive(nested_archive)
+                ):
                     output_dir = tempfile.mkdtemp(prefix="nested-", dir=root)
                     try:
                         try_multiple_passwords = attempt_multiple_passwords(self.options, password)

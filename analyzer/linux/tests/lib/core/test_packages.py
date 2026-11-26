@@ -30,3 +30,15 @@ def test__guess_package_name(file_type, file_name, expected_package_name):
 def test_choose_package_class_aliases_to_archive(legacy_name):
     pkg_class = choose_package_class(suggestion=legacy_name)
     assert pkg_class.__name__ == "Archive"
+
+
+@pytest.mark.parametrize(
+    "file_type, file_name, expected",
+    [
+        ("Zip archive data, at least v2.0 to extract", "evil-1.0-py3-none-any.whl", "python_whl"),
+        ("Zip archive data, at least v2.0 to extract", "document.docx", "doc"),
+        ("Debian binary package (format 2.0), with control.tar.xz, data compression xz", "pkg.deb", "deb"),
+    ],
+)
+def test_guess_package_name_containers_not_shadowed_by_archive(file_type, file_name, expected):
+    assert _guess_package_name(file_type, file_name) == expected

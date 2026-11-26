@@ -117,12 +117,14 @@ class Archive(Package):
         pid = super().execute(path, args, interest)
         if self.options.get(OPT_FREE, False):
             self._free_mode_execution_succeeded = True
+            self._free_mode_iter_succeeded = True
         return pid
 
     def execute_files(self, root, interesting_files, max_executables=None, resolved_paths=None):
         ret_list = []
         last_error = None
         self._free_mode_execution_succeeded = False
+        self._free_mode_iter_succeeded = False
         launched_files = 0
         resolved_paths = resolved_paths or {}
         try:
@@ -134,6 +136,7 @@ class Archive(Package):
                     )
                     break
                 file_path = resolved_paths.get(interesting_file) or os.path.join(root, interesting_file)
+                self._free_mode_iter_succeeded = False
                 try:
                     pids = self.execute_interesting_file(root, interesting_file, file_path)
                     if pids:
@@ -142,7 +145,7 @@ class Archive(Package):
                             ret_list.extend(pids)
                         else:
                             ret_list.append(pids)
-                    elif self.options.get(OPT_FREE, False) and self._free_mode_execution_succeeded:
+                    elif self.options.get(OPT_FREE, False) and self._free_mode_iter_succeeded:
                         launched_files += 1
                 except CuckooPackageError as e:
                     last_error = e
@@ -158,6 +161,7 @@ class Archive(Package):
             return ret_list
         finally:
             self._free_mode_execution_succeeded = False
+            self._free_mode_iter_succeeded = False
 
     def _try_get_app(self, application: str):
         try:
@@ -304,6 +308,8 @@ class Archive(Package):
                 )
 
     def _is_nested_archive(self, file_path: str, diec_path) -> bool:
+        if os.path.islink(file_path):
+            return False
         if os.path.basename(file_path).lower().endswith(NON_RECURSIVE_CONTAINER_EXTENSIONS):
             return False
 
@@ -523,6 +529,7 @@ class Archive(Package):
             try_multiple_passwords = attempt_multiple_passwords(self.options, password)
             self._extract_with_backend(path, extract_root, password, try_multiple_passwords, extractor)
 
+            resolved_extract_root = os.path.realpath(extract_root)
             nested_dirs = set()
             extracted_files = set()
             extracted_archives = set()
@@ -537,6 +544,8 @@ class Archive(Package):
                                 continue
 
                             extracted_files.add(file_path)
+                            if os.path.islink(file_path) or not is_within_root(resolved_extract_root, file_path):
+                                continue
                             if self._is_nested_archive(file_path, diec_path):
                                 packs.append(file_path)
 
@@ -562,7 +571,11 @@ class Archive(Package):
                 initial_files = self._discover_extracted_files(extract_root, extracted_archives)
                 if len(initial_files) == 1:
                     nested_archive = os.path.join(extract_root, initial_files[0])
-                    if is_probable_archive(nested_archive):
+                    if (
+                        not os.path.islink(nested_archive)
+                        and is_within_root(resolved_extract_root, nested_archive)
+                        and is_probable_archive(nested_archive)
+                    ):
                         output_dir = tempfile.mkdtemp(prefix="nested-", dir=extract_root)
                         nested_dirs.add(output_dir)
                         try:

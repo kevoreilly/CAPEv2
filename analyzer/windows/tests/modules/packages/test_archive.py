@@ -408,3 +408,58 @@ def test_execute_interesting_file_handles_cross_drive_commonpath_valueerror(tmp_
     pkg.execute = MagicMock(return_value=9001)
 
     assert pkg.execute_interesting_file(str(root_dir), "script.bat", str(sample)) == 9001
+
+
+def test_execute_files_free_mode_does_not_count_skipped_non_executables(tmp_path, monkeypatch):
+    from lib.common.constants import OPT_FREE
+
+    pkg = archive_mod.Archive(options={OPT_FREE: True})
+    launched = []
+
+    def fake_super_execute(path, args, interest):
+        launched.append(os.path.basename(path))
+        return None
+
+    monkeypatch.setattr(archive_mod.Package, "execute", lambda self, path, args, interest: fake_super_execute(path, args, interest))
+
+    def fake_exec_interesting(root, name, path):
+        if name.endswith(".exe"):
+            return pkg.execute(path, "", path)
+        return None
+
+    pkg.execute_interesting_file = fake_exec_interesting
+    files = ["first.exe", "blob1.dat", "blob2.db", "blob3.tmp", "second.exe", "third.exe"]
+    assert pkg.execute_files(str(tmp_path), files, max_executables=2) == []
+    assert launched == ["first.exe", "second.exe"]
+
+
+def test_archive_recursion_skips_symlinks(tmp_path, monkeypatch):
+    outside_zip = tmp_path / "outside.zip"
+    with zipfile.ZipFile(outside_zip, "w") as zf:
+        zf.writestr("secret.exe", b"MZ-SECRET")
+
+    sample_zip = tmp_path / "sample.zip"
+    sample_zip.write_bytes(b"PK\x03\x04")
+    out_dir = tmp_path / "out"
+
+    monkeypatch.setattr(archive_mod, "upload_extracted_files", MagicMock())
+    extracted_sources = []
+
+    def fake_extract(_bin, src, dest, _pw, _multi):
+        extracted_sources.append(src)
+        with open(os.path.join(dest, "ok.exe"), "wb") as f:
+            f.write(b"MZ-OK")
+        try:
+            os.symlink(str(outside_zip), os.path.join(dest, "escape.zip"))
+        except OSError:
+            pytest.skip("Symlink creation requires elevated privileges on this platform")
+
+    monkeypatch.setattr(archive_mod, "extract_archive", fake_extract)
+    pkg = archive_mod.Archive(options={OPT_CURDIR: str(out_dir), OPT_RECURSION_DEPTH: 1})
+    pkg.get_path_app_in_path = MagicMock(
+        side_effect=lambda app: "C:\\7z.exe" if app == "7z.exe" else (_ for _ in ()).throw(CuckooPackageError("missing"))
+    )
+    pkg.execute_files = MagicMock(return_value=[7001])
+
+    assert pkg.start(str(sample_zip)) == [7001]
+    assert extracted_sources == [str(sample_zip)]

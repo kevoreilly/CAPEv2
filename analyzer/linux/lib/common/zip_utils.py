@@ -59,6 +59,7 @@ NON_RECURSIVE_CONTAINER_EXTENSIONS = (
     ".xpi",
     ".crx",
     ".whl",
+    ".deb",
     ".msix",
     ".msixbundle",
     ".appx",

@@ -76,3 +76,45 @@ def test_delete_and_update_one_hint_application(monkeypatch):
     # update_one with non-_id query omits hint
     dm.mongo_update_one("analysis", {"info.job_id": "test"}, {"$set": {"a": 1}})
     assert recorded_calls[-1] == ("update_one", {"info.job_id": "test"}, {"$set": {"a": 1}}, False, None)
+
+
+def test_insert_calls_sanitizes_keys_splits_large_chunks_and_falls_back_per_chunk(monkeypatch):
+    from modules.reporting import report_doc
+
+    # 1. Dict keys with invalid surrogates and NUL bytes are sanitized.
+    sanitized = report_doc._sanitize_call_data({"bad\x00key\ud800": "ok", "good": "v"})
+    assert "badkey?" in sanitized
+    assert sanitized["good"] == "v"
+
+    # 2. Oversized chunk splits below max_bytes.
+    big_calls = [{"api": "WriteFile", "arg": "A" * 4000} for _ in range(6)]
+    split_docs = report_doc._build_mongo_call_docs(123, 7, big_calls, max_bytes=10000)
+    assert len(split_docs) > 1
+    assert sum(len(d["calls"]) for d in split_docs) == 6
+
+    # 3. BulkWriteError on chunk 1 keeps chunk 0's already-inserted _id and inserts chunk 2 individually.
+    class _FakeBulkError(Exception):
+        def __init__(self, details):
+            super().__init__("bulk failure")
+            self.details = details
+
+    monkeypatch.setattr(report_doc, "CHUNK_CALL_SIZE", 1)
+    call_log = []
+
+    def fake_insert_many(coll, docs):
+        call_log.append(len(docs))
+        if len(docs) == 3:
+            docs[0]["_id"] = "id-0"
+            docs[1]["_id"] = "id-1"
+            docs[2]["_id"] = "id-2"
+            raise _FakeBulkError({"nInserted": 1, "writeErrors": [{"index": 1, "errmsg": "bad doc"}]})
+        return types.SimpleNamespace(inserted_ids=[docs[0].get("_id") or "id-single"])
+
+    monkeypatch.setattr(report_doc, "mongo_insert_many", fake_insert_many)
+    report = {
+        "info": {"id": 99},
+        "behavior": {"processes": [{"process_id": 42, "calls": [{"a": 1}, {"a": 2}, {"a": 3}]}]},
+    }
+    procs = report_doc.insert_calls(report, mongodb=True)
+    assert call_log == [3, 1]
+    assert procs[0]["calls"] == ["id-0", "id-2"]

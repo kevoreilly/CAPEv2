@@ -1452,20 +1452,21 @@ class Pcap2:
             if codes:
                 phrases = self._all(layers, "http.response.phrase")
                 versions = self._all(layers, "http.response.version")
-                resp_header_groups = self._split_header_lines(
-                    self._all(layers, "http.response.line"),
-                    len(codes),
-                    self._RESP_SINGLETON_HEADERS,
-                )
-                rem_file_datas = file_datas[file_data_idx:]
-                rem_idx = 0
-
                 # Count non-informational responses so single-response frames join all chunks
+                # and headerless interim 1xx responses (e.g. 100 Continue) do not shift header groups.
                 non_interim_count = sum(
                     1
                     for c in codes
                     if not (100 <= self._int(c) < 200 and self._int(c) != 101)
                 )
+                resp_header_groups = self._split_header_lines(
+                    self._all(layers, "http.response.line"),
+                    max(non_interim_count, 1),
+                    self._RESP_SINGLETON_HEADERS,
+                )
+                rem_file_datas = file_datas[file_data_idx:]
+                rem_idx = 0
+                hdr_idx = 0
 
                 for idx, code_str in enumerate(codes):
                     status = self._int(code_str)
@@ -1476,7 +1477,8 @@ class Pcap2:
 
                     phrase = phrases[idx] if idx < len(phrases) else ""
                     version = versions[idx] if idx < len(versions) else "HTTP/1.1"
-                    hdr_lines = resp_header_groups[idx]
+                    hdr_lines = resp_header_groups[hdr_idx] if hdr_idx < len(resp_header_groups) else []
+                    hdr_idx += 1
                     resp_header = self._build_response_header(version, code_str, phrase, hdr_lines)
 
                     resp_body = b""

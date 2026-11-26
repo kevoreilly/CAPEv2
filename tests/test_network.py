@@ -177,3 +177,60 @@ def test_pcap_handles_malformed_and_idn_dns_names_cleanly(tmp_path, monkeypatch,
     assert domains["münchen.de"] == "198.51.100.10"
     assert domains["example.org"] == "93.184.216.34"
     assert domains[".bad.com"] == ""
+
+
+def test_pcap2_process_http_stream_preserves_200_headers_after_100_continue():
+    from modules.processing.network import Pcap2
+
+    pcap = Pcap2.__new__(Pcap2)
+    pcap.results = {"http_ex": [], "https_ex": []}
+    pcap.key = "http_ex"
+    pcap.options = {}
+    pcap.analysis_path = ""
+    pcap.uri_whitelist = []
+
+    finalized = []
+    pcap._finalize_http = lambda req, layers, results, status=None, response_header=b"", resp_body=b"": finalized.append(
+        (req, response_header, resp_body, status)
+    )
+
+    layers_list = [
+        {
+            Pcap2._ek_key(k): v
+            for k, v in frame.items()
+        }
+        for frame in (
+            {
+                "frame.time_epoch": ["1.0"],
+                "ip.src": ["10.0.0.2"],
+                "ip.dst": ["10.0.0.1"],
+                "tcp.srcport": ["50000"],
+                "tcp.dstport": ["80"],
+                "http.request.method": ["POST"],
+                "http.request.uri": ["/upload"],
+                "http.request.version": ["HTTP/1.1"],
+                "http.host": ["example.com"],
+                "http.request.line": ["Host: example.com\r\n", "Expect: 100-continue\r\n"],
+            },
+            {
+                "frame.time_epoch": ["1.1"],
+                "ip.src": ["10.0.0.1"],
+                "ip.dst": ["10.0.0.2"],
+                "tcp.srcport": ["80"],
+                "tcp.dstport": ["50000"],
+                "http.response.code": ["100", "200"],
+                "http.response.phrase": ["Continue", "OK"],
+                "http.response.version": ["HTTP/1.1", "HTTP/1.1"],
+                "http.response.line": ["Content-Type: text/plain\r\n", "Content-Length: 2\r\n"],
+                "http.file_data": ["4f:4b"],
+            },
+        )
+    ]
+
+    pcap._process_http_stream(layers_list, pcap.results)
+    assert len(finalized) == 1
+    _req, resp_header, resp_body, status = finalized[0]
+    assert status == 200
+    assert b"Content-Type: text/plain" in resp_header
+    assert b"Content-Length: 2" in resp_header
+    assert resp_body == b"OK"

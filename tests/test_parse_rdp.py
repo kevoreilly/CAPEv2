@@ -108,3 +108,46 @@ def test_parse_rdp_file_handles_unsigned_without_alternate_address(tmp_path):
     parsed = parse_rdp.parse_rdp_file(str(rdp_file))
     assert parsed["full_address"] == "rdp.example.com:3389"
     assert parsed["signscope_but_missing_sig"] is False
+
+
+def test_validate_sig_non_ascii_main_host_still_validates_alternate_subject(monkeypatch, tmp_path):
+    from lib.cuckoo.common.integrations import parse_rdp
+
+    ca_bundle = tmp_path / "ca.pem"
+    ca_bundle.write_text("dummy")
+
+    class _FakeCert:
+        class _Ext:
+            value = type("KU", (), {"digital_signature": True})()
+
+        class _Exts:
+            def get_extension_for_oid(self, _oid):
+                return _FakeCert._Ext()
+
+        extensions = _Exts()
+
+    verified_subjects = []
+
+    class _FakeVerifier:
+        def __init__(self, subject):
+            self.subject = subject
+
+        def verify(self, cert, intermediates):
+            verified_subjects.append(self.subject)
+
+    class _FakeBuilder:
+        def store(self, _store):
+            return self
+
+        def build_server_verifier(self, subject):
+            return _FakeVerifier(subject)
+
+    monkeypatch.setattr(parse_rdp, "_load_trust_store", lambda _p: object())
+    monkeypatch.setattr(parse_rdp.verification, "PolicyBuilder", _FakeBuilder)
+
+    res = parse_rdp.validate_sig("bücher.example", "alt.example.com", [_FakeCert()], ca_bundle_path=str(ca_bundle))
+    assert res["main_valid"] is False
+    assert res["alt_valid"] is True
+    assert res["valid"] is True
+    assert len(res["validation_errors"]) == 1
+    assert len(verified_subjects) == 1

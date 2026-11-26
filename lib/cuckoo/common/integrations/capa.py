@@ -31,7 +31,7 @@ integrations_conf = Config("integrations")
 
 rules: Any = False
 signatures: list[Any] = []
-capa_compatible_versions = {"9", "10"}
+capa_compatible_versions = {"10"}
 rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
 signatures_path = os.path.join(CUCKOO_ROOT, "data", "flare-signatures")
 HAVE_FLARE_CAPA = False
@@ -70,7 +70,7 @@ def _ensure_capa_loaded(force: bool = False) -> bool:
         from packaging import version
 
         # if version.parse(python_version()) >= version.parse("3.10.0"):
-        capa_compatible_versions = {"9", "10"}
+        capa_compatible_versions = {"10"}
 
         # ToDo use major?
         if version.parse(capa_version).base_version.split(".")[0] not in capa_compatible_versions:
@@ -82,6 +82,7 @@ def _ensure_capa_loaded(force: bool = False) -> bool:
         import capa.capabilities.common
         import capa.engine
         import capa.features
+        import capa.features.extractors.cape.extractor  # capa 10 no longer imports it from capa.loader
         import capa.features.freeze.features as frzf
         import capa.loader
         import capa.main
@@ -443,9 +444,7 @@ def _run_capa_static(file_path: str, disable_progress: bool = True, skip_packed:
         )
         capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
         # collect metadata (used only to make rendering more complete)
-        meta = capa.loader.collect_metadata(
-            [], file_path_object, input_format, OS_AUTO, [path_object(rules_path)], extractor, capabilities
-        )
+        meta = capa.loader.collect_metadata([], file_path_object, input_format, [path_object(rules_path)], extractor, capabilities)
         meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities.matches)
 
         # ...as python dictionary, simplified as textable but in dictionary
@@ -483,9 +482,7 @@ def _run_capa_report(file_path: str, results: dict, disable_progress: bool = Tru
 
         capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
         # collect metadata (used only to make rendering more complete)
-        meta = capa.loader.collect_metadata(
-            [], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, capabilities
-        )
+        meta = capa.loader.collect_metadata([], file_path_object, FORMAT_AUTO, [path_object(rules_path)], extractor, capabilities)
         meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities.matches)
 
         # ...as python dictionary, simplified as textable but in dictionary

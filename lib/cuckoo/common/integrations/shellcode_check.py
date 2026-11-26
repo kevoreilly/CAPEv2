@@ -2891,6 +2891,8 @@ def _ctr_decrypt(mk, ctr, data, start, off, n):
 
 def _xpress_lz77(src, size):
     """Plain LZ77 Xpress (MS-XCA 2.3, COMPRESSION_FORMAT_XPRESS) decompression, capped at size bytes."""
+    if size <= 0:
+        return b""
     out = bytearray()
     i, flags, nflags, half = 0, 0, 0, None
     end = len(src)
@@ -2938,11 +2940,18 @@ def _xpress_lz77(src, size):
         length += 3
         if dist > len(out):
             raise ValueError("Xpress match before the start of the output")
+        remaining = size - len(out)
+        if length > remaining:
+            length = remaining
         if dist >= length:
             out += out[-dist : len(out) - dist + length]
         else:
-            for _ in range(length):
-                out.append(out[-dist])
+            chunk = out[-dist:]
+            reps, rem = divmod(length, dist)
+            if reps:
+                out += chunk * reps
+            if rem:
+                out += chunk[:rem]
     return bytes(out[:size])
 
 

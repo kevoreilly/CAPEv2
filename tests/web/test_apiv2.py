@@ -622,6 +622,42 @@ class TestBulkReportsDownload(SimpleTestCase):
                 assert ctx_all["config"]["bulk_download"] is True
                 assert ctx_all["config"]["bulk_max_reports"] == 5
 
+    def test_bulk_reports_preserves_session_user_for_per_user_report_permission(self):
+        from django.test import RequestFactory
+        from rest_framework.authentication import SessionAuthentication
+        import apiv2.views as apiv2_views
+
+        assert SessionAuthentication in apiv2_views.tasks_reports_bulk.cls.authentication_classes
+
+        rf = RequestFactory()
+        permitted_user = SimpleNamespace(
+            is_authenticated=True, is_active=True, userprofile=SimpleNamespace(reports=True)
+        )
+        denied_user = SimpleNamespace(
+            is_authenticated=True, is_active=True, userprofile=SimpleNamespace(reports=False)
+        )
+
+        with (
+            patch.dict("apiv2.views.apiconf.taskreport", {"enabled": True, "bulk_download": True}),
+            patch("apiv2.views.settings.ALLOW_DL_REPORTS_TO_ALL", False),
+        ):
+            # Session-authenticated user with userprofile.reports=True must NOT be clobbered to AnonymousUser
+            req_ok = rf.get("/apiv2/tasks/get/reports/bulk/")
+            req_ok.user = permitted_user
+            resp = apiv2_views.tasks_reports_bulk(req_ok)
+            assert resp.status_code == 200
+            assert resp.data == {"error": True, "error_value": "No Task IDs or range specified"}
+
+            from django.http import HttpResponse
+
+            req_denied = rf.get("/apiv2/tasks/get/reports/bulk/")
+            req_denied.user = denied_user
+            with patch("apiv2.views.render", side_effect=lambda _req, tpl, ctx: HttpResponse(f"{tpl}:{ctx['error']}")):
+                resp_denied = apiv2_views.tasks_reports_bulk(req_denied)
+            assert resp_denied.status_code == 200
+            assert "error.html:" in resp_denied.content.decode()
+            assert "permissions to download reports" in resp_denied.content.decode()
+
 
 @pytest.mark.usefixtures("db", "tmp_cuckoo_root")
 class TestTasksStatusApi(SimpleTestCase):

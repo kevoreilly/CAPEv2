@@ -778,17 +778,31 @@ class TestStaticPreview(SimpleTestCase):
             self.assertEqual(db.guest_get_status(task.id), "stopping")
 
             # Reset guest status to "running" and test POST /apiv2/tasks/status/<id>/ with status="stop"
+            import apiv2.views as apiv2_views
+
             db.guest_set_status(task.id, "running")
-            api_resp = self.client.post(
-                f"/apiv2/tasks/status/{task.id}/",
-                data='{"status": "stop"}',
-                content_type="application/json",
-            )
-            self.assertEqual(api_resp.status_code, 200)
-            api_json = api_resp.json()
-            self.assertFalse(api_json["error"])
-            self.assertEqual(api_json["data"], "stopping")
-            self.assertEqual(db.guest_get_status(task.id), "stopping")
+            # With [user_stop] enabled = no (default), API stop must be refused even when web static_preview.allow_stop=yes
+            with patch.dict(apiv2_views.apiconf.user_stop, {"enabled": False}):
+                denied_resp = self.client.post(
+                    f"/apiv2/tasks/status/{task.id}/",
+                    data='{"status": "stop"}',
+                    content_type="application/json",
+                )
+                self.assertEqual(denied_resp.status_code, 200)
+                self.assertTrue(denied_resp.json()["error"])
+                self.assertEqual(db.guest_get_status(task.id), "running")
+
+            with patch.dict(apiv2_views.apiconf.user_stop, {"enabled": True}):
+                api_resp = self.client.post(
+                    f"/apiv2/tasks/status/{task.id}/",
+                    data='{"status": "stop"}',
+                    content_type="application/json",
+                )
+                self.assertEqual(api_resp.status_code, 200)
+                api_json = api_resp.json()
+                self.assertFalse(api_json["error"])
+                self.assertEqual(api_json["data"], "stopping")
+                self.assertEqual(db.guest_get_status(task.id), "stopping")
 
     def test_tenancy_middleware_requires_manage_rights_on_status_stop_post(self):
         import lib.tenancy.middleware as mw_mod

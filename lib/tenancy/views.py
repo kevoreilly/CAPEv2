@@ -371,7 +371,7 @@ def _check_storage_view_login_required(request: Any, view_name: str) -> Optional
 
         if not settings.configured or not bool(getattr(settings, "WEB_AUTHENTICATION", False)):
             return None
-        if bool(getattr(settings, "ANON_VIEW", False)) and view_name != "file":
+        if bool(getattr(settings, "ANON_VIEW", False)) and view_name not in ("file", "vtupload"):
             return None
         user = getattr(request, "user", None)
         if getattr(user, "is_authenticated", False):

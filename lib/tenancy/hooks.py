@@ -1162,7 +1162,8 @@ def wrap_submission_and_web_utils(
                 res = _orig(task_id, *args, **kwargs)
                 if isinstance(res, dict) and not res.get("error"):
                     rtid = res.get("rtid")
-                    if rtid is not None and str(rtid) != str(task_id):
+                    target_tid = rtid if (rtid is not None and str(rtid) != str(task_id)) else task_id
+                    if target_tid is not None:
                         viewer = get_current_viewer()
                         if viewer is not None and not viewer.see_all:
                             from lib.cuckoo.core.data.task import Task
@@ -1173,13 +1174,13 @@ def wrap_submission_and_web_utils(
                             ensure_acl_schema_once(db_inst.engine)
                             with db_inst.session.begin():
                                 t_obj = res.get("task")
-                                if t_obj is None:
+                                if t_obj is None or str(getattr(t_obj, "id", "")) != str(target_tid):
                                     try:
-                                        t_obj = db_inst.session.get(Task, int(rtid))
+                                        t_obj = db_inst.session.get(Task, int(target_tid))
                                     except Exception:
                                         t_obj = None
                                 fb_uid = getattr(t_obj, "user_id", None) if t_obj is not None else None
-                                scope = resolve_task_scope(db_inst.session, int(rtid), fallback_user_id=fb_uid)
+                                scope = resolve_task_scope(db_inst.session, int(target_tid), fallback_user_id=fb_uid)
                             if not can_read(viewer, scope):
                                 return {"error": True, "error_value": "Task does not exist"}
                 return res

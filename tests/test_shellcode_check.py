@@ -1413,3 +1413,24 @@ def test_framework_extract_caps_at_extract_max(monkeypatch):
     r = sc.analyse(bytes(pe) + MSF_STYLE_X64, extract_payloads=True)
     assert _framework(r, "pe2shc")["confidence"] == "identified"
     assert r["_payloads"] == []
+
+
+def test_xpress_lz77_clamps_huge_match_length_and_handles_overlap():
+    import time
+    from lib.cuckoo.common.integrations.shellcode_check import _xpress_lz77
+
+    # 1. Crafted 32-bit extended match length (0xFFFFFFFF) must clamp to requested size immediately
+    # flags=0x40000000 (bit31=0 literal, bit30=1 match), literal=b'A', match=(dist=1, len=7),
+    # nibble=0x0f (15), byte=0xff (255), u16=0x0000 -> u32=0xFFFFFFFF
+    crafted = struct.pack("<I", 0x40000000) + b"A" + struct.pack("<H", 0x0007) + b"\x0f\xff\x00\x00" + struct.pack("<I", 0xFFFFFFFF)
+    t0 = time.monotonic()
+    out = _xpress_lz77(crafted, 64)
+    elapsed = time.monotonic() - t0
+    assert out == b"A" * 64
+    assert elapsed < 0.5
+
+    # 2. Multi-byte overlapping repeat (dist=2, length=7 -> "BCBCBCB" after "ABC")
+    # bit31..29=0 (3 literals 'A','B','C'), bit28=1 (match dist=2 -> (1<<3)|4 = 0x000C, length=4+3=7)
+    overlap = struct.pack("<I", 0x10000000) + b"ABC" + struct.pack("<H", (1 << 3) | 4)
+    assert _xpress_lz77(overlap, 10) == b"ABCBCBCBCB"
+    assert _xpress_lz77(overlap, 0) == b""

@@ -25,7 +25,8 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 try:
     from apikey.authentication import ApiKeyAuthentication
 except ImportError:
@@ -1188,11 +1189,13 @@ def tasks_status(request, task_id: int | str):
         resp = {"error": False, "data": status, "has_errors": bool(getattr(task, "errors", None))}
     elif request.method == "POST":
         requested_status = request.data.get("status", "")
-        static_preview_cfg = getattr(web_conf, "static_preview", None)
-        web_allow_stop = bool(static_preview_cfg.get("allow_stop", True)) if (static_preview_cfg and hasattr(static_preview_cfg, "get")) else True
-        if requested_status == "stop" and (apiconf.user_stop.enabled or web_allow_stop):
+        if requested_status == "stop":
+            if not apiconf.user_stop.enabled:
+                return Response({"error": True, "error_value": "Task stop API is disabled"})
             resp = stop_analysis_task(task_id, mode="stop")
-        elif requested_status == "finish" and apiconf.user_stop.enabled:
+        elif requested_status == "finish":
+            if not apiconf.user_stop.enabled:
+                return Response({"error": True, "error_value": "Task stop API is disabled"})
             guest = getattr(task, "guest", None)
             if task.status != TASK_RUNNING or guest is None or not getattr(guest, "name", None):
                 resp = {"error": True, "error_value": "Task is not running"}
@@ -1478,6 +1481,7 @@ def _cfg_bool(val) -> bool:
 
 @csrf_exempt
 @api_view(["GET"])
+@authentication_classes([c for c in (ApiKeyAuthentication, SessionAuthentication) if c is not None])
 def tasks_reports_bulk(request, task_ids=None, report_format="json"):
     """Bulk download analysis reports as a ZIP archive with files named by sample SHA256."""
     if not _cfg_bool(apiconf.taskreport.get("enabled")) or not _cfg_bool(apiconf.taskreport.get("bulk_download")):

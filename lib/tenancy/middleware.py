@@ -39,8 +39,8 @@ from lib.tenancy.resources import (
 
 _DELETE_KEYWORDS = ("delete", "remove", "purge")
 # A live guac console grants keyboard/framebuffer control of the analysis VM: a task action, not a read.
-_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule", "/guac/", "remote_session", "tag_tasks")
-_TASK_ID_KWARGS = ("task_id", "analysis_id", "analysis_number", "left_id", "right_id")
+_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule", "/guac/", "remote_session", "tag_tasks", "vtupload")
+_TASK_ID_KWARGS = ("task_id", "analysis_id", "analysis_number", "left_id", "right_id", "task_ids")
 _SAMPLE_HASH_KWARGS = ("sha256", "sha1", "md5", "sample_id")
 # Route kwargs that carry a bare hash of unspecified type (compare/<id>/<hash>, resubmit/<id>/<hash>).
 _UNTYPED_HASH_KWARGS = ("right_hash", "resubmit_hash")
@@ -57,7 +57,7 @@ _MAX_TASK_ID_RANGE = 1000
 # Deployment-wide views a tenant-scoped viewer must not reach: statistics aggregates every
 # tenant's tasks with raw SQL, yara_uploader writes rules every tenant's analyses (and guests) use.
 _ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader", "ban_user", "ban_all_user_tasks")
-_ANON_NOT_VIEWABLE_VIEWS = ("file", "remove", "pending", "filtered_chunk", "search_behavior", "statistics_data")
+_ANON_NOT_VIEWABLE_VIEWS = ("file", "remove", "pending", "filtered_chunk", "search_behavior", "statistics_data", "vtupload")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 # Views that only read on GET but change or control the task on POST (tasks/status: status=finish/stop, status: action=stop, tasks_file_stream).
 _MANAGE_ON_POST_VIEW_NAMES = ("tasks_status", "tasks_file_stream", "status")
@@ -66,7 +66,7 @@ _PATH_KWARGS = ("filename", "dlfile")
 # apiv2 views that follow a recovered task's custom "Recovery_<id>" to that copy (validate_task,
 # tasks_view); the others act on the task named in the route.
 _RECOVERY_FOLLOWING_VIEW_NAMES = (
-    "tasks_view", "tasks_report", "tasks_iocs", "tasks_screenshot", "tasks_pcap", "tasks_tlspcap",
+    "tasks_view", "tasks_report", "tasks_reports_bulk", "tasks_iocs", "tasks_screenshot", "tasks_pcap", "tasks_tlspcap",
     "tasks_pcap_variant", "tasks_evtx", "tasks_dropped", "tasks_selfextracted", "tasks_surifile",
     "tasks_mitmdump", "tasks_keys", "tasks_etw", "tasks_bulkzip", "tasks_payloadfiles",
     "tasks_procdumpfiles", "tasks_procmemory", "tasks_fullmemory", "tasks_config", "tasks_delete", "file",
@@ -624,7 +624,11 @@ class TenancyMiddleware:
                 return self.deny_response_factory(request, "Sample not found in database")
 
         if not viewer.see_all:
-            raw_task_ids = _task_ids_from_kwargs(view_kwargs) + _task_ids_from_body(request, view_func)
+            raw_task_ids = (
+                _task_ids_from_kwargs(view_kwargs)
+                + _task_ids_from_query(request, view_func)
+                + _task_ids_from_body(request, view_func)
+            )
             if raw_task_ids:
                 action = classify_view_action(_route_path(request), view_func)
                 method = str(getattr(request, "method", "") or "").upper()
@@ -762,19 +766,63 @@ def _task_ids_from_kwargs(view_kwargs: Dict[str, Any]) -> list:
 
 
 def _expand_task_ids(raw: Any) -> list:
-    """Expand "1,2" and "1-5" id lists; anything unparseable is returned as-is and denied later."""
-    text = str(raw)
-    if "," in text:
-        return [part.strip() for part in text.split(",") if part.strip()]
-    if "-" in text:
-        try:
-            start, end = (int(part) for part in text.split("-"))
-        except ValueError:
-            return [raw]
-        if start > end or end - start >= _MAX_TASK_ID_RANGE:
-            return [raw]
-        return list(range(start, end + 1))
-    return [raw]
+    """Expand "1,2", "1-5", and mixed "1-3,5" id lists; unparseable or oversized specs stay as-is and are denied later."""
+    text = str(raw).strip()
+    if not text:
+        return [raw]
+    parts = [part.strip() for part in text.split(",") if part.strip()] if "," in text else [text]
+    if not parts:
+        return [raw]
+    expanded: list = []
+    for part in parts:
+        if "-" in part:
+            pieces = part.split("-")
+            if len(pieces) != 2:
+                return [raw]
+            try:
+                start, end = int(pieces[0].strip()), int(pieces[1].strip())
+            except ValueError:
+                return [raw]
+            if start > end or (end - start + 1) + len(expanded) > _MAX_TASK_ID_RANGE:
+                return [raw]
+            expanded.extend(range(start, end + 1))
+        else:
+            if len(expanded) + 1 > _MAX_TASK_ID_RANGE:
+                return [raw]
+            expanded.append(part)
+    return expanded
+
+
+def _task_ids_from_query(request: Any, view_func: Callable[..., Any]) -> list:
+    """Task ids a view reads from query parameters (e.g., GET /apiv2/tasks/get/reports/bulk/)."""
+    if _view_name(view_func) != "tasks_reports_bulk":
+        return []
+    query = getattr(request, "GET", None)
+    if query is None or not hasattr(query, "get"):
+        return []
+
+    def _values(key: str) -> list:
+        if hasattr(query, "getlist"):
+            vals = query.getlist(key)
+        else:
+            v = query.get(key)
+            vals = [v] if v is not None else []
+        return [str(v).strip() for v in vals if str(v or "").strip()]
+
+    collected: list = []
+    for raw_ids in _values("task_ids"):
+        collected.extend(_expand_task_ids(raw_ids))
+
+    starts = _values("start_id")
+    ends = _values("end_id")
+    if starts and ends:
+        for s in starts:
+            for e in ends:
+                collected.extend(_expand_task_ids(f"{s}-{e}"))
+    elif starts:
+        for s in starts:
+            collected.extend(_expand_task_ids(s))
+    return collected
 
 
 def _late_authenticated_user(request: Any, view_func: Callable[..., Any], user: Any) -> Any:

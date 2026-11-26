@@ -2398,8 +2398,9 @@ def create_app(database_connection):
                     except ValueError:
                         # Worker may have been registered with a separate private nfs_host before a restart;
                         # let fstab.py match and unmount by validated worker mount point.
-                        resolved_nfs_host = ""
-                    send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[resolved_nfs_host, name])
+                        send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry_by_folder", *[name])
+                    else:
+                        send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[resolved_nfs_host, name])
                 _NODE_NFS_HOSTS.pop(name, None)
         return None
 

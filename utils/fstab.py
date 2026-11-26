@@ -129,16 +129,13 @@ def add_nfs_entry(hostname: str, worker_folder: str):
             log.error("add_nfs_entry error on mount: %s", e)
 
 
-def remove_nfs_entry(hostname: str, worker_folder: str):
-    validated_host = _validate_hostname(hostname) if hostname else ""
-    worker_path = _resolve_worker_path(worker_folder)
-
+def _remove_fstab_entry(worker_path: str, validated_host: str | None = None):
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
             if entry.startswith("#"):
                 continue
-            if f" {worker_path} nfs " in entry and (not validated_host or entry.startswith(f"{validated_host}:")):
+            if f" {worker_path} nfs " in entry and (validated_host is None or entry.startswith(f"{validated_host}:")):
                 fstab.remove(entry)
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break
@@ -148,9 +145,21 @@ def remove_nfs_entry(hostname: str, worker_folder: str):
             log.error("remove_nfs_entry error on umount: %s", e)
 
 
+def remove_nfs_entry(hostname: str, worker_folder: str):
+    validated_host = _validate_hostname(hostname)
+    worker_path = _resolve_worker_path(worker_folder)
+    _remove_fstab_entry(worker_path, validated_host)
+
+
+def remove_nfs_entry_by_folder(worker_folder: str):
+    worker_path = _resolve_worker_path(worker_folder)
+    _remove_fstab_entry(worker_path)
+
+
 handlers = {
     "add_entry": add_nfs_entry,
     "remove_entry": remove_nfs_entry,
+    "remove_entry_by_folder": remove_nfs_entry_by_folder,
 }
 
 if __name__ == "__main__":

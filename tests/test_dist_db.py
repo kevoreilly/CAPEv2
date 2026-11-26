@@ -1700,12 +1700,12 @@ def test_dist_auth_token_raw_string_and_delete_node_nfs_host_and_active_submit(d
     finally:
         dist_mod._ACTIVE_SUBMITS.pop(node_id, None)
 
-    # 3. Unmount for a worker whose URL hostname is public falls back cleanly to mount-point removal ("")
+    # 3. Unmount for a worker whose URL hostname is public falls back cleanly to mount-point removal
     with patch("utils.dist.send_socket_command") as mock_sock:
         assert delete_node_fn("worker-pub", unmount=True) is None
-        mock_sock.assert_called_once_with(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry", "", "worker-pub")
+        mock_sock.assert_called_once_with(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry_by_folder", "worker-pub")
 
-    # 4. fstab.remove_nfs_entry("", "worker-pub") removes entry by validated mount path
+    # 4. fstab.remove_nfs_entry_by_folder("worker-pub") removes entry by validated mount path
     mount_base = tmp_path / "workers"
     mount_base.mkdir()
     worker_dir = mount_base / "worker-pub"
@@ -1718,5 +1718,5 @@ def test_dist_auth_token_raw_string_and_delete_node_nfs_host_and_active_submit(d
     monkeypatch.setattr(fstab_mod, "path_write_file", lambda _p, data, mode="text": written.append(data))
     monkeypatch.setattr(fstab_mod.subprocess, "check_output", lambda _cmd: b"")
 
-    fstab_mod.remove_nfs_entry("", "worker-pub")
+    fstab_mod.remove_nfs_entry_by_folder("worker-pub")
     assert written and str(worker_dir) not in written[0]

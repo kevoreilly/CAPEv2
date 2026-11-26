@@ -164,7 +164,11 @@ def denormalize_files_from_reports(reports):
                         log.warning("Failed to find %s in %s collection.", FILES_COLL, file_dict[FILE_REF_KEY])
                         continue
                     file_doc = file_docs[file_dict.pop(FILE_REF_KEY)]
-                    file_dict.update(file_doc)
+                    # The task's own results win: the shared document also carries fields written by the
+                    # submission preview (e.g. static_shellcode_check run without payload extraction),
+                    # which must not replace what this task's processing produced for the same file.
+                    for key, value in file_doc.items():
+                        file_dict.setdefault(key, value)
 
             yield from reports_batch
 

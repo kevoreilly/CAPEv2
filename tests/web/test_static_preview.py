@@ -653,6 +653,24 @@ class TestStaticPreview(SimpleTestCase):
         self.assertNotIn("Where it matched", html)
         self.assertIn(f'class="collapse show mb-3" id="shellcode_check_{parent_sha}"', html)
 
+        # a submitted shellcode file on the static tab: the panel starts collapsed (summary and buttons only)
+        static_html = render_to_string(
+            "analysis/generic/_file_info.html",
+            {
+                "file": {"sha256": parent_sha, "name": "payload.bin", "size": 512, "static_shellcode_check": sc_data},
+                "tab_name": "static",
+                "id": 42,
+                "config": {"static_shellcode_check": True},
+                "on_demand": {"static_shellcode_check": False},
+                "graphs": {"bingraph": {"enabled": False, "content": {}}, "vba2graph": {"enabled": False, "content": {}}},
+                "analysis": {"info": {"id": 42, "package": "shellcode"}, "target": {"file": {"sha256": parent_sha}}},
+            },
+        )
+        self.assertIn(f'class="collapse mb-3" id="shellcode_check_{parent_sha}"', static_html)
+        self.assertIn(f'href="#shellcode_check_{parent_sha}"', static_html)  # the Tools button opens it
+        self.assertIn('<th class="text-end text-info">Shellcode Check</th>', static_html)  # the row label is plain text
+        self.assertEqual(static_html.count(f'href="#shellcode_check_{parent_sha}"'), 1)  # nothing else in the row toggles it
+
         # Derived shellcode payload (cape_type_code == 8197 / 0x2005) gets the on-demand button
         ondemand_html = render_to_string(
             "analysis/generic/_file_info.html",
@@ -1235,4 +1253,3 @@ class TestStaticPreview(SimpleTestCase):
         )
         self.assertIn(f"v{CUCKOO_VERSION}", submit_no_commit)
         self.assertNotIn("/commit/", submit_no_commit)
-

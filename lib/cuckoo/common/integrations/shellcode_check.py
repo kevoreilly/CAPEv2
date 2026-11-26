@@ -47,7 +47,7 @@ import bisect
 import math
 import re
 import struct
-from collections import Counter
+from collections import Counter, deque
 from timeit import default_timer
 
 try:
@@ -56,11 +56,6 @@ try:
     HAVE_CAPSTONE = True
 except ImportError:  # pragma: no cover
     HAVE_CAPSTONE = False
-
-try:  # optional: vectorised Chaskey for decrypting large Donut modules
-    import numpy as np
-except ImportError:  # pragma: no cover
-    np = None
 
 MAX_SCAN_DEFAULT = 256 * 1024
 MAX_INSNS_DEFAULT = 8000
@@ -116,6 +111,10 @@ GROUPS = {
     "stack_strings": "Strings built on the stack from immediates",
     "pe_loader": "Reflective/manual PE mapping, pe2shc headers, embedded and staged PEs",
     "egg_hunter": "Egg-hunter memory page walks",
+    "image_base": "Finding a module's base without the loader lists: backward scans for the MZ header, the SEH chain's last handler, kernel entry points",
+    "self_modifying": "Code that rewrites its own instructions",
+    "stager_api": "Stage API combinations the code resolves itself (by hash or stack string): sockets, HTTP download, download-and-execute, call-stack spoofing",
+    "exceptions": "Exception-driven control flow: SEH frames and vectored handlers set up by the code, handlers that move the saved instruction pointer",
     "patching": "In-memory function patching (AMSI/ETW/WLDP) and AMSI context corruption",
     "kernel": "Kernel-mode payload constructs (token stealing)",
     "anti_analysis": "Anti-debug, anti-VM, timing and KUSER_SHARED_DATA checks",
@@ -123,6 +122,8 @@ GROUPS = {
     "framework": "Output layout of known shellcode generators, matched exactly",
     "injection": "Injector-built stubs that call API addresses inside the target process",
     "layout": "Layout and origin hints (stack alignment, position dependence, JIT/compiled code)",
+    "crypto": "Cipher, hash and encoding primitives (AES, RC4, ChaCha/Salsa, TEA/XTEA, MD5/SHA, Base64, Windows crypto APIs): supporting weight only, in shellcode",
+    "api_sets": "API combinations the code resolves itself (by hash or stack string), not names lying in data",
 }
 
 # tag -> (group, description shown to analysts)
@@ -142,7 +143,7 @@ INDICATORS = {
     "known_api_hash": ("api_hashing", "Uses a known API/module name hash constant"),
     "api_hash_loop": ("api_hashing", "Byte loop hashing API/module names (ror13, djb2, FNV, sdbm, ...)"),
     "hash_constant": ("api_hashing", "Hash algorithm seed or multiplier constant"),
-    "speck_hash": ("api_hashing", "Speck ARX round (ror 8 / rol 3) - Maru-style API hashing (Donut)"),
+    "speck_hash": ("api_hashing", "Speck ARX round (ror 8 / rol 3) in a loop: Speck-based API hashing or decryption"),
     "getpc_call_pop": ("getpc", "call $+5; pop - obtains its own address"),
     "getpc_jmp_call_pop": ("getpc", "jmp/call/pop - obtains the address of trailing data"),
     "getpc_call4": ("getpc", "call $+4 (e8 ff ff ff ff) into its own last byte, then pop - obtains its own address"),
@@ -150,14 +151,14 @@ INDICATORS = {
     "getpc_self_base": ("getpc", "Computes its own start address (call/pop then -5), typical of loader bootstraps"),
     "getpc_call_over_data": (
         "getpc",
-        "call forward over embedded data/code, then pop - obtains its address (Donut instance, MSF block_api)",
+        "call forward over embedded data/code, then pop - obtains its address (e.g. a Donut instance or MSF block_api)",
     ),
     "decoder_loop": ("decoders", "Loop with a decoder's shape whose pointer is not tied to the blob"),
     "decoder_stub": ("decoders", "Decoder loop whose pointer comes from GetPC/RIP: it decodes bytes of the blob itself"),
     "decoded_payload": ("decoders", "Linked decoder's region decoded statically: gives a PE, code or text (exact range)"),
     "fpu_getpc_decoder": (
         "decoders",
-        "FPU instruction + fnstenv [esp-0xc] GetPC: the stub of an FPU GetPC decoder (Shikata Ga Nai, fnstenv_mov, alpha_mixed...)",
+        "FPU instruction + fnstenv [esp-0xc] GetPC: the stub of an FPU GetPC decoder (e.g. Shikata Ga Nai, fnstenv_mov, alpha_mixed)",
     ),
     "shikata_ga_nai": (
         "decoders",
@@ -172,20 +173,23 @@ INDICATORS = {
     "encoded_payload": ("decoders", "High-entropy region a linked decoder works on (that region's own entropy)"),
     "framework_layout": (
         "framework",
-        "Exact output layout of a known shellcode generator (Donut, sRDI, pe2shc); see Frameworks",
+        "Exact output layout of a known shellcode generator, proven by its framework module; see Frameworks",
     ),
     "block_api_prologue": (
         "api_hashing",
         "Classic Metasploit block_api resolver prologue. Shared public code (also Cobalt Strike stagers and others), "
         "so not an attribution; current Metasploit shuffles this code",
     ),
-    "rc4_ksa": ("decoders", "RC4 key schedule (256-entry init + swap loop) alongside a linked decoder"),
+    "rc4_ksa": (
+        "decoders",
+        "RC4 key schedule (256-entry S-box init + swap loop): medium next to a linked decoder, else supporting weight in shellcode",
+    ),
     "aplib_depacker": ("decoders", "aPLib depacker (cld; mov dl, 0x80; ...; movsb; mov bl, 2): unpacks a compressed payload"),
-    "chaskey_cipher": ("decoders", "Chaskey ARX rotations (5/7/8/13/16) - Donut-style instance decryption"),
+    "chaskey_cipher": ("decoders", "Chaskey ARX rotations (5/7/8/13/16): Chaskey-based decryption"),
     "direct_syscall": ("syscalls", "mov r10, rcx; mov eax, SSN; syscall - bypasses user-mode hooks"),
     "indirect_syscall": ("syscalls", "mov r10, rcx; mov eax, SSN; jmp into ntdll's syscall gadget"),
     "syscall_insn": ("syscalls", "Executes syscall/sysenter directly"),
-    "syscall_stub_scan": ("syscalls", "Reads syscall numbers out of ntdll stubs (Hell's/Halo's Gate)"),
+    "syscall_stub_scan": ("syscalls", "Reads syscall numbers out of ntdll stubs (e.g. Hell's/Halo's Gate)"),
     "gadget_scan": (
         "syscalls",
         "Searches memory for syscall / jmp [rbx] / jmp|call rbx gadgets (indirect syscalls, return-address spoofing)",
@@ -206,7 +210,7 @@ INDICATORS = {
     "pe_reloc_fixup": ("pe_loader", "Applies base relocations (word entries, >>12 / &0xfff)"),
     "pe_import_resolve": ("pe_loader", "Resolves an import directory (descriptors, ordinal flag)"),
     "reflective_pe_loader": ("pe_loader", "Maps a PE image itself: headers + sections + relocs/imports"),
-    "executable_pe_header": ("pe_loader", "DOS header is executable and jumps to a loader (pe2shc style)"),
+    "executable_pe_header": ("pe_loader", "DOS header is executable and jumps to a loader (e.g. pe2shc)"),
     "staged_pe": ("pe_loader", "Loader or bootstrap carrying an embedded PE image"),
     "embedded_pe": ("pe_loader", "Contains a PE image (by NT header)"),
     "mapped_image": (
@@ -219,6 +223,102 @@ INDICATORS = {
         "Kernel payload: current thread from the KPCR (gs:[0x188] / fs:[0x124]), process list walked for PID 4, token copied",
     ),
     "zero_three_regs": ("layout", "xor ecx, ecx; mul ecx - zeroes eax, ecx and edx at once (hand-written shellcode idiom)"),
+    "aes_ni": ("crypto", "AES-NI round instructions (aesdec/aesenc...): an AES decrypt of a payload or config"),
+    "chacha_constants": ("crypto", "ChaCha/Salsa20 constants ('expand 32-byte k') as immediates or a stack string"),
+    "tea_delta": ("crypto", "TEA/XTEA round: the 0x9e3779b9 delta added to a sum, with the shift-by-4/5 mixing"),
+    "rc4_systemfunction": ("crypto", "Resolves SystemFunction032/033 (advapi32 RC4), used to mask or decrypt memory"),
+    "aes_tables": ("crypto", "Software AES tables carried in the blob (S-box, inverse S-box, T-table or round constants)"),
+    "digest_constants": (
+        "crypto",
+        "MD5/SHA-1/SHA-256 constants or a CRC32 table: hashing, e.g. to derive a key or hash names",
+    ),
+    "base64_alphabet": ("crypto", "Base64 alphabet carried in the blob or built on the stack: Base64 decoding"),
+    "crypto_api": (
+        "crypto",
+        "Resolves Windows crypto APIs itself (CryptDecrypt, BCryptDecrypt, CryptStringToBinary...): decrypts or decodes data",
+    ),
+    "pe_custom_magic": (
+        "pe_loader",
+        "After e_lfanew, compares the NT header signature with something other than 'PE' (a custom magic, "
+        "e.g. Cobalt Strike magic_pe) and then reads header fields",
+    ),
+    "remote_injection": (
+        "api_sets",
+        "Resolves a remote write primitive and a remote execution primitive (VirtualAllocEx/WriteProcessMemory/"
+        "NtMapViewOfSection with CreateRemoteThread/NtQueueApcThread/SetThreadContext...)",
+    ),
+    "sleep_obfuscation": (
+        "api_sets",
+        "Resolves the pieces of a sleep-masking chain (e.g. Ekko/Foliage): two of a timer or wait trigger, "
+        "a context switch (NtContinue/RtlCaptureContext) and RC4 memory masking (SystemFunction032/033)",
+    ),
+    "chained_blocks": (
+        "layout",
+        "Blocks chained by jmps and laid out of order (control-flow obfuscation); the indicators were matched in execution order",
+    ),
+    "nop_sled": ("layout", "A NOP sled (a long run of one-byte no-ops or one repeated filler byte) leads into the code"),
+    "seh_handler_install": (
+        "exceptions",
+        "Installs an SEH frame (fs:[0]) whose handler is inside the blob (from GetPC, a call's return address, or the region's own base)",
+    ),
+    "exception_context_rewrite": (
+        "exceptions",
+        "Exception handler changes the saved instruction pointer (CONTEXT.Eip/Rip) so execution resumes somewhere else: it "
+        "checks the exception code or returns 'continue execution', or the code takes its address",
+    ),
+    "exception_control_flow": (
+        "exceptions",
+        "The code takes the address of a handler in the blob and that handler moves CONTEXT.Eip/Rip: control flow driven by exceptions",
+    ),
+    "exception_trigger": ("exceptions", "Raises an exception on purpose (int3, ud2, int 0x2d...) right after installing a handler"),
+    "exception_handler_api": (
+        "exceptions",
+        "Resolves AddVectoredExceptionHandler / RtlAddVectoredExceptionHandler / SetUnhandledExceptionFilter itself (hash or stack string)",
+    ),
+    "image_base_scan": (
+        "image_base",
+        "Walks backwards from an address, a page or 64 KB at a time, until it finds 'MZ': locates the base of the image that address is in",
+    ),
+    "seh_chain_walk": (
+        "image_base",
+        "Follows the SEH chain (fs:[0]) to its last frame (-1), whose handler is inside kernel32/ntdll: medium when a scan back to 'MZ' follows",
+    ),
+    "kernel_msr_read": ("kernel", "Reads the LSTAR / SYSENTER_EIP MSR: the kernel's system-call entry point (kernel-mode payload)"),
+    "kernel_base_discovery": (
+        "kernel",
+        "Kernel payload: takes a kernel address (system-call entry MSR, or the IDT from the KPCR) and scans back to the kernel image's 'MZ'",
+    ),
+    "self_modifying_code": (
+        "self_modifying",
+        "Writes into its own instructions (RIP-relative or through a GetPC pointer), with code all the way from the write to its target",
+    ),
+    "vmware_backdoor": ("anti_analysis", "VMware backdoor I/O port check: eax = 'VMXh', in eax, dx"),
+    "red_pill": ("anti_analysis", "Stores a descriptor table register (sidt/sgdt/sldt/str): virtual machine check"),
+    "trap_flag": (
+        "exceptions",
+        "Sets the trap flag in the saved flags (pushf; or [sp], 0x100; popf): single-step exception on the next instruction",
+    ),
+    "exception_directory_walk": (
+        "syscalls",
+        "Walks ntdll's exception directory (RUNTIME_FUNCTION entries): ranks syscall stubs without reading them",
+    ),
+    "kernel_callback_table": ("peb_walk", "Reads PEB.KernelCallbackTable: user32 callback pointers that can be redirected"),
+    "process_parameters_write": (
+        "peb_walk",
+        "Overwrites PEB.ProcessParameters strings (image path / command line): process masquerading",
+    ),
+    "rwx_alloc_args": ("layout", "Sets up an allocation call with MEM_COMMIT(|RESERVE) and PAGE_EXECUTE_READWRITE"),
+    "printable_code": (
+        "decoders",
+        "Clean code made only of printable bytes that rewrites memory: an alphanumeric / printable encoder stub",
+    ),
+    "socket_stager": ("stager_api", "Resolves a socket channel: socket + connect + recv, or bind + listen + accept"),
+    "http_stager": ("stager_api", "Resolves an HTTP download chain (WinINet or WinHTTP: open, connect/open URL, read)"),
+    "download_execute": ("stager_api", "Resolves URLDownloadToFile with WinExec / CreateProcess / ShellExecute"),
+    "stack_spoofing": (
+        "stager_api",
+        "Resolves BaseThreadInitThunk / RtlUserThreadStart (with RtlLookupFunctionEntry / RtlVirtualUnwind): builds a fake call stack",
+    ),
     "injected_call_stub": (
         "injection",
         "Small stub calling absolute API addresses in the target process (CreateRemoteThread/APC loader stub)",
@@ -264,6 +364,70 @@ RARE_MNEMONICS = frozenset(
 FAR_TRANSFERS = frozenset({"retf", "retfq", "ljmp", "lcall"})
 COND_BRANCHES = frozenset("ja jae jb jbe je jg jge jl jle jne jno jnp jns jo jp js jcxz jecxz jrcxz loop loope loopne".split())
 TERMINATORS = frozenset({"ret", "retn", "jmp", "ud2", "int3", "hlt"})
+# Privileged or legacy instructions are noise in user-mode code, except where the code sets them up
+# on purpose: an MSR read (kernel payloads find the kernel through LSTAR / SYSENTER_EIP), the
+# VMware backdoor port, and descriptor-table stores (red pill)
+_MSRS = {0xC0000082: "LSTAR", 0x176: "SYSENTER_EIP", 0x174: "SYSENTER_CS", 0x175: "SYSENTER_ESP", 0xC0000080: "EFER",
+         0xC0000081: "STAR", 0xC0000101: "GS_BASE", 0xC0000102: "KERNEL_GS_BASE"}  # fmt: skip
+VMWARE_MAGIC = "eax, 0x564d5868"  # 'VMXh'
+
+
+def _deliberate(mn, op, recent):
+    """A rare instruction the code prepared for (recent: the (mnemonic, operands) just before it)."""
+    if mn in ("rdmsr", "wrmsr"):
+        return any(m == "mov" and o.startswith("ecx, ") and _imm(o[5:]) in _MSRS for m, o in recent)
+    if mn == "in":
+        return op == "eax, dx" and any(m == "mov" and o == VMWARE_MAGIC for m, o in recent)
+    if mn in ("sidt", "sgdt"):
+        return "sp" in op or "bp" in op  # stored to a stack slot and read back
+    if mn == "sldt":
+        return op in _REG_CANON
+    return False
+
+
+# jcc pairs that between them always branch: 'jz X' directly followed by 'jnz X' is a jmp X
+_COMPLEMENT = {}
+for _a, _b in (
+    ("je", "jne"),
+    ("ja", "jbe"),
+    ("jae", "jb"),
+    ("jg", "jle"),
+    ("jge", "jl"),
+    ("jo", "jno"),
+    ("jp", "jnp"),
+    ("js", "jns"),
+):
+    _COMPLEMENT[_a], _COMPLEMENT[_b] = _b, _a
+# prefixes capstone folds into the mnemonic: CET (notrack), MPX (bnd), and the AMD 'rep ret' idiom
+_BRANCH_PREFIXES = frozenset({"notrack", "bnd"})
+_RET_PREFIXES = frozenset({"rep", "repz", "repe", "repne", "repnz"})
+# a string (ASCII or UTF-16, NUL-terminated) placed after a call that passes its address
+_INLINE_STRING = re.compile(rb"[\x09\x0a\x0d\x20-\x7e\x00]*(?:[A-Za-z0-9]\x00?){4}[\x09\x0a\x0d\x20-\x7e\x00]*\x00")
+_RIP_OPERAND = re.compile(r"\[rip(?: ([+-]) (0x[0-9a-f]+|\d+))?\]")
+# NOP sleds: long runs of one-byte instructions with no lasting effect, or of one repeated byte
+# that decodes as a harmless instruction (heap-spray 0x0c0c0c0c: or al, 0xc). They only nominate
+# where code may start; a sled never scores on its own.
+SLED_MIN = 64
+_SLED_REPEATS = rb"\x0a{%d,}|\x0c{%d,}|\x0d{%d,}|(?:\x66\x90){%d,}" % (SLED_MIN, SLED_MIN, SLED_MIN, SLED_MIN // 2)
+SLED_RE = {
+    # x86: inc/dec r32, xchg eax, r32 (not esp), cwde/cdq, wait, sahf/lahf, cmc/clc/stc/cld/std, daa/das/aaa/aas, salc
+    False: re.compile(
+        rb"[\x27\x2f\x37\x3f\x40-\x4f\x90-\x93\x95-\x99\x9b\x9e\x9f\xd6\xf5\xf8\xf9\xfc\xfd]{%d,}|" % SLED_MIN + _SLED_REPEATS
+    ),
+    # x64: 0x40-0x4f are REX prefixes and the BCD opcodes are invalid
+    True: re.compile(rb"[\x90\x98\x99\x9b\x9e\x9f\xf5\xf8\xf9\xfc\xfd]{%d,}|" % SLED_MIN + _SLED_REPEATS),
+}
+MAX_SLEDS = 16
+# NTSTATUS codes a handler tests for: breakpoint, single step, guard page, access violation, illegal
+# instruction, divide by zero, privileged instruction
+_EXCEPTION_CODES = frozenset({0x80000003, 0x80000004, 0x80000001, 0xC0000005, 0xC000001D, 0xC0000094, 0xC0000096})
+_EXCEPTION_APIS = frozenset({"AddVectoredExceptionHandler", "RtlAddVectoredExceptionHandler", "SetUnhandledExceptionFilter"})
+_SELF_WRITES = frozenset("mov xor add sub or and not neg inc dec".split())
+HANDLER_SPAN = 0x100  # a handler's CONTEXT write sits this close to its entry
+LOADER_SPAN = 0x2000  # the stages of one PE loader sit together; further apart they are unrelated functions
+# jmp-chained code (every block ends in a jmp to the next, blocks shuffled): scanned again in execution order
+CHAINED_MIN_JMPS = 8
+CHAINED_JMP_RATIO = 0.12
 # Mnemonics that dominate real code. Data that happens to decode is mostly
 # add/or/adc/sbb/and against memory, so the share of these separates the two.
 CORE_MNEMONICS = frozenset(
@@ -322,10 +486,10 @@ _HASH_APIS = {
         "QueueUserAPC ResumeThread GetThreadContext SetThreadContext CreateTimerQueueTimer CreateFiber "
         "ConvertThreadToFiber SwitchToFiber EnumSystemLocalesA CreateNamedPipeA ConnectNamedPipe CreatePipe "
         "PeekNamedPipe GetComputerNameA GetUserNameA DeleteFileA MoveFileExA CreateToolhelp32Snapshot "
-        "Process32First Process32Next AddVectoredExceptionHandler"
+        "Process32First Process32Next AddVectoredExceptionHandler BaseThreadInitThunk RtlLookupFunctionEntry RtlVirtualUnwind"
     ),
     "ntdll.dll": (
-        "NtAllocateVirtualMemory NtProtectVirtualMemory NtWriteVirtualMemory NtCreateThreadEx NtMapViewOfSection "
+        "RtlUserThreadStart NtAllocateVirtualMemory NtProtectVirtualMemory NtWriteVirtualMemory NtCreateThreadEx NtMapViewOfSection "
         "NtCreateSection NtUnmapViewOfSection NtQueueApcThread NtFlushInstructionCache NtClose NtDelayExecution "
         "RtlExitUserThread RtlCreateUserThread LdrLoadDll LdrGetProcedureAddress LdrGetDllHandle "
         "RtlAddFunctionTable NtTraceEvent EtwEventWrite NtContinue RtlCaptureContext NtTestAlert "
@@ -344,7 +508,16 @@ _HASH_APIS = {
         "WinHttpOpen WinHttpConnect WinHttpOpenRequest WinHttpSendRequest WinHttpReceiveResponse "
         "WinHttpReadData WinHttpQueryDataAvailable"
     ),
-    "advapi32.dll": "RegOpenKeyExA RegSetValueExA CryptAcquireContextA SystemFunction032 SystemFunction033 OpenProcessToken",
+    "advapi32.dll": (
+        "RegOpenKeyExA RegSetValueExA CryptAcquireContextA CryptAcquireContextW CryptImportKey CryptDeriveKey "
+        "CryptCreateHash CryptHashData CryptDecrypt CryptEncrypt CryptDestroyKey SystemFunction032 SystemFunction033 "
+        "OpenProcessToken"
+    ),
+    "crypt32.dll": "CryptStringToBinaryA CryptStringToBinaryW CryptUnprotectData",
+    "bcrypt.dll": (
+        "BCryptOpenAlgorithmProvider BCryptSetProperty BCryptGenerateSymmetricKey BCryptImportKey BCryptDecrypt "
+        "BCryptEncrypt BCryptCreateHash BCryptHashData"
+    ),
     "mscoree.dll": "CLRCreateInstance CorBindToRuntime",
     "oleaut32.dll": "SafeArrayCreate SafeArrayCreateVector SysAllocString",
     "user32.dll": "MessageBoxA MessageBoxW",
@@ -584,6 +757,11 @@ def _parse_int(text):
         return None
 
 
+def _imm(text):
+    """An immediate operand's value; cheap for the register and memory operands that are not."""
+    return _parse_int(text) if text and (text[0].isdigit() or text[0] == "-") else None
+
+
 def _entropy(counts, n):
     if not n:
         return 0.0
@@ -657,6 +835,9 @@ def _reg_bits(reg):
     if reg.startswith("e") or (reg.startswith("r") and reg.endswith("d")):
         return 32
     return 64
+
+
+_REG_BITS = {r: _reg_bits(r) for r in _REG_CANON}
 
 
 # Process structures (offsets from https://moval0x1.github.io/posts/the-peb-walk-anatomy/)
@@ -851,6 +1032,180 @@ def _printable4(v, width=4):
     return None
 
 
+STACK_STRING_MIN = 6  # ASCII characters
+WIDE_STRING_MIN = 5  # UTF-16 characters
+_SIMD_LOADS = frozenset("movdqa movdqu movaps movups lddqu vmovdqa vmovdqu vmovaps vmovups vlddqu".split())
+_SIMD_XORS = frozenset("pxor xorps xorpd vpxor vxorps vxorpd".split())
+_FOLD = frozenset("xor add sub and or rol ror shl shr".split())
+_REG_TRACK_MNS = frozenset("mov movabs lea xor xchg xadd cmpxchg".split())
+
+
+def _clobber_table():
+    """Registers written implicitly (not named as the destination operand)."""
+    table = {}
+    for mn, regs in {"mul": "a d", "imul": "a d", "div": "a d", "idiv": "a d", "cdq": "d", "cqo": "d", "cwd": "d",
+                     "cdqe": "a", "cwde": "a", "cbw": "a", "rdtsc": "a d", "rdtscp": "a c d", "cpuid": "a b c d",
+                     "syscall": "a c r11", "sysenter": "a c d", "int": "a", "xlatb": "a", "loop": "c", "loope": "c",
+                     "loopne": "c", "cmpxchg": "a"}.items():  # fmt: skip
+        table[mn] = tuple(regs.split())
+    for op, regs in {"lods": "a si", "stos": "di", "movs": "si di", "scas": "di", "cmps": "si di"}.items():
+        for w in "bwdq":
+            table[op + w] = tuple(regs.split())
+            for prefix in ("rep", "repe", "repne"):
+                table[f"{prefix} {op}{w}"] = tuple(regs.split()) + ("c",)
+    return table
+
+
+_CLOBBERS = _clobber_table()
+_STRING_PUNCT = frozenset(" ._-\\/:%$@#,()[]{}=+&?!'\"~;*<>|^`")
+_SP = _canon("rsp")
+_ASCII_RUN = re.compile(rb"[\x20-\x7e]{4,}")
+_WIDE_RUN = re.compile(rb"(?:[\x20-\x7e]\x00){%d,}" % WIDE_STRING_MIN)
+
+
+def _texty(text):
+    """Reads as a name, path, URL or sentence: mostly letters, digits and ordinary punctuation (at
+    least two letters, for ws2_32), and no five-character runs of one character (xor keys, padding)."""
+    if sum(c.isalpha() for c in text) < 2 or sum(c.isalnum() for c in text) < 0.5 * len(text):
+        return False
+    if sum(c.isalnum() or c in _STRING_PUNCT for c in text) < 0.85 * len(text):
+        return False
+    return not re.search(r"(.)\1{4}", text)
+
+
+def _strings_in(data):
+    """[(index, text, wide)]: ASCII and UTF-16LE strings in stack bytes, split at NULs."""
+    out = [(m.start(), m.group().decode("ascii"), False) for m in _ASCII_RUN.finditer(data)]
+    out = [o for o in out if len(o[1]) >= STACK_STRING_MIN or o[1].lower() in _API_NAMES]  # Sleep, send
+    out += [(m.start(), m.group().decode("utf-16le"), True) for m in _WIDE_RUN.finditer(data)]
+    return [(at, text, wide) for at, text, wide in sorted(out) if _texty(text)]
+
+
+_API_EXACT = frozenset(_API_NAMES.values())
+_AES_MNS = frozenset("aesdec aesdeclast aesenc aesenclast aesimc aeskeygenassist".split())
+# ChaCha/Salsa20 sigma/tau: "expand 32-byte k" / "expand 16-byte k"
+_CHACHA_WORDS = {
+    0x61707865: "expa",
+    0x3320646E: "nd 3",
+    0x79622D32: "2-by",
+    0x6B206574: "te k",
+    0x3120646E: "nd 1",
+    0x79622D36: "6-by",
+}
+_TEA_DELTAS = {0x9E3779B9: "0x9e3779b9", 0x61C88647: "-0x9e3779b9", 0xC6EF3720: "0x9e3779b9 * 32", 0x8DDE6E40: "0x9e3779b9 * 64"}
+# MD5 / SHA-1 / SHA-256 initial values and first round constants, as 32-bit immediates
+_DIGEST_WORDS = {
+    **dict.fromkeys((0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476), "MD5/SHA-1"),
+    0xC3D2E1F0: "SHA-1",
+    **dict.fromkeys((0xD76AA478, 0xE8C7B756, 0x242070DB, 0xC1BDCEEE), "MD5"),
+    **dict.fromkeys(
+        (0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19,
+         0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5),
+        "SHA-256",
+    ),
+}  # fmt: skip
+# Tables carried as data: (tag, what, leading bytes). Matches inside an embedded PE are the PE's own.
+_CRYPTO_TABLES = (
+    ("aes_tables", "AES S-box", bytes.fromhex("637c777bf26b6fc53001672bfed7ab76")),
+    ("aes_tables", "AES inverse S-box", bytes.fromhex("52096ad53036a538bf40a39e81f3d7fb")),
+    ("aes_tables", "AES T-table (Te0)", bytes.fromhex("a56363c6847c7cf8997777ee8d7b7bf6")),
+    ("aes_tables", "AES round constants", bytes.fromhex("01020408102040801b36")),
+    ("digest_constants", "SHA-256 round constants", bytes.fromhex("982f8a4291443771cffbc0b5a5dbb5e9")),
+    ("digest_constants", "SHA-256 initial values", bytes.fromhex("67e6096a85ae67bb72f36e3c3af54fa5")),
+    ("digest_constants", "MD5/SHA-1 initial values", bytes.fromhex("0123456789abcdeffedcba9876543210")),
+    ("digest_constants", "MD5 round constants", bytes.fromhex("78a46ad756b7c7e8db702024eecebdc1")),
+    ("digest_constants", "CRC32 table", bytes.fromhex("0000000096300777") + bytes.fromhex("2c610eeeba510999")),
+    ("base64_alphabet", "Base64 alphabet", b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"),
+)
+_CRYPTO_APIS = frozenset(
+    "CryptAcquireContextA CryptAcquireContextW CryptImportKey CryptDeriveKey CryptCreateHash CryptHashData "
+    "CryptDecrypt CryptEncrypt CryptStringToBinaryA CryptStringToBinaryW CryptUnprotectData "
+    "BCryptOpenAlgorithmProvider BCryptSetProperty BCryptGenerateSymmetricKey BCryptImportKey BCryptDecrypt "
+    "BCryptEncrypt BCryptCreateHash BCryptHashData".split()
+)
+# Recorded as INFO by the code scan; supporting weight (WEAK) only once the blob is shellcode on other
+# evidence, dropped otherwise (crypto libraries and compiled code use all of them)
+CIPHER_TAGS = ("aes_ni", "chacha_constants", "tea_delta", "rc4_systemfunction", "rc4_ksa", "digest_constants")
+# Short patterns that can occur by coincidence: recorded as INFO, supporting weight once the blob is shellcode
+SUPPORT_TAGS = ("red_pill", "trap_flag", "exception_directory_walk", "kernel_callback_table", "process_parameters_write",
+                "rwx_alloc_args", "seh_chain_walk")  # fmt: skip
+MZ_SCAN_BODY = 24  # instructions in a backward MZ scan loop
+
+
+def _crypto_tables(data, embedded, regions):
+    """[(tag, what, offset)]: cipher/digest tables and the Base64 alphabet carried in the blob,
+    outside embedded PE images (a carried DLL's own tables are not the shellcode's)."""
+    skip = []
+    for pe in embedded or ():
+        lo = int(pe["offset"], 16)
+        size = max(
+            int(pe.get("size_of_image", "0x0"), 16), _pe_raw_size(data, lo + int(pe.get("nt_offset", "0x0"), 16)) or 0, 0x1000
+        )
+        skip.append((lo, lo + size))
+    skip += [(g["start"], g["start"] + (g.get("size") or 0)) for g in regions if g.get("result_type") == "pe"]
+    found = {}
+    for tag, what, pattern in _CRYPTO_TABLES:
+        at = data.find(pattern)
+        while at != -1 and any(lo <= at < hi for lo, hi in skip):
+            at = data.find(pattern, at + 1)
+        if at != -1:
+            found.setdefault(tag, []).append((what, at))
+    return [(tag, ", ".join(w for w, _ in hits), min(a for _, a in hits)) for tag, hits in found.items()]
+
+
+def _split_api_names(text):
+    """Counted (ANSI_STRING) names laid end to end without NULs, 'VirtualAllocLoadLibraryA':
+    the API names, when the whole run is made of them; otherwise None."""
+    if len(text) < 10 or text.lower() in _API_NAMES:
+        return None
+    best = {0: []}
+    for start in range(len(text)):
+        if start not in best:
+            continue
+        for end in range(start + 4, min(len(text), start + 48) + 1):
+            if end not in best and text[start:end] in _API_EXACT:
+                best[end] = best[start] + [text[start:end]]
+    parts = best.get(len(text))
+    return parts if parts and len(parts) > 1 else None
+
+
+def _apply_feedback(data, width, op, key, feedback):
+    """Decoder whose key changes with every element: element = cipher op key, then the key is
+    updated from the plaintext, the ciphertext or a constant. feedback: (source, update op, constant)."""
+    source, update, const = feedback
+    mask = (1 << 8 * width) - 1
+    bits = 8 * width
+    out = bytearray()
+    for i in range(0, len(data) - width + 1, width):
+        c = int.from_bytes(data[i : i + width], "little")
+        p = c ^ key if op == "xor" else (c + key) & mask if op == "add" else (c - key) & mask
+        out += p.to_bytes(width, "little")
+        v = p if source == "plain" else c if source == "cipher" else const
+        if update == "mov":
+            key = v
+        elif update == "xor":
+            key ^= v
+        elif update == "add":
+            key = (key + v) & mask
+        elif update == "sub":
+            key = (key - v) & mask
+        elif update == "rol":
+            key = ((key << v % bits) | (key >> (bits - v % bits))) & mask
+        elif update == "ror":
+            key = ((key >> v % bits) | (key << (bits - v % bits))) & mask
+    return bytes(out) + bytes(data[len(out) :])
+
+
+def _apply_key_table(data, op, key, first):
+    """Byte decoder with a repeating key table: data[j] op= key[(first + j) % len(key)]."""
+    n = len(key)
+    stream = (key[first % n :] + key[: first % n]) * (len(data) // n + 1)
+    if op == "xor":
+        return (int.from_bytes(data, "little") ^ int.from_bytes(stream[: len(data)], "little")).to_bytes(len(data), "little")
+    sign = 1 if op == "add" else -1
+    return bytes((b + sign * k) & 0xFF for b, k in zip(data, stream))
+
+
 def _apply_xforms(data, width, keys):
     """Run a decoder's transform chain over data, element by element (no
     emulation: only constant keys). keys: [(op, key)]."""
@@ -905,9 +1260,14 @@ def _pe_raw_size(buf, nt):
 class _Descent:
     """Recursive descent over a buffer for one mode."""
 
-    def __init__(self, buf, mode, max_insns, extent=None):
+    def __init__(self, buf, mode, max_insns, extent=None, sleds=()):
         self.buf = buf
         self.n = len(buf)
+        self.is64 = mode == CS_MODE_64
+        self.sleds = sleds  # sorted (start, end) NOP sleds: never decoded, entered at their end
+        self.junk = set()  # instructions that run straight into bytes that do not decode: not code
+        self.getpc = {}  # offset of a pop reached by a call -> the return address it receives
+        self.entry = None
         # branch targets in [n, far_limit) are 'beyond the window' (rest of the
         # payload, or just past a page-truncated dump), not evidence of garbage
         self.far_limit = max(extent or 0, self.n + TRUNCATION_SLACK)
@@ -926,8 +1286,16 @@ class _Descent:
         self.far = []  # branch targets past the end of buf (followed by deep scan)
         self.spec = []  # bytes skipped by call-to-pop: walked only if they decode as code
 
+    def _past_sled(self, off):
+        """off, or the end of the sled it lies in."""
+        i = bisect.bisect_right(self.sleds, (off, self.n + 1)) - 1
+        if i >= 0 and self.sleds[i][0] <= off < self.sleds[i][1]:
+            return self.sleds[i][1]
+        return off
+
     def run(self, entries):
         work = list(dict.fromkeys(entries))
+        self.entry = (self._past_sled(work[0]) if self.sleds else work[0]) if work else None
         work.reverse()
         while len(self.insns) < self.max_insns:
             if not work:
@@ -938,6 +1306,8 @@ class _Descent:
                     work.append(start)
                 continue
             start = work.pop()
+            if self.sleds:
+                start = self._past_sled(start)
             if start in self.insns or not 0 <= start < self.n:
                 continue
             self.paths += 1
@@ -947,9 +1317,15 @@ class _Descent:
         """Trial linear decode: a clean run to a terminator, no legacy opcodes."""
         k = -1
         core = 0
+        recent = deque(maxlen=6)
         for k, (_, _, mn, op) in enumerate(self.md.disasm_lite(self.buf[start : start + 512], start, limit)):
-            if mn in RARE_MNEMONICS or mn in FAR_TRANSFERS or (mn == "add" and op.endswith("], al")):
+            if (
+                (mn in RARE_MNEMONICS and not _deliberate(mn, op, recent))
+                or mn in FAR_TRANSFERS
+                or (mn == "add" and op.endswith("], al"))
+            ):
                 return False
+            recent.append((mn, op))
             core += mn in CORE_MNEMONICS or mn in COND_BRANCHES
             if mn in TERMINATORS:
                 return k >= 2
@@ -960,7 +1336,18 @@ class _Descent:
         off = start
         padding_run = 0
         gate = 0  # instructions left in which a far return counts as heaven's gate
+        tail = None  # instructions since the last branch: junk if they run into undecodable bytes
+        # (not from the entry itself: a decoder stub runs straight into what it has yet to decode)
+        prev_cond = None  # (mnemonic, target, end offset) of the conditional branch just decoded
+        lea = None  # (register, blob offset, instructions left) from lea reg, [rip + x]
+        pushed = None  # that register, when the previous instruction pushed it
+        pc = None  # (register, blob offset, instructions left) from call/pop GetPC
         while True:
+            if self.sleds:
+                off = self._past_sled(off)
+                if off >= self.n:
+                    self.clean_paths += 1
+                    return
             window_end = min(off + WINDOW, self.n)
             last_end = off
             stop = None  # "clean" | "bad" | "merge" | "end"
@@ -970,8 +1357,16 @@ class _Descent:
                 if addr in self.insns:
                     stop = "merge"
                     break
+                if " " in mn:
+                    prefix, _, base = mn.partition(" ")
+                    if (prefix in _BRANCH_PREFIXES and base in ("jmp", "call", "ret")) or (
+                        base == "ret" and prefix in _RET_PREFIXES
+                    ):
+                        mn = base
                 self.insns[addr] = (size, mn, op)
                 last_end = addr + size
+                if tail is not None:
+                    tail.append(addr)
 
                 if mn == "add" and op in ("byte ptr [eax], al", "byte ptr [rax], al"):
                     padding_run += 1
@@ -981,7 +1376,7 @@ class _Descent:
                 else:
                     padding_run = 0
 
-                if mn in RARE_MNEMONICS:
+                if mn in RARE_MNEMONICS and not _deliberate(mn, op, [self.insns[a][1:] for a in list(self.insns)[-7:-1]]):
                     self.rare += 1
                     stop = "bad"
                     break
@@ -1000,7 +1395,36 @@ class _Descent:
 
                 is_jmp = mn == "jmp"
                 tgt = None
+                if lea:
+                    # lea r, [rip + x]; jmp r / call r / push r; ret: the target is known
+                    reg, where, left = lea
+                    if ((is_jmp or mn == "call") and op == reg) or (pushed and mn == "ret"):
+                        if where not in self.insns and self._looks_like_code(where):
+                            self.targets.add(where)
+                            work.append(where)
+                        lea = None
+                    else:
+                        pushed = mn == "push" and op == reg
+                        lea = (reg, where, left - 1) if left > 1 and not (", " in op and op.startswith(reg + ",")) else None
+                if pc:
+                    # call/pop GetPC; lea r, [pc_reg + x]: an address in the blob is taken (handler, callback)
+                    reg, base, left = pc
+                    if mn == "lea" and f"[{reg} " in op:
+                        m = _mem(op.split(", ", 1)[1])
+                        if m and m[2] is None and 0 <= base + m[4] < self.n and base + m[4] not in self.insns:
+                            self.spec.append(base + m[4])
+                    pc = (reg, base, left - 1) if left > 1 and not op.startswith(reg + ",") else None
+                if mn == "pop" and addr in self.getpc:
+                    pc = (op, self.getpc[addr], 16)
+                if mn == "lea" and self.is64 and "[rip" in op:
+                    m = _RIP_OPERAND.search(op)
+                    where = addr + size + (int(m.group(2), 0) * (-1 if m.group(1) == "-" else 1) if m and m.group(1) else 0)
+                    if m and 0 <= where < self.n:
+                        lea, pushed = (op.split(",", 1)[0], where, 4), False
+                        if where not in self.insns:
+                            self.spec.append(where)  # an address taken: a handler or callback, walked if it decodes as code
                 if is_jmp or mn == "call" or mn in COND_BRANCHES:
+                    tail = []
                     tgt = _parse_int(op)
                     if tgt is not None:
                         self.branches += 1
@@ -1014,6 +1438,8 @@ class _Descent:
                             self.far.append(tgt)
                         else:
                             self.oob.append((addr, tgt))
+                if mn == "call" and tgt is not None and addr + size <= tgt < self.n and 0x58 <= self.buf[tgt] <= 0x5F:
+                    self.getpc[tgt] = addr + size
                 if mn == "call" and tgt is not None and addr + size < tgt < self.n:
                     b0 = self.buf[tgt]
                     if 0x58 <= b0 <= 0x5F or (b0 == 0x41 and tgt + 1 < self.n and 0x58 <= self.buf[tgt + 1] <= 0x5F):
@@ -1022,6 +1448,22 @@ class _Descent:
                         self.spec.append(addr + size)
                         stop = "clean"
                         break
+                    gap = self.buf[addr + size : tgt]
+                    if (
+                        6 <= len(gap) <= 512
+                        and not gap[-1]
+                        and _INLINE_STRING.fullmatch(gap)
+                        and not self._looks_like_code(addr + size)
+                    ):
+                        stop = "clean"  # call over an inline string: the callee takes its address from the stack
+                        break
+                if tgt is not None and mn in _COMPLEMENT:
+                    if prev_cond == (_COMPLEMENT[mn], tgt, addr):
+                        stop = "clean"  # jz X; jnz X: always taken, what follows is not reached from here
+                        break
+                    prev_cond = (mn, tgt, addr + size)
+                else:
+                    prev_cond = None
                 if mn in TERMINATORS:
                     stop = "clean"
                     self._gap_seed(addr + size, work)
@@ -1037,6 +1479,7 @@ class _Descent:
                     stop = "end"  # last instruction cut off by the end of the buffer
                 else:
                     stop = "bad"  # invalid instruction
+                    self.junk.update(tail or ())  # what led straight into it is not code either
 
             if stop == "bad":
                 self.bad_paths += 1
@@ -1126,17 +1569,23 @@ class _Indicators:
         off, (_, m, o) = self._seq[k]
         return (off, f"{m} {o}".strip(), note)
 
-    def scan(self, insns):
-        seq = sorted(insns.items())
+    def scan(self, insns, junk=()):
+        seq = sorted(insns.items()) if not junk else sorted(kv for kv in insns.items() if kv[0] not in junk)
         n = len(seq)
         is64 = self.is64
         exp_off = 0x88 if is64 else 0x78
         seg_starts = []  # sequence indexes of segment-relative reads (PEB walk start points)
-        pushes = []  # running printable push immediates for stack strings
-        movs = []
+        pushes = []  # running printable push immediates for stack strings: (offset, 4 raw bytes)
+        self._smap = {}  # base register -> {displacement: byte} from immediate stores (stack strings)
+        self._smap_at = {}  # base register -> offset of its first store
+        self._frame = {_SP: 0}  # stack-frame registers -> offset from the entry stack pointer
+        self._vstack = []  # known pushed values, for push imm; pop reg
+        self._barrier = -1  # index after the last jmp/ret: constants set before it may be from another path
+        xmm_consts = {}  # xmm/ymm register -> known bytes (xorstr-style SIMD string decoding)
         va_hits = 0
         self._lfanew_reads = []  # sequence indexes of [r + 0x3c] loads (e_lfanew)
         reg_consts = {}  # canonical register -> (constant, seq index) from 'mov reg, imm'
+        frame, smap = self._frame, self._smap
         self._seq = seq
         scasd = any(m == "scasd" for _, (_, m, _) in seq)
 
@@ -1229,7 +1678,7 @@ class _Indicators:
                         self.add("hash_constant", WEAK, off, f"{text}  ; {HASH_SEEDS[v]}")
                     if v32 == 0xB8D18B4C and mn in ("cmp", "mov"):
                         # 4c 8b d1 b8 = 'mov r10, rcx; mov eax, SSN': reading syscall numbers out of ntdll stubs
-                        self.add("syscall_stub_scan", STRONG, off, f"{text}  ; ntdll stub bytes (Hell's/Halo's Gate)")
+                        self.add("syscall_stub_scan", STRONG, off, f"{text}  ; ntdll stub bytes")
                     if self.va is not None and self.va <= v < self.va + self.size:
                         va_hits += 1
 
@@ -1299,16 +1748,25 @@ class _Indicators:
                                  [self.line(i, "AMSI context signature"), self.line(k, "overwritten")])  # fmt: skip
                         break
 
-            push_s = mov_s = None
+            push_s = None
+            # constants and stack bytes; skipped inline for what cannot matter (conditional jumps,
+            # arithmetic on registers holding nothing known) as this runs for every instruction
+            if dst is None:
+                if mn[0] != "j" or mn == "jmp":
+                    self._track_strings(i, off, size, mn, op, dst, src, reg_consts, xmm_consts)
+            else:
+                cdq = _REG_CANON.get(dst)
+                if (
+                    cdq is None
+                    or cdq in reg_consts
+                    or cdq in frame
+                    or cdq in smap
+                    or mn in _CLOBBERS
+                    or (mn in _REG_TRACK_MNS and not (mn == "mov" and src[-1] == "]"))
+                ):
+                    self._track_strings(i, off, size, mn, op, dst, src, reg_consts, xmm_consts)
             if mn in ("mov", "movabs", "push"):
                 v = _parse_int(src if src is not None else op) if has_hex or (src or op).isdigit() else None
-                if mn != "push" and dst is not None:
-                    cd = _canon(dst)
-                    if cd:
-                        if v is not None:
-                            reg_consts[cd] = (v, i)
-                        else:
-                            reg_consts.pop(cd, None)
                 if v is not None:
                     # --- literal sockaddr_in: AF_INET (2) + port (network order) [+ IPv4]
                     if v & 0xFFFF == 2 and (v >> 16) & 0xFFFF and not op.startswith(("byte", "word")):
@@ -1331,20 +1789,12 @@ class _Indicators:
                         base = dst.split("[")[-1].split(" ")[0].rstrip("]") if "[" in dst else None
                         if kind and base not in _STACK_BASES and (base is not None or width >= 4):
                             self.add("ret_patch_write", WEAK, off, f"{text}  ; {kind}")
-                    # --- stack strings
-                    if mn == "push":
-                        if v >= 0x2020:
-                            push_s = _printable4(v)
-                    elif v >= 0x01000000 and (mn == "movabs" or dst.startswith(("dword ptr [", "qword ptr ["))):
-                        mov_s = _printable4(v, 8 if v > 0xFFFFFFFF else 4)
-                    elif v >= 0x01000000 and mn == "mov" and _canon(dst) and i + 1 < n:
-                        # staged through a 32-bit register: mov ecx, 'Writ'; mov dword ptr [rsp+x], ecx
-                        nm, no = seq[i + 1][1][1:]
-                        if nm == "mov" and "ptr [" in no.split(",")[0] and _canon(no.rsplit(", ", 1)[-1]) == _canon(dst):
-                            mov_s = _printable4(v, 8 if v > 0xFFFFFFFF else 4)
-                    elif movs and 0x20 <= v & 0xFF < 0x7F and dst.startswith(("word ptr [", "byte ptr [")):
-                        # the short tail of a run: mov word ptr [rsp+x], 'e\0'
-                        mov_s = _printable4(v, 2 if dst.startswith("word") else 1)
+                    # --- stack strings pushed 4 bytes at a time (the first push is the string's end,
+                    # so it may be a 1-3 character tail: push 0x65)
+                    if mn == "push" and 0 < v <= 0xFFFFFFFF and (v >= 0x2020 or not pushes):
+                        raw = v.to_bytes(4, "little")
+                        if raw[0] and all(b == 0 or 0x20 <= b < 0x7F for b in raw) and (v >= 0x2020 or chr(raw[0]).isalnum()):
+                            push_s = raw
 
             elif mn == "cmp" and dst is not None:
                 v = _parse_int(src)
@@ -1385,6 +1835,9 @@ class _Indicators:
                     self.add("module_name_compare", MEDIUM, off, f"{text}  ; lower-case 4 chars at once")
                 elif op == "dx, 0xfff":
                     self.add("egg_hunter", STRONG if scasd else MEDIUM, off, text)
+                elif op.endswith(", 0xfff") and dst in _REG16 and i + 1 < n and seq[i + 1][1][1:] == ("inc", "e" + dst):
+                    # or bx, 0xfff; inc ebx: next page (the SEH egg hunter walks with a handler instead of a syscall)
+                    self.add("egg_hunter", STRONG if scasd else MEDIUM, off, f"{text}; inc e{dst}")
             elif mn == "and":
                 if is64 and op == "rsp, 0xfffffffffffffff0":
                     self.add("stack_align", WEAK, off, text)
@@ -1441,14 +1894,10 @@ class _Indicators:
             if push_s:
                 pushes.append((off, push_s))
             elif pushes:
-                self._flush_stack(pushes, reverse=True)
-            if mov_s:
-                movs.append((off, mov_s))
-            elif movs and not (mn == "mov" and op.startswith(("dword ptr [", "qword ptr [")) and _canon(op.rsplit(", ", 1)[-1])):
-                self._flush_stack(movs, reverse=False)
+                self._flush_stack(pushes)
 
-        self._flush_stack(pushes, reverse=True)
-        self._flush_stack(movs, reverse=False)
+        self._flush_stack(pushes)
+        self._harvest_strings()
         rd = [k for k, (_, (_, m, _)) in enumerate(seq) if m == "rdtsc"]
         if any(b - a <= 40 for a, b in zip(rd, rd[1:])):
             self.add("rdtsc_timing", WEAK, seq[rd[0]][0], "rdtsc ... rdtsc")
@@ -1457,6 +1906,9 @@ class _Indicators:
         self._decoders(seq)
         self._pe_loader(seq)
         self._kernel_token_steal(seq)
+        self._exception_handlers(seq)
+        self._stages(seq)
+        self._ciphers(seq)
         self._injected_stub(seq)
         self._link_resolvers()
         named = sorted({s for s in self.stack_strings if any(h in s.lower() for h in AMSI_ETW_HINTS)} | (self.apis & AMSI_ETW_APIS))
@@ -1741,7 +2193,13 @@ class _Indicators:
                          image_base: "ImageBase", 0x50: "SizeOfImage", 0x54: "SizeOfHeaders",
                          import_dir: "DataDirectory[1]: imports", reloc_dir: "DataDirectory[5]: relocations"}  # fmt: skip
         groups = {}  # group -> list of (seq index, note); first entry is the anchor
+        cands = {}  # group -> every place it was seen, to find stages that sit together
         index = {o: k for k, (o, _) in enumerate(seq)}
+
+        def seen(group, lines):
+            groups.setdefault(group, lines)
+            if len(cands.setdefault(group, [])) < 32:
+                cands[group].append(lines)
 
         for i in self._lfanew_reads:
             fields = {}
@@ -1753,12 +2211,18 @@ class _Indicators:
                 fields.keys() & {0x50, 0x54, 0x28, image_base}
                 and len(fields.keys() & {0x06, 0x14, 0x50, 0x54, 0x28, image_base}) >= 2
             ):
-                groups.setdefault(
+                seen(
                     "headers",
                     [(i, "e_lfanew")] + [(j, header_fields[d]) for d, j in fields.items() if d not in (import_dir, reloc_dir)],
                 )
+            if len(fields.keys() & header_fields.keys()) >= 2 and "magic" not in groups:
+                magic = self._custom_magic(seq, i)
+                if magic is not None:
+                    groups["magic"] = [(i, "e_lfanew"), (magic, "NT signature compared with a custom value")] + sorted(
+                        (j, header_fields[d]) for d, j in fields.items()
+                    )[:4]
             if import_dir in fields:
-                groups.setdefault("_import_dir", [(i, "e_lfanew"), (fields[import_dir], header_fields[import_dir])])
+                seen("_import_dir", [(i, "e_lfanew"), (fields[import_dir], header_fields[import_dir])])
             if reloc_dir in fields:
                 groups.setdefault("_reloc_dir", [(i, "e_lfanew"), (fields[reloc_dir], header_fields[reloc_dir])])
 
@@ -1788,14 +2252,14 @@ class _Indicators:
                     pick(lambda m, o, d=d: d in _disp(o), note)
                     for d, note in ((0x0C, "VirtualAddress"), (0x10, "SizeOfRawData"), (0x14, "PointerToRawData"))
                 ]
-                groups.setdefault("sections", [s for s in sec if s])
+                seen("sections", [s for s in sec if s])
             rel = [
                 pick(lambda m, o: m == "movzx" and "word ptr [" in o, "relocation entry (word)"),
                 pick(lambda m, o: m == "shr" and o.endswith(", 0xc"), "type = entry >> 12"),
                 pick(lambda m, o: m == "and" and o.endswith(", 0xfff"), "offset = entry & 0xfff"),
             ]
             if all(rel):
-                groups.setdefault("relocs", rel)
+                seen("relocs", rel)
             step = pick(lambda m, o: m == "add" and o.endswith(", 0x14"), "next import descriptor (0x14)")
             if step and len(disps & {0x0C, 0x10}) == 2:
                 groups.setdefault("_import_stride", [step])
@@ -1805,7 +2269,18 @@ class _Indicators:
                 imp.append((ordinal, "ordinal flag test"))
             imp += groups.get("_import_stride", [])
             groups["imports"] = imp
+            extra = imp[len(groups["_import_dir"]) :]
+            cands["imports"] = [c + extra for c in cands["_import_dir"]]
 
+        if "magic" in groups:
+            k = groups["magic"][1][0]
+            self.add(
+                "pe_custom_magic",
+                MEDIUM,
+                seq[k][0],
+                f"{seq[k][1][1]} {seq[k][1][2]}",
+                [self.line(j, note) for j, note in groups["magic"]],
+            )
         names = {"headers": ("pe_header_parse", WEAK), "sections": ("pe_section_map", WEAK),
                  "relocs": ("pe_reloc_fixup", MEDIUM), "imports": ("pe_import_resolve", MEDIUM)}  # fmt: skip
         found = [g for g in names if g in groups]
@@ -1816,10 +2291,531 @@ class _Indicators:
             lines = sorted(groups[g])
             self.add(tag, w, seq[groups[g][0][0]][0], g, [self.line(k, note) for k, note in lines])
         if len(found) >= 3 and ("relocs" in found or "imports" in found):
-            lines = sorted({k: (k, note) for g in found for k, note in groups[g]}.values())
-            anchor = min(seq[groups[g][0][0]][0] for g in found)
-            self.add("reflective_pe_loader", STRONG, anchor, "+".join(found), [self.line(k, note) for k, note in lines])
+            # one loader: the stages sit together. Header, section and import code spread across a
+            # large compiled image belongs to unrelated functions (CRT, runtime, delay-load helper).
+            best = None
+            for pivot in (c[0][0] for g in found for c in cands[g]):
+                pick = {g: min(cands[g], key=lambda c: abs(seq[c[0][0]][0] - seq[pivot][0])) for g in found}
+                offs = sorted((seq[c[0][0]][0], g) for g, c in pick.items())
+                # the widest run of stages within reach of each other
+                for lo in range(len(offs)):
+                    near = [g for o, g in offs if 0 <= o - offs[lo][0] <= LOADER_SPAN]
+                    if len(near) >= 3 and ("relocs" in near or "imports" in near) and (best is None or len(near) > len(best[0])):
+                        best = (near, pick)
+            if best:
+                near, pick = best
+                near = [g for g in names if g in near]
+                lines = sorted({k: (k, note) for g in near for k, note in pick[g]}.values())
+                anchor = min(seq[pick[g][0][0]][0] for g in near)
+                self.add("reflective_pe_loader", STRONG, anchor, "+".join(near), [self.line(k, note) for k, note in lines])
         self._header_wipe(seq)
+
+    def _exception_handlers(self, seq):
+        """Exception-driven control flow.
+
+          install   x86 SEH frame: push handler; push fs:[0]; mov fs:[0], esp - with the handler in the blob
+          rewrite   a handler loads the CONTEXT record (x64: [ExceptionInfo + 8]; x86 SEH: third argument,
+                    VEH: [[esp + 4] + 4]) and writes its Eip/Rip field
+          flow      the code takes the address of such a handler (lea [rip + h], a GetPC pointer, the SEH frame)
+        Compiler-built frames push absolute handler addresses and are not reported.
+        """
+        n = len(seq)
+        is64 = self.is64
+        ctx_ip = 0xF8 if is64 else 0xB8
+        word = "qword ptr [" if is64 else "dword ptr ["
+        needle = f"+ {ctx_ip:#x}]"
+        installs = [
+            k for k, (_, (_, mn, op)) in enumerate(seq) if mn == "mov" and op.startswith("dword ptr fs:[") and op.endswith("], esp")
+        ]
+        writes = [k for k, (_, (_, mn, op)) in enumerate(seq) if needle in op and mn in ("mov", "add", "sub", "inc", "dec")]
+        if not installs and not writes:
+            return
+
+        def back(k, limit):
+            """Indexes before k in the same straight-line run."""
+            for j in range(k - 1, max(-1, k - limit - 1), -1):
+                if seq[j][1][1] in TERMINATORS:
+                    return
+                yield j
+
+        # --- handlers that move the saved instruction pointer
+        rewrites = []  # (write index, CONTEXT load index, checked?)
+        for k in writes:
+            dst = seq[k][1][2].split(", ", 1)[0]
+            m = _mem(dst) if dst.startswith(word) else None
+            if not m or m[0] is not None or m[2] is not None or m[4] != ctx_ip or m[1] in (None, "rip", "sp", "bp"):
+                continue
+            load = None
+            for j in back(k, 20):
+                parts = seq[j][1][2].split(", ", 1)
+                if len(parts) == 2 and _canon(parts[0]) == m[1]:
+                    sm = _mem(parts[1]) if seq[j][1][1] == "mov" and parts[1].endswith("]") else None
+                    if sm and sm[0] is None and sm[2] is None and sm[1] not in (None, "rip"):
+                        if is64:
+                            ok = sm[4] == 8 and sm[1] not in ("sp", "bp")  # ExceptionInfo->ContextRecord
+                        elif sm[1] in ("sp", "bp"):
+                            ok = (sm[1], sm[4]) in (("sp", 0xC), ("bp", 0x10))  # SEH handler's third argument
+                        else:
+                            # VEH: ExceptionInfo (first argument) -> ContextRecord
+                            first = (f"{parts[1][parts[1].index('[') + 1 :].split(' ')[0].rstrip(']')}, dword ptr [esp + 4]",
+                                     f"{parts[1][parts[1].index('[') + 1 :].split(' ')[0].rstrip(']')}, dword ptr [ebp + 8]")  # fmt: skip
+                            ok = sm[4] == 4 and any(seq[q][1][1] == "mov" and seq[q][1][2] in first for q in back(j, 8))
+                        if ok:
+                            load = j
+                    break
+            if load is None:
+                continue
+            lo, hi = max(0, load - 24), min(n, k + 12)
+            code = next(
+                (
+                    q
+                    for q in range(lo, hi)
+                    if seq[q][1][1] == "cmp" and (_imm(seq[q][1][2].rsplit(", ", 1)[-1]) or 0) & 0xFFFFFFFF in _EXCEPTION_CODES
+                ),
+                None,
+            )
+            resume = [("mov", "eax, 0xffffffff"), ("or", "eax, 0xffffffff"), ("mov", "rax, -1")]
+            if not is64 and seq[load][1][2].endswith(("[esp + 0xc]", "[ebp + 0x10]")):
+                resume = [("xor", "eax, eax"), ("sub", "eax, eax")]  # an SEH handler returns ExceptionContinueExecution (0)
+            cont = next((q for q in range(k + 1, hi) if seq[q][1][1:] in resume), None)
+            block = [self.line(load, "CONTEXT record"), self.line(k, "Rip rewritten" if is64 else "Eip rewritten")]
+            if code is not None:
+                block.append(self.line(code, "exception code check"))
+            if cont is not None:
+                block.append(self.line(cont, "EXCEPTION_CONTINUE_EXECUTION"))
+            rewrites.append((k, load, code is not None or cont is not None, block))
+
+        # --- code pointers the blob takes: SEH frames, lea [rip + h], GetPC-relative pointers
+        taken = {}  # handler offset -> sequence index where its address is taken
+        call_ret = {}
+        for t, ks in self._call_targets.items():
+            call_ret[t] = seq[ks[0]][0] + seq[ks[0]][1][0]
+        targets = {seq[q][0]: q for q in range(n)}
+        for k in installs:
+            inner = seq[k][1][2][len("dword ptr fs:[") : -len("], esp")]
+            if inner != "0" and not any(
+                seq[j][1][1] in ("xor", "sub") and seq[j][1][2] == f"{inner}, {inner}" for j in back(k, 12)
+            ):
+                continue
+            # the old head of the chain is pushed just before; the handler just before that
+            prev = next((j for j in back(k, 6) if seq[j][1][1] == "push"), None)
+            if prev is None:
+                continue
+            handler = None
+            hk = next((j for j in back(prev, 4) if seq[j][1][1] == "push"), None)
+            entered = next((q for q in range(max(0, prev - 3), prev + 1) if seq[q][0] in call_ret), None)
+            if entered is not None and (hk is None or hk < entered):
+                handler = call_ret[seq[entered][0]]  # call over the handler: its return address is the frame's handler
+                hk = entered
+            elif hk is not None:
+                arg = seq[hk][1][2]
+                if _canon(arg):
+                    vals = _Values(False)
+                    for j in range(max(0, hk - 24), hk):
+                        o, (sz, mn, op) = seq[j]
+                        if mn in TERMINATORS and mn != "jmp":
+                            vals = _Values(False)
+                            continue
+                        vals.step(
+                            o,
+                            sz,
+                            mn,
+                            op,
+                            getpc=lambda at: call_ret.get(at) if at in call_ret and seq[targets[at]][1][1] == "pop" else None,
+                        )
+                    v = vals.get(arg)
+                    handler = v[1] if v and v[0] == "ptr" else None
+                elif self.va is not None and _imm(arg) is not None and 0 <= _imm(arg) - self.va < self.size:
+                    handler = _imm(arg) - self.va  # absolute, but inside this region
+            if handler is None or not 0 <= handler < self.size:
+                continue
+            taken.setdefault(handler, k)
+            block = [self.line(hk, f"handler at {handler:#x}"), self.line(prev, "previous frame"), self.line(k, "frame installed")]
+            self.add("seh_handler_install", MEDIUM, seq[k][0], f"SEH frame with its handler at {handler:#x}", block)
+            trap = next(
+                (q for q in range(k + 1, min(n, k + 16))
+                 if seq[q][1][1] in ("int3", "ud2", "int1", "hlt") or (seq[q][1][1] == "int" and seq[q][1][2] in ("3", "0x2d", "0x29"))),
+                None,
+            )  # fmt: skip
+            if trap is not None:
+                self.add(
+                    "exception_trigger",
+                    WEAK,
+                    seq[trap][0],
+                    f"{seq[trap][1][1]} {seq[trap][1][2]}".strip(),
+                    [self.line(k, "frame installed"), self.line(trap, "raises the exception")],
+                )
+        if not rewrites:
+            return
+        if is64:
+            for k, (off, (size, mn, op)) in enumerate(seq):
+                if mn == "lea" and "[rip" in op:
+                    m = _RIP_OPERAND.search(op)
+                    if m:
+                        where = off + size + (int(m.group(2), 0) * (-1 if m.group(1) == "-" else 1) if m.group(1) else 0)
+                        if 0 <= where < self.size:
+                            taken.setdefault(where, k)
+        else:
+            vals = _Values(False)
+            for k, (o, (sz, mn, op)) in enumerate(seq):
+                if mn in TERMINATORS and mn != "jmp":
+                    vals = _Values(False)
+                    continue
+                vals.step(
+                    o, sz, mn, op, getpc=lambda at: call_ret.get(at) if at in call_ret and seq[targets[at]][1][1] == "pop" else None
+                )
+                if mn == "lea":
+                    v = vals.get(op.split(", ", 1)[0])
+                    if v and v[0] == "ptr" and 0 <= v[1] < self.size:
+                        taken.setdefault(v[1], k)
+        for k, load, checked, block in rewrites:
+            at = seq[load][0]
+            handler = max((h for h in taken if h <= at < h + HANDLER_SPAN and taken[h] != load), default=None)
+            if not checked and handler is None:
+                continue  # a write to some structure's field: nothing says it is a CONTEXT
+            self.add("exception_context_rewrite", MEDIUM, seq[k][0], f"{seq[k][1][1]} {seq[k][1][2]}", block)
+            if handler is not None and checked and "exception_control_flow" not in self.hits:
+                where = taken[handler]
+                block = [self.line(where, f"takes the address of the handler at {handler:#x}"), self.line(load, "handler: CONTEXT record"),
+                         self.line(k, "Rip rewritten" if is64 else "Eip rewritten")]  # fmt: skip
+                self.add(
+                    "exception_control_flow",
+                    STRONG,
+                    seq[where][0],
+                    f"handler at {handler:#x} moves the saved instruction pointer",
+                    block,
+                )
+
+    def _stages(self, seq):
+        """Stage-level techniques: finding an image base by scanning back to 'MZ' (from a return
+        address, the SEH chain's last handler, or a kernel entry point), code that writes into its
+        own instructions, VM checks, and short supporting patterns (trap flag, PEB fields,
+        allocation arguments)."""
+        n = len(seq)
+        is64 = self.is64
+        index = {o: k for k, (o, _) in enumerate(seq)}
+        text = lambda k: f"{seq[k][1][1]} {seq[k][1][2]}".strip()  # noqa: E731
+
+        # --- one pass for the rare anchors
+        msr, idt, chain, peb, stores, privileged = [], [], [], [], [], []
+        seg_peb = "gs:[0x60]" if is64 else "fs:[0x30]"
+        for k, (off, (size, mn, op)) in enumerate(seq):
+            if mn == "rdmsr":
+                msr.append(k)
+            elif mn in ("sidt", "sgdt", "sldt", "str", "in"):
+                privileged.append(k)
+            elif mn == "mov" or mn == "movabs":
+                if op.endswith(("s:[0x38]", "fs:[0]")) or ("fs:[e" in op and op.endswith("]")):
+                    (idt if op.endswith("s:[0x38]") else chain).append(k)
+                elif op.endswith(seg_peb):
+                    peb.append(k)
+                elif "[rip" in op and op.split(", ", 1)[0].endswith("]"):
+                    stores.append(k)
+                elif (is64 and op.startswith(("r9d, 0x40", "r9, 0x40"))) and op.endswith("0x40"):
+                    self._rwx_args(seq, k)
+            elif mn in _SELF_WRITES and "[rip" in op and op.split(", ", 1)[0].endswith("]"):
+                stores.append(k)
+            elif mn == "push" and op == "0x40" and not is64:
+                self._rwx_args(seq, k)
+            elif mn in ("or", "bts") and op in (
+                "dword ptr [esp], 0x100",
+                "qword ptr [rsp], 0x100",
+                "dword ptr [rsp], 0x100",
+                "dword ptr [esp], 8",
+                "qword ptr [rsp], 8",
+            ):
+                if k and k + 1 < n and seq[k - 1][1][1].startswith("pushf") and seq[k + 1][1][1].startswith("popf"):
+                    self.add("trap_flag", INFO, off, f"{seq[k - 1][1][1]}; {mn} {op}; {seq[k + 1][1][1]}")
+
+        # --- VM checks
+        for k in privileged:
+            mn, op = seq[k][1][1:]
+            if mn == "in":
+                if op == "eax, dx" and any(seq[j][1][1:] == ("mov", VMWARE_MAGIC) for j in range(max(0, k - 6), k)):
+                    self.add("vmware_backdoor", MEDIUM, seq[k][0], f"mov {VMWARE_MAGIC}; in eax, dx")
+            else:
+                self.add("red_pill", INFO, seq[k][0], text(k))
+
+        # --- kernel entry points
+        kernel = {}
+        for k in msr:
+            which = next((_MSRS[_imm(seq[j][1][2][5:])] for j in range(max(0, k - 6), k)
+                          if seq[j][1][1] == "mov" and seq[j][1][2].startswith("ecx, ") and _imm(seq[j][1][2][5:]) in _MSRS), None)  # fmt: skip
+            if which in ("LSTAR", "SYSENTER_EIP"):
+                kernel[k] = f"{which} MSR"
+                self.add("kernel_msr_read", MEDIUM, seq[k][0], f"rdmsr  ; {which}")
+        for k in idt:
+            kernel[k] = "IDT base from the KPCR"
+
+        # --- backward scans for 'MZ'
+        for b_off, tgt in self._backedges:
+            if tgt not in index or b_off not in index:
+                continue
+            lo, hi = index[tgt], index[b_off]
+            if not 1 <= hi - lo <= MZ_SCAN_BODY:
+                continue
+            reg = None
+            for k in range(lo, hi + 1):
+                mn, op = seq[k][1][1:]
+                if mn != "cmp" or not op.endswith((", 0x5a4d", ", 0x905a4d")):
+                    continue
+                first = op.split(", ", 1)[0]
+                m = _mem(first) if first.endswith("]") else None
+                if m is None and _canon(first):  # movzx r, word ptr [p]; cmp r, 'MZ'
+                    load = next((seq[j][1][2].split(", ", 1)[1] for j in range(k - 1, max(lo - 1, k - 4), -1)
+                                 if seq[j][1][1] in ("mov", "movzx") and _canon(seq[j][1][2].split(", ", 1)[0]) == _canon(first)
+                                 and seq[j][1][2].endswith("]")), None)  # fmt: skip
+                    m = _mem(load) if load else None
+                if m and m[0] is None and m[2] is None and m[4] == 0 and m[1] not in (None, "rip", "sp", "bp"):
+                    reg, at = m[1], k
+                    break
+            if reg is None:
+                continue
+            step = 0
+            for k in range(lo, hi + 1):
+                mn, op = seq[k][1][1:]
+                parts = op.split(", ", 1)
+                if _canon(parts[0]) != reg:
+                    continue
+                if mn in ("sub", "add") and len(parts) == 2 and _imm(parts[1]) is not None:
+                    step += _imm(parts[1]) * (-1 if mn == "sub" else 1)
+                elif mn in ("dec", "inc"):
+                    step += -1 if mn == "dec" else 1
+                elif mn == "lea" and len(parts) == 2:
+                    lm = _mem(parts[1])
+                    step += lm[4] if lm and lm[1] == reg and lm[2] is None else 0
+            if is64 and step > 1 << 63:
+                step -= 1 << 64
+            elif not is64 and step > 1 << 31:
+                step -= 1 << 32
+            if step >= 0:
+                continue  # forwards: a search for an appended image, not for the image the code is in
+            paged = step % 0x1000 == 0
+            block = [self.line(at, "'MZ' test"), self.line(hi, f"back {abs(step):#x} bytes and again")]
+            source = next((k for k in sorted(kernel, reverse=True) if 0 < lo - k <= 24), None)
+            if source is not None:
+                self.add("kernel_base_discovery", STRONG, seq[source][0], f"{kernel[source]}, then back to 'MZ' {abs(step):#x} bytes at a time",
+                         [self.line(source, kernel[source])] + block)  # fmt: skip
+            walk = next((k for k in chain if 0 < lo - k <= 24), None)
+            self.add(
+                "image_base_scan", STRONG if paged else MEDIUM, seq[at][0], f"{text(at)}; steps back {abs(step):#x} bytes", block
+            )
+            if walk is not None:
+                self.add("seh_chain_walk", MEDIUM, seq[walk][0], text(walk), [self.line(walk, "SEH chain head")] + block[:1])
+
+        # --- SEH chain followed to its end (without a scan after it)
+        for k in chain:
+            if "seh_chain_walk" in self.hits:
+                break
+            reg = _canon(seq[k][1][2].split(", ", 1)[0])
+            end = next((j for j in range(k + 1, min(n, k + 10)) if seq[j][1][1] == "cmp" and seq[j][1][2].endswith(("], -1", "], 0xffffffff"))
+                        and (_mem(seq[j][1][2].split(", ", 1)[0]) or (0, 0))[1] == reg), None)  # fmt: skip
+            nxt = next((j for j in range(k + 1, min(n, k + 10)) if seq[j][1][1] == "mov" and seq[j][1][2].endswith("]")
+                        and _canon(seq[j][1][2].split(", ", 1)[0]) == reg and (_mem(seq[j][1][2].split(", ", 1)[1]) or (0, 0))[1] == reg), None)  # fmt: skip
+            if reg and end is not None and nxt is not None:
+                self.add(
+                    "seh_chain_walk",
+                    INFO,
+                    seq[k][0],
+                    text(k),
+                    [self.line(k, "SEH chain head"), self.line(end, "last frame?"), self.line(nxt, "next frame")],
+                )
+
+        # --- PEB fields
+        for k in peb:
+            reg = _canon(seq[k][1][2].split(", ", 1)[0])
+            if not reg:
+                continue
+            for j in range(k + 1, min(n, k + 7)):
+                mn, op = seq[j][1][1:]
+                parts = op.split(", ", 1)
+                if mn != "mov" or len(parts) != 2 or not parts[1].endswith("]"):
+                    continue
+                m = _mem(parts[1])
+                if not m or m[1] != reg or m[2] is not None:
+                    continue
+                if m[4] == (0x58 if is64 else 0x2C):
+                    self.add(
+                        "kernel_callback_table",
+                        INFO,
+                        seq[j][0],
+                        text(j),
+                        [self.line(k, "PEB"), self.line(j, "KernelCallbackTable")],
+                    )
+                elif m[4] == (0x20 if is64 else 0x10) and _canon(parts[0]):
+                    params = _canon(parts[0])
+                    fields = (0x60, 0x68, 0x70, 0x78) if is64 else (0x38, 0x3C, 0x40, 0x44)
+                    hit = next((q for q in range(j + 1, min(n, j + 13)) if seq[q][1][1] == "mov" and seq[q][1][2].split(", ", 1)[0].endswith("]")
+                                and (_mem(seq[q][1][2].split(", ", 1)[0]) or (0, 0, 0, 0, 0))[1] == params
+                                and _mem(seq[q][1][2].split(", ", 1)[0])[4] in fields), None)  # fmt: skip
+                    if hit is not None:
+                        self.add("process_parameters_write", INFO, seq[hit][0], text(hit),
+                                 [self.line(k, "PEB"), self.line(j, "ProcessParameters"), self.line(hit, "ImagePathName / CommandLine")])  # fmt: skip
+
+        # --- exception directory (x64): [image + e_lfanew + 0xa0], then 12-byte RUNTIME_FUNCTION steps
+        if is64:
+            for i in self._lfanew_reads:
+                for j in range(i + 1, min(n, i + 12)):
+                    if seq[j][1][1] == "mov" and seq[j][1][2].endswith("+ 0xa0]"):
+                        stride = next(
+                            (q for q in range(j + 1, min(n, j + 32)) if seq[q][1][1] == "add" and seq[q][1][2].endswith(", 0xc")),
+                            None,
+                        )
+                        if stride is not None:
+                            self.add("exception_directory_walk", INFO, seq[j][0], text(j),
+                                     [self.line(i, "e_lfanew"), self.line(j, "exception directory"), self.line(stride, "next RUNTIME_FUNCTION")])  # fmt: skip
+                        break
+
+        # --- writes into the code itself
+        def contiguous(a, b):
+            """Decoded instructions cover every byte from index a to index b."""
+            a, b = min(a, b), max(a, b)
+            return b - a <= 512 and all(seq[q][0] + seq[q][1][0] == seq[q + 1][0] for q in range(a, b))
+
+        offsets = [o for o, _ in seq]
+
+        def inside(target):
+            q = bisect.bisect_right(offsets, target) - 1
+            return q if q >= 0 and offsets[q] <= target < offsets[q] + seq[q][1][0] else None
+
+        for k in stores:
+            off, (size, mn, op) = seq[k]
+            m = _RIP_OPERAND.search(op)
+            if not m:
+                continue
+            target = off + size + (int(m.group(2), 0) * (-1 if m.group(1) == "-" else 1) if m.group(1) else 0)
+            q = inside(target) if 0 <= target < self.size else None
+            if q is not None and q != k and contiguous(k, q):
+                self.add(
+                    "self_modifying_code", STRONG, off, text(k), [self.line(k, "write"), self.line(q, f"rewritten at {target:#x}")]
+                )
+                break
+        if not is64 and "self_modifying_code" not in self.hits:
+            call_ret = {
+                t: seq[ks[0]][0] + seq[ks[0]][1][0]
+                for t, ks in self._call_targets.items()
+                if t in index and seq[index[t]][1][1] == "pop"
+            }
+            for t in call_ret:
+                vals = _Values(False)
+                for k in range(index[t], min(n, index[t] + 48)):
+                    o, (sz, mn, op) = seq[k]
+                    if mn in TERMINATORS:
+                        break
+                    dst = op.split(", ", 1)[0]
+                    if mn in _SELF_WRITES and dst.endswith("]") and "fs:" not in dst:
+                        mm = _mem(dst)
+                        addr = vals.addr(mm) if mm else None
+                        q = inside(addr[1]) if addr and addr[0] == "ptr" and 0 <= addr[1] < self.size else None
+                        if q is not None and q != k and contiguous(k, q):
+                            self.add(
+                                "self_modifying_code",
+                                STRONG,
+                                o,
+                                text(k),
+                                [self.line(index[t], "GetPC"), self.line(k, "write"), self.line(q, f"rewritten at {addr[1]:#x}")],
+                            )
+                            break
+                    vals.step(o, sz, mn, op, getpc=call_ret.get)
+                if "self_modifying_code" in self.hits:
+                    break
+
+    def _rwx_args(self, seq, k):
+        """PAGE_EXECUTE_READWRITE next to MEM_COMMIT(|MEM_RESERVE), then a call."""
+        n = len(seq)
+        commit = ("r8d, 0x3000", "r8d, 0x1000", "r8, 0x3000") if self.is64 else ("0x3000", "0x1000")
+        want = "mov" if self.is64 else "push"
+        near = next(
+            (j for j in range(max(0, k - 5), min(n, k + 6)) if j != k and seq[j][1][1] == want and seq[j][1][2] in commit), None
+        )
+        call = next((j for j in range(k + 1, min(n, k + 10)) if seq[j][1][1] == "call"), None)
+        if near is not None and call is not None:
+            self.add("rwx_alloc_args", INFO, seq[k][0], "PAGE_EXECUTE_READWRITE, " + ("MEM_COMMIT|MEM_RESERVE" if "0x3000" in seq[near][1][2] else "MEM_COMMIT"),
+                     [self.line(near, "allocation type"), self.line(k, "protection"), self.line(call, "allocator")])  # fmt: skip
+
+    def _ciphers(self, seq):
+        """Cipher primitives, recorded as INFO here: they only add supporting weight once the blob
+        is shellcode on other evidence (crypto libraries use every one of them)."""
+        n = len(seq)
+        chacha = {}
+        digest = {}
+        if self._backedges and "rc4_ksa" not in self.hits:  # with a linked decoder it is already reported (medium)
+            rc4 = self._rc4_ksa(seq, {o: k for k, (o, _) in enumerate(seq)})
+            if rc4 is not None:
+                self.add("rc4_ksa", INFO, rc4[0], "256-entry S-box init + swap loop", rc4[1])
+        for i, (off, (_, mn, op)) in enumerate(seq):
+            if mn.lstrip("v") in _AES_MNS:
+                self.add("aes_ni", INFO, off, f"{mn} {op}")
+                continue
+            last = op.rsplit(", ", 1)[-1]
+            if not last[:1].isdigit():
+                continue
+            v = _parse_int(last)
+            if v is None:
+                continue
+            v &= 0xFFFFFFFF
+            if v in _DIGEST_WORDS:
+                digest.setdefault(v, off)
+            if v in _CHACHA_WORDS:
+                chacha.setdefault(v, off)
+            elif v in _TEA_DELTAS and mn in ("add", "sub", "mov", "lea"):
+                # the round: delta added to a sum, data words shifted by 4 and 5 nearby
+                near = {
+                    seq[k][1][2].rsplit(", ", 1)[-1]
+                    for k in range(max(0, i - 12), min(n, i + 12))
+                    if seq[k][1][1] in ("shl", "shr", "sal")
+                }
+                if {"4", "5"} <= near or {"0x4", "0x5"} <= near:
+                    self.add("tea_delta", INFO, off, f"{mn} {op}  ; TEA/XTEA delta {_TEA_DELTAS[v]}")
+        for algo in ("SHA-256", "SHA-1", "MD5", "MD5/SHA-1"):
+            words = [
+                v for v in digest if _DIGEST_WORDS[v] == algo or (algo in ("SHA-1", "MD5") and _DIGEST_WORDS[v] == "MD5/SHA-1")
+            ]
+            if len(words) >= 3 and (algo == "MD5/SHA-1" or any(_DIGEST_WORDS[v] == algo for v in words)):
+                off = min(digest[v] for v in words)
+                self.add(
+                    "digest_constants",
+                    INFO,
+                    off,
+                    f"{algo} constants: " + ", ".join(f"{v:#x}" for v in sorted(words, key=digest.get)[:4]),
+                )
+                break
+        if len(chacha) >= 2:
+            off = min(chacha.values())
+            self.add("chacha_constants", INFO, off, "'" + "".join(_CHACHA_WORDS[v] for v in sorted(chacha, key=chacha.get)) + "'")
+        for text in self.stack_strings:
+            if text.startswith(("expand 32-byte k", "expand 16-byte k")):
+                self.add("chacha_constants", INFO, 0, f"'{text}' built on the stack")
+
+    def _custom_magic(self, seq, i):
+        """Index of a compare of the NT header's first word/dword (base + e_lfanew, displacement 0)
+        with a value other than 'PE\\0\\0', following the e_lfanew register; None when the code checks
+        the standard signature or no such compare follows."""
+        n = len(seq)
+        first = seq[i][1][2].split(", ")[0]
+        nt = {_canon(first)} if _canon(first) else set()
+        hit = None
+        for j in range(i + 1, min(n, i + 16)):
+            mn, op = seq[j][1][1:]
+            parts = op.split(", ")
+            dst = _canon(parts[0]) if parts and parts[0] else None
+            if mn == "cmp" and len(parts) == 2 and parts[0].endswith("]"):
+                m = _mem(parts[0])
+                v = _imm(parts[1])
+                if m and (m[1] in nt or m[2] in nt) and m[4] == 0 and m[5] in (2, 4) and v is not None:
+                    if v & 0xFFFF == 0x4550:
+                        return None
+                    if hit is None and v >= 0x100:
+                        hit = j
+            elif dst and len(parts) == 2:
+                src = _mem(parts[1]) if mn == "lea" else None
+                if mn == "add" and dst in nt:
+                    continue
+                if (mn == "lea" and src and (src[1] in nt or src[2] in nt)) or (mn == "mov" and _canon(parts[1]) in nt):
+                    nt.add(dst)
+                else:
+                    nt.discard(dst)
+        return hit
 
     def _kernel_token_steal(self, seq):
         """Kernel-mode token stealing: the current KTHREAD (gs:[0x188] x64 / fs:[0x124] x86, KPCR
@@ -2081,7 +3077,19 @@ class _Indicators:
                     keys.append((m, vals.get(src)[1]))
                 else:
                     keys.append((m, None))  # rolling or table key: cannot be decoded without stepping
+            table = None
+            if len(keys) == 1 and keys[0][1] is None and keys[0][0] in ("xor", "add", "sub") and shape["width"] == 1:
+                table = self._key_table(seq, ks, shape, vals)
+            feedback = None
+            if not table and len(keys) == 1 and keys[0][1] is None and keys[0][0] in ("xor", "add", "sub"):
+                feedback = self._feedback(seq, ks, shape, vals)
             desc = self._xform_desc(shape, keys)
+            if feedback:
+                how = {"plain": "the plaintext", "cipher": "the ciphertext", "const": f"{feedback[1][2]:#x}"}[feedback[1][0]]
+                step = f"replaced by {how}" if feedback[1][1] == "mov" else f"{feedback[1][1]} {how}"
+                desc = desc.replace(f"rolling key ({shape['xforms'][0][1]})", f"key {feedback[0]:#x}, {step} after each element")
+            if table:
+                desc = desc.replace(f"rolling key ({shape['xforms'][0][1]})", f"{len(table[0])}-byte key table at {table[2]:#x}")
             loop_block = [self.line(k, "decode") if k == shape["anchor"] else self.line(k) for k in ks
                           if k in (shape["anchor"], shape.get("load"), shape.get("store")) or k == ks[-1]]  # fmt: skip
             if not linked:
@@ -2097,8 +3105,24 @@ class _Indicators:
             enc = self.buf[start:end]
             if nbytes:
                 region["entropy"] = round(_entropy(Counter(enc), len(enc)), 2) if enc else None
-            if all(k is not None for _, k in keys) and enc and not getattr(self, "nested", False):
-                dec = _apply_xforms(enc[:DECODE_VERIFY_MAX] if not nbytes else enc, shape["width"], keys)
+            if table:
+                key_bytes, first = table[:2]
+
+                def decode(raw, op=keys[0][0], key=key_bytes, first=first):
+                    return _apply_key_table(raw, op, key, first)
+
+            elif feedback:
+
+                def decode(raw, width=shape["width"], op=keys[0][0], key=feedback[0], fb=feedback[1]):
+                    return _apply_feedback(raw, width, op, key, fb)
+
+            else:
+
+                def decode(raw, width=shape["width"], keys=keys):
+                    return _apply_xforms(raw, width, keys)
+
+            if (table or feedback or all(k is not None for _, k in keys)) and enc and not getattr(self, "nested", False):
+                dec = decode(enc[:DECODE_VERIFY_MAX] if not nbytes else enc)
                 verdict = self._classify_decoded(dec, enc)
                 if verdict:
                     rtype, rtext, rsize = verdict
@@ -2110,12 +3134,12 @@ class _Indicators:
                     # headers, or code whose length the loop itself proves
                     if rtype == "pe" and rsize:
                         if len(dec) < rsize and start + rsize <= len(self.buf):
-                            dec = _apply_xforms(self.buf[start : start + rsize], shape["width"], keys)
+                            dec = decode(self.buf[start : start + rsize])
                         if len(dec) >= rsize:
                             region["_data"] = bytes(dec[:rsize])
                     elif rtype == "code" and nbytes and len(dec) == nbytes:
                         region["_data"] = bytes(dec)
-            elif not all(k is not None for _, k in keys):
+            elif not table and not feedback and not all(k is not None for _, k in keys):
                 region["result"] = "rolling/table key: not decodable without stepping the loop"
             rng = f"{start:#x}-{start + nbytes:#x} ({nbytes} bytes)" if nbytes else f"{start:#x} (length not provable statically)"
             self.add("decoder_stub", STRONG, seq[shape["anchor"]][0], f"{desc}: decodes {rng}", block)
@@ -2128,6 +3152,129 @@ class _Indicators:
                 self.add("rc4_ksa", MEDIUM, rc4[0], "256-entry S-box init + swap loop", rc4[1])
             region["start"] = start
             self.regions.append(region)
+
+    def _feedback(self, seq, ks, shape, vals):
+        """An in-place decoder whose key register is updated once per element, in a closed form:
+        (start key, (source, op, constant)), or None.
+
+            xor [p], k; mov k, [p]            key = the plaintext just written
+            mov t, [p]; xor [p], k; mov k, t  key = the ciphertext just read
+            xor [p], k; add k, [p]            key += plaintext (also xor/sub, and with t for the ciphertext)
+            xor [p], k; add k, 0x11223344     key stepped by a constant (add/sub/xor/rol/ror)
+        """
+        if shape["kind"] != "in-place" or len(shape["xforms"]) != 1:
+            return None
+        _, src, anchor = shape["xforms"][0]
+        key = _canon(src) if src else None
+        start = vals.get(src) if key else None
+        if not start or start[0] != "const" or _reg_bits(src) != 8 * shape["width"]:
+            return None
+        mm = shape["mem"]
+        writes = [
+            (k, seq[k][1][1], seq[k][1][2].split(", ", 1))
+            for k in ks
+            if _canon(seq[k][1][2].split(", ", 1)[0]) == key and seq[k][1][1] not in ("cmp", "test")
+        ]
+        if len(writes) != 1 or writes[0][0] < anchor or len(writes[0][2]) != 2:
+            return None
+        k, mn, (_, arg) = writes[0]
+        if mn not in ("mov", "add", "sub", "xor", "rol", "ror"):
+            return None
+        # the pointer must not move between the transform and the key update
+        if any(_canon(seq[q][1][2].split(", ", 1)[0]) in (mm[1], mm[2]) for q in ks if anchor < q < k):
+            return None
+        mask = (1 << 8 * shape["width"]) - 1
+        if _imm(arg) is not None:
+            return (start[1] & mask, ("const", mn, _imm(arg) & mask)) if mn != "mov" else None
+        if mn in ("rol", "ror"):
+            return None
+        am = _mem(arg) if arg.endswith("]") else None
+        if am:
+            return (start[1] & mask, ("plain", mn, 0)) if am[:5] == mm[:5] else None
+        # a register that holds the ciphertext: loaded from [p] before the transform, not written since
+        tmp = _canon(arg)
+        load = next((q for q in ks if q < anchor and seq[q][1][1] == "mov" and seq[q][1][2].split(", ", 1)[0] == arg
+                     and (_mem(seq[q][1][2].split(", ", 1)[1]) or ())[:5] == mm[:5]), None)  # fmt: skip
+        if tmp is None or load is None or any(_canon(seq[q][1][2].split(", ", 1)[0]) == tmp for q in ks if load < q < k):
+            return None
+        return start[1] & mask, ("cipher", mn, 0)
+
+    def _key_table(self, seq, ks, shape, vals):
+        """A byte decoder whose key comes from a table in the blob, indexed by a counter modulo the
+        table length: (key bytes, first index, table offset), or None.
+
+            mov edx, ecx; and edx, N-1      or      mov eax, ecx; xor edx, edx; div r(=N)
+            mov al, [K + rdx]                        (K: a blob offset from GetPC/RIP)
+            xor [P + rcx], al ... inc ecx            (the counter advances one byte per byte)
+        """
+        src = shape["xforms"][0][1]
+        anchor = shape["anchor"]
+        body = [(k, seq[k][1][1], seq[k][1][2]) for k in ks]
+        load = next(((k, m, o) for k, m, o in reversed(body) if k < anchor and _canon(o.split(", ", 1)[0]) == _canon(src)), None)
+        if load is None or load[1] not in ("mov", "movzx") or ", " not in load[2]:
+            return None
+        km = _mem(load[2].split(", ", 1)[1])
+        if not km or km[0] is not None or km[2] is None or km[3] != 1 or (km[5] or 1) != 1:
+            return None
+        kbase, kidx = km[1], km[2]
+        written = {_canon(o.split(", ", 1)[0]) for _, m, o in body if m in _WRITES_DST} | {
+            _canon(o) for _, m, o in body if m in ("inc", "dec", "pop")
+        }
+        base = vals.get(kbase)
+        if kbase in written or not base or base[0] != "ptr":
+            return None
+        # the key index: counter & (N-1), or counter % N through div
+        counter = n = None
+        before = [(k, m, o) for k, m, o in body if k < load[0]]
+        for k, m, o in reversed(before):
+            parts = o.split(", ")
+            if m == "and" and _canon(parts[0]) == kidx and len(parts) == 2 and _parse_int(parts[1]) is not None:
+                mask = _parse_int(parts[1])
+                if mask & (mask + 1) == 0 and 2 <= mask + 1 <= 256:
+                    mov = next(
+                        (x for x in reversed(before) if x[0] < k and x[1] == "mov" and _canon(x[2].split(", ")[0]) == kidx), None
+                    )
+                    counter, n = (_canon(mov[2].split(", ")[1]) if mov else None), mask + 1
+                break
+            if m == "div" and kidx == "d":
+                divisor = _canon(o)
+                dv = next(
+                    (
+                        _parse_int(x[2].split(", ")[1])
+                        for x in reversed(before)
+                        if x[0] < k and x[1] == "mov" and _canon(x[2].split(", ")[0]) == divisor
+                    ),
+                    None,
+                )
+                if dv is None and divisor not in written and (vals.get(divisor) or ("",))[0] == "const":
+                    dv = vals.get(divisor)[1]
+                mov = next((x for x in reversed(before) if x[0] < k and x[1] == "mov" and _canon(x[2].split(", ")[0]) == "a"), None)
+                zero = any(
+                    x[1] == "xor" and _canon(x[2].split(", ")[0]) == "d" and x[2].split(", ")[0] == x[2].split(", ")[-1]
+                    for x in before
+                    if x[0] < k
+                )
+                if dv and 2 <= dv <= 256 and zero and mov:
+                    counter, n = _canon(mov[2].split(", ")[1]), dv
+                break
+        if counter is None or counter in (kbase, kidx):
+            return None
+        # the counter moves one per byte decoded: the data index itself, or in step with the pointer
+        steps = sum(1 if m == "inc" else -1 if m == "dec" else 0 for _, m, o in body if _canon(o) == counter)
+        steps += sum(
+            _parse_int(o.split(", ")[1]) or 0
+            for _, m, o in body
+            if m == "add" and _canon(o.split(", ")[0]) == counter and ", " in o
+        )
+        mm, step = shape["mem"], shape["step"]
+        advance = sum(abs(v) * (mm[3] if r == mm[2] else 1) for r, v in step.items())
+        first = vals.get(counter)
+        if steps != 1 or advance != 1 or not first or first[0] != "const" or (mm[2] not in (None, counter)):
+            return None
+        koff = base[1] + km[4]
+        if not 0 <= koff or koff + n > self.size:
+            return None
+        return bytes(self.buf[koff : koff + n]), first[1], koff
 
     @staticmethod
     def _xform_desc(shape, keys):
@@ -2280,20 +3427,319 @@ class _Indicators:
         if "peb_walk" not in self.hits and "export_table_parse" not in self.hits:
             self.demote("module_name_compare", MEDIUM)
 
-    def _flush_stack(self, run, reverse):
+    def _flush_stack(self, run):
+        """Pushed stack strings: the last push is the start of the string."""
         if len(run) >= 2:
-            parts = [s for _, s in run]
-            string = "".join(reversed(parts) if reverse else parts)
-            if len(string) >= 6:
-                self.stack_strings.append(string[:64])
-                low = string.lower()
-                if low in _API_NAMES:
-                    self.apis.add(_API_NAMES[low])
-                if any(h in low for h in API_STRING_HINTS):
-                    self.add("stack_string_api", MEDIUM, run[0][0], f"'{string[:64]}'")
-                else:
-                    self.add("stack_string", WEAK, run[0][0], f"'{string[:64]}'")
+            data = b"".join(raw for _, raw in reversed(run))
+            for _, text, wide in _strings_in(data):
+                self._emit_string(text, run[0][0], wide)
         run.clear()
+
+    def _emit_string(self, text, off, wide=False):
+        parts = _split_api_names(text)
+        if parts:
+            for part in parts:
+                self._emit_string(part, off, wide)
+            return
+        text = text[:64]
+        if text in self.stack_strings:
+            return
+        self.stack_strings.append(text)
+        low = text.lower()
+        if low in _API_NAMES:
+            self.apis.add(_API_NAMES[low])
+        label = f"'{text}'" + ("  ; UTF-16" if wide else "")
+        if any(h in low for h in API_STRING_HINTS):
+            self.add("stack_string_api", MEDIUM, off, label)
+        else:
+            self.add("stack_string", WEAK, off, label)
+
+    def _harvest_strings(self, base=None):
+        """Strings in the stack byte map (one base register, or all), then forget those bytes."""
+        for b in [base] if base is not None else list(self._smap):
+            cells = self._smap.pop(b, None)
+            at = self._smap_at.pop(b, 0)
+            if not cells:
+                continue
+            keys = sorted(cells)
+            start = prev = keys[0]
+            for k in keys[1:] + [None]:
+                if k is not None and k == prev + 1:
+                    prev = k
+                    continue
+                data = bytes(cells[d] for d in range(start, prev + 1)) if prev - start >= 3 else b""
+                for _, text, wide in _strings_in(data):
+                    self._emit_string(text, at, wide)
+                if k is not None:
+                    start = prev = k
+
+    def _store(self, off, base, disp, raw, fold=None):
+        """Immediate bytes stored at [base + disp]; fold: xor/add/sub into bytes already known."""
+        cells = self._smap.setdefault(base, {})
+        span = range(disp, disp + len(raw))
+        if fold is None:
+            if any(d in cells and cells[d] != raw[k] for k, d in enumerate(span)):
+                self._harvest_strings(base)  # the slot is reused for another string
+                cells = self._smap.setdefault(base, {})
+            for k, d in enumerate(span):
+                cells[d] = raw[k]
+        elif all(d in cells for d in span):
+            cur = int.from_bytes(bytes(cells[d] for d in span), "little")
+            arg = int.from_bytes(raw, "little")
+            mask = (1 << 8 * len(raw)) - 1
+            new = {"xor": cur ^ arg, "add": (cur + arg) & mask, "sub": (cur - arg) & mask}[fold]
+            for k, d in enumerate(span):
+                cells[d] = new.to_bytes(len(raw), "little")[k]
+        else:
+            return False
+        self._smap_at.setdefault(base, off)
+        return True
+
+    def _stack_bytes(self, base, disp, width):
+        cells = self._smap.get(base, {})
+        if all(d in cells for d in range(disp, disp + width)):
+            return bytes(cells[d] for d in range(disp, disp + width))
+        return None
+
+    def _track_strings(self, i, off, size, mn, op, dst, src, reg_consts, xmm_consts):
+        """Keep register constants right through arithmetic, and record immediate stores into the
+        stack byte map: direct, through a register, xor/add/sub-folded (obfuscated stack strings),
+        and SIMD loads/xors/stores of constant data (xorstr / obfuscate.h style)."""
+        frame = self._frame
+        clobbers = _CLOBBERS.get(mn)
+        if clobbers:
+            for r in clobbers:
+                reg_consts.pop(r, None)
+                frame.pop(r, None)
+        if dst is None:
+            self._track_flow(i, mn, op, reg_consts, xmm_consts)
+            return
+        if dst[-1] == "]":
+            # --- stores into memory: the stack byte map
+            if mn in _SIMD_LOADS:
+                if xmm_consts.get(src):
+                    m = _mem(dst)
+                    if m[1] not in (None, "rip") and m[2] is None:
+                        self._store(off, *self._slot(m[1], m[4]), xmm_consts[src])
+                        return
+            elif mn in ("cmp", "test", "bt"):
+                return
+            sv = _imm(src) if src else None
+            if sv is None and src:
+                sv = self._const(_REG_CANON.get(src), i, reg_consts)
+                if mn in ("xchg", "xadd"):
+                    reg_consts.pop(_REG_CANON.get(src), None)
+            if sv is None:
+                if not self._smap:
+                    return
+                b = _REG_CANON.get(dst[dst.index("[") + 1 :].split(" ", 1)[0].rstrip("]"))
+                if b not in self._smap and not (b in frame and "frame" in self._smap):
+                    return  # nothing known around this base register
+            m = _mem(dst)
+            if m[1] in (None, "rip"):
+                return
+            key, disp = self._slot(m[1], m[4])
+            if sv is not None and mn in ("mov", "xor", "add", "sub") and m[2] is None and m[5]:
+                raw = (sv & ((1 << 8 * m[5]) - 1)).to_bytes(m[5], "little")
+                if mn == "mov" and key not in self._smap and not any(0x20 <= c < 0x7F for c in raw):
+                    return  # zeros, sizes and flags where no string is being built
+                if self._store(off, key, disp, raw, None if mn == "mov" else mn):
+                    return
+            cells = self._smap.get(key)  # an unknown value lands here: those bytes are no longer known
+            if cells:
+                if m[2] is not None:
+                    self._harvest_strings(key)
+                else:
+                    for d in range(disp, disp + (m[5] or 16)):
+                        cells.pop(d, None)
+            return
+        cd = _REG_CANON.get(dst)
+        if cd is None:
+            if dst in xmm_consts or mn in _SIMD_LOADS or mn in _SIMD_XORS:
+                self._track_simd(off, size, mn, dst, src, xmm_consts)
+            return
+        if mn in ("xchg", "xadd", "cmpxchg"):
+            reg_consts.pop(_REG_CANON.get(src), None)
+            frame.pop(_REG_CANON.get(src), None)
+        sm = None
+        if cd not in reg_consts and cd not in frame and cd not in self._smap:
+            # untracked register (most instructions): only a constant or a frame pointer matters
+            if mn in ("mov", "movabs"):
+                if "[" in src or not (
+                    src[0].isdigit() or _REG_CANON.get(src) in reg_consts or (cd == "bp" and src in ("rsp", "esp"))
+                ):
+                    return
+            elif mn == "lea":
+                b = _REG_CANON.get(src[1:].split(" ", 1)[0].rstrip("]"))
+                if b not in reg_consts and not (cd == "bp" and b in frame):
+                    return
+            elif mn != "xor" or dst != src:
+                return
+        elif mn in ("cmp", "test", "bt"):
+            return
+        bits = _REG_BITS.get(dst)
+        sv = _imm(src)
+        if sv is None:
+            sv = self._const(_REG_CANON.get(src), i, reg_consts)
+        if mn == "lea" and sm is None:
+            sm = _mem(src)
+        # stack-frame registers: rsp moves by known amounts, rbp = rsp + k (lea rbp, [rsp - 0x70])
+        if cd == _SP:
+            if mn in ("sub", "add") and sv is not None:
+                frame[_SP] += -sv if mn == "sub" else sv
+                self._vstack.clear()
+            else:
+                self._reset_frame()
+        elif cd != "bp":
+            pass
+        elif sm and sm[1] in frame and sm[2] is None:
+            frame[cd] = frame[sm[1]] + sm[4]
+        elif mn == "mov" and bits == (64 if self.is64 else 32) and _REG_CANON.get(src) in frame:
+            frame[cd] = frame[_REG_CANON[src]]
+        else:
+            frame.pop(cd, None)
+        if cd in self._smap:
+            self._harvest_strings(cd)  # the base register moves: its offsets no longer line up
+        # constants, folded through arithmetic
+        if bits not in (32, 64):
+            if mn == "mov" and sv is not None and bits:  # mov cx, 0x5a4d; cmp word ptr [rax], cx
+                reg_consts[cd] = (sv & ((1 << bits) - 1), i)
+            else:
+                reg_consts.pop(cd, None)
+        elif mn == "lea":
+            if sm and sm[1] in reg_consts and sm[2] is None:
+                reg_consts[cd] = ((reg_consts[sm[1]][0] + sm[4]) & ((1 << bits) - 1), i)
+            else:
+                reg_consts.pop(cd, None)
+        elif mn in ("mov", "movabs") and sv is not None:
+            reg_consts[cd] = (sv & ((1 << bits) - 1), i)
+        elif mn == "xor" and dst == src:
+            reg_consts[cd] = (0, i)
+        elif mn in _FOLD and cd in reg_consts and sv is not None:
+            v = reg_consts[cd][0]
+            if mn in ("rol", "ror", "shl", "shr"):
+                k = sv % bits
+                v = {"rol": (v << k) | (v >> (bits - k)), "ror": (v >> k) | (v << (bits - k)), "shl": v << k, "shr": v >> k}[mn]
+            else:
+                v = {"xor": v ^ sv, "add": v + sv, "sub": v - sv, "and": v & sv, "or": v | sv}[mn]
+            reg_consts[cd] = (v & ((1 << bits) - 1), i)
+        else:
+            reg_consts.pop(cd, None)
+
+    def _track_flow(self, i, mn, op, reg_consts, xmm_consts):
+        """One-operand and flow instructions: the stack pointer, pushed constants, calls, branches."""
+        frame = self._frame
+        step = 8 if self.is64 else 4
+        reg = _REG_CANON.get(op)
+        if mn == "push":
+            frame[_SP] -= step
+            pv = _imm(op)
+            if pv is None:
+                pv = self._const(reg, i, reg_consts)
+            self._vstack = self._vstack[-31:] + [pv]
+        elif mn == "pop":
+            frame[_SP] += step
+            pv = self._vstack.pop() if self._vstack else None
+            if reg == _SP:
+                self._reset_frame()
+            elif reg:
+                frame.pop(reg, None)
+                if pv is not None and _REG_BITS[op] in (32, 64):
+                    reg_consts[reg] = (pv & ((1 << _REG_BITS[op]) - 1), i)
+                else:
+                    reg_consts.pop(reg, None)
+        elif mn == "call":
+            self._vstack.clear()
+            self._harvest_strings()
+            for r in ("a", "c", "d", "r8", "r9", "r10", "r11"):
+                reg_consts.pop(r, None)
+            for r in [r for r in xmm_consts if r[-1] in "012345"]:
+                xmm_consts.pop(r, None)
+        elif mn == "jmp" or mn[:3] == "ret":
+            self._barrier = i  # constants set before this may be from another path
+            self._vstack.clear()
+        elif mn == "leave":
+            if "bp" in frame:
+                frame[_SP] = frame.pop("bp") + step
+            else:
+                self._reset_frame()
+        elif reg is not None:
+            if reg == _SP:
+                self._reset_frame()
+            else:
+                frame.pop(reg, None)
+            if reg in self._smap:
+                self._harvest_strings(reg)
+            bits = _REG_BITS[op]
+            if reg in reg_consts and mn in ("not", "neg", "inc", "dec") and bits in (32, 64):
+                v = reg_consts[reg][0]
+                v = {"not": ~v, "neg": -v, "inc": v + 1, "dec": v - 1}[mn]
+                reg_consts[reg] = (v & ((1 << bits) - 1), i)
+            else:
+                reg_consts.pop(reg, None)
+        elif op and op[-1] == "]" and self._smap and mn not in ("jmp", "call", "push", "nop") and not mn.startswith("j"):
+            m = _mem(op)  # inc byte ptr [rsp + 0x20]: that byte is no longer known
+            if m and m[1] not in (None, "rip"):
+                key, disp = self._slot(m[1], m[4])
+                if m[2] is not None:
+                    self._harvest_strings(key)
+                elif key in self._smap:
+                    for d in range(disp, disp + (m[5] or 16)):
+                        self._smap[key].pop(d, None)
+
+    def _track_simd(self, off, size, mn, dst, src, xmm_consts):
+        """xmm/ymm constants: rip-relative loads of blob data, xor with another constant."""
+        if dst[:3] not in ("xmm", "ymm"):
+            return
+        vex = mn[0] == "v" and src and ", " in src
+        width = 32 if dst[0] == "y" else 16
+        args = src.split(", ") if vex else [src]
+        if mn in _SIMD_LOADS:
+            xmm_consts[dst] = self._vec_operand(args[-1], off, size, width, xmm_consts)
+        elif mn in _SIMD_XORS:
+            a = xmm_consts.get(args[0]) if vex and len(args) == 2 else xmm_consts.get(dst)
+            b = self._vec_operand(args[-1], off, size, width, xmm_consts)
+            xmm_consts[dst] = bytes(x ^ y for x, y in zip(a, b)) if a and b else None
+        else:
+            xmm_consts.pop(dst, None)
+
+    def _const(self, reg, i, reg_consts):
+        """A register's known value, set on this straight-line path (no jmp/ret since)."""
+        if reg in reg_consts:
+            v, at = reg_consts[reg]
+            if at > self._barrier and i - at <= 256:
+                return v
+        return None
+
+    def _slot(self, base, disp):
+        """Stack-frame registers share one byte map, keyed by offset from the entry stack pointer."""
+        if base in self._frame:
+            return "frame", self._frame[base] + disp
+        return base, disp
+
+    def _reset_frame(self):
+        """The stack pointer changed by an unknown amount (and rsp, -16): start a new frame."""
+        self._vstack.clear()
+        self._harvest_strings("frame")
+        self._frame.clear()
+        self._frame[_SP] = 0
+
+    def _vec_operand(self, operand, off, size, width, xmm_consts):
+        """Bytes of a SIMD source operand: a known register, rip-relative constant data in the
+        blob, or known stack bytes."""
+        if operand in xmm_consts:
+            return xmm_consts[operand]
+        if "[rip" not in operand:
+            b = _REG_CANON.get(operand[operand.index("[") + 1 :].split(" ", 1)[0].rstrip("]")) if "[" in operand else None
+            if b not in self._smap and not (b in self._frame and "frame" in self._smap):
+                return None
+        m = _mem(operand)
+        if not m or m[2] is not None:
+            return None
+        if m[1] == "rip":
+            at = off + size + m[4]
+            return bytes(self.buf[at : at + width]) if 0 <= at and at + width <= len(self.buf) else None
+        return self._stack_bytes(*self._slot(m[1], m[4]), width) if m[1] else None
 
     def _loops(self, seq, insns):
         """Name-hash loops: small backward branches that walk a name byte by byte.
@@ -2425,8 +3871,25 @@ def _hash_anchors(buf, limit=16):
     return sorted(found)[:limit]
 
 
-def _seeds(buf, md, max_seeds, extra=()):
+def find_sleds(data, is64, window, limit):
+    """[(start, end)] NOP sleds starting in the first window bytes, for one mode; one that reaches
+    the end of the window is followed to its real end (up to limit)."""
+    out = []
+    for m in SLED_RE[is64].finditer(data, 0, window):
+        start, end = m.span()
+        if end == window and window < limit:
+            end = SLED_RE[is64].match(data, start, limit).end()
+        out.append((start, end))
+        if len(out) >= MAX_SLEDS:
+            break
+    return out
+
+
+def _seeds(buf, md, max_seeds, extra=(), sleds=()):
     seeds = list(extra) + [0]
+    for start, end in sleds:
+        # code follows the sled; a multi-byte filler (0c 0c: or al, 0xc) may end mid-instruction
+        seeds.extend(end - k for k in range(5 if buf[start] in (0x0A, 0x0C, 0x0D) else 1) if 0 <= end - k < len(buf))
     anchors = []
     for pat in SEED_PATTERNS:
         for m in pat.finditer(buf):
@@ -2460,6 +3923,107 @@ def _is_trampoline(d):
     return False
 
 
+def _execution_order(d):
+    """An island whose blocks are chained by jmps, laid out as it runs: ({virtual offset: insn},
+    {virtual: real offset}, backedges). Chaining jmps are dropped, branch targets and RIP-relative
+    operands are rewritten for the new offsets, so RIP-relative data still resolves to the blob."""
+    insns = d.insns
+    junk = d.junk
+    order = []
+    emitted = set()
+    pending = [d.entry] if d.entry in insns else []
+    rest = iter(sorted(insns))
+    while True:
+        a = pending.pop() if pending else next((x for x in rest if x not in emitted and x not in junk), None)
+        if a is None:
+            break
+        while a in insns and a not in emitted and a not in junk:
+            emitted.add(a)
+            size, mn, op = insns[a]
+            tgt = _parse_int(op) if mn == "jmp" or mn == "call" or mn in COND_BRANCHES else None
+            if mn == "jmp" and tgt in insns and tgt not in emitted and tgt not in junk:
+                a = tgt  # a chaining jmp: carry straight on at its target
+                continue
+            order.append(a)
+            if mn in TERMINATORS:
+                break
+            if tgt in insns and tgt not in emitted:
+                pending.append(tgt)
+            a += size
+    r2v, v = {}, 0
+    for a in order:
+        r2v[a] = v
+        v += insns[a][0]
+    out, backedges = {}, []
+    for a in order:
+        size, mn, op = insns[a]
+        v = r2v[a]
+        if mn == "jmp" or mn == "call" or mn in COND_BRANCHES:
+            tgt = _parse_int(op)
+            if tgt in r2v:
+                op = hex(r2v[tgt])
+                if r2v[tgt] <= v:
+                    backedges.append((v, r2v[tgt]))
+        elif "[rip" in op:
+            m = _RIP_OPERAND.search(op)
+            if m:
+                where = a + size + (int(m.group(2), 0) * (-1 if m.group(1) == "-" else 1) if m.group(1) else 0)
+                disp = where - (v + size)
+                op = op[: m.start()] + f"[rip {'-' if disp < 0 else '+'} {abs(disp):#x}]" + op[m.end() :]
+        out[v] = (size, mn, op)
+    return out, {v: a for a, v in r2v.items()}, backedges
+
+
+def _scan_chained(d, ind, is64, va, buf):
+    """Jmp-chained code (each block ends in a jmp to the next, blocks out of order) hides every
+    multi-instruction pattern from a scan in address order. Scan it again in execution order and
+    add what that finds; decoders are left to the normal scan, which reads the blob at real offsets."""
+    insns = d.insns
+    chained = sum(1 for _, mn, op in insns.values() if mn == "jmp" and _parse_int(op) in insns)
+    if chained < CHAINED_MIN_JMPS or chained < CHAINED_JMP_RATIO * len(insns):
+        return
+    virtual, v2r, backedges = _execution_order(d)
+    if len(virtual) < 12:
+        return
+    ind2 = _Indicators(is64, va, len(buf), buf)
+    ind2.nested = True  # indicators only: nothing is decoded from virtual offsets
+    ind2.limit = d.far_limit
+    ind2._backedges = backedges
+    ind2.scan(virtual)
+
+    def real(v):
+        return v2r.get(v, v)
+
+    def line(entry):
+        off = real(entry[0])
+        size_mn_op = insns.get(off)
+        return (off, f"{size_mn_op[1]} {size_mn_op[2]}".strip() if size_mn_op else entry[1], entry[2])
+
+    added = False
+    for tag, weight in ind2.hits.items():
+        if INDICATORS[tag][0] in ("decoders", "framework") or weight <= ind.hits.get(tag, -1):
+            continue
+        ind.hits[tag] = weight
+        added = True
+        ind.evidence = [e for e in ind.evidence if e["indicator"] != tag]
+        for e in ind2.evidence:
+            if e["indicator"] == tag:
+                e = dict(e, offset=hex(real(int(e["offset"], 16))))
+                if e.get("block"):
+                    e["block"] = [line(b) for b in e["block"]]
+                ind.evidence.append(e)
+    if added:
+        ind.add(
+            "chained_blocks",
+            INFO,
+            d.entry or 0,
+            f"{chained} jmp-chained blocks out of {len(insns)} instructions: matched in execution order",
+        )
+    ind.apis |= ind2.apis
+    ind.stack_strings.extend(x for x in ind2.stack_strings if x not in ind.stack_strings)
+    ind.sockaddrs.extend(x for x in ind2.sockaddrs if x not in ind.sockaddrs)
+
+
 def _evaluate_island(buf, d, is64, va, opts, nested=False):
     reached = sum(sz for sz, _, _ in d.insns.values())
     ninsn = len(d.insns)
@@ -2482,7 +4046,27 @@ def _evaluate_island(buf, d, is64, va, opts, nested=False):
     ind.limit = d.far_limit
     ind._backedges = d.backedges
     if ninsn:
-        ind.scan(d.insns)
+        ind.scan(d.insns, d.junk)
+        if len(d.junk) < ninsn:
+            _scan_chained(d, ind, is64, va, buf)
+        if (
+            ninsn >= 32
+            and not d.bad_paths
+            and not d.rare
+            and all(0x20 <= b < 0x7F for o, (size, _, _) in d.insns.items() for b in buf[o : o + size])
+        ):
+            # text decodes as instructions too, but not cleanly; a printable decoder also has to
+            # rewrite memory (xor/sub/add/and into [mem]) with a varied instruction mix
+            patches = sum(
+                1 for _, mn, op in d.insns.values() if mn in ("xor", "sub", "add", "and") and op.split(", ", 1)[0].endswith("]")
+            )
+            if patches and len({mn for _, mn, _ in d.insns.values()}) >= 6:
+                ind.add(
+                    "printable_code",
+                    MEDIUM,
+                    d.entry or 0,
+                    f"{sum(i[0] for i in d.insns.values())} bytes of code, every byte printable; {patches} writes into memory",
+                )
 
     coherent = (
         ninsn >= 12
@@ -2504,6 +4088,10 @@ def _evaluate_island(buf, d, is64, va, opts, nested=False):
         ind.add("jit_code", INFO, 0, f"{ind.jit_ptrs} absolute pointers into the process loaded in {ninsn} instructions")
     if compiled:
         ind.add("compiled_runtime", INFO, 0, ", ".join(f"{k} x{v}" for k, v in ind.runtime.most_common()))
+        # a program built with a runtime (stack checks, /GS cookies) that parses PE files is not a
+        # reflective loader: those are built without one
+        ind.demote("reflective_pe_loader", MEDIUM)
+        ind.demote("exception_control_flow", MEDIUM)
 
     scored = {k: w for k, w in ind.hits.items() if k not in UNSCORED and w > INFO}
     strong = [k for k, w in scored.items() if w >= STRONG]
@@ -2590,7 +4178,7 @@ def _rank(r):
     return (VERDICT_RANK[r["verdict"]], r["score"], -r["structure"].get("rex_as_incdec", 0.0), r["structure"]["reached_bytes"])
 
 
-def _analyse_mode(buf, mode, va, max_insns, max_seeds, opts, extra_seeds=(), extent=None):
+def _analyse_mode(buf, mode, va, max_insns, max_seeds, opts, extra_seeds=(), extent=None, sleds=()):
     """Each seed is descended as its own island. Returns (best island, all
     islands worth reporting, far branch targets)."""
     is64 = mode == CS_MODE_64
@@ -2600,14 +4188,15 @@ def _analyse_mode(buf, mode, va, max_insns, max_seeds, opts, extra_seeds=(), ext
     far = []
     covered = set()  # instructions belonging to coherent islands already seen
     budget = max_insns * 2
-    for seed in _seeds(buf, md, max_seeds, extra_seeds):
+    sleds = [s for s in sleds if s[0] < len(buf)]
+    for seed in _seeds(buf, md, max_seeds, extra_seeds, sleds):
         if seed in covered or budget <= 0:
             continue
-        d = _Descent(buf, mode, min(max_insns, budget), extent)
+        d = _Descent(buf, mode, min(max_insns, budget), extent, sleds)
         d.run([seed])
         budget -= len(d.insns)
         r = _evaluate_island(buf, d, is64, va, opts)
-        r["entry"] = seed
+        r["entry"] = d.entry if d.entry is not None and d.entry < len(buf) else seed  # past a leading sled
         far.extend(r.pop("_far"))
         if r["structure"]["coherent"]:
             covered.update(d.insns)
@@ -2781,407 +4370,13 @@ def find_ntdll_copy(buf, min_stubs=16):
 
 
 # ---------------------------------------------------------------- known shellcode generators
-# A framework is reported only when it is identified exactly: the generator's output layout plus
-# an internal consistency check (a length field, a computed offset that lands on a PE, a known
-# plaintext, a decoder that rebuilds itself). Shared public code that other tools copy (e.g.
-# Metasploit's classic block_api) is an indicator, never a framework.
-# Layouts were taken from each generator's source and checked against real output.
+# Each generator is a module in shellcode_frameworks/ (see its README.md): reported only when
+# identified exactly, from the generator's output layout plus an internal consistency check (a
+# length field, a computed offset that lands on a PE, a known plaintext). Shared public code that
+# other tools copy (e.g. Metasploit's classic block_api) is an indicator, never a framework.
 
 _M32 = 0xFFFFFFFF
-
-
-def _rotr32(v, n):
-    return ((v >> n) | (v << (32 - n))) & _M32
-
-
-def _chaskey(mk, block):
-    """Chaskey-LTS block encryption as used by Donut (16 rounds)."""
-    k = struct.unpack("<4I", mk)
-    w = [a ^ b for a, b in zip(struct.unpack("<4I", block), k)]
-    for _ in range(16):
-        w[0] = (w[0] + w[1]) & _M32
-        w[1] = _rotr32(w[1], 27) ^ w[0]
-        w[2] = (w[2] + w[3]) & _M32
-        w[3] = _rotr32(w[3], 24) ^ w[2]
-        w[2] = (w[2] + w[1]) & _M32
-        w[0] = (_rotr32(w[0], 16) + w[3]) & _M32
-        w[3] = _rotr32(w[3], 19) ^ w[0]
-        w[1] = _rotr32(w[1], 25) ^ w[2]
-        w[2] = _rotr32(w[2], 16)
-    return struct.pack("<4I", *(a ^ b for a, b in zip(w, k)))
-
-
-def _ctr_read(mk, ctr, data, start, off, n):
-    """n plaintext bytes at off of a Chaskey-CTR stream starting at start (big-endian
-    128-bit counter). CTR allows decrypting only the blocks that are needed."""
-    rel = off - start
-    first, last = rel // 16, (rel + n + 15) // 16
-    c0 = int.from_bytes(ctr, "big")
-    out = bytearray()
-    for b in range(first, last):
-        ks = _chaskey(mk, ((c0 + b) & ((1 << 128) - 1)).to_bytes(16, "big"))
-        out += bytes(x ^ y for x, y in zip(data[start + 16 * b : start + 16 * b + 16], ks))
-    skip = rel - 16 * first
-    return bytes(out[skip : skip + n])
-
-
-def _chaskey_stream(mk, c0, nblocks):
-    """Chaskey-CTR keystream for nblocks blocks from counter c0 (pure Python, inlined rounds)."""
-    k0, k1, k2, k3 = struct.unpack("<4I", mk)
-    unpack, pack, m = struct.Struct("<4I").unpack, struct.Struct("<4I").pack, _M32
-    out = []
-    for b in range(nblocks):
-        w0, w1, w2, w3 = unpack(((c0 + b) & ((1 << 128) - 1)).to_bytes(16, "big"))
-        w0, w1, w2, w3 = w0 ^ k0, w1 ^ k1, w2 ^ k2, w3 ^ k3
-        for _ in range(16):
-            w0 = (w0 + w1) & m
-            w1 = ((w1 >> 27) | (w1 << 5)) & m ^ w0
-            w2 = (w2 + w3) & m
-            w3 = ((w3 >> 24) | (w3 << 8)) & m ^ w2
-            w2 = (w2 + w1) & m
-            w0 = ((((w0 >> 16) | (w0 << 16)) & m) + w3) & m
-            w3 = ((w3 >> 19) | (w3 << 13)) & m ^ w0
-            w1 = ((w1 >> 25) | (w1 << 7)) & m ^ w2
-            w2 = ((w2 >> 16) | (w2 << 16)) & m
-        out.append(pack(w0 ^ k0, w1 ^ k1, w2 ^ k2, w3 ^ k3))
-    return b"".join(out)
-
-
-def _chaskey_stream_np(mk, c0, nblocks):
-    """The same keystream, vectorised over all blocks with numpy."""
-    b = np.arange(nblocks, dtype=np.uint64)
-    lo0, hi0 = np.uint64(c0 & (2**64 - 1)), np.uint64((c0 >> 64) & (2**64 - 1))
-    lo = lo0 + b  # wraps; the carry goes into the high half of the 128-bit big-endian counter
-    hi = hi0 + (lo < lo0).astype(np.uint64)
-    blocks = np.empty((nblocks, 2), dtype=">u8")
-    blocks[:, 0], blocks[:, 1] = hi, lo
-    w = blocks.view("<u4").reshape(-1, 4).astype(np.uint32)
-    k = np.frombuffer(mk, dtype="<u4").astype(np.uint32)
-    w ^= k
-
-    def rotr(v, r):
-        return (v >> np.uint32(r)) | (v << np.uint32(32 - r))
-
-    v0, v1, v2, v3 = (w[:, i].copy() for i in range(4))
-    for _ in range(16):
-        v0 += v1
-        v1 = rotr(v1, 27) ^ v0
-        v2 += v3
-        v3 = rotr(v3, 24) ^ v2
-        v2 += v1
-        v0 = rotr(v0, 16) + v3
-        v3 = rotr(v3, 19) ^ v0
-        v1 = rotr(v1, 25) ^ v2
-        v2 = rotr(v2, 16)
-    return (np.stack((v0, v1, v2, v3), axis=1) ^ k).astype("<u4").tobytes()
-
-
-def _ctr_decrypt(mk, ctr, data, start, off, n):
-    """_ctr_read for whole payloads (numpy when available: ~30x faster on multi-MB modules)."""
-    rel = off - start
-    first, last = rel // 16, (rel + n + 15) // 16
-    c0 = int.from_bytes(ctr, "big") + first
-    ks = (_chaskey_stream_np if np is not None and n >= 4096 else _chaskey_stream)(mk, c0, last - first)
-    lo = start + 16 * first
-    enc = bytes(data[lo : lo + len(ks)])
-    plain = (int.from_bytes(enc, "little") ^ int.from_bytes(ks[: len(enc)], "little")).to_bytes(len(enc), "little")
-    skip = rel - 16 * first
-    return plain[skip : skip + n]
-
-
-def _xpress_lz77(src, size):
-    """Plain LZ77 Xpress (MS-XCA 2.3, COMPRESSION_FORMAT_XPRESS) decompression, capped at size bytes."""
-    out = bytearray()
-    i, flags, nflags, half = 0, 0, 0, None
-    end = len(src)
-    while i < end and len(out) < size:
-        if nflags == 0:
-            if i + 4 > end:
-                break
-            flags, nflags, i = _u32(src, i), 32, i + 4
-        nflags -= 1
-        if not flags >> nflags & 1:
-            if i >= end:
-                break
-            out.append(src[i])
-            i += 1
-            continue
-        if i + 2 > end:
-            break
-        match = src[i] | src[i + 1] << 8
-        i += 2
-        length, dist = match & 7, (match >> 3) + 1
-        if length == 7:
-            if half is None:
-                if i >= end:
-                    break
-                length, half, i = src[i] & 0xF, i, i + 1
-            else:
-                length, half = src[half] >> 4, None
-            if length == 15:
-                if i >= end:
-                    break
-                length, i = src[i], i + 1
-                if length == 255:
-                    if i + 2 > end:
-                        break
-                    length, i = src[i] | src[i + 1] << 8, i + 2
-                    if length == 0:
-                        if i + 4 > end:
-                            break
-                        length, i = _u32(src, i), i + 4
-                    if length < 22:
-                        raise ValueError("invalid Xpress match length")
-                    length -= 22
-                length += 15
-            length += 7
-        length += 3
-        if dist > len(out):
-            raise ValueError("Xpress match before the start of the output")
-        if dist >= length:
-            out += out[-dist : len(out) - dist + length]
-        else:
-            for _ in range(length):
-                out.append(out[-dist])
-    return bytes(out[:size])
-
-
-def _decompress(method, src, size):
-    """Donut module compression: aPLib, LZNT1 or plain LZ77 Xpress (RtlDecompressBuffer format compress-1)."""
-    if method == "aPLib":
-        from cape_parsers.utils.aplib import decompress
-    elif method == "LZNT1":
-        from cape_parsers.utils.lznt1 import decompress_data as decompress
-    elif method == "Xpress":
-        return _xpress_lz77(src, size)
-    else:
-        return None
-    out = decompress(bytes(src))
-    return out[:size] if out else None
-
-
-# Donut (github.com/TheWover/donut, donut.c / include/donut.h): E8 <len> <DONUT_INSTANCE> 59 <arch stub>
-DONUT_ARCH_STUBS = {
-    b"\x59\x5a\x51\x52": "x86",  # pop ecx; pop edx; push ecx; push edx
-    b"\x59\x55\x48\x89\xe5\x48\x83\xe4\xf0\x48\x83\xec\x20": "x64",  # pop rcx; LOADER_EXE_X64_RSP_ALIGN
-    b"\x59\x31\xc0\x48\x0f\x88": "x86+x64",  # pop ecx; xor eax, eax; dec eax / js (architecture switch)
-}
-# DONUT_INSTANCE / DONUT_MODULE offsets (Donut 1.x; the same layout Unit 42 documents for an
-# in-the-wild sample). Everything from api_cnt on is encrypted with the key stored at +4.
-DONUT_INSTANCE = {"key": 0x04, "api_cnt": 0x23C, "dll_names": 0x240, "bypass": 0x570, "headers": 0x574, "type": 0x920,
-                  "server": 0x924, "mod_len": 0xD58, "module": 0xD60}  # fmt: skip
-DONUT_BYPASS = {1: "no", 2: "yes (stop if it fails)", 3: "yes (continue if it fails)"}  # AMSI/WLDP/ETW
-DONUT_HEADERS = {1: "overwritten after loading", 2: "kept"}  # the mapped PE's headers
-DONUT_MODULE = {"type": 0x0, "compress": 0x8, "runtime": 0xC, "cls": 0x20C, "method": 0x30C, "zlen": 0x520,
-                "len": 0x524, "data": 0x528}  # fmt: skip
-DONUT_DLL_NAMES = b"ole32;oleaut32;wininet;mscoree;shell32"  # known plaintext at dll_names
-DONUT_MODULE_TYPES = {1: ".NET DLL", 2: ".NET EXE", 3: "DLL", 4: "EXE", 5: "VBScript", 6: "JScript"}
-DONUT_COMPRESSION = {1: None, 2: "aPLib", 3: "LZNT1", 4: "Xpress"}
-DONUT_INSTANCE_TYPES = {1: "embedded", 2: "HTTP", 3: "DNS"}
 EXTRACT_MAX = 32 * 1024 * 1024  # largest payload extracted from a framework layout
-
-
-def _cstr(raw):
-    return raw.split(b"\0", 1)[0].decode("latin-1", "replace")
-
-
-def identify_donut(data):
-    if len(data) < 0x40 or data[0] != 0xE8:
-        return None
-    n = _u32(data, 1)
-    if n < DONUT_INSTANCE["module"] or _u32(data, 5) != n or 5 + n + 16 > len(data):
-        return None
-    arch = next((a for stub, a in DONUT_ARCH_STUBS.items() if data[5 + n : 5 + n + len(stub)] == stub), None)
-    if arch is None:
-        return None
-    base = 5
-    fw = {"name": "Donut", "confidence": "identified", "arch": arch,
-          "evidence": [f"call over the instance ({n} bytes); its length field matches",
-                       f"Donut's {arch} loader stub follows the instance at {5 + n:#x}"],
-          "details": {}, "regions": [], "iocs": {}}  # fmt: skip
-    region = {"start": base, "size": n, "status": "structural", "framework": "Donut",
-              "source": "call over the instance at 0x0", "result_type": "instance", "result": "Donut instance",
-              "entropy": None, "decoded_entropy": None}  # fmt: skip
-    fw["regions"].append(region)
-    mk, ctr = data[base + 4 : base + 20], data[base + 20 : base + 36]
-    start = base + DONUT_INSTANCE["api_cnt"]
-    names_at = base + DONUT_INSTANCE["dll_names"]
-    if data[names_at : names_at + len(DONUT_DLL_NAMES)] == DONUT_DLL_NAMES:
-        encrypted = False
-
-        def read(off, k):
-            return data[base + off : base + off + k]
-    elif _ctr_read(mk, ctr, data, start, names_at, len(DONUT_DLL_NAMES)) == DONUT_DLL_NAMES:
-        encrypted = True
-
-        def read(off, k):
-            return _ctr_read(mk, ctr, data, start, base + off, k)
-    else:
-        # layout matches but the known plaintext does not (another Donut version): no payload details
-        region["result"] = "Donut instance (layout of another Donut version: not decoded)"
-        return fw
-    fw["evidence"].append(
-        ("decrypting with the instance's own Chaskey key gives" if encrypted else "plaintext instance holds")
-        + " Donut's DLL list 'ole32;oleaut32;wininet;mscoree;shell32'"
-    )
-    fw["details"]["instance"] = "encrypted with Chaskey-CTR, key stored in the instance" if encrypted else "not encrypted"
-    itype = _u32(read(DONUT_INSTANCE["type"], 4), 0)
-    fw["details"]["instance_type"] = DONUT_INSTANCE_TYPES.get(itype, str(itype))
-    bypass = DONUT_BYPASS.get(_u32(read(DONUT_INSTANCE["bypass"], 4), 0))
-    if bypass:
-        fw["details"]["amsi_wldp_etw_bypass"] = bypass
-    headers = DONUT_HEADERS.get(_u32(read(DONUT_INSTANCE["headers"], 4), 0))
-    if itype != 1:
-        url = _cstr(read(DONUT_INSTANCE["server"], 256))
-        if url:
-            fw["details"]["staging_url"] = url
-            fw["iocs"]["urls"] = [url]
-        region["result"] = (
-            f"Donut instance, {'encrypted' if encrypted else 'not encrypted'}; payload staged from {url or 'a server'}"
-        )
-        return fw
-    mod = base + DONUT_INSTANCE["module"]
-    head = read(DONUT_INSTANCE["module"], DONUT_MODULE["data"] + 0x400)
-    mtype, comp = _u32(head, DONUT_MODULE["type"]), _u32(head, DONUT_MODULE["compress"])
-    zlen, plen = _u32(head, DONUT_MODULE["zlen"]), _u32(head, DONUT_MODULE["len"])
-    kind = DONUT_MODULE_TYPES.get(mtype)
-    if kind is None or plen == 0 or plen > len(data) * 64:
-        region["result"] = "Donut instance (module header not recognised)"
-        return fw
-    compression = DONUT_COMPRESSION.get(comp, f"type {comp}")
-    payload = head[DONUT_MODULE["data"] :]
-    if not compression:
-        pes = find_embedded_pes(payload, len(payload), 1)
-        if pes and pes[0]["offset"] == "0x0":
-            kind = f"{pes[0]['arch']} {kind}"
-    stored = zlen if compression else plen
-    fw["details"].update({"payload": kind, "payload_size": plen})
-    if headers and mtype in (3, 4):  # unmanaged PEs are mapped by the loader itself
-        fw["details"]["pe_headers"] = headers
-    for k in ("runtime", "cls", "method"):
-        v = _cstr(head[DONUT_MODULE[k] : DONUT_MODULE[k] + 256])
-        if v:
-            fw["details"][{"cls": "class"}.get(k, k)] = v
-    what = f"{kind}, {plen} bytes"
-    if compression:
-        fw["details"]["compression"] = f"{compression} ({zlen} -> {plen} bytes)"
-        what += f", {compression}-compressed to {zlen}"
-    region["result"] = f"Donut instance, {'encrypted' if encrypted else 'not encrypted'}; payload: {what}"
-    src = mod + DONUT_MODULE["data"]
-
-    def extract():
-        if stored > EXTRACT_MAX or plen > EXTRACT_MAX or src + stored > len(data):
-            return None
-        raw = _ctr_decrypt(mk, ctr, data, start, src, stored) if encrypted else data[src : src + stored]
-        if compression:
-            raw = _decompress(compression, raw, plen)
-        return bytes(raw) if raw and len(raw) == plen else None
-
-    fw["_payload"] = {"extract": extract, "offset": src, "description": f"Donut module: {kind}"}
-    fw["regions"].append(
-        {
-            "start": mod + DONUT_MODULE["data"],
-            "size": stored,
-            "status": "verified" if encrypted else "structural",
-            "framework": "Donut",
-            "source": "DONUT_MODULE.data (sizes from the module header)",
-            "result_type": "pe" if "EXE" in kind or "DLL" in kind else "script",
-            "result": what,
-            "entropy": None,
-            "decoded_entropy": None,
-        }  # fmt: skip
-    )
-    return fw
-
-
-# sRDI (github.com/monoxgas/sRDI, Python/ShellcodeRDI.py): fixed bootstraps, variable fields captured
-_SRDI_X64 = re.compile(
-    rb"\xe8\x00\x00\x00\x00\x59\x49\x89\xc8\xba(.{4})\x49\x81\xc0(.{4})\x41\xb9(.{4})\x56\x48\x89\xe6\x48\x83\xe4\xf0"
-    rb"\x48\x83\xec\x30\x48\x89\x4c\x24\x28\x48\x81\xc1(.{4})\xc7\x44\x24\x20(.{4})\xe8\x05\x00\x00\x00\x48\x89\xf4\x5e\xc3",
-    re.S,
-)
-_SRDI_X86 = re.compile(
-    rb"\xe8\x00\x00\x00\x00\x58\x55\x89\xe5\x89\xc2\x68(.{4})\x50\x81\xc2(.{4})\x68(.{4})\x52\x68(.{4})\x05(.{4})\x50"
-    rb"\xe8\x05\x00\x00\x00\x83\xc4\x14\xc9\xc3",
-    re.S,
-)
-SRDI_FLAGS = {0x1: "clear header", 0x2: "clear memory", 0x4: "obfuscate imports", 0x8: "pass shellcode base"}
-
-
-def identify_srdi(data):
-    for rx, arch in ((_SRDI_X64, "x64"), (_SRDI_X86, "x86")):
-        m = rx.search(data, 0, 0x1000)
-        if not m:
-            continue
-        g = [int.from_bytes(x, "little") for x in m.groups()]
-        if arch == "x64":
-            fhash, ud_off, ud_len, dll_off, flags = g
-        else:
-            flags, ud_off, ud_len, fhash, dll_off = g
-        base = m.start() + 5  # the pop receives this address
-        dll = base + dll_off
-        pes = find_embedded_pes(data[dll : dll + 0x1000], 0x1000, 1) if 0 < dll < len(data) else []
-        if not (pes and pes[0]["offset"] == "0x0" and data[dll : dll + 2] == b"MZ" and pes[0]["arch"] == arch):
-            continue  # the computed DLL offset must land on a PE of the bootstrap's architecture
-        size = _pe_raw_size(data, dll + int(pes[0]["nt_offset"], 16)) or None
-        kind = f"{arch} {'DLL' if pes[0]['dll'] else 'EXE'}"
-        details = {"payload": kind, "payload_size": size, "export_hash": f"{fhash:#x}" + (" (DllMain only)" if fhash == 0x10 else ""),
-                   "flags": ", ".join(v for k, v in SRDI_FLAGS.items() if flags & k) or "none"}  # fmt: skip
-        if flags >> 16:
-            details["import_delay"] = f"{flags >> 16} s"
-        ud = data[base + ud_off : base + ud_off + min(ud_len, 256)] if ud_len and base + ud_off < len(data) else b""
-        if ud and all(0x20 <= c < 0x7F for c in ud):
-            details["user_data"] = ud.decode()
-        end = dll + size if size else len(data)
-        payload = {
-            "extract": lambda: bytes(data[dll:end]) if 0 < end - dll <= EXTRACT_MAX and end <= len(data) else None,
-            "offset": dll,
-            "description": f"sRDI DLL: {kind}",
-        }
-        return {"name": "sRDI", "confidence": "identified", "arch": arch, "_payload": payload,
-                "evidence": [f"sRDI {arch} bootstrap at {m.start():#x} (fixed template, variable fields decoded)",
-                             f"the DLL offset it computes ({dll:#x}) holds the payload: {kind}"],
-                "details": details, "iocs": {},
-                "regions": [{"start": dll, "size": size, "status": "structural", "framework": "sRDI",
-                             "source": f"DLL offset from the bootstrap at {m.start():#x}", "result_type": "pe",
-                             "result": f"{kind}" + (f", {size} bytes" if size else ""), "entropy": None,
-                             "decoded_entropy": None}]}  # fmt: skip
-    return None
-
-
-# pe2shc (github.com/hasherezade/pe_to_shellcode, pe2shc/main.cpp): the DOS header is overwritten
-# with a redirection stub calling the loader appended at the end of the original file
-_PE2SHC = (
-    (re.compile(rb"MZER\xe8\x00\x00\x00\x00\x58\x83\xe8\x09\x50\x05(.{4})\xff\xd0\xc3", re.S), "x86"),
-    (re.compile(rb"MZER\xe8\x00\x00\x00\x00\x59\x48\x83\xe9\x09\x48\x8b\xc1\x48\x05(.{4})\xff\xd0\xc3", re.S), "x64"),
-    (re.compile(rb"MZER\xe8\x00\x00\x00\x00\x5b\x48\x83\xeb\x09\x53\x48\x81\xc3(.{4})\xff\xd3\xc3", re.S), "x86 (old loader)"),
-)
-
-
-def identify_pe2shc(data):
-    for rx, arch in _PE2SHC:
-        m = rx.match(data)
-        if not m:
-            continue
-        stub = _u32(m.group(1), 0)
-        pes = find_embedded_pes(data[:0x1000], 0x1000, 1)
-        if not pes or pes[0]["offset"] != "0x0":
-            continue
-        size = _pe_raw_size(data, int(pes[0]["nt_offset"], 16)) or 0
-        if not size <= stub < len(data):
-            continue  # the loader must sit after the PE's last section
-        kind = f"{pes[0]['arch']} {'DLL' if pes[0]['dll'] else 'EXE'}"
-        payload = {
-            "extract": lambda: bytes(data[:stub]) if 0 < stub <= EXTRACT_MAX else None,
-            "offset": 0,
-            "description": f"pe2shc original PE: {kind}",
-        }
-        return {"name": "pe2shc", "confidence": "identified", "arch": pes[0]["arch"], "_payload": payload,
-                "evidence": [f"pe2shc {arch} redirection stub in the DOS header", f"it calls the loader appended at {stub:#x}, after the PE's sections"],
-                "details": {"payload": kind, "payload_size": stub, "loader_stub": f"{stub:#x}-{len(data):#x}"}, "iocs": {},
-                "regions": [{"start": 0, "size": stub, "status": "structural", "framework": "pe2shc", "source": "file before the loader stub",
-                             "result_type": "pe", "result": f"{kind}, {stub} bytes", "entropy": None, "decoded_entropy": None}]}  # fmt: skip
-    return None
 
 
 # ------------------------------------------------------------------------------------- encoders
@@ -3699,23 +4894,24 @@ def _framework_label(fw):
     return f"{name}: {kind}" if kind else name
 
 
-# Family reported for an identified framework when it becomes a CAPE detection (default: its name)
-FRAMEWORK_FAMILIES = {}
-
-
 def framework_family(name):
-    return FRAMEWORK_FAMILIES.get(name, name)
+    """Family reported for an identified framework when it becomes a CAPE detection (the module's
+    FAMILY, default its NAME)."""
+    from lib.cuckoo.common.integrations import shellcode_frameworks
+
+    return shellcode_frameworks.family(name)
 
 
 def identify_frameworks(data):
-    """Known generator/encoder layouts, each matched exactly (one generator writes the outer layout).
-    Shared public code that other tools copy is reported as an indicator instead (block_api_prologue)."""
-    for fn in (identify_donut, identify_srdi, identify_pe2shc):
-        fw = fn(data)
-        if fw:
-            fw["label"] = _framework_label(fw)
-            return [fw]
-    return []
+    """Known generator layouts, each matched exactly by its module in shellcode_frameworks/; the
+    first identified one wins, as one generator writes the outer layout. Shared public code that
+    other tools copy is reported as an indicator instead (block_api_prologue)."""
+    from lib.cuckoo.common.integrations import shellcode_frameworks
+
+    found = shellcode_frameworks.identify(data)
+    for fw in found:
+        fw["label"] = _framework_label(fw)
+    return found
 
 
 # Verbatim modern x64 ntdll syscall stub (KUSER_SHARED_DATA test + int 2e fallback). The legacy
@@ -3865,6 +5061,70 @@ def extract_iocs_fn(buf, stack_strings=(), sockaddrs=()):
 _CLR_HINTS = ("clr.dll", "mscoree.dll", "mscorlib", "v4.0.30319", "v2.0.50727")
 
 
+_INJECT_WRITE = frozenset(
+    {"VirtualAllocEx", "VirtualProtectEx", "WriteProcessMemory", "NtWriteVirtualMemory", "NtMapViewOfSection"}
+)
+_INJECT_EXEC = frozenset(
+    {
+        "CreateRemoteThread",
+        "NtCreateThreadEx",
+        "RtlCreateUserThread",
+        "QueueUserAPC",
+        "NtQueueApcThread",
+        "SetThreadContext",
+        "NtSetContextThread",
+    }
+)
+_SLEEP_PARTS = (
+    frozenset(
+        {"CreateTimerQueueTimer", "RtlCreateTimer", "RtlCreateTimerQueue", "RtlRegisterWait", "NtSignalAndWaitForSingleObject"}
+    ),
+    frozenset({"NtContinue", "RtlCaptureContext"}),
+    frozenset({"SystemFunction032", "SystemFunction033"}),
+)
+
+
+def _api_sets(resolved):
+    """Scored API combinations, from APIs the code resolves itself (hash constants, stack strings):
+    {indicator: [names]}. Import names lying in a mapped image or in compiled code's data never count."""
+    found = {}
+    write, execute = sorted(resolved & _INJECT_WRITE), sorted(resolved & _INJECT_EXEC)
+    if write and execute:
+        found["remote_injection"] = write + execute
+
+    def have(*groups):
+        """Names resolved, when every group (alternatives separated by spaces) has one; else []."""
+        picked = [sorted(resolved & set(g.split())) for g in groups]
+        return [n for p in picked for n in p] if all(picked) else []
+
+    sock = have("WSASocketA WSASocketW socket", "connect WSAConnect", "recv WSARecv") or have("bind", "listen", "accept")
+    if sock:
+        found["socket_stager"] = sock
+    http = have(
+        "InternetOpenA InternetOpenW", "InternetConnectA InternetConnectW InternetOpenUrlA InternetOpenUrlW", "InternetReadFile"
+    ) or have("WinHttpOpen", "WinHttpConnect", "WinHttpReadData WinHttpReceiveResponse")
+    if http:
+        found["http_stager"] = http
+    dlexec = have(
+        "URLDownloadToFileA URLDownloadToFileW URLDownloadToCacheFileA",
+        "WinExec CreateProcessA CreateProcessW ShellExecuteA ShellExecuteW ShellExecuteExA ShellExecuteExW",
+    )
+    if dlexec:
+        found["download_execute"] = dlexec
+    spoof = have("BaseThreadInitThunk", "RtlUserThreadStart") or have(
+        "BaseThreadInitThunk RtlUserThreadStart", "RtlLookupFunctionEntry RtlVirtualUnwind"
+    )
+    if spoof:
+        found["stack_spoofing"] = sorted(set(spoof))
+    handlers = sorted(resolved & _EXCEPTION_APIS)
+    if handlers:
+        found["exception_handler_api"] = handlers
+    parts = [sorted(resolved & part) for part in _SLEEP_PARTS]
+    if sum(bool(p) for p in parts) >= 2:
+        found["sleep_obfuscation"] = [n for p in parts for n in p]
+    return found
+
+
 def _capabilities(apis, clr_hints=()):
     found = {}
     for cap, names in CAPABILITIES.items():
@@ -3901,7 +5161,7 @@ def _collect_payloads(frameworks, regions, encoder=None):
         except Exception as e:  # malformed module: report the framework, skip the payload
             f.setdefault("details", {})["extraction"] = f"failed: {e}"
             continue
-        if blob:
+        if blob and len(blob) <= EXTRACT_MAX:  # also caps custom modules that do not check it
             out.append({"data": blob, "framework": f["name"], "family": framework_family(f["name"]),
                         "offset": hex(p["offset"]), "description": p["description"]})  # fmt: skip
     if out:
@@ -3992,11 +5252,21 @@ def analyse(
         if exec_header is None:
             result["reason"] = "PE image"
 
+    sleds = {}
+    if not result.get("reason") and stats["size"] >= SLED_MIN:
+        for is64 in (False, True):
+            if arch != ("x86" if is64 else "x64"):
+                sleds[CS_MODE_64 if is64 else CS_MODE_32] = find_sleds(data, is64, window, pe_limit)
+    # a sled filling the whole window: the code is where it ends
+    past_sled = sorted({end for found in sleds.values() for _, end in found if window <= end < size})
+
     if result.get("reason"):
         pass
     elif stats["size"] < 5:
         result["reason"] = "too small"
-    elif stats["distinct_bytes"] < 4 or (stats["size"] >= 64 and stats["size"] - round(stats["zero_ratio"] * stats["size"]) < 16):
+    elif not past_sled and (
+        stats["distinct_bytes"] < 4 or (stats["size"] >= 64 and stats["size"] - round(stats["zero_ratio"] * stats["size"]) < 16)
+    ):
         # judged on non-zero byte count, not ratio: a small stub at the start of
         # a large, mostly zeroed allocation is a normal shape for a dump
         result["reason"] = "padding"
@@ -4017,7 +5287,7 @@ def analyse(
             extra = [exec_header[2]] if exec_header and exec_header[2] < window else []
             if entry is not None and 0 <= entry < window:
                 extra.insert(0, entry)
-            r, good, far = _analyse_mode(buf, mode, va, max_insns, max_seeds, opts, extra, extent=size)
+            r, good, far = _analyse_mode(buf, mode, va, max_insns, max_seeds, opts, extra, extent=size, sleds=sleds.get(mode, ()))
             far_by_mode[mode] = far
             for g in good:
                 islands.append(_rebase(g, 0))
@@ -4032,6 +5302,8 @@ def analyse(
                 anchors.extend((t, True) for t in far_by_mode[mode] if t < size)
             if exec_header and exec_header[2] >= window:
                 anchors.insert(0, (exec_header[2], True))
+            for end in reversed(past_sled):
+                anchors.insert(0, (end, True))
             if buf[:1] == b"\xe8":
                 # call over a large blob (Donut instance, MSF-style data): the code is past the window
                 t = 5 + int.from_bytes(buf[1:5], "little", signed=True)
@@ -4049,11 +5321,17 @@ def analyse(
                 if any(lo <= off < hi for lo, hi in seen):
                     continue
                 lo = off if exact else max(window, off - 1024)
+                after_sled = ()
+                if off in past_sled:
+                    lo = off - 8  # keep the sled's last bytes: its filler decides where code may start
+                    after_sled = [(0, 8)]
                 sub = bytes(memoryview(data)[lo : lo + DEEP_WINDOW_SIZE])
                 seen.append((lo, lo + len(sub)))
                 win_best = None
                 for mode in modes:
-                    r, good, _ = _analyse_mode(sub, mode, va, max_insns, max_seeds, opts, [off - lo], extent=size - lo)
+                    r, good, _ = _analyse_mode(
+                        sub, mode, va, max_insns, max_seeds, opts, [off - lo], extent=size - lo, sleds=after_sled
+                    )
                     for g in good:
                         islands.append(_rebase(g, lo))
                     _rebase(r, lo)
@@ -4224,6 +5502,58 @@ def analyse(
             }
             for pe in embedded
         ]
+
+    # cipher primitives: supporting weight in shellcode, nothing in compiled code or data
+    confirmed = result.get("verdict") in ("shellcode", "likely")
+    for tag in CIPHER_TAGS + SUPPORT_TAGS:
+        if weights.get(tag) == INFO:  # rc4_ksa next to a linked decoder keeps its own weight
+            if confirmed:
+                weights[tag] = WEAK
+            else:
+                del weights[tag]
+                result["evidence"] = [e for e in result.get("evidence", []) if e["indicator"] != tag]
+    if confirmed:
+        for tag, what, at in _crypto_tables(
+            bytes(data[:pe_limit]) if not isinstance(data, bytes) else data[:pe_limit], embedded, regions
+        ):
+            weights[tag] = max(weights.get(tag, INFO), WEAK)
+            result["evidence"] = result.get("evidence", []) + [{"offset": hex(at), "indicator": tag, "insn": what}]
+        if any(s.startswith("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz") for s in result.get("stack_strings", ())):
+            if "base64_alphabet" not in weights:
+                weights["base64_alphabet"] = WEAK
+                result["evidence"] = result.get("evidence", []) + [
+                    {"offset": "0x0", "indicator": "base64_alphabet", "insn": "Base64 alphabet built on the stack"}
+                ]
+        crypto_apis = sorted(_CRYPTO_APIS & set(result.get("apis", ())))
+        if crypto_apis:
+            weights["crypto_api"] = WEAK
+            at = next((e["offset"] for e in result.get("evidence", []) if any(n in e["insn"] for n in crypto_apis)), "0x0")
+            result["evidence"] = result.get("evidence", []) + [
+                {"offset": at, "indicator": "crypto_api", "insn": ", ".join(crypto_apis)}
+            ]
+    if confirmed:
+        led = sleds.get(CS_MODE_64 if result.get("arch") == "x64" else CS_MODE_32) or ()
+        entries = {int(i["entry"], 16) for i in islands + [best] if i and isinstance(i.get("entry"), str)}
+        led = [se for se in led if any(se[1] - 4 <= e <= se[1] for e in entries)]  # code was found where it ends
+        if led:
+            start, end = max(led, key=lambda se: se[1] - se[0])
+            weights["nop_sled"] = WEAK
+            result["evidence"] = result.get("evidence", []) + [
+                {"offset": hex(start), "indicator": "nop_sled", "insn": f"{end - start} bytes of sled ending at {end:#x}"}
+            ]
+    rc4 = sorted({"SystemFunction032", "SystemFunction033"} & set(result.get("apis", ())))
+    if rc4 and confirmed:
+        weights["rc4_systemfunction"] = WEAK
+        at = next((e["offset"] for e in result.get("evidence", []) if any(n in e["insn"] for n in rc4)), "0x0")
+        result["evidence"] = result.get("evidence", []) + [
+            {"offset": at, "indicator": "rc4_systemfunction", "insn": ", ".join(rc4)}
+        ]
+    # API combinations resolved by the code itself (before string names from the buffer are merged in)
+    if confirmed:
+        for tag, names in _api_sets(set(result.get("apis", ()))).items():
+            weights[tag] = MEDIUM
+            at = next((e["offset"] for e in result.get("evidence", []) if any(n in e["insn"] for n in names)), "0x0")
+            result["evidence"] = result.get("evidence", []) + [{"offset": at, "indicator": tag, "insn": ", ".join(names)}]
 
     # strings / IOCs are cheap and useful even when the blob is not code (configs)
     if extract_iocs:

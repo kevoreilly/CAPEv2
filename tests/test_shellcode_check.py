@@ -6,6 +6,7 @@ import base64
 import os
 import random
 import struct
+import sys
 import zlib
 
 import pytest
@@ -1288,7 +1289,7 @@ def test_undecodable_region_is_not_extracted():
 
 
 def test_donut_decompressors_match_published_vectors():
-    from lib.cuckoo.common.integrations.shellcode_check import _decompress
+    from lib.cuckoo.common.integrations.shellcode_frameworks.donut import _decompress
 
     # MS-XCA 3.1 plain LZ77 examples
     assert _decompress("Xpress", bytes.fromhex("3f000000") + b"abcdefghijklmnopqrstuvwxyz", 26) == b"abcdefghijklmnopqrstuvwxyz"
@@ -1298,7 +1299,7 @@ def test_donut_decompressors_match_published_vectors():
 
 
 def test_chaskey_keystreams_agree():
-    from lib.cuckoo.common.integrations import shellcode_check as sc
+    from lib.cuckoo.common.integrations.shellcode_frameworks import donut as sc
 
     mk, ctr = bytes(range(16)), (2**128 - 3).to_bytes(16, "big")  # counter wraps mid-stream
     data = _rand(0x3000, 5)
@@ -1413,3 +1414,841 @@ def test_framework_extract_caps_at_extract_max(monkeypatch):
     r = sc.analyse(bytes(pe) + MSF_STYLE_X64, extract_payloads=True)
     assert _framework(r, "pe2shc")["confidence"] == "identified"
     assert r["_payloads"] == []
+
+
+# --- stack strings rebuilt from stack bytes; scored API sets; cipher primitives; custom PE magic
+# (assembled with keystone)
+PUSH_TAILS_X86 = bytes.fromhex(
+    "fce8000000005d31c9648b41308b400c8b70146a74686e746578687265436f68617074756852746c4354ffd66a32686f6e30"
+    "33686e63746968656d4675685379737454ffd631c0506845780000686c6c6f636875616c41685669727454ffd631c0506872"
+    "790000684d656d6f6863657373686550726f685772697454ffd6c3"
+)
+WIDE_STACK_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020c744242077006900c74424246e006800c744242874007400"
+    "c744242c70002e00c744243064006c00c74424346c000000c74424406e007400c744244464006c00c74424486c002e00c744"
+    "244c64006c00c74424506c000000c3"
+)
+XOR_STACK_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b702048b90c33282e2f3b360a48ba5a5a5a5a5a5a5a5a4831d148"
+    "894c242048b928352e3f392e5a5a48ba5a5a5a5a5a5a5a5a4831d148894c242848b9313f28343f36696848ba5a5a5a5a5a5a"
+    "5a5a4831d148894c244048b9743e36365a5a5a5a48ba5a5a5a5a5a5a5a5a4831d148894c2448c3"
+)
+MEMXOR_STACK_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020c7442420615e4543c744242442565b76c74424285b5b5854"
+    "c744242c37373737807424203780742421378074242237807424233780742424378074242537807424263780742427378074"
+    "24283780742429378074242a378074242b378074242c378074242d378074242e378074242f37c3"
+)
+UNKNOWN_KEY_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b70208b8c2480000000c744242028353f2ec7442424395a5a5a31" "4c2420c3"
+)
+SSE_XOR_STACK_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020660f6f0517000000660fef051f000000f30f7f442420488d"
+    "4c2420ffd6c3cc0c33282e2f3b360a28352e3f392e5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+)
+FRAME_ALIAS_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b702053488d6c24904881ec700100004531ff458d4f65c7442478"
+    "4765744ec744247c6174697644884d80c7458153797374c74585656d496e66c74589666fc6458b00c744242056697274c744"
+    "242475616c41c74424286c6c6f63c744242c4c6f6164c74424304c696272c744243461727941c7442438536c656566c74424"
+    "3c7000ffd6c3"
+)
+PUSH_POP_BYTES_X86 = bytes.fromhex(
+    "fce8000000005d31c9648b41308b400c8b701483ec406a65596a6c5ac64424106b884c2411c644241272c64424136e884c24"
+    "1488542415c644241633c644241732c64424182ec6442419648854241a8854241bc644241c00ffd6c3"
+)
+INJECT_HASHES_X86 = bytes.fromhex("fce8000000005d31c9648b41308b400c8b701468ae87923fffd568c5d8bde7ffd568c6ac9a79ffd5c3")
+WRITE_ONLY_HASHES_X86 = bytes.fromhex("fce8000000005d31c9648b41308b400c8b701468ae87923fffd568c5d8bde7ffd5c3")
+SLEEP_HASHES_X86 = bytes.fromhex("fce8000000005d31c9648b41308b400c8b701468fb6e0a07ffd5683d4256fcffd5c3")
+CONTEXT_ONLY_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b702048b952746c436170747548894c242048b97265436f6e7465"
+    "7848894c242848c7c17400000048894c243048b94e74436f6e74696e48894c244048c7c17565000048894c2448c3"
+)
+TEA_X86 = bytes.fromhex(
+    "fce8000000005d31c9648b41308b400c8b7014b92000000031d281c2b979379e89f8c1e0040344241089fbc1eb05035c2414"
+    "31d88d1c1731d801c64975dcc3"
+)
+TEA_ONLY_X86 = bytes.fromhex("b92000000031d281c2b979379e89f8c1e0040344241089fbc1eb05035c241431d88d1c1731d801c64975dcc3")
+CUSTOM_MAGIC_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020488bbc248000000066813f4d5a75194863473c4801f86681"
+    "384e4f750b8b48508b5028440fb74006c3"
+)
+STANDARD_MAGIC_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020488bbc248000000066813f4d5a75194863473c4801f86681"
+    "385045750b8b48508b5028440fb74006c3"
+)
+MACHINE_CHECK_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020488bbc248000000066813f4d5a751a4863473c4801f86681"
+    "78046486750b8b48508b5028440fb74006c3"
+)
+AES_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020488d3500020000b940000000f30f6f06660f38dec1660f38"
+    "dfc2f30f7f064883c610ffc975e6c3"
+)
+AES_ONLY_X64 = bytes.fromhex("488d3500020000b940000000f30f6f06660f38dec1660f38dfc2f30f7f064883c610ffc975e6c3")
+CHACHA_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020c70765787061c747046e642033c74708322d6279c7470c74" "65206bc3"
+)
+
+
+def _strings(data, arch):
+    return analyse(data, arch=arch).get("stack_strings", [])
+
+
+def test_pushed_strings_keep_short_tails_and_split_on_nul():
+    # 'RtlCaptureContext' ends in a 1-byte push; adjacent strings must not run together
+    assert _strings(PUSH_TAILS_X86, "x86") == ["RtlCaptureContext", "SystemFunction032", "VirtualAllocEx", "WriteProcessMemory"]
+
+
+def test_utf16_stack_strings():
+    r = analyse(WIDE_STACK_X64, arch="x64")
+    assert r["stack_strings"] == ["winhttp.dll", "ntdll.dll"]
+    assert any("UTF-16" in e["insn"] for e in r["evidence"] if e["indicator"] == "stack_string_api")
+
+
+@pytest.mark.parametrize(
+    "data, want",
+    [
+        (XOR_STACK_X64, ["VirtualProtect", "kernel32.dll"]),  # register xor with a constant key
+        (MEMXOR_STACK_X64, ["VirtualAlloc"]),  # xor byte ptr [rsp + x], key
+        (SSE_XOR_STACK_X64, ["VirtualProtect"]),  # xorstr style: movdqa/pxor rip-relative constants
+    ],
+)
+def test_xor_obfuscated_stack_strings_are_decoded(data, want):
+    r = analyse(data, arch="x64")
+    assert r["stack_strings"] == want  # decoded, and no encoded junk alongside
+    assert "stack_string_api" in r["tags"]
+
+
+def test_stack_bytes_xored_with_unknown_key_are_not_reported():
+    assert _strings(UNKNOWN_KEY_X64, "x64") == []
+
+
+def test_frame_pointer_aliases_and_counted_names():
+    # rbp = rsp - 0x70 taken before the frame is allocated (sRDI): one string spans both bases;
+    # counted names laid end to end are split into the API names
+    r = analyse(FRAME_ALIAS_X64, arch="x64")
+    assert r["stack_strings"] == ["VirtualAlloc", "LoadLibraryA", "Sleep", "GetNativeSystemInfo"]
+    assert {"VirtualAlloc", "LoadLibraryA", "Sleep"} <= set(r["apis"])
+
+
+def test_push_imm_pop_reg_constants_feed_byte_stores():
+    assert _strings(PUSH_POP_BYTES_X86, "x86") == ["kernel32.dll"]
+
+
+@pytest.mark.parametrize(
+    "data, arch, tag, present",
+    [
+        (INJECT_HASHES_X86, "x86", "remote_injection", True),  # VirtualAllocEx + WriteProcessMemory + CreateRemoteThread
+        (WRITE_ONLY_HASHES_X86, "x86", "remote_injection", False),  # no execution primitive
+        (SLEEP_HASHES_X86, "x86", "sleep_obfuscation", True),  # timer + SystemFunction032
+        (PUSH_TAILS_X86, "x86", "sleep_obfuscation", True),  # RtlCaptureContext + SystemFunction032 (stack strings)
+        (CONTEXT_ONLY_X64, "x64", "sleep_obfuscation", False),  # RtlCaptureContext + NtContinue: one part only
+    ],
+)
+def test_api_sets(data, arch, tag, present):
+    r = analyse(data, arch=arch)
+    assert (tag in r["tags"]) is present
+    if present:
+        assert next(i for i in r["indicators"] if i["name"] == tag)["confidence"] == "medium"
+
+
+def test_api_sets_ignore_names_lying_in_data():
+    # API names as plain strings in the buffer are reported, but are not resolved by the code
+    r = analyse(WIDE_STACK_X64 + b"\0" * 16 + b"VirtualAllocEx\0WriteProcessMemory\0CreateRemoteThread\0", arch="x64")
+    assert {"VirtualAllocEx", "CreateRemoteThread"} <= set(r["apis"])
+    assert "remote_injection" not in r["tags"]
+
+
+@pytest.mark.parametrize(
+    "data, arch, tag",
+    [
+        (TEA_X86, "x86", "tea_delta"),
+        (AES_X64, "x64", "aes_ni"),
+        (CHACHA_X64, "x64", "chacha_constants"),
+        (SLEEP_HASHES_X86, "x86", "rc4_systemfunction"),
+    ],
+)
+def test_cipher_primitives_add_supporting_weight_in_shellcode(data, arch, tag):
+    r = analyse(data, arch=arch)
+    assert r["verdict"] == "shellcode"
+    assert next(i for i in r["indicators"] if i["name"] == tag)["confidence"] == "low"
+
+
+@pytest.mark.parametrize("data, arch", [(TEA_ONLY_X86, "x86"), (AES_ONLY_X64, "x64")])
+def test_cipher_primitives_alone_are_not_reported(data, arch):
+    r = analyse(data, arch=arch)
+    assert r["verdict"] not in ("shellcode", "likely")
+    assert not {"tea_delta", "aes_ni", "chacha_constants"} & set(r["tags"])
+    assert r["score"] == 0
+
+
+@pytest.mark.parametrize(
+    "data, present",
+    [(CUSTOM_MAGIC_X64, True), (STANDARD_MAGIC_X64, False), (MACHINE_CHECK_X64, False)],
+)
+def test_custom_pe_magic(data, present):
+    r = analyse(data, arch="x64")
+    assert ("pe_custom_magic" in r["tags"]) is present
+    assert "pe_header_parse" in r["tags"]
+
+
+def test_new_indicators_are_described():
+    for tag in (
+        "remote_injection",
+        "sleep_obfuscation",
+        "aes_ni",
+        "chacha_constants",
+        "tea_delta",
+        "rc4_systemfunction",
+        "pe_custom_magic",
+        "aes_tables",
+        "digest_constants",
+        "base64_alphabet",
+        "crypto_api",
+    ):
+        assert tag in INDICATORS
+
+
+# --- framework modules: one folder, shipped and dropped-in modules alike
+@pytest.fixture
+def dropped_frameworks(tmp_path, monkeypatch):
+    """A throwaway package standing in for modules dropped into shellcode_frameworks/ (the shipped
+    folder is left untouched); the registry is reloaded around the test."""
+    from lib.cuckoo.common.integrations import shellcode_frameworks as fwreg
+
+    pkg = tmp_path / "sc_dropped_frameworks_test"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(fwreg, "PACKAGES", [fwreg.__name__, pkg.name])
+    fwreg.reset()
+    yield pkg
+    fwreg.reset()
+    for name in [m for m in sys.modules if m.startswith(pkg.name)]:
+        del sys.modules[name]
+
+
+TEST_LOADER = """
+from lib.cuckoo.common.integrations.shellcode_frameworks import api
+
+NAME = "TestLoader"
+FAMILY = "TestFamily"
+
+
+def identify(data):
+    if data[:6] != b"TLDR\\x90\\x90":
+        return None
+    off, size = api.u32(data, 6), api.u32(data, 10)
+    if not 14 <= off < off + size <= len(data):
+        return None
+    return {"name": NAME, "confidence": "identified", "arch": "x64",
+            "evidence": ["TLDR header; payload offset and size land inside the buffer"],
+            "details": {"payload": "x64 shellcode", "payload_size": size},
+            "regions": [api.region(off, size, f"{size} bytes", result_type="shellcode", source="TLDR header")],
+            "_payload": api.payload(lambda: bytes(data[off:off + size]), off, "TestLoader payload")}
+"""
+
+
+def _shipped(fwreg):
+    return [f for f in fwreg.frameworks() if f.module.startswith(fwreg.__name__ + ".")]
+
+
+def test_shipped_framework_modules_load_in_priority_order():
+    from lib.cuckoo.common.integrations import shellcode_frameworks as fwreg
+
+    shipped = [(f.name, f.family, f.priority) for f in _shipped(fwreg)]
+    assert shipped == [("Donut", "Donut", 10), ("sRDI", "sRDI", 20), ("pe2shc", "pe2shc", 30)]
+
+
+def test_dropped_in_framework_module_is_identified_and_extracted(dropped_frameworks):
+    from lib.cuckoo.common.integrations import shellcode_frameworks as fwreg
+    from lib.cuckoo.common.integrations.shellcode_check import framework_family
+
+    (dropped_frameworks / "test_loader.py").write_text(TEST_LOADER)
+    body = MSF_STYLE_X64
+    blob = b"TLDR\x90\x90" + (16).to_bytes(4, "little") + len(body).to_bytes(4, "little") + b"\xcc\xcc" + body
+    r = analyse(blob, extract_payloads=True)
+    fw = _framework(r, "TestLoader")
+    assert fw["confidence"] == "identified" and fw["label"] == "TestLoader: x64 shellcode"
+    assert r["verdict"] == "shellcode" and "framework_layout" in r["tags"]
+    assert any(g.get("framework") == "TestLoader" for g in r["regions"])
+    assert [(p["framework"], p["family"], p["data"]) for p in r["_payloads"]] == [("TestLoader", "TestFamily", body)]
+    assert framework_family("TestLoader") == "TestFamily"
+    assert fwreg.frameworks()[-1].name == "TestLoader"  # default PRIORITY 100: after the shipped modules
+
+
+def test_broken_framework_modules_are_isolated(dropped_frameworks):
+    from lib.cuckoo.common.integrations import shellcode_frameworks as fwreg
+
+    (dropped_frameworks / "syntax_error.py").write_text("NAME = 'Broken'\ndef identify(data)\n")
+    (dropped_frameworks / "no_identify.py").write_text("NAME = 'NoIdentify'\n")
+    (dropped_frameworks / "raises.py").write_text(
+        "NAME = 'Raises'\nPRIORITY = 1\ndef identify(data):\n    raise ValueError('boom')\n"
+    )
+    (dropped_frameworks / "bad_result.py").write_text(
+        "NAME = 'BadResult'\nPRIORITY = 2\ndef identify(data):\n    return {'confidence': 'certain'}\n"
+    )
+    (dropped_frameworks / "dup_name.py").write_text(
+        "NAME = 'Donut'\nPRIORITY = 3\ndef identify(data):\n    return {'confidence': 'identified'}\n"
+    )
+    names = {f.name: f.module for f in fwreg.frameworks()}
+    assert "Broken" not in names and "NoIdentify" not in names
+    assert names["Donut"] == fwreg.__name__ + ".donut"  # a NAME already loaded is not taken over
+    # the shipped modules still identify their layouts after modules that raise or misbehave
+    pe = bytearray(_pe_file())
+    stub = len(pe)
+    redir = b"MZER" + bytes.fromhex("e800000000594883e909488bc14805") + stub.to_bytes(4, "little") + b"\xff\xd0\xc3"
+    pe[0 : len(redir)] = redir
+    assert _framework(analyse(bytes(pe) + MSF_STYLE_X64), "pe2shc")["confidence"] == "identified"
+
+
+def test_shipped_framework_modules_reject_other_buffers_quickly():
+    import time
+
+    from lib.cuckoo.common.integrations import shellcode_frameworks as fwreg
+
+    buffers = [_rand(1 << 20, 7), bytes(1 << 20), b"\xe8" + _rand(1 << 20, 8), _pe_file(), MSF_STYLE_X64, PUSH_TAILS_X86]
+    for fw in _shipped(fwreg):
+        start = time.perf_counter()
+        assert not any(fw.identify(b) for b in buffers), fw.name
+        assert time.perf_counter() - start < 1.0, fw.name  # a module must anchor on a cheap check first
+
+
+# --- key-table decoders and cipher/hash/encoding primitives (stubs assembled with keystone)
+XOR_TABLE_DIV_STUB_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b70204c8d153b0000004c8d1d2400000031c989c831d241b81000"
+    "000041f7f0418a04134130040affc181f90010000072e141ffe2"
+)
+XOR_TABLE_AND_STUB_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b70204c8d15330000004c8d1d1c00000031c989ca83e20f418a04"
+    "134130040affc181f9fe01000072e941ffe2"
+)
+JMP_TO_PE_STUB_X64 = bytes.fromhex("4881ec880000006548a16000000000000000488b4018488b7020488d1503000000ffe2cc")
+RC4_KSA_X86 = bytes.fromhex("fce8000000005d31c9648b41308b400c8b701481ec0001000031c0880404403d0001000072f581c400010000c3")
+AES_SBOX_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020488d15050000000fb6040ac3637c777bf26b6fc53001672b"
+    "fed7ab76ca82c97dfa5947f0add4a2af9ca472c0"
+)
+BASE64_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020488d15050000000fb6040ac34142434445464748494a4b4c"
+    "4d4e4f505152535455565758595a6162636465666768696a6b6c6d6e6f707172737475767778797a30313233343536373839"
+    "2b2f00"
+)
+SHA256_INIT_X64 = bytes.fromhex(
+    "4881ec880000006548a16000000000000000488b4018488b7020c70767e6096ac7470485ae67bbc7470872f36e3cc7470c3a" "f54fa5c3"
+)
+SHA256_TWO_WORDS_X64 = bytes.fromhex("4881ec880000006548a16000000000000000488b4018488b7020c70767e6096ac7470485ae67bbc3")
+CRYPT_HASHES_X86 = bytes.fromhex("fce8000000005d31c9648b41308b400c8b701468451b6341ffd56858c0ff24ffd56832c6b30effd5c3")
+TABLE_KEY = bytes.fromhex("3a7f19c2e45b8d0611a2f3c4d5e6f708")
+AES_SBOX = bytes.fromhex("637c777bf26b6fc53001672bfed7ab76ca82c97dfa5947f0add4a2af9ca472c0")
+
+
+def _xor_key(data, key):
+    return bytes(b ^ key[j % len(key)] for j, b in enumerate(data))
+
+
+@pytest.mark.parametrize(
+    "stub, payload, want",
+    [
+        (XOR_TABLE_DIV_STUB_X64, lambda: _pe_file(), "a PE image"),  # key index = counter % 16 (div)
+        (XOR_TABLE_AND_STUB_X64, lambda: MSF_STYLE_X64 * 2, "x64 code"),  # key index = counter & 15
+    ],
+)
+def test_key_table_decoder_is_decoded_and_verified(stub, payload, want):
+    body = payload()
+    r = analyse(stub + TABLE_KEY + _xor_key(body, TABLE_KEY), arch="x64", extract_payloads=True)
+    assert "decoded_payload" in r["tags"]
+    stub_ev = next(e["insn"] for e in r["evidence"] if e["indicator"] == "decoder_stub")
+    assert "16-byte key table at" in stub_ev
+    assert want in next(e["insn"] for e in r["evidence"] if e["indicator"] == "decoded_payload")
+    assert [p["data"] for p in r["_payloads"]] == [body]
+
+
+def test_key_table_with_the_wrong_key_is_not_reported_as_decoded():
+    # the loop is still a decoder, but the bytes it would produce do not verify as PE or code
+    r = analyse(XOR_TABLE_AND_STUB_X64 + bytes(16) + _xor_key(MSF_STYLE_X64 * 2, TABLE_KEY), arch="x64", extract_payloads=True)
+    assert "decoder_stub" in r["tags"] and "decoded_payload" not in r["tags"]
+    assert r["_payloads"] == []
+
+
+@pytest.mark.parametrize(
+    "data, arch, tag",
+    [
+        (RC4_KSA_X86, "x86", "rc4_ksa"),  # no linked decoder: supporting weight
+        (AES_SBOX_X64, "x64", "aes_tables"),
+        (BASE64_X64, "x64", "base64_alphabet"),
+        (SHA256_INIT_X64, "x64", "digest_constants"),
+        (CRYPT_HASHES_X86, "x86", "crypto_api"),  # CryptAcquireContextA/CryptImportKey/CryptDecrypt by hash
+    ],
+)
+def test_crypto_primitives_add_supporting_weight_in_shellcode(data, arch, tag):
+    r = analyse(data, arch=arch)
+    assert r["verdict"] == "shellcode"
+    assert next(i for i in r["indicators"] if i["name"] == tag)["confidence"] == "low"
+
+
+def test_crypto_primitives_need_evidence_of_their_own():
+    # two SHA-256 words are not enough; an AES S-box inside a carried PE is the PE's, not the shellcode's
+    assert "digest_constants" not in analyse(SHA256_TWO_WORDS_X64, arch="x64")["tags"]
+    pe = bytearray(_pe_file())
+    pe[0x400 : 0x400 + len(AES_SBOX)] = AES_SBOX
+    assert "aes_tables" not in analyse(JMP_TO_PE_STUB_X64 + bytes(pe), arch="x64")["tags"]
+    # tables in data that is not shellcode are not reported at all
+    r = analyse(_rand(0x400, 11) + AES_SBOX + bytes(0x100), arch="x64")
+    assert r["verdict"] not in ("shellcode", "likely") and "aes_tables" not in r["tags"]
+
+
+def test_crypto_api_names_lying_in_data_do_not_count():
+    r = analyse(SHA256_TWO_WORDS_X64 + b"\0" * 16 + b"CryptDecrypt\0BCryptDecrypt\0", arch="x64")
+    assert "CryptDecrypt" in r["apis"] and "crypto_api" not in r["tags"]
+
+
+# --- disassembly hardening: prefixed terminators, always-taken jcc pairs, inline strings, computed
+# jumps, jmp-chained blocks, NOP sleds, and PE loader stages that must sit together
+# (assembled with keystone; the *_X64/_X86 resolvers walk the PEB, parse exports and hash names)
+RESOLVER_X64 = bytes.fromhex(
+    "4883ec286548a16000000000000000488b4018488b7020488b5e20488b368b433c8b94038800000085d274eb4801da8b4a18"
+    "448b42204901d8e3dcffc9458b14884901da4531c9410fb60249ffc241c1c90d4101c184c075ee4181f94c77260775d7448b"
+    "42244901d8410fb70c48448b421c4901d8418b04884801d84883c428ffe0"
+)
+RESOLVER_X86 = bytes.fromhex(
+    "6031c9648b41308b400c8b70148b5e108b368b433c8b54037885d274f001da8b4a188b7a2001dfe3e4498b2c8f01dd5631f6"
+    "0fb6450045c1ce0d01c684c075f281fe4c7726075e75de8b7a2401df0fb70c4f8b7a1c01df8b048f01d88944241c61ffe0"
+)
+JZ_JNZ_JUNK_X64 = bytes.fromhex(
+    "4883ec286548a16000000000000000488b4018488b7020740475029ab7488b5e20488b368b433c8b94038800000074047502"
+    "f00e85d274e54801da8b4a18448b422074047502667f4901d8e3d0ffc9458b14884901da74047502e8504531c9410fb60249"
+    "ffc241c1c90d74047502e9be4101c184c075e84181f9dec0d15a75cb448b422474047502667e4901d8410fb70c48448b421c"
+    "4901d874047502c734418b04884801d84883c428ffe0"
+)
+INLINE_STRING_X64 = bytes.fromhex(
+    "4883ec286548a16000000000000000488b4018488b7020488b5e20488b36e80d0000006b65726e656c33322e646c6c004883"
+    "c4088b433c8b94038800000085d274d54801da8b4a18448b4220e80d0000006b65726e656c33322e646c6c004883c4084901"
+    "d8e3b0ffc9458b14884901da4531c9410fb602e80d0000006b65726e656c33322e646c6c004883c40849ffc241c1c90d4101"
+    "c184c075d84181f9dec0d15a75c1448b4224e80d0000006b65726e656c33322e646c6c004883c4084901d8410fb70c48448b"
+    "421c4901d8418b04884801d8e80d0000006b65726e656c33322e646c6c004883c4084883c428ffe0"
+)
+LEA_JMP_X64 = bytes.fromhex(
+    "4883ec286548a16000000000000000488b4018488b7020488b5e20488b364c8d1d0700000041ffe3ff066ed08b433c8b9403"
+    "8800000085d274dd4801da8b4a18448b42204c8d1d0700000041ffe39a5dc7514901d8e3c0ffc9458b14884901da4531c941"
+    "0fb6024c8d1d0700000041ffe3e947e34049ffc241c1c90d4101c184c075e04181f9dec0d15a75c9448b42244c8d1d070000"
+    "0041ffe30f00026b4901d8410fb70c48448b421c4901d8418b04884801d84c8d1d0700000041ffe3ff5455944883c428ffe0"
+)
+PUSH_RET_X64 = bytes.fromhex(
+    "4883ec286548a16000000000000000488b4018488b7020488b5e20488b364c8d1d070000004153c3ea65685d8b433c8b9403"
+    "8800000085d274dd4801da8b4a18448b42204c8d1d070000004153c3ffc4980b4901d8e3c0ffc9458b14884901da4531c941"
+    "0fb6024c8d1d070000004153c3ead4544a49ffc241c1c90d4101c184c075e04181f9dec0d15a75c9448b42244c8d1d070000"
+    "004153c39a21a99a4901d8410fb70c48448b421c4901d8418b04884801d84c8d1d070000004153c3e8ad219e4883c428ffe0"
+)
+CHAINED_X64 = bytes.fromhex(
+    "4883ec28e988000000410fb602e9bf0000004181f9dec0d15aeb28448b4224eb53488b36e9950000004901daeb4fffc9e980"
+    "0000008b940388000000eb278b4a18eb487534ebd4488b5e20ebd44801daebec488b7020ebef4883c428eb4f410fb70c48eb"
+    "4a85d2eb35418b0488eb394101c1eb624901d8ebe5e3ccebb14531c9eb877585eb8c4901d8ebee448b4220ebf56548a16000"
+    "000000000000eb0474a7ebab488b4018ebaa4801d8ebabffe0448b421ceb17458b1488e96bffffff8b433ce96fffffff41c1"
+    "c90deba34901d8eb9849ffc2ebf084c0eba8"
+)
+CHAINED_X86 = bytes.fromhex(
+    "60eb2e0fb70c4feb4a8b7014eb6e8944241ceb14752ae9a00000008b7a20eb7384c0eb3a01d8ebe661eb0a648b4130eb7031"
+    "c9ebf6ffe08b540378eb3749eb4ae33aebf901dfeb1e81fedec0d15aeb4b45eb1c8b7a1cebec0fb64500ebf275f8ebe67418"
+    "eb298b048febb901ddeb3ac1ce0deb3885d2ebea01dfeb878b5e10eb168b4a18eb9531f6ebce8b2c8febdc01daebee01dfeb"
+    "a98b36eb185ee973ffffff8b400ce960ffffff56ebda01c6e96dffffff8b433ce97cffffff8b7a24ebb8"
+)
+PLAIN_UNKNOWN_HASH_X64 = bytes.fromhex(
+    "4883ec286548a16000000000000000488b4018488b7020488b5e20488b368b433c8b94038800000085d274eb4801da8b4a18"
+    "448b42204901d8e3dcffc9458b14884901da4531c9410fb60249ffc241c1c90d4101c184c075ee4181f9dec0d15a75d7448b"
+    "42244901d8410fb70c48448b421c4901d8418b04884801d84883c428ffe0"
+)
+PE_HEADERS_FN_X64 = bytes.fromhex("4863413c4801c88b5050448b4054448b4828c3")
+PE_SECTIONS_FN_X64 = bytes.fromhex("0fb748068b530c448b4310448b4b144883c328ffc975edc3")
+PE_IMPORTS_FN_X64 = bytes.fromhex("4863413c4801c88b90900000004801ca448b420c448b4a10490fbae23f4883c2144585c075eac3")
+FILLER_FN_X64 = bytes.fromhex("534889cb488d045b4883c0074885c07404486bc0034889c15bc3cccc")
+NOT_CODE = bytes.fromhex("c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c5")
+MIXED_SLED = bytes(
+    [
+        0x40,
+        0x41,
+        0x42,
+        0x43,
+        0x46,
+        0x47,
+        0x48,
+        0x49,
+        0x4A,
+        0x4B,
+        0x4E,
+        0x4F,
+        0x90,
+        0x91,
+        0x92,
+        0x93,
+        0x96,
+        0x97,
+        0x99,
+        0x9B,
+        0x9F,
+        0xF5,
+        0xF8,
+        0xF9,
+        0xFC,
+        0xFD,
+    ]
+)
+RESOLVER_TAGS = {"peb_walk", "export_table_parse", "api_hash_loop"}
+
+
+@pytest.mark.parametrize(
+    "terminator", ["c3", "f3c3", "f2c3", "3effe0", "f2ffe0"]
+)  # ret, repz ret, bnd ret, notrack jmp rax, bnd jmp rax
+def test_prefixed_returns_and_jumps_end_a_path(terminator):
+    r = analyse(RESOLVER_X64[:-2] + bytes.fromhex(terminator) + NOT_CODE, arch="x64")
+    assert r["verdict"] == "shellcode" and r["structure"]["bad_path_ratio"] == 0
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        JZ_JNZ_JUNK_X64,  # jz X; jnz X; <junk bytes>; X:
+        INLINE_STRING_X64,  # call over "kernel32.dll\0", the callee does not pop
+        LEA_JMP_X64,  # lea r11, [rip + next]; jmp r11; <junk bytes>
+        PUSH_RET_X64,  # lea r11, [rip + next]; push r11; ret; <junk bytes>
+    ],
+)
+def test_anti_disassembly_constructs_do_not_hide_the_code(data):
+    r = analyse(data, arch="x64")
+    assert r["verdict"] == "shellcode" and r["structure"]["coherent"]
+    assert RESOLVER_TAGS <= set(r["tags"])
+
+
+@pytest.mark.parametrize("data, arch", [(CHAINED_X64, "x64"), (CHAINED_X86, "x86")])
+def test_jmp_chained_blocks_are_matched_in_execution_order(data, arch):
+    # every instruction is its own block ending in a jmp to the next, blocks shuffled; the hash is not a known one
+    r = analyse(data, arch=arch)
+    assert r["verdict"] == "shellcode"
+    assert RESOLVER_TAGS | {"chained_blocks"} <= set(r["tags"])
+    # evidence points at real offsets, inside the buffer
+    assert all(int(e["offset"], 16) < len(data) for e in r["evidence"])
+    assert "chained_blocks" not in analyse(PLAIN_UNKNOWN_HASH_X64, arch="x64")["tags"]
+
+
+@pytest.mark.parametrize(
+    "sled, arch",
+    [
+        (b"\x90" * 300000, "x86"),  # longer than the scan window
+        (MIXED_SLED * 12000, "x86"),  # one-byte no-ops, longer than the scan window
+        (b"\x0c" * 400001, "x86"),  # heap-spray filler (or al, 0xc), odd length
+        (MIXED_SLED * 20, "x86"),
+        (b"\x90" * 300000, "x64"),
+        (b"\x66\x90" * 2000, "x64"),
+    ],
+)
+def test_code_after_a_nop_sled_is_found(sled, arch):
+    body = RESOLVER_X64 if arch == "x64" else RESOLVER_X86
+    r = analyse(sled + body)  # no architecture hint
+    assert r["verdict"] == "shellcode" and r["arch"] == arch
+    assert RESOLVER_TAGS <= set(r["tags"])
+    assert r["entry"] == hex(len(sled))
+    assert next(i for i in r["indicators"] if i["name"] == "nop_sled")["confidence"] == "low"
+
+
+def test_a_sled_alone_is_not_shellcode():
+    assert analyse(b"\x90" * 300000)["verdict"] == "data"
+    r = analyse(MIXED_SLED * 12000 + _rand(4096, 3))
+    assert r["verdict"] not in ("shellcode", "likely") and "nop_sled" not in r["tags"]
+    assert "nop_sled" not in analyse(b"ABCDEFGHIJKLMNO@" * 256 + b"\r\n" * 40)["tags"]  # text, not a sled
+
+
+def _loader_stages(filler_fns):
+    """Entry calling three PE loader stages (headers, sections, imports), with filler functions between them."""
+    stages = [PE_HEADERS_FN_X64, PE_SECTIONS_FN_X64, PE_IMPORTS_FN_X64]
+    entry_len = 5 * len(stages) + 1
+    body, calls = b"", b""
+    for i, stage in enumerate(stages):
+        target = entry_len + len(body)
+        calls += b"\xe8" + (target - (5 * i + 5)).to_bytes(4, "little", signed=True)
+        body += stage + b"\xcc" + FILLER_FN_X64 * filler_fns
+    return calls + b"\xc3" + body
+
+
+def test_pe_loader_stages_must_sit_together():
+    near = analyse(_loader_stages(20), arch="x64")
+    assert near["verdict"] == "shellcode" and "reflective_pe_loader" in near["tags"]
+    # the same stages tens of KB apart are unrelated functions: reported one by one, not as a loader
+    far = analyse(_loader_stages(600), arch="x64")
+    assert {"pe_header_parse", "pe_section_map", "pe_import_resolve"} <= set(far["tags"])
+    assert "reflective_pe_loader" not in far["tags"] and far["verdict"] != "shellcode"
+
+
+def test_new_layout_indicators_are_described():
+    assert {"chained_blocks", "nop_sled"} <= set(INDICATORS)
+
+
+# --- exception-driven control flow: SEH frames and vectored handlers the code sets up itself
+# (assembled with keystone; each handler moves CONTEXT.Eip/Rip)
+SEH_GETPC_X86 = bytes.fromhex(
+    "e8000000005b8d83300000005064ff350000000064892500000000cc8f13c4e922770564a1300000008b400c8b70148b368b"
+    "5e10c38b4c2404813903000080750e8b44240c8380b80000000831c0c331c040c3"
+)
+SEH_CALL_RET_X86 = bytes.fromhex(
+    "e81e0000008b4c2404813903000080750e8b44240c8380b80000000831c0c331c040c331c064ff3064892031c9f7f164a130"
+    "0000008b400c8b70148b368b5e10c3"
+)
+VEH_GETPC_X86 = bytes.fromhex(
+    "e8000000005b8d8327000000506a01ff5610cc8f13c4e922770564a1300000008b400c8b70148b368b5e10c38b4424048b08"
+    "8139050000c075108b48048381b80000000283c8ffc2040031c0c20400"
+)
+VEH_X64 = bytes.fromhex(
+    "4883ec28b901000000488d1527000000ff5310cc058f13c4e92277056548a16000000000000000488b4018488b7020488b36"
+    "488b5e20c3488b01813803000080751f488b4108488b90f80000000fb6520180f20d480190f8000000b8ffffffffc331c0c3"
+)
+SEH_EGG_HUNTER_X86 = bytes.fromhex(
+    "e80e0000008b44240c8380b80000000631c0c331c064ff306489206681cbff0f43b89050905089dfaf75f5af75f2ffe7"
+)
+COMPILER_SEH_X86 = bytes.fromhex(
+    "5589e56aff6834124000680015400064a100000000506489250000000083ec20ff15002040008b4df064890d0000000089ec" "5dc3"
+)
+STRUCT_WRITE_X64 = bytes.fromhex("534889fb488b47084889b0f8000000488b4b104885c974044889412031c05bc3")
+HANDLER_NOT_TAKEN_X64 = bytes.fromhex(
+    "4883ec28e8050000004883c428c3488b47084801f0c3488b01813803000080751f488b4108488b90f80000000fb6520180f2"
+    "0d480190f8000000b8ffffffffc331c0c3"
+)
+
+
+@pytest.mark.parametrize(
+    "data, arch, want",
+    [
+        # call/pop GetPC; lea eax, [ebx + handler]; push eax; push fs:[0]; mov fs:[0], esp; int3
+        (SEH_GETPC_X86, "x86", {"seh_handler_install", "exception_context_rewrite", "exception_control_flow", "exception_trigger"}),
+        # call over the handler: the return address is the frame's handler
+        (SEH_CALL_RET_X86, "x86", {"seh_handler_install", "exception_context_rewrite", "exception_control_flow"}),
+        # handler address pushed for AddVectoredExceptionHandler: [[esp + 4] + 4] -> Eip
+        (VEH_GETPC_X86, "x86", {"exception_context_rewrite", "exception_control_flow"}),
+        # lea rdx, [rip + handler]; the handler checks for a breakpoint and adds to Rip
+        (VEH_X64, "x64", {"exception_context_rewrite", "exception_control_flow"}),
+        # SEH egg hunter: the handler skips the faulting scasd, pages walked with or bx, 0xfff; inc ebx
+        (SEH_EGG_HUNTER_X86, "x86", {"egg_hunter", "seh_handler_install", "exception_control_flow"}),
+    ],
+)
+def test_exception_handlers_set_up_by_the_code(data, arch, want):
+    r = analyse(data, arch=arch)
+    assert r["verdict"] == "shellcode"
+    assert want <= set(r["tags"])
+    conf = {i["name"]: i["confidence"] for i in r["indicators"]}
+    assert conf["exception_control_flow"] == "high" and conf["exception_context_rewrite"] == "medium"
+
+
+@pytest.mark.parametrize(
+    "data, arch",
+    [
+        (COMPILER_SEH_X86, "x86"),  # MSVC-style frame: absolute handler address
+        (STRUCT_WRITE_X64, "x64"),  # mov rax, [rdi + 8]; mov [rax + 0xf8], rsi: some structure, not a CONTEXT
+        (HANDLER_NOT_TAKEN_X64, "x64"),  # handler-shaped function whose address is never taken
+    ],
+)
+def test_ordinary_code_is_not_an_exception_handler(data, arch):
+    r = analyse(data, arch=arch)
+    assert r["verdict"] not in ("shellcode", "likely")
+    assert not {"seh_handler_install", "exception_control_flow", "exception_trigger"} & set(r["tags"])
+
+
+def test_exception_handler_api_counts_only_when_resolved_by_the_code():
+    name = b"RtlAddVectoredExceptionHandler"
+    name += b"\0" * (-len(name) % 8)
+    chunks = b"".join(b"\x48\xb9" + name[i : i + 8] + b"\x48\x89\x4c\x24" + bytes([0x20 + i]) for i in range(0, len(name), 8))
+    r = analyse(RESOLVER_X64[:-2] + chunks + b"\xc3", arch="x64")  # movabs rcx, <8 chars>; mov [rsp + x], rcx
+    assert "RtlAddVectoredExceptionHandler" in r["apis"]
+    assert next(i for i in r["indicators"] if i["name"] == "exception_handler_api")["confidence"] == "medium"
+    r = analyse(RESOLVER_X64 + b"\0" * 16 + b"AddVectoredExceptionHandler\0", arch="x64")  # only a string in the data
+    assert "exception_handler_api" not in r["tags"]
+
+
+def test_exception_indicators_are_described():
+    assert {
+        "seh_handler_install",
+        "exception_context_rewrite",
+        "exception_control_flow",
+        "exception_trigger",
+        "exception_handler_api",
+    } <= set(INDICATORS)
+
+
+# --- stage techniques: image base by backward scan, kernel entry points, self-modifying code, VM
+# checks, feedback-keyed decoders, stager API sets, supporting patterns (assembled with keystone)
+VMWARE_X86 = bytes.fromhex("b868584d5631dbb90a000000ba58560000ed81fb68584d560f94c0c3")
+RED_PILL_X86 = bytes.fromhex("83ec08660f010c248b442402660f010424660f00c0660f00c983c408c3")
+KERNEL_LSTAR_X64 = bytes.fromhex("b9820000c00f3248c1e2204809d0482500f0ffff6681384d5a7408482d00100000ebf1c3")
+KERNEL_SYSENTER_X86 = bytes.fromhex("b9760100000f322500f0ffff6681384d5a74072d00100000ebf2c3")
+KERNEL_IDT_X64 = bytes.fromhex("6548a13800000000000000488b400448c1e80c48c1e00c6681384d5a7408482d00100000ebf1c3")
+MZ_SCAN_X64 = bytes.fromhex("488b042448250000ffff6681384d5a750c8b483c813c08504500007408482d00000100ebe5c3")
+SEH_CHAIN_SCAN_X86 = bytes.fromhex("64a1000000008338ff74048b00ebf78b4004250000ffff6681384d5a74072d00000100ebf2c3")
+SELF_PATCH_X64 = bytes.fromhex("c6050a0000009066c7050200000031c090ccccccc3")
+SELF_PATCH_X86 = bytes.fromhex("e8000000005bc64310c3c74311909090909090909090ccccccccccc3")
+TRAP_FLAG_X86 = bytes.fromhex("9c810c24000100009d90c3")
+RWX_ARGS_X64 = bytes.fromhex("31c9ba0000100041b80030000041b940000000ffd04889c7b900100000f3a4ffe0")
+CALLBACK_TABLE_X64 = bytes.fromhex("6548a16000000000000000488b4058488b4810c3")
+PARAMS_WRITE_X64 = bytes.fromhex("6548a16000000000000000488b40204889506848894878c3")
+EXCEPTION_DIR_X64 = bytes.fromhex("8b433c8b9403a00000004801da31c98b0285c074104801d84839f07408ffc14883c20cebea89c8c3")
+MZ_SCAN_FORWARD_X64 = bytes.fromhex("488b042448250000ffff6681384d5a750c8b483c813c08504500007408480500000100ebe5c3")
+GLOBAL_STORE_X64 = bytes.fromhex("c7050d00000001000000488b0506000000c3ccffffff170000000000000000")
+PRINTABLE_STUB_X86 = bytes.fromhex(
+    "50596834343434583534343434505a3441545e2d555555552d33333333504142495158314641684242424258354242303050"
+    "596b46414130464250596834343434583534343434505a3441545e2d555555552d3333333350414249515831464168424242"
+    "4258354242303050596b46414130464250596834343434583534343434505a3441545e2d555555552d333333335041424951"
+    "58314641684242424258354242303050596b46414130464275384149424a4149424a4149424a4149424a4149424a4149424a"
+    "4149424a4149424a4149424a4149424a4149424a4149424a4149424a4149424a4149424a4149424a4149424a4149424a4149"
+    "424a4149424a"
+)
+SOCKET_STAGER_X86 = bytes.fromhex("fce8000000005d6829806b00ffd568ea0fdfe0ffd56899a57461ffd56802d9c85fffd568494693ceffd5c3")
+BIND_SHELL_X86 = bytes.fromhex("fce8000000005d68ea0fdfe0ffd568c2db3767ffd568b7e938ffffd56874ec3be1ffd56879cc3f86ffd5c3")
+HTTP_STAGER_X86 = bytes.fromhex("fce8000000005d683a5679a7ffd56857899fc6ffd568eb552e3bffd5682d06187bffd568129689e2ffd5c3")
+DOWNLOAD_EXEC_X86 = bytes.fromhex("fce8000000005d688820fc31ffd568318b6f87ffd5c3")
+SOCKET_ONLY_X86 = bytes.fromhex("fce8000000005d68ea0fdfe0ffd56899a57461ffd5c3")
+FEEDBACK_CIPHER_STUB_X86 = bytes.fromhex("e8000000005e81c61c000000b919000000bbdec0d15a8b06311e89c383c604e2f5")
+FEEDBACK_PLAIN_STUB_X86 = bytes.fromhex("e8000000005e81c61a000000b919000000bbdec0d15a311e8b1e83c604e2f7")
+FEEDBACK_ADD_PLAIN_STUB_X86 = bytes.fromhex("e8000000005e81c61a000000b919000000bbdec0d15a311e031e83c604e2f7")
+FEEDBACK_ADD_CONST_STUB_X86 = bytes.fromhex("e8000000005e81c61e000000b919000000bbdec0d15a311e81c34433221183c604e2f3")
+FEEDBACK_UNKNOWN_STUB_X86 = bytes.fromhex("e8000000005e81c61a000000b919000000bbdec0d15a311e8b1f83c604e2f7")
+
+
+def _confidence(r, tag):
+    return next((i["confidence"] for i in r["indicators"] if i["name"] == tag), None)
+
+
+@pytest.mark.parametrize(
+    "data, arch, tags",
+    [
+        (MZ_SCAN_X64, "x64", {"image_base_scan"}),  # and rax, ~0xffff; cmp word [rax], 'MZ'; sub rax, 0x10000
+        (SEH_CHAIN_SCAN_X86, "x86", {"image_base_scan", "seh_chain_walk"}),  # last SEH handler, then back to 'MZ'
+        (KERNEL_LSTAR_X64, "x64", {"kernel_base_discovery", "kernel_msr_read", "image_base_scan"}),  # rdmsr 0xc0000082
+        (KERNEL_SYSENTER_X86, "x86", {"kernel_base_discovery", "kernel_msr_read"}),  # rdmsr 0x176
+        (KERNEL_IDT_X64, "x64", {"kernel_base_discovery"}),  # gs:[0x38] -> IDT entry -> back to 'MZ'
+        (SELF_PATCH_X64, "x64", {"self_modifying_code"}),  # mov byte ptr [rip + next], 0x90
+        (SELF_PATCH_X86, "x86", {"self_modifying_code"}),  # call/pop; mov byte ptr [ebx + n], 0xc3
+    ],
+)
+def test_strong_stage_techniques(data, arch, tags):
+    r = analyse(data, arch=arch)
+    assert r["verdict"] == "shellcode" and tags <= set(r["tags"])
+    assert all(_confidence(r, t) == ("medium" if t in ("kernel_msr_read", "seh_chain_walk") else "high") for t in tags)
+    assert r["structure"]["bad_path_ratio"] == 0  # rdmsr is not counted against the code
+
+
+def test_stage_techniques_need_their_whole_shape():
+    # scanning forwards for 'MZ' looks for an appended image, not the code's own
+    assert "image_base_scan" not in analyse(MZ_SCAN_FORWARD_X64, arch="x64")["tags"]
+    # a RIP-relative store to data after the function is an ordinary global
+    assert "self_modifying_code" not in analyse(GLOBAL_STORE_X64, arch="x64")["tags"]
+
+
+def test_privileged_instructions_set_up_on_purpose_do_not_lower_the_verdict():
+    r = analyse(RESOLVER_X86[:-2] + VMWARE_X86, arch="x86")
+    assert r["verdict"] == "shellcode" and _confidence(r, "vmware_backdoor") == "medium"
+    r = analyse(RESOLVER_X86[:-2] + RED_PILL_X86, arch="x86")
+    assert r["verdict"] == "shellcode" and _confidence(r, "red_pill") == "low"
+    # the same instructions with nothing leading up to them are still noise
+    assert (
+        analyse(RESOLVER_X86[:-2] + bytes.fromhex("ed0f32c3"), arch="x86")["structure"]["bad_path_ratio"] > 0
+    )  # in eax, dx; rdmsr
+
+
+@pytest.mark.parametrize(
+    "data, arch, tag",
+    [
+        (TRAP_FLAG_X86, "x86", "trap_flag"),
+        (RWX_ARGS_X64, "x64", "rwx_alloc_args"),
+        (CALLBACK_TABLE_X64, "x64", "kernel_callback_table"),
+        (PARAMS_WRITE_X64, "x64", "process_parameters_write"),
+        (EXCEPTION_DIR_X64, "x64", "exception_directory_walk"),
+    ],
+)
+def test_supporting_patterns_count_only_inside_shellcode(data, arch, tag):
+    resolver = RESOLVER_X64 if arch == "x64" else RESOLVER_X86
+    r = analyse(resolver[:-2] + data, arch=arch)
+    assert r["verdict"] == "shellcode" and _confidence(r, tag) == "low"
+    alone = analyse(data, arch=arch)
+    assert alone["verdict"] not in ("shellcode", "likely") and tag not in alone["tags"]
+
+
+def test_printable_code():
+    r = analyse(PRINTABLE_STUB_X86, arch="x86")
+    assert r["verdict"] == "likely" and _confidence(r, "printable_code") == "medium"
+    for text in (b"ABCDEFGHIJKLMNO@" * 64, b"The quick brown fox jumps over the lazy dog. " * 40, b"0123456789ABCDEF" * 64):
+        assert "printable_code" not in analyse(text, arch="x86")["tags"]
+
+
+@pytest.mark.parametrize(
+    "data, tag",
+    [
+        (SOCKET_STAGER_X86, "socket_stager"),  # WSASocketA + connect + recv
+        (BIND_SHELL_X86, "socket_stager"),  # bind + listen + accept
+        (HTTP_STAGER_X86, "http_stager"),  # InternetOpenA + InternetConnectA + InternetReadFile
+        (DOWNLOAD_EXEC_X86, "download_execute"),  # URLDownloadToFileA + WinExec
+    ],
+)
+def test_stager_api_sets(data, tag):
+    r = analyse(data, arch="x86")
+    assert _confidence(r, tag) == "medium"
+    assert not {"socket_stager", "http_stager", "download_execute"} & set(analyse(SOCKET_ONLY_X86, arch="x86")["tags"])
+
+
+def test_stack_spoofing_apis_resolved_by_the_code():
+    def stack_string(name, at):
+        name = name.encode() + b"\0"
+        name += b"\0" * (-len(name) % 8)
+        return b"".join(b"\x48\xb9" + name[i : i + 8] + b"\x48\x89\x4c\x24" + bytes([at + i]) for i in range(0, len(name), 8))
+
+    r = analyse(
+        RESOLVER_X64[:-2] + stack_string("BaseThreadInitThunk", 0x20) + stack_string("RtlUserThreadStart", 0x40) + b"\xc3",
+        arch="x64",
+    )
+    assert _confidence(r, "stack_spoofing") == "medium"
+    r = analyse(RESOLVER_X64 + b"\0" * 16 + b"BaseThreadInitThunk\0RtlUserThreadStart\0", arch="x64")  # names in data only
+    assert "stack_spoofing" not in r["tags"]
+
+
+def _feedback_encode(payload, key, mode):
+    out = b""
+    for (word,) in struct.iter_unpack("<I", payload):
+        cipher = word ^ key
+        out += struct.pack("<I", cipher)
+        key = {
+            "cipher": cipher,
+            "plain": word,
+            "add_plain": (key + word) & 0xFFFFFFFF,
+            "add_const": (key + 0x11223344) & 0xFFFFFFFF,
+            "unknown": key,
+        }[mode]
+    return out
+
+
+@pytest.mark.parametrize(
+    "stub, mode",
+    [
+        (FEEDBACK_CIPHER_STUB_X86, "cipher"),  # mov eax, [esi]; xor [esi], ebx; mov ebx, eax
+        (FEEDBACK_PLAIN_STUB_X86, "plain"),  # xor [esi], ebx; mov ebx, [esi]
+        (FEEDBACK_ADD_PLAIN_STUB_X86, "add_plain"),  # xor [esi], ebx; add ebx, [esi]
+        (FEEDBACK_ADD_CONST_STUB_X86, "add_const"),  # xor [esi], ebx; add ebx, 0x11223344
+    ],
+)
+def test_feedback_keyed_decoders_are_decoded_and_extracted(stub, mode):
+    payload = RESOLVER_X86 + b"\x90" * (-len(RESOLVER_X86) % 4)
+    r = analyse(stub + _feedback_encode(payload, 0x5AD1C0DE, mode), arch="x86", extract_payloads=True)
+    assert "decoded_payload" in r["tags"]
+    assert [p["data"] for p in r["_payloads"]] == [payload]
+    if mode != "cipher":  # (ciphertext feedback resynchronises after one element whatever the start key)
+        # a wrong start key decodes to nothing recognisable: reported as a stub only
+        r = analyse(stub + _feedback_encode(payload, 0x11111111, mode), arch="x86", extract_payloads=True)
+        assert "decoder_stub" in r["tags"] and "decoded_payload" not in r["tags"] and r["_payloads"] == []
+
+
+def test_key_taken_from_memory_is_not_guessed():
+    payload = RESOLVER_X86 + b"\x90" * (-len(RESOLVER_X86) % 4)
+    r = analyse(FEEDBACK_UNKNOWN_STUB_X86 + _feedback_encode(payload, 0x5AD1C0DE, "unknown"), arch="x86", extract_payloads=True)
+    assert "decoder_stub" in r["tags"] and "decoded_payload" not in r["tags"] and r["_payloads"] == []
+
+
+def test_stage_indicators_are_described():
+    from lib.cuckoo.common.integrations.shellcode_check import GROUPS
+
+    for tag in ("image_base_scan", "seh_chain_walk", "kernel_msr_read", "kernel_base_discovery", "self_modifying_code", "vmware_backdoor", "red_pill",
+                "trap_flag", "exception_directory_walk", "kernel_callback_table", "process_parameters_write", "rwx_alloc_args", "printable_code",
+                "socket_stager", "http_stager", "download_execute", "stack_spoofing"):  # fmt: skip
+        assert tag in INDICATORS and INDICATORS[tag][0] in GROUPS

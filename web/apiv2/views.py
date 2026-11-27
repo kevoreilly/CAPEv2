@@ -1479,9 +1479,19 @@ def _cfg_bool(val) -> bool:
     return bool(val)
 
 
+_BULK_REPORTS_AUTH_CLASSES = [
+    c
+    for c in (
+        ApiKeyAuthentication if _cfg_bool(apiconf.api.get("token_auth_enabled")) else None,
+        SessionAuthentication,
+    )
+    if c is not None
+]
+
+
 @csrf_exempt
 @api_view(["GET"])
-@authentication_classes([c for c in (ApiKeyAuthentication, SessionAuthentication) if c is not None])
+@authentication_classes(_BULK_REPORTS_AUTH_CLASSES)
 def tasks_reports_bulk(request, task_ids=None, report_format="json"):
     """Bulk download analysis reports as a ZIP archive with files named by sample SHA256."""
     if not _cfg_bool(apiconf.taskreport.get("enabled")) or not _cfg_bool(apiconf.taskreport.get("bulk_download")):

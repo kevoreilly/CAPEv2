@@ -828,18 +828,41 @@ def _task_ids_from_query(request: Any, view_func: Callable[..., Any]) -> list:
         return [str(v).strip() for v in vals if str(v or "").strip()]
 
     collected: list = []
-    for raw_ids in _values("task_ids"):
-        collected.extend(_expand_task_ids(raw_ids))
+    seen: set[str] = set()
+
+    def _add(items: list) -> bool:
+        for item in items:
+            key = str(item)
+            if key in seen:
+                continue
+            if len(collected) >= _MAX_TASK_ID_RANGE:
+                return False
+            seen.add(key)
+            collected.append(item)
+        return True
+
+    raw_id_vals = _values("task_ids")
+    if len(raw_id_vals) > _MAX_TASK_ID_RANGE:
+        return ["<task id range limit exceeded>"]
+    for raw_ids in raw_id_vals:
+        if not _add(_expand_task_ids(raw_ids)):
+            return ["<task id range limit exceeded>"]
 
     starts = _values("start_id")
     ends = _values("end_id")
     if starts and ends:
+        if len(starts) * len(ends) > _MAX_TASK_ID_RANGE:
+            return ["<task id range limit exceeded>"]
         for s in starts:
             for e in ends:
-                collected.extend(_expand_task_ids(f"{s}-{e}"))
+                if not _add(_expand_task_ids(f"{s}-{e}")):
+                    return ["<task id range limit exceeded>"]
     elif starts:
+        if len(starts) > _MAX_TASK_ID_RANGE:
+            return ["<task id range limit exceeded>"]
         for s in starts:
-            collected.extend(_expand_task_ids(s))
+            if not _add(_expand_task_ids(s)):
+                return ["<task id range limit exceeded>"]
     return collected
 
 

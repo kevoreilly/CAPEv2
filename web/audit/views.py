@@ -77,7 +77,6 @@ class conditional_login_required:
             return func
         if not self.condition:
             return func
-        wrapped = self.decorator(func)
         if func.__name__ in anon_not_viewable_func_list:
 
             @functools.wraps(func)
@@ -85,10 +84,10 @@ class conditional_login_required:
                 user = getattr(request, "user", None)
                 if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
                     return HttpResponseForbidden("Restricted to administrators.")
-                return wrapped(request, *args, **kwargs)
+                return func(request, *args, **kwargs)
 
             return self.decorator(_staff_only)
-        return wrapped
+        return self.decorator(func)
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def audit_index(request, page:int = 1):

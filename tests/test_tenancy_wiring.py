@@ -3758,6 +3758,61 @@ def test_audit_mutating_views_blocked_for_anonymous_and_non_staff(monkeypatch):
     staff_req = RequestFactory().post("/audit/delete_test_session/1/")
     staff_req.user = types.SimpleNamespace(is_authenticated=True, is_staff=True, is_superuser=False)
     assert wrapped(staff_req, 1) == "deleted"
+
+    # Decorator wraps mutating views once (no redundant double login_required call)
+    wrap_calls = []
+
+    def counting_dec(fn):
+        wrap_calls.append(fn.__name__)
+        return fn
+
+    audit_views.conditional_login_required(counting_dec, True)(delete_test_session)
+    assert len(wrap_calls) == 1
+
+
+def test_tasks_reports_bulk_query_cap_and_validate_task_edge_cases(db, temp_pe32, temp_pe64, mt_enabled):
+    from django.test import RequestFactory
+
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+    from lib.tenancy.middleware import _MAX_TASK_ID_RANGE, _task_ids_from_query
+    from lib.tenancy.policy import PRIVATE
+
+    def tasks_reports_bulk(request, task_ids=None, report_format="json"):
+        return None
+
+    rf = RequestFactory()
+    # Repeated start_id x end_id cartesian blowup must fail closed in O(1) without expanding millions of IDs
+    qs = "&".join([f"start_id={i}" for i in range(1, 40)] + [f"end_id={i}" for i in range(1, 40)])
+    req_blowup = rf.get(f"/apiv2/tasks/get/reports/bulk/?{qs}")
+    assert _task_ids_from_query(req_blowup, tasks_reports_bulk) == ["<task id range limit exceeded>"]
+
+    # Total IDs across multiple task_ids params must stay bounded by _MAX_TASK_ID_RANGE
+    half = _MAX_TASK_ID_RANGE // 2 + 10
+    req_over = rf.get(f"/apiv2/tasks/get/reports/bulk/?task_ids=1-{half}&task_ids={half + 1}-{half * 2}")
+    assert _task_ids_from_query(req_over, tasks_reports_bulk) == ["<task id range limit exceeded>"]
+
+    # _wrapped_validate_task must enforce read ACL on non-recovered tasks, ignore falsy rtid=0, and fail closed on non-int IDs
+    victim = db.add_path(str(temp_pe32), user_id=7)
+    own = db.add_path(str(temp_pe64), user_id=8)
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        set_task_acl(db.session, victim, user_id=7, tenant_id=1, visibility=PRIVATE)
+        set_task_acl(db.session, own, user_id=8, tenant_id=2, visibility=PRIVATE)
+
+    fake_web_utils = types.SimpleNamespace(
+        validate_task=lambda tid, *_a, **_kw: {"error": False, "rtid": 0}
+    )
+    wrap_submission_and_web_utils(web_utils_mod=fake_web_utils)
+    tok = set_current_viewer(_viewer(user_id=8, tenant_id=2))
+    try:
+        assert fake_web_utils.validate_task(victim)["error"] is True
+        assert fake_web_utils.validate_task(own)["error"] is False
+        assert fake_web_utils.validate_task("not-an-int")["error"] is True
+    finally:
+        reset_current_viewer(tok)
+
+
 def test_tenant_model_namespace_separation_and_inactive_tenant_revocation(monkeypatch):
     from lib.tenancy import middleware as tmw
     from lib.tenancy.policy import MultitenancyConfig

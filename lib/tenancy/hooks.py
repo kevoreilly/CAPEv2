@@ -1195,7 +1195,7 @@ def wrap_submission_and_web_utils(
                 res = _orig(task_id, *args, **kwargs)
                 if isinstance(res, dict) and not res.get("error"):
                     rtid = res.get("rtid")
-                    target_tid = rtid if (rtid is not None and str(rtid) != str(task_id)) else task_id
+                    target_tid = rtid if (rtid and str(rtid) != str(task_id)) else task_id
                     if target_tid is not None:
                         viewer = get_current_viewer()
                         if viewer is not None and not viewer.see_all:
@@ -1203,17 +1203,21 @@ def wrap_submission_and_web_utils(
                             from lib.cuckoo.core.database import Database
                             from lib.tenancy.policy import can_read
 
+                            try:
+                                tid_int = int(target_tid)
+                            except (TypeError, ValueError):
+                                return {"error": True, "error_value": "Task does not exist"}
                             db_inst = Database()
                             ensure_acl_schema_once(db_inst.engine)
                             with db_inst.session.begin():
                                 t_obj = res.get("task")
-                                if t_obj is None or str(getattr(t_obj, "id", "")) != str(target_tid):
+                                if t_obj is None or str(getattr(t_obj, "id", "")) != str(tid_int):
                                     try:
-                                        t_obj = db_inst.session.get(Task, int(target_tid))
+                                        t_obj = db_inst.session.get(Task, tid_int)
                                     except Exception:
                                         t_obj = None
                                 fb_uid = getattr(t_obj, "user_id", None) if t_obj is not None else None
-                                scope = resolve_task_scope(db_inst.session, int(target_tid), fallback_user_id=fb_uid)
+                                scope = resolve_task_scope(db_inst.session, tid_int, fallback_user_id=fb_uid)
                             if not can_read(viewer, scope):
                                 return {"error": True, "error_value": "Task does not exist"}
                 return res

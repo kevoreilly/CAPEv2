@@ -1374,6 +1374,11 @@ EOF
         echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
     fi
 
+    # enable IPv4 TCP request socket migration
+    if ! grep -q -E '^net.ipv4.tcp_migrate_req=1' /etc/sysctl.conf; then
+        echo "net.ipv4.tcp_migrate_req=1" >> /etc/sysctl.conf
+    fi
+
     sudo modprobe br_netfilter
     sudo sysctl -p
 }

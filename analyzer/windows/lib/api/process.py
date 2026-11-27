@@ -237,6 +237,8 @@ class Process:
     process_num = 0
     _monitor_handles: dict[int, tuple[object, str]] = {}
     _monitor_handles_lock = threading.Lock()
+    _config_lock = threading.Lock()
+    _configured_pids: set[int] = set()
     # This adds 1 up to 30 times of 20 minutes to the startup
     # time of the process, therefore bypassing anti-vm checks
     # which check whether the VM has only been up for <10 minutes.
@@ -350,6 +352,8 @@ class Process:
             entry = cls._monitor_handles.pop(pid, None)
             if entry and _is_valid_handle(entry[0]):
                 KERNEL32.CloseHandle(entry[0])
+        with cls._config_lock:
+            cls._configured_pids.discard(pid)
 
     @classmethod
     def clear_monitor_handles(cls) -> None:
@@ -360,6 +364,8 @@ class Process:
             for h_mon, _ in entries:
                 if _is_valid_handle(h_mon):
                     KERNEL32.CloseHandle(h_mon)
+        with cls._config_lock:
+            cls._configured_pids.clear()
 
     def open(self):
         """Open a process and/or thread.
@@ -1086,39 +1092,52 @@ class Process:
         return False
 
     def write_monitor_config(self, interest=None, nosleepskip=False):
-        config_path = os.path.join(Path.cwd(), "dll", f"{self.pid}.ini")
-        log.info("Monitor config for process %s: %s", self.pid, config_path)
+        pid = int(self.pid)
+        config_path = os.path.join(Path.cwd(), "dll", f"{pid}.ini")
+        logserver_path = f"{LOGSERVER_PREFIX}{pid}"
+        interest_str = interest or ""
 
-        # start the logserver for this monitored process
-        logserver_path = f"{LOGSERVER_PREFIX}{self.pid}"
-        if logserver_path not in LOGSERVER_POOL:
-            LOGSERVER_POOL[logserver_path] = LogServer(self.config.ip, self.config.port, logserver_path)
+        with self._config_lock:
+            # start the logserver for this monitored process
+            existing_server = LOGSERVER_POOL.get(logserver_path)
+            if existing_server is None or existing_server.thread is None or not existing_server.thread.is_alive():
+                LOGSERVER_POOL[logserver_path] = LogServer(self.config.ip, self.config.port, logserver_path)
 
-        if "tlsdump" not in self.options:
-            Process.process_num += 1
-        firstproc = Process.process_num == 1
+            if pid in self._configured_pids and os.path.isfile(config_path):
+                log.debug("Reusing existing monitor config for process %s: %s", pid, config_path)
+                return
 
-        with open(config_path, "w", encoding="utf-8") as config:
-            config.write(f"host-ip={self.config.ip}\n")
-            config.write(f"host-port={self.config.port}\n")
-            config.write(f"pipe={PIPE}\n")
-            config.write(f"logserver={logserver_path}\n")
-            config.write(f"results={PATHS['root']}\n")
-            config.write(f"analyzer={Path.cwd()}\n")
-            config.write(f"pythonpath={os.path.dirname(sys.executable)}\n")
-            config.write(f"first-process={1 if firstproc else 0}\n")
-            config.write(f"startup-time={Process.startup_time}\n")
-            config.write(f"file-of-interest={interest}\n")
-            config.write(f"shutdown-mutex={SHUTDOWN_MUTEX}\n")
-            config.write(f"terminate-event={TERMINATE_EVENT}{self.pid}\n")
+            log.info("Monitor config for process %s: %s", pid, config_path)
+
+            if "tlsdump" not in self.options:
+                Process.process_num += 1
+            firstproc = Process.process_num == 1
+
+            lines = [
+                f"host-ip={self.config.ip}\n",
+                f"host-port={self.config.port}\n",
+                f"pipe={PIPE}\n",
+                f"logserver={logserver_path}\n",
+                f"results={PATHS['root']}\n",
+                f"analyzer={Path.cwd()}\n",
+                f"pythonpath={os.path.dirname(sys.executable)}\n",
+                f"first-process={1 if firstproc else 0}\n",
+                f"startup-time={Process.startup_time}\n",
+                f"file-of-interest={interest}\n",
+                f"shutdown-mutex={SHUTDOWN_MUTEX}\n",
+                f"terminate-event={TERMINATE_EVENT}{pid}\n",
+            ]
 
             if nosleepskip or (
-                "force-sleepskip" not in self.options and len(interest) > 2 and interest[:2] != "\\:" and Process.process_num <= 2
+                "force-sleepskip" not in self.options
+                and len(interest_str) > 2
+                and interest_str[:2] != "\\:"
+                and Process.process_num <= 2
             ):
-                config.write("force-sleepskip=0\n")
+                lines.append("force-sleepskip=0\n")
 
             if "norefer" not in self.options and "referrer" not in self.options:
-                config.write(f"referrer={get_referrer_url(interest)}\n")
+                lines.append(f"referrer={get_referrer_url(interest_str)}\n")
 
             server_options = [
                 "dll",
@@ -1141,8 +1160,19 @@ class Process:
 
             for optname, option in self.options.items():
                 if optname not in server_options:
-                    config.write(f"{optname}={option}\n")
+                    lines.append(f"{optname}={option}\n")
                     log.info("Option '%s' with value '%s' sent to monitor", optname, option)
+
+            tmp_path = f"{config_path}.{threading.get_ident()}.tmp"
+            try:
+                with open(tmp_path, "w", encoding="utf-8") as config:
+                    config.writelines(lines)
+                os.replace(tmp_path, config_path)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    os.remove(tmp_path)
+                raise
+            self._configured_pids.add(pid)
 
     def inject(self, interest=None, nosleepskip=False):
         """Cuckoo DLL injection.

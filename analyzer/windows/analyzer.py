@@ -18,7 +18,7 @@ import subprocess
 import sys
 import timeit
 import traceback
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from ctypes import byref, c_buffer, c_int, c_void_p, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
@@ -319,7 +319,10 @@ class Analyzer:
         self.command_pipe = None
         self.default_dll = None
         self.process_lock = Lock()
+        self.service_lock = Lock()
         self.files_list_lock = Lock()
+        self._pid_inject_locks_guard = Lock()
+        self._pid_inject_locks = {}
         self.pid = os.getpid()
         self.pid_check = False
         self.ppid = Process(pid=self.pid).get_parent_pid()
@@ -441,7 +444,9 @@ class Analyzer:
         disconnect_logger()
 
         # Report missed injections
-        for pid in INJECT_LIST:
+        with self.process_lock:
+            pending_injects = list(INJECT_LIST)
+        for pid in pending_injects:
             log.warning("Monitor injection attempted but failed for process %d", pid)
 
         log.info("Analysis completed")
@@ -491,6 +496,27 @@ class Analyzer:
 
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
+
+    @contextmanager
+    def pid_inject_lock(self, pid: int):
+        """Serialize injection attempts for a single PID without leaking lock entries."""
+        pid = int(pid)
+        with self._pid_inject_locks_guard:
+            entry = self._pid_inject_locks.get(pid)
+            if entry is None:
+                entry = [Lock(), 0]
+                self._pid_inject_locks[pid] = entry
+            entry[1] += 1
+            lock = entry[0]
+        lock.acquire()
+        try:
+            yield
+        finally:
+            lock.release()
+            with self._pid_inject_locks_guard:
+                entry[1] -= 1
+                if entry[1] == 0 and self._pid_inject_locks.get(pid) is entry:
+                    del self._pid_inject_locks[pid]
 
     def get_dcomlaunch_pid(self):
         """Return and cache the PID of the DcomLaunch service host."""
@@ -896,8 +922,9 @@ class Analyzer:
                                     log.info("Process with pid %s appears to have terminated (exit code 0x%x)", pid, proc_exit_code)
                                 else:
                                     log.info("Process with pid %s appears to have terminated", pid)
-                                if pid in self.process_list.pids:
-                                    self.process_list.remove_pid(pid)
+                                with self.process_lock:
+                                    if pid in self.process_list.pids:
+                                        self.process_list.remove_pid(pid)
 
                         # If none of the monitored processes are still alive, we
                         # can terminate the analysis.
@@ -940,7 +967,7 @@ class Analyzer:
 
         # Tell all processes to complete their monitoring
         if not kernel_analysis:
-            for pid in self.process_list.pids:
+            for pid in self.process_list.pids[:]:
                 proc = Process(options=self.options, config=self.config, pid=pid)
                 if proc.is_alive():
                     try:
@@ -1258,13 +1285,12 @@ class CommandPipeHandler:
         #    log.warning("Received loaded command with incorrect parameters, skipping it")
         #    return
 
-        self.analyzer.process_lock.acquire()
-        pid = int(data)
-        if pid not in self.analyzer.process_list.pids:
-            self.analyzer.process_list.add_pid(pid)  # , track=int(track))
-        if pid in INJECT_LIST:
-            INJECT_LIST.remove(pid)
-        self.analyzer.process_lock.release()
+        with self.analyzer.process_lock:
+            pid = int(data)
+            if pid not in self.analyzer.process_list.pids:
+                self.analyzer.process_list.add_pid(pid)  # , track=int(track))
+            if pid in INJECT_LIST:
+                INJECT_LIST.remove(pid)
 
         log.info("Loaded monitor into process with pid %s", pid)
 
@@ -1285,8 +1311,9 @@ class CommandPipeHandler:
         from kernel land
         """
         process_id = int(data)
-        if process_id and process_id in self.analyzer.process_list.pids:
-            self.analyzer.process_list.remove_pid(process_id)
+        with self.analyzer.process_lock:
+            if process_id and process_id in self.analyzer.process_list.pids:
+                self.analyzer.process_list.remove_pid(process_id)
 
     def _handle_kprocess(self, data):
         """Handle process notification.
@@ -1294,26 +1321,27 @@ class CommandPipeHandler:
         Same than below but we don't want to inject any DLLs because
         it's a kernel analysis
         """
-        self.analyzer.process_lock.acquire()
-        process_id = int(data)
-        thread_id = None
-        if (
-            process_id
-            and process_id not in (self.analyzer.pid, self.analyzer.ppid)
-            and process_id not in self.analyzer.process_list.pids
-        ):
-            proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
-            filepath = proc.get_filepath()
-            filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
+        with self.analyzer.process_lock:
+            process_id = int(data)
+            thread_id = None
             if (
-                not in_protected_path(filepath)
-                and not self.analyzer.files.is_protected_filename(filename)
-                and not is_uia_surrogate_process(proc, filepath, self.analyzer)
+                process_id
+                and process_id not in (self.analyzer.pid, self.analyzer.ppid)
+                and process_id not in self.analyzer.process_list.pids
             ):
-                self.analyzer.process_list.add_pid(process_id)
-                log.info("Announce process name : %s", filename)
-            proc.close()
-        self.analyzer.process_lock.release()
+                proc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=process_id, thread_id=thread_id)
+                try:
+                    filepath = proc.get_filepath()
+                    filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
+                    if (
+                        not in_protected_path(filepath)
+                        and not self.analyzer.files.is_protected_filename(filename)
+                        and not is_uia_surrogate_process(proc, filepath, self.analyzer)
+                    ):
+                        self.analyzer.process_list.add_pid(process_id)
+                        log.info("Announce process name : %s", filename)
+                finally:
+                    proc.close()
 
     def _handle_kerror(self, error_msg):
         log.error("Error : %s", error_msg)
@@ -1324,128 +1352,154 @@ class CommandPipeHandler:
         If a new driver has been loaded, we stop the analysis.
         """
         # Use a list slice ([:]) to make a copy of the list we are changing.
-        for pid in self.analyzer.process_list.pids[:]:
-            log.info("No longer tracking process with pid %s", pid)
-            self.analyzer.process_list.remove_pid(pid)
+        with self.analyzer.process_lock:
+            for pid in self.analyzer.process_list.pids[:]:
+                log.info("No longer tracking process with pid %s", pid)
+                self.analyzer.process_list.remove_pid(pid)
 
     def _handle_shell(self, data):
         explorer_pid = get_explorer_pid()
         if explorer_pid:
             explorer = Process(options=self.analyzer.options, config=self.analyzer.config, pid=explorer_pid)
-            self.analyzer.CRITICAL_PROCESS_LIST.append(int(explorer_pid))
-            filepath = explorer.get_filepath()
-            explorer.inject(interest=filepath, nosleepskip=True)
-            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-            explorer.close()
+            try:
+                with self.analyzer.process_lock:
+                    if int(explorer_pid) not in self.analyzer.CRITICAL_PROCESS_LIST:
+                        self.analyzer.CRITICAL_PROCESS_LIST.append(int(explorer_pid))
+                filepath = explorer.get_filepath()
+                explorer.inject(interest=filepath, nosleepskip=True)
+                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+            finally:
+                explorer.close()
             KERNEL32.Sleep(2000)
 
     def _handle_interop(self, data):
-        if not self.analyzer.MONITORED_DCOM and not ANALYSIS_TIMED_OUT:
-            self.analyzer.MONITORED_DCOM = True
-            dcom_pid = pid_from_service_name("DcomLaunch")
-            if dcom_pid:
-                self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
-                self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
-                filepath = servproc.get_filepath()
-                servproc.inject(interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                servproc.close()
-                KERNEL32.Sleep(2000)
+        with self.analyzer.service_lock:
+            if not self.analyzer.MONITORED_DCOM and not ANALYSIS_TIMED_OUT:
+                self.analyzer.MONITORED_DCOM = True
+                dcom_pid = pid_from_service_name("DcomLaunch")
+                if dcom_pid:
+                    self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
+                    try:
+                        with self.analyzer.process_lock:
+                            self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
+                        filepath = servproc.get_filepath()
+                        servproc.inject(interest=filepath, nosleepskip=True)
+                        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                    finally:
+                        servproc.close()
+                    KERNEL32.Sleep(2000)
 
     def _handle_wmi(self, data):
-        if not self.analyzer.MONITORED_WMI and not ANALYSIS_TIMED_OUT:
-            self.analyzer.MONITORED_WMI = True
-            if not self.analyzer.MONITORED_DCOM:
-                self.analyzer.MONITORED_DCOM = True
-                dcom_pid = pid_from_service_name("DcomLaunch")
-                if dcom_pid:
-                    self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
-                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
-                    self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
-                    filepath = servproc.get_filepath()
-                    servproc.inject(interest=filepath, nosleepskip=True)
-                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                    servproc.close()
-                    KERNEL32.Sleep(2000)
+        with self.analyzer.service_lock:
+            if not self.analyzer.MONITORED_WMI and not ANALYSIS_TIMED_OUT:
+                self.analyzer.MONITORED_WMI = True
+                if not self.analyzer.MONITORED_DCOM:
+                    self.analyzer.MONITORED_DCOM = True
+                    dcom_pid = pid_from_service_name("DcomLaunch")
+                    if dcom_pid:
+                        self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
+                        servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
+                        try:
+                            with self.analyzer.process_lock:
+                                self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
+                            filepath = servproc.get_filepath()
+                            servproc.inject(interest=filepath, nosleepskip=True)
+                            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                        finally:
+                            servproc.close()
+                        KERNEL32.Sleep(2000)
 
-            wmi_pid = pid_from_service_name("winmgmt")
-            if wmi_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid)
-                self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
-                filepath = servproc.get_filepath()
-                servproc.inject(interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                servproc.close()
-                KERNEL32.Sleep(2000)
+                wmi_pid = pid_from_service_name("winmgmt")
+                if wmi_pid:
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=wmi_pid)
+                    try:
+                        with self.analyzer.process_lock:
+                            self.analyzer.CRITICAL_PROCESS_LIST.append(int(wmi_pid))
+                        filepath = servproc.get_filepath()
+                        servproc.inject(interest=filepath, nosleepskip=True)
+                        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                    finally:
+                        servproc.close()
+                    KERNEL32.Sleep(2000)
 
     def _handle_tasksched(self, data):
-        if not self.analyzer.MONITORED_TASKSCHED and not ANALYSIS_TIMED_OUT:
-            self.analyzer.MONITORED_TASKSCHED = True
-            si = subprocess.STARTUPINFO()
-            # STARTF_USESHOWWINDOW
-            si.dwFlags = 1
-            # SW_HIDE
-            si.wShowWindow = 0
-            log.info("Stopping Task Scheduler Service")
-            subprocess.call(["net", "stop", "schedule", "/y"], startupinfo=si)
-            log.info("Stopped Task Scheduler Service")
-            subprocess.call("sc config schedule type= own", startupinfo=si)
-            log.info("Starting Task Scheduler Service")
+        with self.analyzer.service_lock:
+            if not self.analyzer.MONITORED_TASKSCHED and not ANALYSIS_TIMED_OUT:
+                self.analyzer.MONITORED_TASKSCHED = True
+                si = subprocess.STARTUPINFO()
+                # STARTF_USESHOWWINDOW
+                si.dwFlags = 1
+                # SW_HIDE
+                si.wShowWindow = 0
+                log.info("Stopping Task Scheduler Service")
+                subprocess.call(["net", "stop", "schedule", "/y"], startupinfo=si)
+                log.info("Stopped Task Scheduler Service")
+                subprocess.call("sc config schedule type= own", startupinfo=si)
+                log.info("Starting Task Scheduler Service")
 
-            subprocess.call("net start schedule", startupinfo=si)
-            log.info("Started Task Scheduler Service")
+                subprocess.call("net start schedule", startupinfo=si)
+                log.info("Started Task Scheduler Service")
 
-            sched_pid = pid_from_service_name("schedule")
-            if sched_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid)
-                self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
-                filepath = servproc.get_filepath()
-                servproc.inject(interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                servproc.close()
-                KERNEL32.Sleep(2000)
-
-    def _handle_bits(self, data):
-        if not self.analyzer.MONITORED_BITS and not ANALYSIS_TIMED_OUT:
-            self.analyzer.MONITORED_BITS = True
-            si = subprocess.STARTUPINFO()
-            # STARTF_USESHOWWINDOW
-            si.dwFlags = 1
-            # SW_HIDE
-            si.wShowWindow = 0
-
-            log.info("Stopping BITS Service")
-            subprocess.call(["net", "stop", "BITS", "/y"], startupinfo=si)
-            log.info("Stopped BITS Service")
-            subprocess.call("sc config BITS type= own", startupinfo=si)
-
-            if not self.analyzer.MONITORED_DCOM:
-                self.analyzer.MONITORED_DCOM = True
-                dcom_pid = pid_from_service_name("DcomLaunch")
-                if dcom_pid:
-                    self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
-                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
-
-                    self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
-                    filepath = servproc.get_filepath()
-                    servproc.inject(interest=filepath, nosleepskip=True)
-                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                    servproc.close()
+                sched_pid = pid_from_service_name("schedule")
+                if sched_pid:
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=sched_pid)
+                    try:
+                        with self.analyzer.process_lock:
+                            self.analyzer.CRITICAL_PROCESS_LIST.append(int(sched_pid))
+                        filepath = servproc.get_filepath()
+                        servproc.inject(interest=filepath, nosleepskip=True)
+                        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                    finally:
+                        servproc.close()
                     KERNEL32.Sleep(2000)
 
-            log.info("Starting BITS Service")
-            subprocess.call("net start BITS", startupinfo=si)
-            log.info("Started BITS Service")
-            bits_pid = pid_from_service_name("BITS")
-            if bits_pid:
-                servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid)
-                self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
-                filepath = servproc.get_filepath()
-                servproc.inject(interest=filepath, nosleepskip=True)
-                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                servproc.close()
-                KERNEL32.Sleep(2000)
+    def _handle_bits(self, data):
+        with self.analyzer.service_lock:
+            if not self.analyzer.MONITORED_BITS and not ANALYSIS_TIMED_OUT:
+                self.analyzer.MONITORED_BITS = True
+                si = subprocess.STARTUPINFO()
+                # STARTF_USESHOWWINDOW
+                si.dwFlags = 1
+                # SW_HIDE
+                si.wShowWindow = 0
+
+                log.info("Stopping BITS Service")
+                subprocess.call(["net", "stop", "BITS", "/y"], startupinfo=si)
+                log.info("Stopped BITS Service")
+                subprocess.call("sc config BITS type= own", startupinfo=si)
+
+                if not self.analyzer.MONITORED_DCOM:
+                    self.analyzer.MONITORED_DCOM = True
+                    dcom_pid = pid_from_service_name("DcomLaunch")
+                    if dcom_pid:
+                        self.analyzer.DCOMLAUNCH_PID = int(dcom_pid)
+                        servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=dcom_pid)
+                        try:
+                            with self.analyzer.process_lock:
+                                self.analyzer.CRITICAL_PROCESS_LIST.append(int(dcom_pid))
+                            filepath = servproc.get_filepath()
+                            servproc.inject(interest=filepath, nosleepskip=True)
+                            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                        finally:
+                            servproc.close()
+                        KERNEL32.Sleep(2000)
+
+                log.info("Starting BITS Service")
+                subprocess.call("net start BITS", startupinfo=si)
+                log.info("Started BITS Service")
+                bits_pid = pid_from_service_name("BITS")
+                if bits_pid:
+                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=bits_pid)
+                    try:
+                        with self.analyzer.process_lock:
+                            self.analyzer.CRITICAL_PROCESS_LIST.append(int(bits_pid))
+                        filepath = servproc.get_filepath()
+                        servproc.inject(interest=filepath, nosleepskip=True)
+                        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                    finally:
+                        servproc.close()
+                    KERNEL32.Sleep(2000)
 
     def _handle_service(self, servname):
         """Start a service and monitor it.
@@ -1462,25 +1516,28 @@ class CommandPipeHandler:
             si.wShowWindow = 0
             subprocess.call(f"sc config {servname.decode()} type= own", startupinfo=si)
             log.info('Announced starting service "%s"', servname)
-            if not self.analyzer.MONITORED_SERVICES:
-                # Inject into services.exe so we can monitor service creation
-                # if tasklist previously failed to get the services.exe PID we'll be
-                # unable to inject
-                if self.analyzer.SERVICES_PID:
-                    servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID)
-                    self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
-                    filepath = servproc.get_filepath()
-                    servproc.inject(interest=filepath, nosleepskip=True)
-                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                    servproc.close()
-                    KERNEL32.Sleep(2000)
-                    self.analyzer.MONITORED_SERVICES = True
-                else:
-                    log.error("Unable to monitor service %s", servname)
+            with self.analyzer.service_lock:
+                if not self.analyzer.MONITORED_SERVICES:
+                    # Inject into services.exe so we can monitor service creation
+                    # if tasklist previously failed to get the services.exe PID we'll be
+                    # unable to inject
+                    if self.analyzer.SERVICES_PID:
+                        self.analyzer.MONITORED_SERVICES = True
+                        servproc = Process(options=self.analyzer.options, config=self.analyzer.config, pid=self.analyzer.SERVICES_PID)
+                        try:
+                            with self.analyzer.process_lock:
+                                self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
+                            filepath = servproc.get_filepath()
+                            servproc.inject(interest=filepath, nosleepskip=True)
+                            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                        finally:
+                            servproc.close()
+                        KERNEL32.Sleep(2000)
+                    else:
+                        log.error("Unable to monitor service %s", servname)
 
     def _handle_resume(self, data):
         # RESUME:2560,3728'
-        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
         self._handle_process(data)
 
     def _handle_reboot(self, data):
@@ -1494,95 +1551,94 @@ class CommandPipeHandler:
         Flush logs for all monitored processes. Additional handling can be added later.
         """
         log.info("Received shutdown request")
-        self.analyzer.process_lock.acquire()
-        for process_id in self.analyzer.process_list.pids:
+        with self.analyzer.process_lock:
+            pids = list(self.analyzer.process_list.pids)
+        should_dump = False
+        for process_id in pids:
             event_name = TERMINATE_EVENT + str(process_id)
             event_handle = KERNEL32.OpenEventW(EVENT_MODIFY_STATE, False, event_name)
             if event_handle:
                 KERNEL32.SetEvent(event_handle)
                 KERNEL32.CloseHandle(event_handle)
-                self.analyzer.files.dump_files()
-        self.analyzer.process_lock.release()
+                should_dump = True
+        if should_dump:
+            self.analyzer.files.dump_files()
 
     def _handle_kill(self, data):
         """Handle case of malware terminating a process.
 
         Notify the target ahead of time so that it can flush its log buffer.
         """
-        self.analyzer.process_lock.acquire()
-
         process_id = int(data)
         log.info("Process with pid %s has terminated", process_id)
-        if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.analyzer.process_list.pids:
-            self.analyzer.process_list.remove_pid(process_id)
-        self.analyzer.process_lock.release()
+        with self.analyzer.process_lock:
+            if process_id not in (self.analyzer.pid, self.analyzer.ppid) and process_id in self.analyzer.process_list.pids:
+                self.analyzer.process_list.remove_pid(process_id)
 
     def _inject_process(self, process_id, thread_id, mode):
         """Helper function for injecting the monitor into a process."""
-        # We acquire the process lock in order to prevent the analyzer to
-        # terminate the analysis while we are operating on the new process.
-        self.analyzer.process_lock.acquire()
+        # Serialize per-PID injection attempts without holding process_lock
+        # across proc.inject() (which would deadlock LOADED:<pid>).
+        with self.analyzer.pid_inject_lock(process_id):
+            # We acquire the process lock in order to prevent the analyzer to
+            # terminate the analysis while we are operating on the new process.
+            with self.analyzer.process_lock:
+                # Set the current DLL to the default one provided at submission.
+                # dll = self.analyzer.default_dll
 
-        # Set the current DLL to the default one provided at submission.
-        # dll = self.analyzer.default_dll
+                if process_id in (self.analyzer.pid, self.analyzer.ppid):
+                    if process_id not in self.ignore_list["pid"]:
+                        log.warning("Received request to inject Cuckoo processes, skipping it")
+                        self.ignore_list["pid"].append(process_id)
+                    return
 
-        if process_id in (self.analyzer.pid, self.analyzer.ppid):
-            if process_id not in self.ignore_list["pid"]:
-                log.warning("Received request to inject Cuckoo processes, skipping it")
-                self.ignore_list["pid"].append(process_id)
-            self.analyzer.process_lock.release()
-            return
+                # We inject the process only if it's not being monitored already,
+                # otherwise we would generated polluted logs (if it wouldn't crash
+                # horribly to start with).
+                if self.analyzer.process_list.has_pid(process_id):
+                    # This pid is already on the notrack list, move it to the
+                    # list of tracked pids.
+                    if not self.analyzer.process_list.has_pid(process_id, notrack=False):
+                        log.debug(
+                            "Received request to inject pid=%d. It was already on our notrack list, moving it to the track list",
+                            process_id,
+                        )
 
-        # We inject the process only if it's not being monitored already,
-        # otherwise we would generated polluted logs (if it wouldn't crash
-        # horribly to start with).
-        if self.analyzer.process_list.has_pid(process_id):
-            # This pid is already on the notrack list, move it to the
-            # list of tracked pids.
-            if not self.analyzer.process_list.has_pid(process_id, notrack=False):
-                log.debug(
-                    "Received request to inject pid=%d. It was already on our notrack list, moving it to the track list", process_id
-                )
+                        self.analyzer.process_list.remove_pid(process_id)
+                        self.analyzer.process_list.add_pid(process_id)
+                        self.ignore_list["pid"].append(process_id)
+                    # Spit out an error once and just ignore it further on.
+                    elif process_id not in self.ignore_list["pid"]:
+                        self.ignore_list["pid"].append(process_id)
+                    return
 
-                self.analyzer.process_list.remove_pid(process_id)
-                self.analyzer.process_list.add_pid(process_id)
-                self.ignore_list["pid"].append(process_id)
-            # Spit out an error once and just ignore it further on.
-            elif process_id not in self.ignore_list["pid"]:
-                self.ignore_list["pid"].append(process_id)
+            # Open the process and inject the monitor
+            proc = Process(
+                options=self.analyzer.options,
+                config=self.analyzer.config,
+                pid=process_id,
+                thread_id=thread_id,
+            )
+            try:
+                filepath = proc.get_filepath()
+                filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
 
-            # We're done operating on the processes list, release the lock.
-            self.analyzer.process_lock.release()
-            return
+                if (
+                    not in_protected_path(filepath)
+                    and not self.analyzer.files.is_protected_filename(filename)
+                    and not is_uia_surrogate_process(proc, filepath, self.analyzer)
+                ):
+                    with self.analyzer.process_lock:
+                        if self.analyzer.process_list.has_pid(process_id):
+                            return
+                        # Add the new process ID to the list of monitored processes.
+                        self.analyzer.process_list.add_pid(process_id)
 
-        # Open the process and inject the monitor
-        proc = Process(
-            options=self.analyzer.options,
-            config=self.analyzer.config,
-            pid=process_id,
-            thread_id=thread_id,
-        )
-
-        filepath = proc.get_filepath()
-        filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
-
-        if (
-            not in_protected_path(filepath)
-            and not self.analyzer.files.is_protected_filename(filename)
-            and not is_uia_surrogate_process(proc, filepath, self.analyzer)
-        ):
-            # Add the new process ID to the list of monitored processes.
-            self.analyzer.process_list.add_pid(process_id)
-
-            # We're done operating on the processes list, release the lock
-            self.analyzer.process_lock.release()
-
-            proc.inject(interest=filepath, nosleepskip=True)
-            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-            log.info("Injected into process with pid %s and name %s", proc.pid, filename)
-        else:
-            self.analyzer.process_lock.release()
-        proc.close()
+                    proc.inject(interest=filepath, nosleepskip=True)
+                    self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                    log.info("Injected into process with pid %s and name %s", proc.pid, filename)
+            finally:
+                proc.close()
 
     def _handle_process(self, data):
         """Request for injection into a process."""
@@ -1594,10 +1650,19 @@ class CommandPipeHandler:
         thread_id = int(tid_s)
         if process_id and not ANALYSIS_TIMED_OUT:
             if process_id not in (self.analyzer.pid, self.analyzer.ppid):
-                # We inject the process only if it's not being
-                # monitored already, otherwise we would generate
-                # polluted logs.
-                if process_id not in self.analyzer.process_list.pids:
+                # Serialize concurrent injections targeting the same PID without
+                # holding process_lock across proc.inject() (avoiding deadlocks
+                # with LOADED:<pid>) while preserving sequential RunPE re-injection.
+                with self.analyzer.pid_inject_lock(process_id):
+                    # We inject the process only if it's not being
+                    # monitored already, otherwise we would generate
+                    # polluted logs.
+                    with self.analyzer.process_lock:
+                        if process_id in self.analyzer.process_list.pids:
+                            return
+                        already_pending = process_id in INJECT_LIST
+                        num_injected = self.analyzer.NUM_INJECTED
+
                     # Open the process and inject the DLL.
                     proc = Process(
                         options=self.analyzer.options,
@@ -1605,31 +1670,43 @@ class CommandPipeHandler:
                         pid=process_id,
                         thread_id=thread_id,
                     )
-                    filepath = proc.get_filepath()  # .encode('utf8', 'replace')
-                    # if it's a URL analysis, provide the URL to all processes as
-                    # the "interest" -- this will allow capemon to see in the
-                    # child browser process that a URL analysis is occurring
-                    if self.analyzer.config.category == "file" or self.analyzer.NUM_INJECTED > 1:
-                        interest = filepath
-                    else:
-                        interest = self.analyzer.config.target
-                    if filepath.lower() in self.analyzer.files.files:
-                        self.analyzer.files.delete_file(filepath, process_id)
-                    is_64bit = proc.is_64bit()
-                    filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
-                    if self.analyzer.SERVICES_PID and process_id == self.analyzer.SERVICES_PID:
-                        self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
-                    log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
-                    # We want to prevent multiple injection attempts if one is already underway
-                    if is_uia_surrogate_process(proc, filepath, self.analyzer):
-                        log.info("Skipping injection into UIA/MSAA cross-bitness surrogate process %s (pid: %d)", filename, process_id)
-                    elif not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
-                        if process_id not in INJECT_LIST:
-                            INJECT_LIST.append(process_id)
-                        _ = proc.inject(interest)
-                        self.analyzer.LASTINJECT_TIME = timeit.default_timer()
-                        self.analyzer.NUM_INJECTED += 1
-                    proc.close()
+                    try:
+                        filepath = proc.get_filepath()  # .encode('utf8', 'replace')
+                        # if it's a URL analysis, provide the URL to all processes as
+                        # the "interest" -- this will allow capemon to see in the
+                        # child browser process that a URL analysis is occurring
+                        if self.analyzer.config.category == "file" or num_injected > 1:
+                            interest = filepath
+                        else:
+                            interest = self.analyzer.config.target
+                        if filepath.lower() in self.analyzer.files.files:
+                            self.analyzer.files.delete_file(filepath, process_id)
+                        is_64bit = proc.is_64bit()
+                        filename = ntpath.basename(filepath) if isinstance(filepath, (str, bytes)) else ""
+                        with self.analyzer.process_lock:
+                            if (
+                                self.analyzer.SERVICES_PID
+                                and process_id == self.analyzer.SERVICES_PID
+                                and int(self.analyzer.SERVICES_PID) not in self.analyzer.CRITICAL_PROCESS_LIST
+                            ):
+                                self.analyzer.CRITICAL_PROCESS_LIST.append(int(self.analyzer.SERVICES_PID))
+                        log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
+                        # We want to prevent multiple injection attempts if one is already underway
+                        if is_uia_surrogate_process(proc, filepath, self.analyzer):
+                            log.info("Skipping injection into UIA/MSAA cross-bitness surrogate process %s (pid: %d)", filename, process_id)
+                        elif not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
+                            with self.analyzer.process_lock:
+                                if process_id in self.analyzer.process_list.pids:
+                                    return
+                                if process_id not in INJECT_LIST:
+                                    INJECT_LIST.append(process_id)
+                            _ = proc.inject(interest)
+                            self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                            if not already_pending:
+                                with self.analyzer.process_lock:
+                                    self.analyzer.NUM_INJECTED += 1
+                    finally:
+                        proc.close()
             else:
                 log.warning("Received request to inject process with pid %d, skipped", process_id)
         # return self._inject_process(int(data), None, 0)

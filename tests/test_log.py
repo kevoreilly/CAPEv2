@@ -473,3 +473,35 @@ def test_dist_no_status_log_filter_registered_on_uvicorn_access():
             sys.modules.pop("fastapi", None)
 
 
+def test_database_handler_swallows_db_exceptions_and_prevents_reentrancy(monkeypatch):
+    calls = []
+
+    class _FailingDB:
+        def add_error(self, msg, task_id):
+            calls.append((msg, task_id))
+            # Re-entrant emit while already emitting must be dropped without recursing
+            handler.emit(rec)
+            raise RuntimeError("DB outage / FK violation")
+
+    monkeypatch.setattr(cape_log, "Database", _FailingDB)
+    handler = cape_log.DatabaseHandler()
+    handler.setFormatter(logging.Formatter("%(message)s"))
+
+    handled = []
+    handler.handleError = lambda r: handled.append(r)
+
+    rec = logging.getLogger("test.db_handler").makeRecord(
+        name="test.db_handler",
+        level=logging.ERROR,
+        fn=__file__,
+        lno=1,
+        msg="Task #999: simulated error",
+        args=(),
+        exc_info=None,
+    )
+    # Must not raise out of emit()
+    handler.emit(rec)
+    assert calls == [("Task #999: simulated error", 999)]
+    assert handled == [rec]
+
+

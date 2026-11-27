@@ -118,3 +118,118 @@ def test_insert_calls_sanitizes_keys_splits_large_chunks_and_falls_back_per_chun
     procs = report_doc.insert_calls(report, mongodb=True)
     assert call_log == [3, 1]
     assert procs[0]["calls"] == ["id-0", "id-2"]
+
+
+def test_sanitize_call_data_converts_non_string_keys_and_splits_without_double_truncation(monkeypatch):
+    from bson import BSON
+
+    from modules.reporting import report_doc
+
+    # Non-string dict keys (int, tuple, None, bytes) must be converted to str so BSON.encode succeeds.
+    raw = {
+        1: "int-key",
+        (2, 3): {"nested\x00": "ok"},
+        None: "none-key",
+        b"raw": "bytes-key",
+    }
+    sanitized = report_doc._sanitize_call_data(raw)
+    assert set(sanitized.keys()) == {"1", "(2, 3)", "None", "b'raw'"}
+    assert sanitized["(2, 3)"] == {"nested": "ok"}
+    encoded = BSON.encode({"pid": 1, "calls": [sanitized], "task_id": 1})
+    assert len(encoded) > 0
+
+    # Recursive BSON chunk splitting must sanitize once and never double-truncate strings.
+    monkeypatch.setattr(report_doc, "MAX_CALL_VALUE_LEN", 100)
+    top_level_sanitize_calls = 0
+    orig_sanitize = report_doc._sanitize_call_data
+
+    def counting_sanitize(obj, max_len=None, bytes_to_str=False):
+        nonlocal top_level_sanitize_calls
+        if isinstance(obj, list):
+            top_level_sanitize_calls += 1
+        return orig_sanitize(obj, max_len=max_len, bytes_to_str=bytes_to_str)
+
+    monkeypatch.setattr(report_doc, "_sanitize_call_data", counting_sanitize)
+
+    oversized_val = "X" * 250
+    calls_list = [{"api": "WriteFile", "buf": oversized_val} for _ in range(8)]
+    docs = report_doc._build_mongo_call_docs(10, 20, calls_list, max_bytes=350)
+    assert len(docs) > 1
+    assert top_level_sanitize_calls == 1
+    expected_val = ("X" * 100) + "...[truncated]"
+    for doc in docs:
+        for call in doc["calls"]:
+            assert call["buf"] == expected_val
+            assert call["buf"].count("...[truncated]") == 1
+
+
+def test_insert_calls_wire_batches_and_preserves_duplicate_key_ids_on_fallback(monkeypatch):
+    from modules.reporting import report_doc
+
+    monkeypatch.setattr(report_doc, "CHUNK_CALL_SIZE", 1)
+    monkeypatch.setattr(report_doc, "MAX_MONGO_BULK_BATCH_BYTES", 600)
+
+    # 1. Multiple chunks exceeding MAX_MONGO_BULK_BATCH_BYTES are split into multiple wire batches.
+    batch_sizes = []
+
+    def fake_insert_many_batched(coll, docs):
+        batch_sizes.append(len(docs))
+        ids = []
+        for idx, doc in enumerate(docs):
+            doc_id = f"b{len(batch_sizes)}-{idx}"
+            doc["_id"] = doc_id
+            ids.append(doc_id)
+        return types.SimpleNamespace(inserted_ids=ids)
+
+    monkeypatch.setattr(report_doc, "mongo_insert_many", fake_insert_many_batched)
+    report = {
+        "info": {"id": 55},
+        "behavior": {
+            "processes": [
+                {
+                    "process_id": 7,
+                    "calls": [{"api": "Send", "buf": "A" * 250} for _ in range(5)],
+                }
+            ]
+        },
+    }
+    procs = report_doc.insert_calls(report, mongodb=True)
+    assert len(batch_sizes) > 1
+    assert sum(batch_sizes) == 5
+    assert len(procs[0]["calls"]) == 5
+
+    # 2. Fallback retry preserves pre-stamped _id when MongoDB raises E11000 (duplicate key).
+    class _DupKeyDetailsError(Exception):
+        def __init__(self):
+            super().__init__("E11000 duplicate key")
+            self.details = {"writeErrors": [{"code": 11000, "errmsg": "dup"}]}
+
+    class _DupKeyCodeError(Exception):
+        code = 11000
+
+    monkeypatch.setattr(report_doc, "MAX_MONGO_BULK_BATCH_BYTES", 1024 * 1024)
+    fallback_attempts = []
+
+    def fake_insert_many_with_e11000(coll, docs):
+        if len(docs) == 4:
+            for i, d in enumerate(docs):
+                d["_id"] = f"pre-{i}"
+            raise RuntimeError("socket timeout after partial commit")
+        doc_id = docs[0]["_id"]
+        fallback_attempts.append(doc_id)
+        if doc_id == "pre-0":
+            raise _DupKeyDetailsError()
+        if doc_id == "pre-1":
+            raise _DupKeyCodeError()
+        if doc_id == "pre-2":
+            return types.SimpleNamespace(inserted_ids=[doc_id])
+        raise RuntimeError("permanent non-duplicate error")
+
+    monkeypatch.setattr(report_doc, "mongo_insert_many", fake_insert_many_with_e11000)
+    report2 = {
+        "info": {"id": 56},
+        "behavior": {"processes": [{"process_id": 8, "calls": [{"a": i} for i in range(4)]}]},
+    }
+    procs2 = report_doc.insert_calls(report2, mongodb=True)
+    assert fallback_attempts == ["pre-0", "pre-1", "pre-2", "pre-3"]
+    assert procs2[0]["calls"] == ["pre-0", "pre-1", "pre-2"]

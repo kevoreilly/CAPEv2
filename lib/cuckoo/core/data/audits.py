@@ -12,7 +12,7 @@ from lib.cuckoo.common.audit_utils import task_status_to_run_status, TestResultV
 from .audit_data import (TestSession, AvailableTest, TestRun,
                         TestObjectiveTemplate, TestObjectiveInstance,
                         test_template_association,
-                        TEST_COMPLETE, TEST_RUNNING, TEST_QUEUED)
+                        TEST_COMPLETE, TEST_RUNNING, TEST_QUEUED, TEST_UNQUEUED)
 from .task import Task
 
 log = logging.getLogger(__name__)
@@ -456,6 +456,23 @@ class AuditsMixIn:
                 return True
             else:
                 log.error("Failed to link task and task ID: TestRun %d not found.",run_id)
+                return False
+
+    def unassign_cape_task_from_testrun(self, run_id: int) -> bool:
+        """
+        Clears the linked CAPE task ID from a TestRun and resets its status to unqueued.
+        """
+        with self.session.session_factory() as db_sess, db_sess.begin():
+            stmt = select(TestRun).where(TestRun.id == run_id)
+            run = db_sess.execute(stmt).unique().scalar_one_or_none()
+
+            if run:
+                run.cape_task_id = None
+                run.status = TEST_UNQUEUED
+                log.info("TestRun %d unqueued and unlinked from CAPE task", run_id)
+                return True
+            else:
+                log.error("Failed to unqueue TestRun %d: not found.", run_id)
                 return False
 
     def queue_audit_test(self, session_id, testrun_id, user_id=0):

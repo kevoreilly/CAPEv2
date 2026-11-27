@@ -1292,10 +1292,12 @@ class TestStaticPreview(SimpleTestCase):
         self.assertEqual(resp_c.content, b"not-found")
         self.assertEqual(mock_render.call_args[0][1], "error.html")
 
-        # M-31: audit.views.inner_unqueue_test returns None on dangling cape_task_id.
+        # M15b: audit.views.inner_unqueue_test resets dangling cape_task_id instead of leaving TestRun stuck.
         dangling_run = SimpleNamespace(cape_task_id=9999, status=audit_views.TEST_QUEUED)
         with patch.object(audit_views.db, "view_task", return_value=None):
-            self.assertIsNone(audit_views.inner_unqueue_test(dangling_run))
+            self.assertEqual(audit_views.inner_unqueue_test(dangling_run), 9999)
+        self.assertEqual(dangling_run.status, audit_views.TEST_UNQUEUED)
+        self.assertIsNone(dangling_run.cape_task_id)
 
     def test_magika_row_failed_reporting_status_and_static_preview_on_demand_graphs(self):
         import tempfile
@@ -1391,4 +1393,218 @@ class TestStaticPreview(SimpleTestCase):
 
             self.assertTrue(captured_ctx["graphs"]["bingraph"]["enabled"])
             self.assertEqual(captured_ctx["graphs"]["bingraph"]["content"][sha], "<svg>bingraph-ok</svg>")
+
+    def test_on_demand_early_return_preserves_graphs_respects_analysis_base_path_and_caps_svg(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        import analysis.views as av
+
+        sha = "c" * 64
+        with tempfile.TemporaryDirectory() as cuckoo_dir, tempfile.TemporaryDirectory() as analysis_base:
+            bin_dir = Path(cuckoo_dir) / "storage" / "binaries"
+            bin_dir.mkdir(parents=True)
+            (bin_dir / sha).write_bytes(b"MZ" + b"\x00" * 64)
+
+            # Place graphs ONLY under custom ANALYSIS_BASE_PATH (not under CUCKOO_ROOT/storage).
+            bg_dir = Path(analysis_base) / "analyses" / "21" / "bingraph"
+            bg_dir.mkdir(parents=True)
+            (bg_dir / f"{sha}-00-oversized.svg").write_text("<svg>" + ("A" * (512 * 1024)) + "</svg>")
+            (bg_dir / f"{sha}-01-dir.svg").mkdir()
+            (bg_dir / f"{sha}-02-meta.json").write_text('{"not": "svg"}')
+            (bg_dir / f"{sha}-ent.svg").write_text("<svg>bg-early</svg>")
+
+            vba_dir = Path(analysis_base) / "analyses" / "21" / "vba2graph" / "svg"
+            vba_dir.mkdir(parents=True)
+            (vba_dir / f"{sha}.svg").write_text("<svg>vba-early</svg>")
+
+            req = RequestFactory().get(f"/analysis/on_demand/strings/21/static/{sha}", HTTP_HX_REQUEST="true")
+            req.user = SimpleNamespace(id=1, is_authenticated=True)
+            fake_task = SimpleNamespace(id=21, sample=SimpleNamespace(sha256=sha), category="file", package="", options="")
+            captured_ctx = {}
+
+            def _capture_render(_req, _tpl, ctx):
+                captured_ctx.update(ctx)
+                return HttpResponse("rendered")
+
+            orig_strings_od = av.processing_cfg.strings.on_demand
+            av.processing_cfg.strings.on_demand = True
+            try:
+                with (
+                    patch.object(av, "CUCKOO_ROOT", cuckoo_dir),
+                    patch.object(av, "ANALYSIS_BASE_PATH", analysis_base),
+                    patch.object(av, "_path_safe", return_value=True),
+                    patch.dict(av.enabledconf, {"mongodb": False}, clear=False),
+                    patch.object(av, "HAVE_STRINGS", True),
+                    patch.object(av, "extract_strings", return_value=["hello"], create=True),
+                    patch.object(av, "path_exists", side_effect=lambda p: Path(p).exists()),
+                    patch.object(av.db, "view_task", return_value=fake_task),
+                    patch("submission.static_preview.update_static_preview_service"),
+                    patch("submission.static_preview.get_static_preview", return_value={"file": {"sha256": sha}}),
+                    patch.object(av, "render", side_effect=_capture_render),
+                ):
+                    av.on_demand(req, "strings", "21", "static", sha)
+            finally:
+                av.processing_cfg.strings.on_demand = orig_strings_od
+
+            self.assertEqual(captured_ctx["graphs"]["bingraph"]["content"][sha], "<svg>bg-early</svg>")
+            self.assertEqual(captured_ctx["graphs"]["vba2graph"]["content"][sha], "<svg>vba-early</svg>")
+
+            # When only an oversized >=512KB SVG exists, it must be skipped.
+            (bg_dir / f"{sha}-ent.svg").unlink()
+            captured_ctx.clear()
+            av.processing_cfg.strings.on_demand = True
+            try:
+                with (
+                    patch.object(av, "CUCKOO_ROOT", cuckoo_dir),
+                    patch.object(av, "ANALYSIS_BASE_PATH", analysis_base),
+                    patch.object(av, "_path_safe", return_value=True),
+                    patch.dict(av.enabledconf, {"mongodb": False}, clear=False),
+                    patch.object(av, "HAVE_STRINGS", True),
+                    patch.object(av, "extract_strings", return_value=["hello"], create=True),
+                    patch.object(av, "path_exists", side_effect=lambda p: Path(p).exists()),
+                    patch.object(av.db, "view_task", return_value=fake_task),
+                    patch("submission.static_preview.update_static_preview_service"),
+                    patch("submission.static_preview.get_static_preview", return_value={"file": {"sha256": sha}}),
+                    patch.object(av, "render", side_effect=_capture_render),
+                ):
+                    av.on_demand(req, "strings", "21", "static", sha)
+            finally:
+                av.processing_cfg.strings.on_demand = orig_strings_od
+
+            self.assertNotIn(sha, captured_ctx["graphs"]["bingraph"]["content"])
+
+    def test_search_allows_short_magika_labels(self):
+        from types import SimpleNamespace
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        import analysis.views as av
+
+        rf = RequestFactory()
+        for query, expected_val in (("magika:js", "js"), ("MAGIKA:c", "c")):
+            req = rf.post("/analysis/search/", data={"search": query})
+            req.user = SimpleNamespace(id=1, is_staff=True, is_authenticated=True)
+            with (
+                patch.object(av, "perform_search", return_value=[]) as mock_search,
+                patch.object(av, "render", return_value=HttpResponse("ok")) as mock_render,
+            ):
+                resp = av.search(req)
+            self.assertEqual(resp.status_code, 200)
+            mock_search.assert_called_once_with("magika", expected_val, user_id=1, privs=True)
+            self.assertIsNone(mock_render.call_args[0][2]["error"])
+
+        # Non-allowlisted short term is still rejected.
+        short_req = rf.post("/analysis/search/", data={"search": "name:js"})
+        short_req.user = SimpleNamespace(id=1, is_staff=True, is_authenticated=True)
+        with (
+            patch.object(av, "perform_search") as mock_search,
+            patch.object(av, "render", return_value=HttpResponse("err")) as mock_render,
+        ):
+            av.search(short_req)
+        mock_search.assert_not_called()
+        self.assertIn("too short", mock_render.call_args[0][2]["error"])
+
+    def test_on_demand_kesakode_blank_ssl_verify_keeps_tls_enabled(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        import analysis.views as av
+        from lib.cuckoo.common.integrations.malcat import client as malcat_client
+
+        sha = "d" * 64
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = Path(tmpdir) / "storage" / "binaries"
+            bin_dir.mkdir(parents=True)
+            (bin_dir / sha).write_bytes(b"MZ" + b"\x00" * 64)
+
+            created_ssl = []
+
+            class _FakeMalcatClient:
+                def __init__(self, host, api_key, ssl_verify, timeout):
+                    created_ssl.append(ssl_verify)
+
+                def analyze(self, data, features, kesakode_mode="online", quota_reserve=0):
+                    return {"features": {"kesakode": {"verdict": {}, "counts": {}}}}
+
+            fake_task = SimpleNamespace(id=31, sample=SimpleNamespace(sha256=sha), category="file", package="", options="")
+
+            for raw_ssl, expected_ssl in (("", True), ("   ", True), (None, True), ("no", False)):
+                req = RequestFactory().get(f"/analysis/on_demand/kesakode/31/static/{sha}", HTTP_HX_REQUEST="true")
+                req.user = SimpleNamespace(id=1, is_authenticated=True)
+                sim_cfg = {
+                    "enabled": True,
+                    "kesakode": True,
+                    "kesakode_on_demand": True,
+                    "kesakode_host": "https://bridge:8090",
+                    "kesakode_apikey": "k",
+                    "kesakode_ssl_verify": raw_ssl,
+                    "timeout": 30,
+                }
+                with (
+                    patch.object(av, "CUCKOO_ROOT", tmpdir),
+                    patch.object(av, "ANALYSIS_BASE_PATH", str(Path(tmpdir) / "storage")),
+                    patch.object(av, "_path_safe", return_value=True),
+                    patch.object(av, "HAVE_KESAKODE_ONDEMAND", True),
+                    patch.object(av, "integrations_cfg", {"similarity": sim_cfg}),
+                    patch.object(malcat_client, "MalcatClient", _FakeMalcatClient),
+                    patch.dict(av.enabledconf, {"mongodb": False}, clear=False),
+                    patch.object(av, "path_exists", side_effect=lambda p: Path(p).exists()),
+                    patch.object(av.db, "view_task", return_value=fake_task),
+                    patch("submission.static_preview.update_static_preview_service"),
+                    patch("submission.static_preview.get_static_preview", return_value={"file": {"sha256": sha}}),
+                    patch.object(av, "render", return_value=HttpResponse("ok")),
+                ):
+                    av.on_demand(req, "kesakode", "31", "static", sha)
+                self.assertEqual(created_ssl[-1], expected_ssl)
+
+    def test_report_distributed_auth_token_uses_get_raw_config_str(self):
+        from types import SimpleNamespace
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        import analysis.views as av
+
+        class _FakeDistConf:
+            distributed = {"auth_token": 123456}
+
+            def get_config(self):
+                return {"distributed": {"auth_token": " 123456 "}}
+
+        captured_headers = []
+
+        def _fake_get(url, headers=None, timeout=None, verify=None):
+            captured_headers.append(headers)
+            return SimpleNamespace(ok=True, json=lambda: {"name": "worker1", "task_id": 77})
+
+        req = RequestFactory().get("/analysis/77/")
+        req.user = SimpleNamespace(id=1, is_staff=True, is_authenticated=True)
+        fake_report = {
+            "info": {"id": 77, "category": "file", "package": "exe", "custom": ""},
+            "target": {"category": "file", "file": {"sha256": "e" * 64, "name": "a.exe"}},
+            "statistics": {"processing": [], "signatures": [], "reporting": []},
+        }
+        with (
+            patch.dict(av.enabledconf, {"mongodb": True, "distributed": True}, clear=False),
+            patch.object(av, "HAVE_REQUEST", True),
+            patch.object(av, "Config", return_value=_FakeDistConf()),
+            patch.object(av.requests, "get", side_effect=_fake_get),
+            patch.object(av, "mongo_find_one", side_effect=[fake_report, {}, {}], create=True),
+            patch.object(av, "render", return_value=HttpResponse("ok")) as mock_render,
+        ):
+            resp = av.report(req, 77)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(captured_headers, [{"X-API-Token": "123456"}])
+        self.assertEqual(mock_render.call_args[0][2]["analysis"]["distributed"], {"name": "worker1", "task_id": 77})
 

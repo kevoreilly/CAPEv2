@@ -43,7 +43,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import Config, get_raw_config_str
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, get_cape_external_dir, yara_detected
@@ -3085,9 +3085,8 @@ def report(request, task_id):
     if HAVE_REQUEST and enabledconf["distributed"]:
         try:
             headers = {}
-            from lib.cuckoo.common.config import Config
             dist_conf = Config("distributed")
-            auth_token = dist_conf.distributed.get("auth_token")
+            auth_token = get_raw_config_str(dist_conf, "distributed", "auth_token")
             if auth_token:
                 headers = {"X-API-Token": auth_token}
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", headers=headers, timeout=3, verify=False)
@@ -3720,8 +3719,8 @@ def search(request, searched=""):
         else:
             value = searched.strip()
 
-        # Check on search size. But malscore, ID and package can be strings of less than 3 characters.
-        if term not in {"malscore", "id", "ids", "package"} and len(value) < 3:
+        # Check on search size. But malscore, ID, package and magika can be strings of less than 3 characters.
+        if term.lower() not in {"malscore", "id", "ids", "package", "magika"} and len(value) < 3:
             return render(
                 request,
                 "analysis/search.html",
@@ -4139,10 +4138,13 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 from lib.cuckoo.common.integrations.similarity.base import _as_bool
 
                 scfg = dict(integrations_cfg.get("similarity"))
+                raw_ssl = scfg.get("kesakode_ssl_verify", True)
+                if raw_ssl is None or (isinstance(raw_ssl, str) and not raw_ssl.strip()):
+                    raw_ssl = True
                 client = MalcatClient(
                     host=scfg.get("kesakode_host") or "http://127.0.0.1:8090",
                     api_key=scfg.get("kesakode_apikey") or "",
-                    ssl_verify=_as_bool(scfg.get("kesakode_ssl_verify", True)),
+                    ssl_verify=_as_bool(raw_ssl),
                     timeout=int(scfg.get("timeout", 120) or 120),
                 )
                 with open(path, "rb") as fh:
@@ -4305,6 +4307,40 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if service == "kesakode" and isinstance(details, dict) and "code_similarity_matches" in details:
         kesakode_rows = details["code_similarity_matches"]
 
+    def _load_on_demand_graphs():
+        vba2graph_dict_content = {}
+        vba2graph_svg_path = os.path.join(
+            ANALYSIS_BASE_PATH, "analyses", str(task_id), "vba2graph", "svg", sha256 + ".svg"
+        )
+        if (
+            path_exists(vba2graph_svg_path)
+            and os.path.isfile(vba2graph_svg_path)
+            and _path_safe(vba2graph_svg_path)
+            and path_get_size(vba2graph_svg_path) < 512 * 1024
+        ):
+            vba2graph_dict_content[sha256] = Path(vba2graph_svg_path).read_text()
+
+        bingraph_dict_content = {}
+        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "bingraph")
+        if path_exists(bingraph_path) and os.path.isdir(bingraph_path):
+            for f in sorted(os.listdir(bingraph_path)):
+                if f.startswith(sha256) and f.endswith(".svg"):
+                    tmp_file = os.path.join(bingraph_path, f)
+                    if os.path.isfile(tmp_file) and _path_safe(tmp_file) and path_get_size(tmp_file) < 512 * 1024:
+                        bingraph_dict_content[sha256] = Path(tmp_file).read_text()
+                        break
+
+        return {
+            "vba2graph": {
+                "enabled": bool(vba2graph_dict_content) or (HAVE_VBA2GRAPH and processing_cfg.vba2graph.enabled),
+                "content": vba2graph_dict_content,
+            },
+            "bingraph": {
+                "enabled": bool(bingraph_dict_content) or (HAVE_BINGRAPH and reporting_cfg.bingraph.enabled),
+                "content": bingraph_dict_content,
+            },
+        }
+
     if details is not False:
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
         projection = {"_id": 1, category: 1}
@@ -4328,6 +4364,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     update_static_preview_service(sha256, service, details)
                 if request.headers.get("HX-Request"):
                     preview = dict(get_static_preview(task, run_full=False) or {})
+                    preview["graphs"] = _load_on_demand_graphs()
                     preview["expand_service"] = service
                     return render(request, "analysis/generic/_file_info.html", preview)
                 return redirect("submission_status", task_id=task_id)
@@ -4404,34 +4441,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         del details
 
     if request.headers.get("HX-Request"):
-        def _load_on_demand_graphs():
-            vba2graph_dict_content = {}
-            vba2graph_svg_path = os.path.join(
-                CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", sha256 + ".svg"
-            )
-            if path_exists(vba2graph_svg_path) and _path_safe(vba2graph_svg_path):
-                vba2graph_dict_content[sha256] = Path(vba2graph_svg_path).read_text()
-
-            bingraph_dict_content = {}
-            bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-            if path_exists(bingraph_path):
-                for f in os.listdir(bingraph_path):
-                    if f.startswith(sha256):
-                        tmp_file = os.path.join(bingraph_path, f)
-                        if _path_safe(tmp_file):
-                            bingraph_dict_content[sha256] = Path(tmp_file).read_text()
-
-            return {
-                "vba2graph": {
-                    "enabled": bool(vba2graph_dict_content) or (HAVE_VBA2GRAPH and processing_cfg.vba2graph.enabled),
-                    "content": vba2graph_dict_content,
-                },
-                "bingraph": {
-                    "enabled": bool(bingraph_dict_content) or (HAVE_BINGRAPH and reporting_cfg.bingraph.enabled),
-                    "content": bingraph_dict_content,
-                },
-            }
-
         report = mongo_find_one("analysis", {"info.id": int(task_id)}) if enabledconf["mongodb"] else None
         if not report:
             task = db.view_task(task_id)

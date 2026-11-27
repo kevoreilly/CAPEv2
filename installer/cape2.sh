@@ -392,6 +392,10 @@ function install_modsecurity() {
 
 
 function install_nginx() {
+    if [ -z "${1:-}" ]; then
+        echo "[!] Usage: $0 nginx <domain.com>" >&2
+        return 1
+    fi
     echo "[+] Install nginx"
     if [ ! -d nginx-"$nginx_version" ]; then
         wget http://nginx.org/download/nginx-"$nginx_version".tar.gz
@@ -646,6 +650,10 @@ fi
 }
 
 function install_letsencrypt(){
+    if [ -z "${1:-}" ]; then
+        echo "[!] Usage: $0 letsencrypt <domain.com>" >&2
+        return 1
+    fi
     echo "[+] Install and configure letsencrypt"
     sudo apt-get install -y python3 python3-venv libaugeas0
     sudo pip install certbot certbot-nginx --break-system-packages
@@ -861,9 +869,11 @@ function install_yara_python() {
         --config-setting="--global-option=--enable-cuckoo" \
         --config-setting="--global-option=--enable-magic" \
         --config-setting="--global-option=--enable-profiling"
-    # objects.py prefers yara-x when both are installed; uninstall yara-x when explicitly selecting yara-python
-    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
-        "$PYTHON_MGR" "$PYTHON_MGR_PIP" uninstall --python "$CAPE_ROOT/.venv/bin/python" yara-x 2>/dev/null || true
+    # objects.py prefers yara-x when both are installed; uninstall yara-x only when explicitly selecting yara-python
+    if [ "${1:-}" = "--replace-yara-x" ]; then
+        sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+            "$PYTHON_MGR" "$PYTHON_MGR_PIP" uninstall --python "$CAPE_ROOT/.venv/bin/python" yara-x 2>/dev/null || true
+    fi
 
     # Install from local source (commented out)
     # sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install /tmp/yara-python \
@@ -911,7 +921,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer function (integrated)
-    install_yara_python
+    install_yara_python "${1:-}"
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -2138,7 +2148,7 @@ case "$COMMAND" in
 'suricata')
     install_suricata;;
 'yara')
-    install_yara;;
+    install_yara --replace-yara-x;;
 'yara-x')
     install_yara_x;;
 'volatility3')
@@ -2178,9 +2188,9 @@ case "$COMMAND" in
 'issues')
     issues;;
 'nginx')
-    install_nginx;;
+    install_nginx "$2";;
 'letsencrypt')
-    install_letsencrypt;;
+    install_letsencrypt "$2";;
 'clamav')
     install_clamav;;
 'prometheus')

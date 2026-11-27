@@ -1,78 +1,103 @@
 <section id="domains">
     {% if analysis.network.dns %}
-        <table class="table  table-dark table-striped table-bordered">
-            <tr>
-                <th>Name</th>
-                <th>Response</th>
-                <th>Post-Analysis Lookup</th>
-                {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
-            </tr>
-            {% for p in analysis.network.dns %}
-                <tr>
-                <td>{{p.request}} {% if p.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %} <a href="https://www.virustotal.com/gui/domain/{{p.request}}/detection">[VT]</a>
-                {% if config.display_et_portal %}
-                <a href="https://threatintel.proofpoint.com/search?q={{p.request}}" target="_blank">[ET]</a>
-                {% endif %}
-                {% if config.display_pt_portal %}
-                <a href="https://www.passivetotal.org/passive/{{p.request}}" target="_blank">[PT]</a>
-                {% endif %}
-{# threatintel-domain-tags-v1 BEGIN #}
-                {% if p.threatintel %}
-                    <span class="ms-1">
-                    {% for ti in p.threatintel %}
-                        <span class="badge bg-danger" title="{{ ti.tooltip }}">{{ ti.tag }}</span>{% if ti.indicator_url %}<a href="{{ ti.indicator_url }}" target="_blank" class="small text-muted" title="View this indicator on ThreatFox">[TF]</a>{% endif %}
-                    {% endfor %}
-                    </span>
-                {% endif %}
-{# threatintel-domain-tags-v1 END #}
-                </td>
-                    <td>
-                        {% for a in p.answers %}
-                            {{a.type}} {{a.data|linebreaksbr}}
-                            {% if a.type != "NXDOMAIN" %}
-                                {% if a.type == "CNAME" %}
-                                <a href="https://www.virustotal.com/gui/domain/{{a.data}}/detection">[VT]</a>
-                                {% else %}
-                                <a href="https://www.virustotal.com/gui/ip-address/{{a.data}}/detection">[VT]</a>
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col" style="width: 35%;">Name</th>
+                        <th scope="col" style="width: 25%;">Response</th>
+                        <th scope="col" style="width: 20%;">Post-Analysis Lookup</th>
+                        {% if settings.NETWORK_PROC_MAP %}
+                            <th scope="col" style="width: 20%;">Process Name (PID)</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in analysis.network.dns %}
+                        <tr>
+                            <td class="text-break font-monospace small">
+                                {{p.request}}
+                                {% if p.source == "behavior" %}
+                                    <span class="badge bg-primary ms-1 small">behavior</span>
                                 {% endif %}
+                                <a href="https://www.virustotal.com/gui/domain/{{p.request}}/detection" target="_blank" class="ms-1">[VT]</a>
                                 {% if config.display_et_portal %}
-                                <a href="https://threatintel.proofpoint.com/search?q={{a.data}}" target="_blank">[ET]</a>
+                                    <a href="https://threatintel.proofpoint.com/search?q={{p.request}}" target="_blank" class="ms-1">[ET]</a>
                                 {% endif %}
                                 {% if config.display_pt_portal %}
-                                <a href="https://www.passivetotal.org/passive/{{a.data}}" target="_blank">[PT]</a>
+                                    <a href="https://www.passivetotal.org/passive/{{p.request}}" target="_blank" class="ms-1">[PT]</a>
                                 {% endif %}
-                            {% endif %}
-                            {% if not forloop.last %}
-                                <br/>
-                            {% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>{% if domainlookups and domainlookups|get_item:p.request %}
-                        {{ domainlookups|get_item:p.request }}
-                        <a href="https://www.virustotal.com/gui/ip-address/{{domainlookups|get_item:p.request}}/detection">[VT]</a>
-                        {% if config.display_et_portal %}
-                        <a href="https://threatintel.proofpoint.com/search?q={{domainlookups|get_item:p.request}}" target="_blank">[ET]</a>
-                        {% endif %}
-                        {% if config.display_pt_portal %}
-                        <a href="https://www.passivetotal.org/passive/{{domainlookups|get_item:p.request}}" target="_blank">[PT]</a>
-                        {% endif %}
-                        {% endif %}
-                    </td>
-                    {% if settings.NETWORK_PROC_MAP %}
-                        <td>
-                            {% if p.processes %}
-                                {% for proc in p.processes %}
-                                    <span class="badge bg-warning text-dark">{% if proc.process_name %}{{ proc.process_name }}{% else %}(unknown){% endif %}{% if proc.pid %} ({{ proc.pid }}){% endif %}</span>
+                                {# threatintel-domain-tags-v1 BEGIN #}
+                                {% if p.threatintel %}
+                                    <span class="ms-1">
+                                    {% for ti in p.threatintel %}
+                                        <span class="badge bg-danger" title="{{ ti.tooltip }}">{{ ti.tag }}</span>
+                                        {% if ti.indicator_url %}
+                                            <a href="{{ ti.indicator_url }}" target="_blank" class="small text-muted" title="View this indicator on ThreatFox">[TF]</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                    </span>
+                                {% endif %}
+                                {# threatintel-domain-tags-v1 END #}
+                            </td>
+                            <td class="font-monospace small">
+                                {% for a in p.answers %}
+                                    <div class="mb-1">
+                                        <span class="badge bg-secondary me-1 text-uppercase">{{a.type}}</span>
+                                        <span class="text-break text-muted">{{a.data|linebreaksbr}}</span>
+                                        {% if a.type != "NXDOMAIN" %}
+                                            {% if a.type == "CNAME" %}
+                                                <a href="https://www.virustotal.com/gui/domain/{{a.data}}/detection" target="_blank" class="ms-1">[VT]</a>
+                                            {% else %}
+                                                <a href="https://www.virustotal.com/gui/ip-address/{{a.data}}/detection" target="_blank" class="ms-1">[VT]</a>
+                                            {% endif %}
+                                            {% if config.display_et_portal %}
+                                                <a href="https://threatintel.proofpoint.com/search?q={{a.data}}" target="_blank" class="ms-1">[ET]</a>
+                                            {% endif %}
+                                            {% if config.display_pt_portal %}
+                                                <a href="https://www.passivetotal.org/passive/{{a.data}}" target="_blank" class="ms-1">[PT]</a>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
                                 {% endfor %}
-                            {% elif p.process_name or p.process_id %}
-                                <span class="badge bg-warning text-dark">{% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}{% if p.process_id %} ({{ p.process_id }}){% endif %}</span>
-                            {% else %}
-                                <span class="text-muted">-</span>
+                            </td>
+                            <td class="font-monospace small">
+                                {% if domainlookups and domainlookups|get_item:p.request %}
+                                    <span class="text-info">{{ domainlookups|get_item:p.request }}</span>
+                                    <a href="https://www.virustotal.com/gui/ip-address/{{domainlookups|get_item:p.request}}/detection" target="_blank" class="ms-1">[VT]</a>
+                                    {% if config.display_et_portal %}
+                                        <a href="https://threatintel.proofpoint.com/search?q={{domainlookups|get_item:p.request}}" target="_blank" class="ms-1">[ET]</a>
+                                    {% endif %}
+                                    {% if config.display_pt_portal %}
+                                        <a href="https://www.passivetotal.org/passive/{{domainlookups|get_item:p.request}}" target="_blank" class="ms-1">[PT]</a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            {% if settings.NETWORK_PROC_MAP %}
+                                <td>
+                                    {% if p.processes %}
+                                        {% for proc in p.processes %}
+                                            <span class="badge bg-warning text-dark mb-1">
+                                                {% if proc.process_name %}{{ proc.process_name }}{% else %}(unknown){% endif %}
+                                                {% if proc.pid %} ({{ proc.pid }}){% endif %}
+                                            </span>
+                                        {% endfor %}
+                                    {% elif p.process_name or p.process_id %}
+                                        <span class="badge bg-warning text-dark">
+                                            {% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}
+                                            {% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
                             {% endif %}
-                        </td>
-                    {% endif %}
-                </tr>
-            {% endfor %}
-        </table>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     {% endif %}
 </section>

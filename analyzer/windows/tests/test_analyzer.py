@@ -1068,6 +1068,51 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(0, ana.NUM_INJECTED)
 
     @patch("analyzer.Process")
+    def test_handle_process_skips_msaa_surrogate_x64(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\system32\DllHost.exe /Processid:{53362C64-A296-4F2D-A2F8-FD984D08340B}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3880,4007")
+            self.assertEqual(0, len(analyzer.INJECT_LIST))
+
+        mock_proc.inject.assert_not_called()
+        mock_proc.close.assert_called_once()
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.assertEqual(0, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_skips_msaa_surrogate_x86(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\SysWOW64\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\SysWOW64\DllHost.exe /Processid:{53362C32-A296-4F2D-A2F8-FD984D08340B}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = False
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(data=b"3881,4008")
+            self.assertEqual(0, len(analyzer.INJECT_LIST))
+
+        mock_proc.inject.assert_not_called()
+        mock_proc.close.assert_called_once()
+        self.assertEqual(0, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
     def test_handle_process_injects_non_uia_dllhost_surrogate(self, mock_process):
         ana = self.analyzer
         ana.config = MagicMock()
@@ -1208,6 +1253,16 @@ class TestUiaSurrogateHelpers(unittest.TestCase):
                 r'"C:\Windows\SysWOW64\DllHost.exe" -processid:{60a90a2f-858d-42af-8929-82be9d99e8a1} '
             )
         )
+        self.assertTrue(
+            analyzer.is_uia_surrogate_command_line(
+                r"C:\Windows\system32\DllHost.exe /Processid:{53362C64-A296-4F2D-A2F8-FD984D08340B}"
+            )
+        )
+        self.assertTrue(
+            analyzer.is_uia_surrogate_command_line(
+                r'"C:\Windows\SysWOW64\DllHost.exe" -processid:{53362c32-a296-4f2d-a2f8-fd984d08340b} '
+            )
+        )
         self.assertFalse(
             analyzer.is_uia_surrogate_command_line(
                 r"C:\Windows\system32\DllHost.exe /Processid:{3AD05575-8857-4850-9277-11B85BDB8E09}"
@@ -1216,6 +1271,11 @@ class TestUiaSurrogateHelpers(unittest.TestCase):
         self.assertFalse(
             analyzer.is_uia_surrogate_command_line(
                 r"C:\Windows\system32\DllHost.exe /Processid:{49F171DD-B51A-40D3-9A6C-52D674CC729D} /extra"
+            )
+        )
+        self.assertFalse(
+            analyzer.is_uia_surrogate_command_line(
+                r"C:\Windows\system32\DllHost.exe /Processid:{53362C64-A296-4F2D-A2F8-FD984D08340B} /extra"
             )
         )
         self.assertFalse(analyzer.is_uia_surrogate_command_line(r"C:\Windows\system32\DllHost.exe"))

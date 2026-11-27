@@ -73,7 +73,9 @@ class Task(Base):
     # Task tags
     tags_tasks: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     # Virtual machine tags
-    tags: Mapped[List["Tag"]] = relationship(secondary=tasks_tags, back_populates="tasks", passive_deletes=True)
+    tags: Mapped[List["Tag"]] = relationship(
+        secondary=tasks_tags, back_populates="tasks", passive_deletes=True, order_by="Tag.id"
+    )
     options: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
     platform: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     memory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

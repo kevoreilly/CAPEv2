@@ -2223,4 +2223,28 @@ class TestDatabaseEngine:
         assert reloaded.runs[0].status == TEST_COMPLETE
         assert reloaded.runs[0].objectives[0].state == "success"
 
+    def test_machine_and_task_tags_ordered_by_tag_id(self, db: _Database):
+        from sqlalchemy import insert
+
+        from lib.cuckoo.core.data.db_common import Tag, machines_tags, tasks_tags
+
+        with db.session.begin():
+            t1 = Tag("first_tag")
+            t2 = Tag("second_tag")
+            db.session.add_all([t1, t2])
+            db.session.flush()
+            self.add_machine(db, name="ord_m1", label="ord_l1", tags=None)
+            m = db.view_machine("ord_m1")
+            tid = db.add_url("https://example.invalid/tag-order")
+            # Insert join rows in reverse Tag.id order to mirror unordered set flush.
+            db.session.execute(insert(machines_tags), [{"machine_id": m.id, "tag_id": t2.id}, {"machine_id": m.id, "tag_id": t1.id}])
+            db.session.execute(insert(tasks_tags), [{"task_id": tid, "tag_id": t2.id}, {"task_id": tid, "tag_id": t1.id}])
+
+        db.session.expire_all()
+        with db.session.begin():
+            m = db.view_machine("ord_m1")
+            t = db.view_task(tid)
+            assert m.to_dict()["tags"] == ["first_tag", "second_tag"]
+            assert t.to_dict()["tags"][:2] == ["first_tag", "second_tag"]
+
 

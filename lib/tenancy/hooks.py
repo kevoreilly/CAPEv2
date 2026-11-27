@@ -191,7 +191,7 @@ def _enforce_task_entitlements(
 
 
 # Attributes only dist or AnalysisManager set internally.
-_DIST_ONLY_ATTRIBUTES = ("task_acl", "main_task_id", "parent_sample", "effective_route")
+_DIST_ONLY_ATTRIBUTES = ("task_acl", "main_task_id", "parent_sample", "effective_route", "vnc_password")
 
 
 def _strip_untrusted_task_acl(attributes: Any) -> Any:

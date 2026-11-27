@@ -39,7 +39,19 @@ from lib.tenancy.resources import (
 
 _DELETE_KEYWORDS = ("delete", "remove", "purge")
 # A live guac console grants keyboard/framebuffer control of the analysis VM: a task action, not a read.
-_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule", "/guac/", "remote_session", "tag_tasks", "vtupload")
+_MANAGE_KEYWORDS = (
+    "reprocess",
+    "reboot",
+    "visibility",
+    "toggle",
+    "reschedule",
+    "/guac/",
+    "remote_session",
+    "tasks_vnc",
+    "/tasks/vnc/",
+    "tag_tasks",
+    "vtupload",
+)
 _TASK_ID_KWARGS = ("task_id", "analysis_id", "analysis_number", "left_id", "right_id", "task_ids")
 _SAMPLE_HASH_KWARGS = ("sha256", "sha1", "md5", "sample_id")
 # Route kwargs that carry a bare hash of unspecified type (compare/<id>/<hash>, resubmit/<id>/<hash>).
@@ -57,7 +69,7 @@ _MAX_TASK_ID_RANGE = 1000
 # Deployment-wide views a tenant-scoped viewer must not reach: statistics aggregates every
 # tenant's tasks with raw SQL, yara_uploader writes rules every tenant's analyses (and guests) use.
 _ADMIN_ONLY_VIEW_NAMES = ("statistics_data", "yara_uploader", "ban_user", "ban_all_user_tasks")
-_ANON_NOT_VIEWABLE_VIEWS = ("file", "remove", "pending", "filtered_chunk", "search_behavior", "statistics_data", "vtupload")
+_ANON_NOT_VIEWABLE_VIEWS = ("file", "remove", "pending", "filtered_chunk", "search_behavior", "statistics_data", "vtupload", "tasks_vnc")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 # Views that only read on GET but change or control the task on POST (tasks/status: status=finish/stop, status: action=stop, tasks_file_stream).
 _MANAGE_ON_POST_VIEW_NAMES = ("tasks_status", "tasks_file_stream", "status")
@@ -328,7 +340,7 @@ def _is_console_view(request: Any, view_func: Callable[..., Any]) -> bool:
     """Views that open (or hand out the session for) a live guac console or live guest retrieval on a task's VM."""
     path = _route_path(request).lower()
     vname = _view_name(view_func).lower()
-    if "/guac/" in path or "remote_session" in path or "remote_session" in vname:
+    if "/guac/" in path or "remote_session" in path or "remote_session" in vname or "/tasks/vnc/" in path or vname == "tasks_vnc":
         return True
     if vname == "tasks_file_stream" and str(getattr(request, "method", "") or "").upper() == "POST":
         params = _extract_submission_params(request)

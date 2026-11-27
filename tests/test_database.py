@@ -2147,8 +2147,13 @@ class TestDatabaseEngine:
         tid = db.add_url(
             "https://example.invalid/resched",
             user_id=42,
-            attributes={"main_task_id": 9001, "custom_flag": True, "vnc_password": "OldPwd12"},
+            attributes={"main_task_id": 9001, "custom_flag": True, "vnc_password": "Injected"},
         )
+        # Task creation must strip any caller-supplied vnc_password attribute.
+        assert db.view_task(tid).get_attribute("vnc_password") is None
+        db.set_vnc_password(tid, "OldPwd12")
+        assert db.view_task(tid).get_attribute("vnc_password") == "OldPwd12"
+
         new_tid = db.reschedule(tid)
         assert new_tid is not None and new_tid != tid
         old_task = db.view_task(tid)
@@ -2186,7 +2191,11 @@ class TestDatabaseEngine:
         assert loaded.get_attribute("vnc_password") == "Xy12Zw34"
         assert loaded.get_attribute("main_task_id") == 77
         assert loaded.get_attribute("custom") == "keep"
-        assert loaded.to_dict()["attributes"]["vnc_password"] == "Xy12Zw34"
+        # Task.to_dict() must redact vnc_password without mutating the ORM attributes dict.
+        serialized = loaded.to_dict()
+        assert "vnc_password" not in (serialized["attributes"] or {})
+        assert serialized["attributes"]["main_task_id"] == 77
+        assert loaded.get_attribute("vnc_password") == "Xy12Zw34"
 
         db.clear_vnc_password(tid)
         cleared = db.view_task(tid)
@@ -2198,6 +2207,33 @@ class TestDatabaseEngine:
 
         # Clearing a second time is a safe no-op.
         db.clear_vnc_password(tid)
+
+    @pytest.mark.parametrize(
+        "next_status",
+        [
+            pytest.param("completed", id="completed"),
+            pytest.param("failed_analysis", id="failed-analysis"),
+            pytest.param("pending", id="pending-retry"),
+            pytest.param("recovered", id="recovered"),
+        ],
+    )
+    def test_set_status_scrubs_vnc_password_on_non_running_transition(self, db: _Database, next_status):
+        tid = db.add_url("https://example.invalid/vnc-status", attributes={"main_task_id": 88})
+        db.set_status(tid, "running")
+        db.set_vnc_password(tid, "StAtUs12")
+        assert db.view_task(tid).get_attribute("vnc_password") == "StAtUs12"
+
+        db.set_status(tid, next_status)
+        loaded = db.view_task(tid)
+        assert loaded.get_attribute("vnc_password") is None
+        assert loaded.get_attribute("main_task_id") == 88
+
+    def test_set_vnc_port_replaces_existing_vnc_port_option(self, db: _Database):
+        tid = db.add_url("https://example.invalid/vnc-port-retry", options="foo=bar")
+        db.set_vnc_port(tid, 5901)
+        assert db.view_task(tid).options == "foo=bar,vnc_port=5901"
+        db.set_vnc_port(tid, 5902)
+        assert db.view_task(tid).options == "foo=bar,vnc_port=5902"
 
     def test_sample_path_by_hash_temp_fallback_uses_transaction(self, db: _Database, tmp_path):
         import hashlib

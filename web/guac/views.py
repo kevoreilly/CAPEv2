@@ -106,7 +106,7 @@ except ImportError:
     LIBVIRT_AVAILABLE = False
 
 machinery = Config().cuckoo.machinery
-machinery_available = ["kvm", "qemu"]
+machinery_available = ["kvm", "kvmremote", "qemu"]
 machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
 db = Database()
 web_cfg = Config("web")
@@ -481,6 +481,22 @@ def direct_vnc_vm(request, vm_name):
     return response
 
 
+def _refresh_direct_vnc_password_if_expired(dom, libvirt_mod, password: str) -> None:
+    """Clear pre-expired placeholder VNC passwords when booting a VM for admin Direct VNC Console."""
+    if not password:
+        return
+    from xml.etree import ElementTree as ET
+
+    xml_flags = getattr(libvirt_mod, "VIR_DOMAIN_XML_SECURE", 1)
+    live_flag = getattr(libvirt_mod, "VIR_DOMAIN_AFFECT_LIVE", 1)
+    root = ET.fromstring(dom.XMLDesc(xml_flags))
+    for graphics in root.findall("./devices/graphics[@type='vnc']"):
+        if "passwdValidTo" in graphics.attrib:
+            graphics.set("passwd", password)
+            graphics.attrib.pop("passwdValidTo", None)
+            dom.updateDeviceFlags(ET.tostring(graphics, encoding="unicode"), live_flag)
+
+
 def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
     import libvirt
     from lib.cuckoo.core.database import Database
@@ -493,6 +509,12 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
             if start_mode == "snapshot":
                 snap = dom.snapshotLookupByName(snapshot_name, flags=0)
                 dom.revertToSnapshot(snap, flags=0)
+                direct_pwd = web_cfg.guacamole.password or ""
+                try:
+                    _refresh_direct_vnc_password_if_expired(dom, libvirt, direct_pwd)
+                except Exception as vnc_err:
+                    safe_err = str(vnc_err).replace(direct_pwd, "<redacted>") if direct_pwd else str(vnc_err)
+                    logger.warning("Failed to refresh expired VNC password on direct console VM %s: %s", vm_name, safe_err)
             else:
                 dom.create()
 

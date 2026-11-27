@@ -239,6 +239,8 @@ class TasksMixIn:
                     attributes = None
             if isinstance(attributes, dict):
                 for k, v in attributes.items():
+                    if k == "vnc_password":
+                        continue
                     task.set_attribute(k, v)
 
             # Obtain an ID without committing the caller's transaction.
@@ -809,9 +811,11 @@ class TasksMixIn:
                 log.debug("Database error setting VPN port: For task %s", task_id)
                 return
 
-            # This logic remains the same
+            # Replace any prior vnc_port token so dead-machine retries do not duplicate it.
             if task.options:
-                task.options += f",vnc_port={port}"
+                parts = [p for p in task.options.split(",") if not p.strip().startswith("vnc_port=")]
+                parts.append(f"vnc_port={port}")
+                task.options = ",".join(parts)
             else:
                 task.options = f"vnc_port={port}"
 
@@ -866,6 +870,9 @@ class TasksMixIn:
         with self.session.begin():
             if status != TASK_DISTRIBUTED_COMPLETED:
                 task.status = status
+
+            if status != TASK_RUNNING and isinstance(task.attributes, dict) and "vnc_password" in task.attributes:
+                del task.attributes["vnc_password"]
 
             if status in (TASK_RUNNING, TASK_DISTRIBUTED):
                 task.started_on = _utcnow_naive()

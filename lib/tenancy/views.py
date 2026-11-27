@@ -346,12 +346,16 @@ def tasks_machine(
         vnc_port_resolver = local_vnc_port
     vnc_port = vnc_port_resolver(vm_label) if vm_label else None
     payload: Dict[str, Any] = {"error": False, "machine": vm_label, "vnc_port": vnc_port}
-    task_attrs = getattr(task, "attributes", None)
-    if isinstance(task_attrs, dict):
-        vnc_password = task_attrs.get("vnc_password")
-        if isinstance(vnc_password, str) and vnc_password:
-            payload["vnc_password"] = vnc_password
-    return _json_response(payload, status=200)
+    if getattr(task, "status", None) == "running":
+        task_attrs = getattr(task, "attributes", None)
+        if isinstance(task_attrs, dict):
+            vnc_password = task_attrs.get("vnc_password")
+            if isinstance(vnc_password, str) and vnc_password:
+                payload["vnc_password"] = vnc_password
+    resp = _json_response(payload, status=200)
+    if "vnc_password" in payload and hasattr(resp, "__setitem__"):
+        resp["Cache-Control"] = "no-store"
+    return resp
 
 
 _INTERCEPTED_STORAGE_VIEWS = frozenset(

@@ -278,7 +278,6 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     vnc_port, vnc_password = await sync_to_async(_resolve_worker_vnc_connection)(self.guac_task_id)
                 else:
                     vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
-                if not vnc_password:
                     vnc_password = _extract_task_vnc_password(task)
                 if not vnc_port:
                     logger.warning(

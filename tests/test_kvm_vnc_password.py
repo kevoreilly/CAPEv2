@@ -129,6 +129,9 @@ class _FakeDB:
     def set_vnc_password(self, task_id, password):
         self.vnc_passwords.append((task_id, password))
 
+    def clear_vnc_password(self, task_id):
+        self.vnc_passwords.append(("clear", task_id))
+
 
 def _make_machinery(cls, *, vnc_per_task_password=False, vm=None, db=None):
     obj = cls.__new__(cls)
@@ -509,3 +512,291 @@ def test_analysisinfo_does_not_leak_vnc_password(monkeypatch):
     assert "vnc_password" not in info
     assert "vnc_password" not in info["options"]
     assert "SecRet99" not in str(info)
+
+
+def test_libvirt_start_updates_all_vnc_graphics_devices(monkeypatch):
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    domain_xml = (
+        "<domain><devices>"
+        "<graphics type='vnc' port='5901' passwd='old1' passwdValidTo='1970-01-01T00:00:01'/>"
+        "<graphics type='spice' port='5930'/>"
+        "<graphics type='vnc' socket='/tmp/vm1.vnc' passwd='old2'/>"
+        "</devices></domain>"
+    )
+    vm = _FakeDomain(domain_xml)
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm)
+
+    LibVirtMachinery.start(machinery, "vm1")
+
+    password = machinery.get_vnc_password("vm1")
+    assert password is not None
+    assert len(vm.updated_devices) == 2
+    ports_or_sockets = []
+    for updated_xml, flags in vm.updated_devices:
+        assert flags == fake_libvirt.VIR_DOMAIN_AFFECT_LIVE
+        elem = ET.fromstring(updated_xml)
+        assert elem.get("type") == "vnc"
+        assert elem.get("passwd") == password
+        assert "passwdValidTo" not in elem.attrib
+        ports_or_sockets.append(elem.get("port") or elem.get("socket"))
+    assert ports_or_sockets == ["5901", "/tmp/vm1.vnc"]
+
+
+def test_libvirt_start_persists_password_before_resume_and_clears_on_resume_failure(monkeypatch):
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    domain_xml = "<domain><devices><graphics type='vnc' port='5901' passwd='old'/></devices></domain>"
+    vm = _FakeDomain(domain_xml)
+    db = _FakeDB()
+    order = []
+
+    orig_set = db.set_vnc_password
+    orig_clear = db.clear_vnc_password
+    orig_resume = vm.resume
+
+    def tracked_set(tid, pwd):
+        order.append(("db_set", tid, pwd))
+        orig_set(tid, pwd)
+
+    def tracked_clear(tid):
+        order.append(("db_clear", tid))
+        orig_clear(tid)
+
+    def tracked_resume():
+        order.append(("vm_resume",))
+        orig_resume()
+
+    db.set_vnc_password = tracked_set
+    db.clear_vnc_password = tracked_clear
+    vm.resume = tracked_resume
+
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm, db=db)
+    machinery.bind_vnc_task("vm1", 42)
+    LibVirtMachinery.start(machinery, "vm1")
+    machinery.unbind_vnc_task("vm1")
+
+    pwd = machinery.get_vnc_password("vm1")
+    assert order == [("db_set", 42, pwd), ("vm_resume",)]
+
+    # Resume failure after DB persist must destroy VM and scrub DB password.
+    order.clear()
+    vm2 = _FakeDomain(domain_xml, resume_error=_FakeLibvirtError("resume failed"))
+    vm2.resume = lambda: (order.append(("vm_resume_fail",)), (_ for _ in ()).throw(_FakeLibvirtError("resume failed")))
+    machinery2 = _make_machinery(KVM, vnc_per_task_password=True, vm=vm2, db=db)
+    machinery2.bind_vnc_task("vm1", 43)
+    with pytest.raises(CuckooMachineError, match="Unable to enforce per-task VNC password"):
+        LibVirtMachinery.start(machinery2, "vm1")
+    assert vm2.destroy_count == 1
+    assert order[0][0] == "db_set" and order[0][1] == 43
+    assert order[1] == ("vm_resume_fail",)
+    assert order[2] == ("db_clear", 43)
+
+
+def test_libvirt_start_fails_closed_when_revert_paused_constant_missing(monkeypatch):
+    fake_libvirt = SimpleNamespace(
+        libvirtError=_FakeLibvirtError,
+        VIR_DOMAIN_XML_SECURE=1,
+        VIR_DOMAIN_AFFECT_LIVE=1,
+    )
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    vm = _FakeDomain("<domain><devices><graphics type='vnc' port='5901' passwd='old'/></devices></domain>")
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm)
+
+    with pytest.raises(CuckooMachineError, match="VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED"):
+        LibVirtMachinery.start(machinery, "vm1")
+    assert vm.revert_calls == []
+
+
+def test_libvirt_start_redacts_password_echoed_in_libvirt_error_and_logs_destroy_failure(monkeypatch, caplog):
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    sentinel = "LeAkMe99"
+    vm = _FakeDomain(
+        "<domain><devices><graphics type='vnc' port='5901' passwd='old'/></devices></domain>",
+        update_error=_FakeLibvirtError(f"bad xml passwd='{sentinel}'"),
+        destroy_error=_FakeLibvirtError(f"cannot destroy with {sentinel}"),
+    )
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm)
+    monkeypatch.setattr(machinery, "_generate_vnc_password", lambda: sentinel)
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(CuckooMachineError) as exc_info:
+            LibVirtMachinery.start(machinery, "vm1")
+
+    assert sentinel not in str(exc_info.value)
+    assert sentinel not in caplog.text
+    assert "<redacted>" in str(exc_info.value)
+    assert "Failed to destroy VM vm1" in caplog.text
+
+
+def test_store_vnc_details_wraps_xmldesc_libvirt_error_as_machine_error(monkeypatch):
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    vm = _FakeDomain("", xml_error=_FakeLibvirtError("ssh transport broken"))
+    machinery = _make_machinery(KVMRemote, vnc_per_task_password=True, vm=vm)
+    machinery._set_vnc_password("vm1", "Ab12Cd34")
+
+    with pytest.raises(CuckooMachineError, match="Unable to read VNC details"):
+        machinery.store_vnc_port("vm1", 55)
+
+
+def test_libvirt_shutdown_clears_cached_vnc_passwords_and_bindings(monkeypatch):
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    machinery = _make_machinery(KVM, vnc_per_task_password=True)
+    machinery.machines = lambda: []
+    machinery._set_vnc_password("vm1", "StAlE123")
+    machinery.bind_vnc_task("vm1", 99)
+
+    machinery.shutdown()
+
+    assert machinery.get_vnc_password("vm1") is None
+    assert machinery._get_bound_vnc_task("vm1") is None
+
+
+def test_multi_machinery_forwards_vnc_helpers():
+    from modules.machinery.multi import MultiMachinery
+
+    calls = []
+
+    class _SubKVM:
+        def bind_vnc_task(self, label, task_id):
+            calls.append(("bind", label, task_id))
+
+        def unbind_vnc_task(self, label):
+            calls.append(("unbind", label))
+
+        def get_vnc_password(self, label):
+            calls.append(("get", label))
+            return "MuLtI123"
+
+        def clear_vnc_password(self, label):
+            calls.append(("clear", label))
+
+        def store_vnc_port(self, label, task_id):
+            calls.append(("store", label, task_id))
+
+    class _SubOther:
+        pass
+
+    multi = MultiMachinery.__new__(MultiMachinery)
+    multi._machine_labels = {"vm-kvm": "m1", "vm-other": "m2"}
+    multi._machines = {"m1": {"machinery": "kvm"}, "m2": {"machinery": "other"}}
+    multi._machineries = {"kvm": {"module": _SubKVM()}, "other": {"module": _SubOther()}}
+
+    multi.bind_vnc_task("vm-kvm", 7)
+    assert multi.get_vnc_password("vm-kvm") == "MuLtI123"
+    multi.store_vnc_port("vm-kvm", 7)
+    multi.clear_vnc_password("vm-kvm")
+    multi.unbind_vnc_task("vm-kvm")
+    assert calls == [
+        ("bind", "vm-kvm", 7),
+        ("get", "vm-kvm"),
+        ("store", "vm-kvm", 7),
+        ("clear", "vm-kvm"),
+        ("unbind", "vm-kvm"),
+    ]
+
+    # Non-VNC sub-machinery and unknown labels must safely no-op.
+    assert multi.get_vnc_password("vm-other") is None
+    assert multi.get_vnc_password("missing") is None
+    multi.bind_vnc_task("vm-other", 8)
+    multi.store_vnc_port("vm-other", 8)
+    multi.clear_vnc_password("vm-other")
+    multi.unbind_vnc_task("vm-other")
+
+
+def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_snapshot():
+    from importlib import import_module
+
+    guac_views = import_module("guac.views")
+    assert "kvmremote" in guac_views.machinery_available
+
+    fake_libvirt = _make_fake_libvirt()
+    expired_xml = (
+        "<domain><devices>"
+        "<graphics type='vnc' port='5901' passwd='placeholder' passwdValidTo='1970-01-01T00:00:01'/>"
+        "</devices></domain>"
+    )
+    vm_expired = _FakeDomain(expired_xml)
+    guac_views._refresh_direct_vnc_password_if_expired(vm_expired, fake_libvirt, "adminpwd")
+    assert len(vm_expired.updated_devices) == 1
+    elem = ET.fromstring(vm_expired.updated_devices[0][0])
+    assert elem.get("passwd") == "adminpwd"
+    assert "passwdValidTo" not in elem.attrib
+
+    normal_vm = _FakeDomain("<domain><devices><graphics type='vnc' port='5901' passwd='static'/></devices></domain>")
+    guac_views._refresh_direct_vnc_password_if_expired(normal_vm, fake_libvirt, "adminpwd")
+    assert normal_vm.updated_devices == []
+
+
+@pytest.mark.parametrize(
+    "enabled, auth_only, authenticated, task_status, expected_status, expect_password",
+    [
+        pytest.param(False, True, True, TASK_RUNNING, 403, False, id="disabled-by-default"),
+        pytest.param(True, True, False, TASK_RUNNING, 401, False, id="auth-required-rejects-anon"),
+        pytest.param(True, True, True, TASK_RUNNING, 200, True, id="authenticated-running-returns-password"),
+        pytest.param(True, False, False, TASK_RUNNING, 200, True, id="explicit-unauth-allowed-when-configured"),
+        pytest.param(True, True, True, TASK_FAILED_ANALYSIS, 404, False, id="non-running-task-returns-404"),
+    ],
+)
+def test_apiv2_tasks_vnc_endpoint_gating(
+    db: _Database,
+    monkeypatch,
+    enabled,
+    auth_only,
+    authenticated,
+    task_status,
+    expected_status,
+    expect_password,
+):
+    from importlib import import_module
+    from django.test import RequestFactory
+
+    apiv2_views = import_module("apiv2.views")
+
+    tid = db.add_url("https://example.invalid/vnc-api", options="vnc_port=5906", machine="win10-1")
+    db.set_status(tid, TASK_RUNNING)
+    db.set_vnc_password(tid, "ApIv2Pw1")
+    if task_status != TASK_RUNNING:
+        db.set_status(tid, task_status)
+
+    monkeypatch.setattr(apiv2_views, "db", db)
+    monkeypatch.setattr(
+        apiv2_views.apiconf,
+        "taskvnc",
+        {"enabled": enabled, "auth_only": auth_only},
+        raising=False,
+    )
+
+    req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    req.user = SimpleNamespace(
+        is_authenticated=authenticated,
+        is_active=authenticated,
+        id=7 if authenticated else None,
+    )
+
+    resp = apiv2_views.tasks_vnc(req, str(tid))
+    assert resp.status_code == expected_status
+    if expect_password:
+        assert resp.data["error"] is False
+        assert resp.data["data"]["task_id"] == tid
+        assert resp.data["data"]["machine"] == "win10-1"
+        assert resp.data["data"]["vnc_port"] == 5906
+        assert resp.data["data"]["vnc_password"] == "ApIv2Pw1"
+        assert resp["Cache-Control"] == "no-store"
+    else:
+        assert "ApIv2Pw1" not in str(resp.data)
+
+    # Read-only tasks_view must never expose vnc_password even while the task is running.
+    view_req = RequestFactory().get(f"/apiv2/tasks/view/{tid}/")
+    view_resp = apiv2_views.tasks_view(view_req, str(tid))
+    assert "ApIv2Pw1" not in str(view_resp.data)
+

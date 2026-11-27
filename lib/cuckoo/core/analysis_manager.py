@@ -336,8 +336,24 @@ class AnalysisManager(threading.Thread):
         assert self.machinery_manager and self.machine and self.guest
 
         is_dead = False
+        machinery = self.machinery_manager.machinery
+        bound_vnc_task = callable(getattr(machinery, "bind_vnc_task", None))
         try:
-            self.machinery_manager.start_machine(self.machine)
+            if bound_vnc_task:
+                machinery.bind_vnc_task(self.machine.label, self.task.id)
+            try:
+                self.machinery_manager.start_machine(self.machine)
+            finally:
+                if bound_vnc_task and callable(getattr(machinery, "unbind_vnc_task", None)):
+                    machinery.unbind_vnc_task(self.machine.label)
+
+            if not bound_vnc_task and callable(getattr(machinery, "get_vnc_password", None)):
+                vnc_password = machinery.get_vnc_password(self.machine.label)
+                if vnc_password:
+                    self._db_unit(
+                        lambda: self.db.set_vnc_password(self.task.id, vnc_password),
+                        f"persist vnc_password for task {self.task.id}",
+                    )
 
             yield
 
@@ -350,6 +366,8 @@ class AnalysisManager(threading.Thread):
             # which informs the AnalysisManager that it should analyze
             # this task again with another available machine.
             self.log.error("%s", e)
+            if callable(getattr(machinery, "clear_vnc_password", None)):
+                machinery.clear_vnc_password(self.machine.label)
 
             # Remove the guest from the database, so that we can assign a
             # new guest when the task is being analyzed with another machine.
@@ -376,6 +394,14 @@ class AnalysisManager(threading.Thread):
                     self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
                 except Exception as e:
                     self.log.error("Unexpected error stopping machine %s: %s", self.machine.label, e)
+
+                try:
+                    self._db_unit(
+                        lambda: self.db.clear_vnc_password(self.task.id),
+                        f"clear vnc_password for task {self.task.id}",
+                    )
+                except Exception as e:
+                    self.log.error("Failed to clear VNC password for task %s in database: %s", self.task.id, e)
 
                 try:
                     # Release the analysis machine, but only if the machine is not dead.
@@ -493,13 +519,12 @@ class AnalysisManager(threading.Thread):
         guest_manager = GuestManager(self.machine.name, self.machine.ip, self.machine.platform, self.task.id, self)
         self.guest_manager = guest_manager
 
+        # Read/store VNC port outside _db_unit so libvirt/SSH XMLDesc RPCs never hold a DB transaction open.
+        machinery = self.machinery_manager.machinery
+        if Config("web").guacamole.enabled and hasattr(machinery, "store_vnc_port"):
+            machinery.store_vnc_port(self.machine.label, self.task.id)
+
         def _prepare_guest_start():
-            machinery = self.machinery_manager.machinery
-            has_vnc_password = callable(getattr(machinery, "get_vnc_password", None)) and bool(
-                machinery.get_vnc_password(self.machine.label)
-            )
-            if (Config("web").guacamole.enabled or has_vnc_password) and hasattr(machinery, "store_vnc_port"):
-                machinery.store_vnc_port(self.machine.label, self.task.id)
             clock = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
             return clock

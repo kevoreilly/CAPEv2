@@ -1072,6 +1072,63 @@ def tasks_view(request, task_id):
     return Response(resp)
 
 
+_OIDC_ENABLED = bool(getattr(web_conf, "oidc", {}).get("enabled", False)) if hasattr(getattr(web_conf, "oidc", None), "get") else False
+_TASK_VNC_AUTH_CLASSES = [
+    cls
+    for cls in (ApiKeyAuthentication, None if _OIDC_ENABLED else SessionAuthentication)
+    if cls is not None
+]
+
+
+@csrf_exempt
+@api_view(["GET"])
+@authentication_classes(_TASK_VNC_AUTH_CLASSES)
+def tasks_vnc(request, task_id):
+    """Return active VNC connection details (including ephemeral per-task password) for a running task."""
+    vnc_conf = getattr(apiconf, "taskvnc", None)
+    if not (vnc_conf and vnc_conf.get("enabled", False)):
+        return Response({"error": True, "error_value": "Task VNC API is Disabled"}, status=403)
+
+    if vnc_conf.get("auth_only", True) and not getattr(request.user, "is_authenticated", False):
+        return Response({"error": True, "error_value": "Authentication required"}, status=401)
+
+    task = db.view_task(int(task_id), details=True)
+    if not task or task.status != TASK_RUNNING:
+        return Response({"error": True, "error_value": "Running task not found"}, status=404)
+
+    guest = getattr(task, "guest", None)
+    guest_label = getattr(guest, "label", None) if guest is not None else None
+    vm_label = str(guest_label or getattr(task, "machine", None) or "")
+    vnc_port = None
+    opts = get_options(getattr(task, "options", "") or "")
+    raw_port = opts.get("vnc_port")
+    if raw_port is not None:
+        with suppress(TypeError, ValueError):
+            parsed_port = int(raw_port)
+            if parsed_port > 0:
+                vnc_port = parsed_port
+    if vnc_port is None and vm_label:
+        with suppress(Exception):
+            from lib.tenancy.storage.guac import local_vnc_port
+
+            vnc_port = local_vnc_port(vm_label, retries=1)
+
+    data = {
+        "task_id": int(task.id),
+        "machine": vm_label,
+        "vnc_port": vnc_port,
+    }
+    task_attrs = getattr(task, "attributes", None)
+    if isinstance(task_attrs, dict):
+        vnc_password = task_attrs.get("vnc_password")
+        if isinstance(vnc_password, str) and vnc_password:
+            data["vnc_password"] = vnc_password
+
+    resp = Response({"error": False, "data": data})
+    resp["Cache-Control"] = "no-store"
+    return resp
+
+
 @csrf_exempt
 @api_view(["GET"])
 def tasks_reschedule(request, task_id):

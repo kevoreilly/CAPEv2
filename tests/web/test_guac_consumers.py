@@ -544,10 +544,17 @@ class TestGuacConsumers:
             await communicator.disconnect()
 
     @pytest.mark.parametrize(
-        "worker_password, static_password, expected_password",
+        "worker_password, control_plane_attrs, static_password, expected_password",
         [
-            pytest.param("DiStPw12", "static_pwd", "DiStPw12", id="distributed-worker-password"),
-            pytest.param(None, "static_pwd", "static_pwd", id="distributed-fallback-static-password"),
+            pytest.param("DiStPw12", {"vnc_password": "CtrlPln1"}, "static_pwd", "DiStPw12", id="distributed-worker-password"),
+            pytest.param(None, {}, "static_pwd", "static_pwd", id="distributed-fallback-static-password"),
+            pytest.param(
+                None,
+                {"vnc_password": "CtrlPln1"},
+                "static_pwd",
+                "static_pwd",
+                id="distributed-ignores-control-plane-vnc-password",
+            ),
         ],
     )
     async def test_consumer_distributed_vnc_password_selection(
@@ -556,12 +563,14 @@ class TestGuacConsumers:
         monkeypatch,
         caplog,
         worker_password,
+        control_plane_attrs,
         static_password,
         expected_password,
     ):
         import lib.tenancy.storage.guac as storage_guac
 
-        guac_consumer_app, _ = guac_consumer_app_factory()
+        fake_db = FakeDatabase(task=FakeTask(123, "running", attributes=control_plane_attrs))
+        guac_consumer_app, _ = guac_consumer_app_factory(fake_db=fake_db)
         monkeypatch.setattr(consumers.web_cfg.guacamole, "password", static_password, raising=False)
         monkeypatch.setattr(
             storage_guac,

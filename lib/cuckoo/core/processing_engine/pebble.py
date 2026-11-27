@@ -140,9 +140,9 @@ class PebbleEngine(ProcessingEngine):
         now = time.monotonic()
         for future in pending_keys:
             try:
+                is_running = future.running()
                 if future.done():
                     continue
-                is_running = future.running()
             except Exception:
                 is_running = False
 
@@ -151,6 +151,11 @@ class PebbleEngine(ProcessingEngine):
             with self._lock:
                 if future not in self._pending or future in self._finalizing:
                     continue
+                try:
+                    if future.done():
+                        continue
+                except Exception:
+                    pass
                 started = self._scheduled_at.get(future, now)
                 if not is_running:
                     started = max(started, self._pool_created_at)

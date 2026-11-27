@@ -203,3 +203,28 @@ def test_add_nfs_entry_replaces_stale_host_when_unmounted(tmp_path):
         assert f"10.0.0.10:/opt/CAPEv2 {worker_path} nfs" not in written_fstab
         assert f"10.0.0.25:/opt/CAPEv2 {worker_path} nfs" in written_fstab
         mock_mount.assert_called_once_with(["mount", worker_path])
+
+
+def test_remove_nfs_entry_skips_umount_when_host_mismatch(tmp_path):
+    workers_dir = tmp_path / "workers"
+    workers_dir.mkdir()
+    worker_path = os.path.realpath(str(workers_dir / "worker-a"))
+    initial_fstab = f"10.0.0.99:/opt/CAPEv2 {worker_path} nfs _netdev 0 0\n"
+
+    with (
+        patch.object(fstab, "CUCKOO_ROOT", str(tmp_path)),
+        patch.object(fstab, "path_read_file", return_value=initial_fstab),
+        patch.object(fstab, "path_write_file") as mock_write,
+        patch.object(fstab.subprocess, "check_output") as mock_umount,
+    ):
+        fstab.dist_conf.NFS.mount_folder = "workers"
+        fstab.dist_conf.NFS.allowed_networks = ""
+
+        assert fstab.remove_nfs_entry("10.0.0.2", "worker-a") is False
+        mock_write.assert_not_called()
+        mock_umount.assert_not_called()
+
+        # remove_nfs_entry_by_folder (validated_host=None) still unmounts even if no entry matched.
+        with patch.object(fstab, "path_read_file", return_value="# empty\n"):
+            assert fstab.remove_nfs_entry_by_folder("worker-a") is False
+        mock_umount.assert_called_once_with(["umount", worker_path])

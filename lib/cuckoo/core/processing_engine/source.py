@@ -3,6 +3,10 @@ from the DB and writes terminal status. Engines differ in how they *run* tasks,
 not in how they pull them."""
 import logging
 
+from sqlalchemy import update
+from sqlalchemy.orm import Session, scoped_session
+from sqlalchemy.orm.util import identity_key
+
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_FAILED_PROCESSING, TASK_REPORTED, Task
 
 log = logging.getLogger(__name__)
@@ -34,6 +38,21 @@ class TaskSource:
         # Always writes TASK_FAILED_PROCESSING regardless of which status this
         # source polls (the `failed_processing` constructor flag controls reads).
         # Never downgrade a task that already completed reporting.
+        session = getattr(self.db, "session", None)
+        if isinstance(session, (Session, scoped_session)):
+            raw_session = session() if isinstance(session, scoped_session) else session
+            with raw_session.begin():
+                raw_session.execute(
+                    update(Task)
+                    .where(Task.id == task_id, Task.status != TASK_REPORTED)
+                    .values(status=TASK_FAILED_PROCESSING),
+                    execution_options={"synchronize_session": False},
+                )
+                cached = raw_session.identity_map.get(identity_key(Task, (task_id,)))
+                if cached is not None:
+                    raw_session.expire(cached)
+            return
+
         with self.db.session.begin():
             view_task = getattr(self.db, "view_task", None)
             if callable(view_task):

@@ -51,16 +51,84 @@ def test_is_blocklisted_empty_category(monkeypatch):
     assert community.is_blocklisted("missing", "foo.py", "/tmp/foo.py") is False
 
 
-def test_clean_category_is_rooted_at_cuckoo_root(monkeypatch):
-    removed = []
-    monkeypatch.setattr(community.shutil, "rmtree", removed.append)
-    monkeypatch.setattr(community, "path_exists", lambda path: True)
-    monkeypatch.setattr(community, "core_tracked_files", lambda: None)
+def test_clean_category_is_rooted_at_cuckoo_root(monkeypatch, tmp_path):
+    root = tmp_path / "cape"
+    other = tmp_path / "cwd"
+    (root / "modules" / "machinery").mkdir(parents=True)
+    (other / "modules" / "machinery").mkdir(parents=True)
+
+    root_core = root / "modules" / "machinery" / "kvm.py"
+    root_core.write_text("# core\n")
+    root_extra = root / "modules" / "machinery" / "extra.py"
+    root_extra.write_text("# community\n")
+    cwd_file = other / "modules" / "machinery" / "keep.py"
+    cwd_file.write_text("# cwd\n")
+
+    monkeypatch.chdir(other)
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(
+        community,
+        "core_tracked_files",
+        lambda: frozenset({os.path.normpath("modules/machinery/kvm.py")}),
+    )
 
     community.clean_category("modules/machinery")
 
-    # Not the relative path, which would delete relative to the current directory.
-    assert removed == [os.path.join(CUCKOO_ROOT, "modules/machinery")]
+    # Operates on CUCKOO_ROOT, not relative to the current working directory.
+    assert root_core.exists()
+    assert not root_extra.exists()
+    assert cwd_file.exists()
+
+
+@pytest.mark.parametrize("tracked_val", [None, frozenset()])
+def test_clean_category_refuses_rmtree_when_git_tracking_unavailable(monkeypatch, tmp_path, caplog, tracked_val):
+    import logging
+
+    root = tmp_path / "cape"
+    cat = root / "modules" / "machinery"
+    cat.mkdir(parents=True)
+    core_file = cat / "kvm.py"
+    core_file.write_text("# core\n")
+
+    rmtree_calls = []
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community.shutil, "rmtree", rmtree_calls.append)
+    monkeypatch.setattr(community, "core_tracked_files", lambda: tracked_val)
+
+    with caplog.at_level(logging.WARNING):
+        community.clean_category("modules/machinery")
+
+    assert rmtree_calls == []
+    assert core_file.exists()
+    assert "core git-tracked files could not be determined" in caplog.text
+
+
+def test_clean_category_refuses_top_level_symlink(monkeypatch, tmp_path, caplog):
+    import logging
+
+    root = tmp_path / "cape"
+    (root / "modules").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    victim = outside / "keep.txt"
+    victim.write_text("important\n")
+
+    link = root / "modules" / "signatures"
+    os.symlink(str(outside), str(link))
+
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(
+        community,
+        "core_tracked_files",
+        lambda: frozenset({os.path.normpath("modules/signatures/__init__.py")}),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        community.clean_category("modules/signatures")
+
+    assert link.is_symlink()
+    assert victim.exists()
+    assert "Refusing to clean symlinked category folder" in caplog.text
 
 
 def test_clean_category_preserves_git_tracked_files_and_deletes_untracked(monkeypatch, tmp_path):
@@ -145,6 +213,7 @@ def test_core_tracked_files_parses_nul_separated_output(monkeypatch):
 
     tracked = community.core_tracked_files()
     assert tracked == frozenset({"modules/machinery/virtualbox.py", "modules/signatures/foo.py"})
+    assert calls[0][0] == ["git", "-C", community.CUCKOO_ROOT, "-c", f"safe.directory={community.CUCKOO_ROOT}", "ls-files", "-z"]
 
     # Cached: a second call must not spawn git again.
     community.core_tracked_files()

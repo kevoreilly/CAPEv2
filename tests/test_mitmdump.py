@@ -28,6 +28,10 @@ class TestMitmdumpOptions:
             "mitmdump=0",
             "mitmdump=no",
             "mitmdump=false",
+            "mitmdump=off",
+            "mitmdump=OFF",
+            "mitmdump=none",
+            "mitmdump=None",
             "mitmdump=",
             "nomitmdump=1",
             "referrer=https://example.com/mitmdump",
@@ -259,3 +263,57 @@ class TestMitmdumpEnabled:
             ("enable_mitmdump", thread.host_iface, "10.0.0.5", "8001", "ns1"),
             ("disable_mitmdump", thread.host_iface, "10.0.0.5", "8001", "ns1"),
         ]
+
+    @pytest.mark.parametrize("term_exc", [ProcessLookupError(), PermissionError("operation not permitted")])
+    def test_stop_guards_wrapper_terminate_errors_and_disables_firewall(self, tmp_path, caplog, term_exc):
+        with (
+            patch.object(mitmdump_mod, "CUCKOO_ROOT", str(tmp_path)),
+            patch.object(mitmdump_mod.MitmdumpThread, "_get_unused_port", return_value="8001"),
+        ):
+            thread = mitmdump_mod.MitmdumpThread(_make_task(task_id=44, options="mitmdump=yes"), _make_machine("10.0.0.6"))
+
+        fake_proc = MagicMock(pid=54321)
+        fake_proc.poll.side_effect = [None, 0]
+        fake_proc.terminate.side_effect = term_exc
+
+        with (
+            patch.object(mitmdump_mod, "rooter", return_value={"output": "", "exception": None}) as mock_rooter,
+            patch.object(mitmdump_mod.subprocess, "Popen", return_value=fake_proc),
+            patch.object(mitmdump_mod, "read_pid_from_file", return_value=None),
+            caplog.at_level(logging.ERROR),
+        ):
+            thread.run()
+            thread.stop()
+
+        fake_proc.terminate.assert_called_once_with()
+        if isinstance(term_exc, PermissionError):
+            assert "Failed to terminate mitmdump wrapper process 54321" in caplog.text
+        assert [c.args for c in mock_rooter.call_args_list] == [
+            ("enable_mitmdump", thread.host_iface, "10.0.0.6", "8001", ""),
+            ("disable_mitmdump", thread.host_iface, "10.0.0.6", "8001", ""),
+        ]
+
+    def test_repeated_stop_does_not_resignal_pid(self, tmp_path):
+        with (
+            patch.object(mitmdump_mod, "CUCKOO_ROOT", str(tmp_path)),
+            patch.object(mitmdump_mod.MitmdumpThread, "_get_unused_port", return_value="8001"),
+        ):
+            thread = mitmdump_mod.MitmdumpThread(_make_task(task_id=45, options="mitmdump=yes"), _make_machine("10.0.0.7"))
+
+        os.makedirs(thread.mitmdump_path, exist_ok=True)
+        with open(os.path.join(thread.mitmdump_path, "mitmdump.pid"), "w") as f:
+            f.write("24680\n")
+
+        fake_proc = MagicMock(pid=24680)
+        fake_proc.poll.return_value = 0
+        with (
+            patch.object(mitmdump_mod, "rooter", return_value={"output": "", "exception": None}) as mock_rooter,
+            patch.object(mitmdump_mod.subprocess, "Popen", return_value=fake_proc),
+            patch.object(mitmdump_mod.os, "kill") as mock_kill,
+        ):
+            thread.run()
+            thread.stop()
+            thread.stop()
+
+        mock_kill.assert_called_once_with(24680, signal.SIGTERM)
+        assert [c.args[0] for c in mock_rooter.call_args_list] == ["enable_mitmdump", "disable_mitmdump"]

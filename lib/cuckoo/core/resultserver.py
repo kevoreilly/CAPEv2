@@ -1260,6 +1260,7 @@ class ResultServer(metaclass=Singleton):
                 worker.join(timeout=5)
                 if worker.is_alive():
                     worker.kill()
+                    worker.join(timeout=5)
             with suppress(Exception):
                 worker.close()
             raise CuckooOperationalError(
@@ -1287,6 +1288,7 @@ class ResultServer(metaclass=Singleton):
                 worker.join(timeout=5)
                 if worker.is_alive():
                     worker.kill()
+                    worker.join(timeout=5)
         self.workers.clear()
 
     def shutdown(self):

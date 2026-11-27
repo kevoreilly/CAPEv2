@@ -403,6 +403,61 @@ def test_multiworker_add_task_raises_and_cleans_up_on_set_task_failure(monkeypat
     assert len(created) == 1 and created[0].started and created[0].closed
 
 
+def test_multiworker_add_task_joins_after_kill_when_terminate_times_out(monkeypatch):
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    class _StubbornWorker:
+        def __init__(self, ip, port, listen_ip):
+            self.pid = 88888
+            self.events = []
+            self._alive = True
+
+        def start(self):
+            self.events.append("start")
+
+        def is_alive(self):
+            return self._alive
+
+        def set_task(self, task_id, main_task_id=None):
+            return False
+
+        def terminate(self):
+            self.events.append("terminate")
+
+        def kill(self):
+            self.events.append("kill")
+
+        def join(self, timeout=None):
+            self.events.append(("join", timeout))
+            if "kill" in self.events:
+                self._alive = False
+
+        def close(self):
+            self.events.append("close")
+
+    created = []
+
+    def _factory(**kw):
+        w = _StubbornWorker(**kw)
+        created.append(w)
+        return w
+
+    monkeypatch.setattr(rs_mod, "ResultServerWorkerProcess", _factory)
+    rs = object.__new__(rs_mod.ResultServer)
+    rs.multiworker = True
+    rs.ip = "127.0.0.1"
+    rs.workers = {}
+
+    task = types.SimpleNamespace(id=78, attributes={})
+    machine = types.SimpleNamespace(ip="192.168.56.12", resultserver_port=2045)
+
+    with pytest.raises(CuckooOperationalError, match="failed to start for task #78"):
+        rs._add_task_multiworker(task, machine)
+
+    assert "192.168.56.12" not in rs.workers
+    assert created[0].events == ["start", "terminate", ("join", 5), "kill", ("join", 5), "close"]
+
+
 def test_worker_set_task_returns_false_immediately_when_failed_event_set():
     import threading
     import time

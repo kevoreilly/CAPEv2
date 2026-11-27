@@ -141,6 +141,8 @@ def _remove_fstab_entry(worker_path: str, validated_host: str | None = None) -> 
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 removed = True
                 break
+        if validated_host is not None and not removed:
+            return False
         try:
             subprocess.check_output(["umount", worker_path])
         except Exception as e:

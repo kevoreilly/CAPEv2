@@ -1640,6 +1640,41 @@ class TestAnalysisManager:
         assert "FaLlBk99" not in formatted_tb
         assert "<redacted>" in caplog.text
 
+    def test_result_server_operational_error_does_not_push_to_scheduler_error_queue(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+    ):
+        import queue
+
+        from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+        err_queue: queue.Queue = queue.Queue()
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager, error_queue=err_queue)
+        mock_rs = mocker.MagicMock()
+        mock_rs.add_task.side_effect = CuckooOperationalError("ResultServer worker failed to start")
+        mocker.patch("lib.cuckoo.core.analysis_manager.ResultServer", return_value=mock_rs)
+
+        with pytest.raises(CuckooOperationalError, match="worker failed to start"):
+            with am.result_server():
+                pass
+
+        assert err_queue.empty()
+        mock_rs.del_task.assert_not_called()
+
+        # Non-operational/fatal exceptions still propagate to error_queue for scheduler shutdown.
+        mock_rs.add_task.side_effect = RuntimeError("fatal resultserver failure")
+        with pytest.raises(RuntimeError, match="fatal resultserver failure"):
+            with am.result_server():
+                pass
+
+        queued = err_queue.get_nowait()
+        assert isinstance(queued, RuntimeError)
+        assert "fatal resultserver failure" in str(queued)
+
 
 
 

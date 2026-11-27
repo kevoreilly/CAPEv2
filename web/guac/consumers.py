@@ -90,10 +90,18 @@ def _check_vm_running(vm_label):
 
 
 def _view_task_with_guest(db, task_id):
+    session = getattr(db, "session", None)
+    remove = getattr(session, "remove", None)
+    if callable(remove):
+        remove()
     try:
-        return db.view_task(task_id, details=True)
-    except TypeError:
-        return db.view_task(task_id)
+        try:
+            return db.view_task(task_id, details=True)
+        except TypeError:
+            return db.view_task(task_id)
+    finally:
+        if callable(remove):
+            remove()
 
 
 def _is_task_active_for_vm(task, vm_label: str) -> bool:
@@ -206,6 +214,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Validate session token, look up VNC server-side, connect to guacd."""
+        vnc_password = None
+        guest_password = ""
         try:
             if getattr(settings, "WEB_AUTHENTICATION", False):
                 user = self.scope.get("user")
@@ -279,6 +289,9 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 else:
                     vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
                     vnc_password = _extract_task_vnc_password(task)
+                    if vnc_port and not vnc_password:
+                        refreshed_task = await sync_to_async(_view_task_with_guest)(db, self.guac_task_id)
+                        vnc_password = _extract_task_vnc_password(refreshed_task)
                 if not vnc_port:
                     logger.warning(
                         "WebSocket rejected: no VNC port for VM %s", vm_label
@@ -439,7 +452,11 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 await self._close_websocket()
 
         except Exception as e:
-            logger.error("Error during Guacamole connect: %s", str(e))
+            safe_err = str(e)
+            for secret in (vnc_password, guest_password):
+                if secret:
+                    safe_err = safe_err.replace(secret, "<redacted>")
+            logger.error("Error during Guacamole connect: %s", safe_err)
             self.is_closing = True
             await self._close_websocket()
 

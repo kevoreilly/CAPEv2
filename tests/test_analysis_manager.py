@@ -1592,6 +1592,55 @@ class TestAnalysisManager:
         assert db.view_task(task.id).get_attribute("vnc_password") is None
         assert cleared_labels == [machine.label]
 
+    def test_machine_running_fallback_persist_redacts_vnc_password_on_db_error(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        monkeypatch,
+        caplog,
+        tmp_cuckoo_root: pathlib.Path,
+    ):
+        import contextlib
+        import logging
+        import traceback
+        from sqlalchemy.exc import OperationalError
+        import lib.cuckoo.core.database as db_mod
+        from lib.cuckoo.core.analysis_manager import CuckooDeadMachine
+
+        machinery_manager.machine_lock = contextlib.nullcontext()
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+        am.init_storage()
+
+        monkeypatch.setattr("lib.cuckoo.core.database.time.sleep", lambda _s: None)
+        monkeypatch.setattr(MockMachinery, "start", lambda self_m, label: None, raising=False)
+        monkeypatch.setattr(MockMachinery, "stop", lambda self_m, label: None, raising=False)
+        monkeypatch.setattr(MockMachinery, "bind_vnc_task", lambda self_m, label, tid: False, raising=False)
+        monkeypatch.setattr(MockMachinery, "get_vnc_password", lambda self_m, label: "FaLlBk99", raising=False)
+
+        def fail_set(task_id, password):
+            raise OperationalError(
+                "UPDATE tasks SET attributes=? WHERE tasks.id = ?",
+                (f'{{"vnc_password": "{password}"}}', task_id),
+                Exception("connection dropped"),
+            )
+
+        monkeypatch.setattr(db_mod._DATABASE, "set_vnc_password", fail_set)
+
+        with caplog.at_level(logging.WARNING):
+            with pytest.raises(CuckooDeadMachine) as exc_info:
+                with am.machine_running():
+                    pass
+
+        formatted_tb = "".join(traceback.format_exception(exc_info.value))
+        assert "FaLlBk99" not in caplog.text
+        assert "FaLlBk99" not in formatted_tb
+        assert "<redacted>" in caplog.text
+
+
 
 
 

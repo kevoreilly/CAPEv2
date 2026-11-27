@@ -549,6 +549,7 @@ class LibVirtMachinery(Machinery):
                 lambda: self.db.set_vnc_password(task_id, password),
                 f"persist vnc_password for task {task_id}",
                 logger=log,
+                redact_error=lambda err: self._redact_vnc_password(err, password),
             )
         else:
             result = self.db.set_vnc_password(task_id, password)
@@ -589,7 +590,7 @@ class LibVirtMachinery(Machinery):
             root = ET.fromstring(vm.XMLDesc(xml_flags))
         except (libvirt.libvirtError, ET.ParseError) as e:
             safe_err = self._redact_vnc_password(e, password)
-            raise CuckooMachineError(f"Unable to read domain XML for VNC password update on {label}: {safe_err}") from e
+            raise CuckooMachineError(f"Unable to read domain XML for VNC password update on {label}: {safe_err}") from None
 
         vnc_devices = root.findall("./devices/graphics[@type='vnc']")
         if not vnc_devices:
@@ -611,7 +612,7 @@ class LibVirtMachinery(Machinery):
                     label,
                     safe_err,
                 )
-                raise CuckooMachineError(f"Unable to set per-task VNC password on virtual machine {label}: {safe_err}") from e
+                raise CuckooMachineError(f"Unable to set per-task VNC password on virtual machine {label}: {safe_err}") from None
 
     def _store_vnc_details(self, label: str, task_id: int) -> None:
         """Persist the active VNC port (and per-task VNC password, if set) for a task."""
@@ -622,23 +623,43 @@ class LibVirtMachinery(Machinery):
             raise CuckooMachineError(f"Unable to read VNC details for virtual machine {label}: {e}") from e
 
         password = self.get_vnc_password(label)
-        if password:
-            self.db.set_vnc_password(task_id, password)
-
         graphics = xml.find("./devices/graphics[@type='vnc']")
         if graphics is None:
             graphics = xml.find("./devices/graphics")
+        port = -1
         if graphics is not None:
             raw_port = graphics.get("port")
             try:
                 port = int(raw_port) if raw_port is not None else -1
             except (TypeError, ValueError):
                 port = -1
+
+        def _persist():
+            if password:
+                self.db.set_vnc_password(task_id, password)
             if port > 0:
                 self.db.set_vnc_port(task_id, port)
-                return
 
-        log.warning("Can't get VNC port for %s", label)
+        if password or port > 0:
+            try:
+                if hasattr(self.db, "session") and hasattr(self.db, "transaction"):
+                    run_db_unit(
+                        self.db,
+                        _persist,
+                        f"store VNC details for task {task_id}",
+                        logger=log,
+                        redact_error=(lambda err: self._redact_vnc_password(err, password)) if password else None,
+                    )
+                else:
+                    _persist()
+            except Exception as e:
+                if password and password in str(e):
+                    safe_err = self._redact_vnc_password(e, password)
+                    raise CuckooMachineError(f"Unable to store VNC details for virtual machine {label}: {safe_err}") from None
+                raise
+
+        if port <= 0:
+            log.warning("Can't get VNC port for %s", label)
 
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.
@@ -751,7 +772,7 @@ class LibVirtMachinery(Machinery):
                 if isinstance(e, CuckooMachineError):
                     raise
                 safe_err = self._redact_vnc_password(e, password)
-                raise CuckooMachineError(f"Unable to enforce per-task VNC password on virtual machine {label}: {safe_err}") from e
+                raise CuckooMachineError(f"Unable to enforce per-task VNC password on virtual machine {label}: {safe_err}") from None
             self._set_vnc_password(label, password)
             return
 

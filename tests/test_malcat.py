@@ -433,6 +433,60 @@ def test_malcat_capa_blank_ssl_verify_falls_back_to_similarity(monkeypatch):
     monkeypatch.setattr(malcat_capa, "_client", None)
 
 
+def test_malcat_capa_and_kesakode_engine_whitespace_ssl_verify_keeps_tls_enabled(monkeypatch):
+    from lib.cuckoo.common.integrations.malcat import capa as malcat_capa
+    from lib.cuckoo.common.integrations.malcat import client as malcat_client
+
+    created = []
+
+    class _FakeClient:
+        def __init__(self, host, api_key, ssl_verify, timeout):
+            created.append((host, api_key, ssl_verify, timeout))
+
+    monkeypatch.setattr(malcat_capa, "_client", None)
+    monkeypatch.setattr(malcat_client, "MalcatClient", _FakeClient)
+
+    # Whitespace malcat_ssl_verify falls back to kesakode_ssl_verify; whitespace kesakode_ssl_verify defaults to True.
+    class _CfgWhitespace:
+        def __init__(self, _name):
+            pass
+
+        def get(self, section):
+            if section == "malcat":
+                return {"malcat_host": "", "malcat_apikey": "", "malcat_ssl_verify": "   \t "}
+            if section == "similarity":
+                return {"kesakode_host": "https://bridge:8090", "kesakode_apikey": "k", "kesakode_ssl_verify": "   "}
+            raise KeyError(section)
+
+    monkeypatch.setattr("lib.cuckoo.common.config.Config", _CfgWhitespace)
+    malcat_capa._get_client()
+    assert created[-1] == ("https://bridge:8090", "k", True, 120)
+
+    # Explicit "no" still disables TLS verification.
+    monkeypatch.setattr(malcat_capa, "_client", None)
+
+    class _CfgExplicitFalse:
+        def __init__(self, _name):
+            pass
+
+        def get(self, section):
+            if section == "malcat":
+                return {"malcat_host": "https://bridge:8090", "malcat_ssl_verify": "no"}
+            if section == "similarity":
+                return {"kesakode_ssl_verify": "yes"}
+            raise KeyError(section)
+
+    monkeypatch.setattr("lib.cuckoo.common.config.Config", _CfgExplicitFalse)
+    malcat_capa._get_client()
+    assert created[-1] == ("https://bridge:8090", "", False, 120)
+    monkeypatch.setattr(malcat_capa, "_client", None)
+
+    # KesakodeEngine treats blank/whitespace kesakode_ssl_verify as True, explicit "no" as False.
+    assert KesakodeEngine({"kesakode_ssl_verify": ""}).ssl_verify is True
+    assert KesakodeEngine({"kesakode_ssl_verify": "   "}).ssl_verify is True
+    assert KesakodeEngine({"kesakode_ssl_verify": "no"}).ssl_verify is False
+
+
 def test_malcat_bridge_analysis_cache_defers_tmp_unlink_while_acquired(tmp_path):
     from lib.cuckoo.common.integrations.malcat import malcat_bridge as mb
 

@@ -778,3 +778,68 @@ def test_installer_nginx_yara_sneck_volatility3_and_systemd_symlink_fixes(tmp_pa
     subprocess.run(["bash", "-c", script], env=env, check=True)
     assert (dest_systemd / "cape.service").is_symlink()
     assert (src_systemd / "cape.service").read_text(encoding="utf-8") == original_src
+
+
+def test_install_yara_python_preserves_yara_x_unless_explicitly_replaced(tmp_path):
+    cape_root = tmp_path / "CAPEv2"
+    cape_root.mkdir()
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    uv_log = tmp_path / "uv.log"
+    _write_exe(
+        fake_bin / "sudo",
+        '#!/bin/bash\nwhile [ $# -gt 0 ]; do case "$1" in -Hu|-u) shift 2 ;; -H) shift ;; *) break ;; esac; done\nexec "$@"\n',
+    )
+    _write_exe(fake_bin / "uv", f'#!/bin/bash\necho "$*" >> "{uv_log}"\n')
+
+    base_script = (
+        "set -euo pipefail\n"
+        f"CAPE_ROOT={str(cape_root)!r}\n"
+        "USER=cape\n"
+        "UV_PYTHON_DIR=/usr/local/share/uv/python\n"
+        f"PYTHON_MGR={str(fake_bin / 'uv')!r}\n"
+        "PYTHON_MGR_PIP=pip\n"
+        f"eval \"$(awk '/^function install_yara_python\\(\\)/,/^\\}}/' {str(CAPE2_SH)!r})\"\n"
+    )
+    env = dict(os.environ)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+
+    # Default invocation (from base/all) must NOT uninstall yara-x.
+    subprocess.run(["bash", "-c", base_script + "install_yara_python\n"], env=env, check=True)
+    calls_default = uv_log.read_text(encoding="utf-8")
+    assert "--reinstall-package yara-python yara-python" in calls_default
+    assert "uninstall" not in calls_default
+
+    # Explicit --replace-yara-x (from `cape2.sh yara`) must uninstall yara-x.
+    uv_log.unlink()
+    subprocess.run(["bash", "-c", base_script + "install_yara_python --replace-yara-x\n"], env=env, check=True)
+    calls_explicit = uv_log.read_text(encoding="utf-8")
+    assert "--reinstall-package yara-python yara-python" in calls_explicit
+    assert f"pip uninstall --python {cape_root}/.venv/bin/python yara-x" in calls_explicit
+
+    # Verify dispatcher wiring: base/all call install_yara without flag; yara passes --replace-yara-x.
+    cape2_src = CAPE2_SH.read_text(encoding="utf-8")
+    assert 'install_yara_python "${1:-}"' in cape2_src
+    assert "'yara')\n    install_yara --replace-yara-x;;" in cape2_src
+    base_block = cape2_src.split("'base')\n", 1)[1].split(";;", 1)[0]
+    all_block = cape2_src.split("'all')\n", 1)[1].split(";;", 1)[0]
+    assert "install_yara --replace-yara-x" not in base_block
+    assert "install_yara --replace-yara-x" not in all_block
+
+
+def test_install_nginx_and_letsencrypt_require_domain_and_dispatcher_forwards_arg2():
+    cape2_src = CAPE2_SH.read_text(encoding="utf-8")
+    assert "'nginx')\n    install_nginx \"$2\";;" in cape2_src
+    assert "'letsencrypt')\n    install_letsencrypt \"$2\";;" in cape2_src
+
+    # Extract full function definitions safely (install_nginx contains heredocs with column-0 `}`).
+    nginx_fn = cape2_src.split("function install_nginx() {", 1)[1].split("function install_letsencrypt(){", 1)[0]
+    nginx_src = "function install_nginx() {" + nginx_fn
+    le_fn = cape2_src.split("function install_letsencrypt(){", 1)[1].split("function install_fail2ban() {", 1)[0]
+    le_src = "function install_letsencrypt(){" + le_fn
+
+    for fn_name, fn_src in (("install_nginx", nginx_src), ("install_letsencrypt", le_src)):
+        script = f"set -euo pipefail\n{fn_src}\n{fn_name}\n"
+        res = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+        assert res.returncode == 1
+        assert "<domain.com>" in res.stderr

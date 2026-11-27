@@ -76,9 +76,9 @@ def _get_client():
         host = mcfg.get("malcat_host") or scfg.get("kesakode_host") or "http://127.0.0.1:8090"
         api_key = mcfg.get("malcat_apikey") or scfg.get("kesakode_apikey") or ""
         raw_ssl = mcfg.get("malcat_ssl_verify")
-        if raw_ssl in (None, ""):
+        if raw_ssl is None or (isinstance(raw_ssl, str) and not raw_ssl.strip()):
             raw_ssl = scfg.get("kesakode_ssl_verify", True)
-            if raw_ssl in (None, ""):
+            if raw_ssl is None or (isinstance(raw_ssl, str) and not raw_ssl.strip()):
                 raw_ssl = True
         ssl_verify = _as_bool(raw_ssl)
         timeout = int(mcfg.get("timeout", 120) or 120)

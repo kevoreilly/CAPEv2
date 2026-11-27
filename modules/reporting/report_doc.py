@@ -17,6 +17,7 @@ repconf = Config("reporting")
 CHUNK_CALL_SIZE = 100
 MAX_CALL_VALUE_LEN = 16384
 MAX_MONGO_CALL_CHUNK_BYTES = 12 * 1024 * 1024
+MAX_MONGO_BULK_BATCH_BYTES = 24 * 1024 * 1024
 
 try:
     from bson import BSON as _BSON
@@ -152,8 +153,10 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN, bytes_to_str: bool = False):
+def _sanitize_call_data(obj, max_len: int | None = None, bytes_to_str: bool = False):
     """Sanitize UTF-8 and cap oversized call values using copy-on-write so caller data is not mutated."""
+    if max_len is None:
+        max_len = MAX_CALL_VALUE_LEN
     if isinstance(obj, str):
         if len(obj) > max_len:
             obj = f"{obj[:max_len]}...[truncated]"
@@ -170,7 +173,8 @@ def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN, bytes_to_str: bo
     if isinstance(obj, dict):
         new_dict = None
         for k, v in obj.items():
-            new_k = _sanitize_call_data(k, max_len, bytes_to_str=True) if isinstance(k, (str, bytes)) else k
+            raw_k = k if isinstance(k, (str, bytes)) else str(k)
+            new_k = _sanitize_call_data(raw_k, max_len, bytes_to_str=True)
             if isinstance(new_k, str) and "\x00" in new_k:
                 new_k = new_k.replace("\x00", "")
             new_v = _sanitize_call_data(v, max_len, bytes_to_str=bytes_to_str)
@@ -197,11 +201,12 @@ def _sanitize_call_data(obj, max_len: int = MAX_CALL_VALUE_LEN, bytes_to_str: bo
     return obj
 
 
-def _build_mongo_call_docs(pid, task_id, call_chunk, max_bytes=MAX_MONGO_CALL_CHUNK_BYTES):
-    """Build one or more MongoDB call-chunk documents bounded below MongoDB's 16 MiB BSON limit."""
-    sanitized = _sanitize_call_data(call_chunk)
-    doc = {"pid": pid, "calls": sanitized, "task_id": task_id}
-    if _BSON is None or len(sanitized) <= 1:
+def _split_mongo_call_docs(pid, task_id, sanitized_calls, max_bytes=None):
+    """Split already-sanitized calls recursively so each MongoDB chunk stays below max_bytes."""
+    if max_bytes is None:
+        max_bytes = MAX_MONGO_CALL_CHUNK_BYTES
+    doc = {"pid": pid, "calls": sanitized_calls, "task_id": task_id}
+    if _BSON is None or len(sanitized_calls) <= 1:
         return [doc]
     try:
         encoded_size = len(_BSON.encode(doc))
@@ -209,10 +214,59 @@ def _build_mongo_call_docs(pid, task_id, call_chunk, max_bytes=MAX_MONGO_CALL_CH
         return [doc]
     if encoded_size <= max_bytes:
         return [doc]
-    mid = len(sanitized) // 2
-    return _build_mongo_call_docs(pid, task_id, sanitized[:mid], max_bytes=max_bytes) + _build_mongo_call_docs(
-        pid, task_id, sanitized[mid:], max_bytes=max_bytes
+    mid = len(sanitized_calls) // 2
+    return _split_mongo_call_docs(pid, task_id, sanitized_calls[:mid], max_bytes=max_bytes) + _split_mongo_call_docs(
+        pid, task_id, sanitized_calls[mid:], max_bytes=max_bytes
     )
+
+
+def _build_mongo_call_docs(pid, task_id, call_chunk, max_bytes=None):
+    """Build one or more MongoDB call-chunk documents bounded below MongoDB's 16 MiB BSON limit."""
+    sanitized = _sanitize_call_data(call_chunk)
+    return _split_mongo_call_docs(pid, task_id, sanitized, max_bytes=max_bytes)
+
+
+def _estimate_bson_size(doc) -> int:
+    """Return exact BSON byte length when bson is available, else a UTF-8 size estimate."""
+    if _BSON is not None:
+        try:
+            return len(_BSON.encode(doc))
+        except Exception:
+            pass
+    return len(str(doc).encode("utf-8", "replace"))
+
+
+def _iter_mongo_wire_batches(docs, max_batch_bytes=None):
+    """Group call-chunk documents into wire-safe sub-batches below MongoDB's maxMessageSizeBytes."""
+    if max_batch_bytes is None:
+        max_batch_bytes = MAX_MONGO_BULK_BATCH_BYTES
+    batch = []
+    batch_bytes = 0
+    for doc in docs:
+        doc_bytes = _estimate_bson_size(doc)
+        if batch and batch_bytes + doc_bytes > max_batch_bytes:
+            yield batch
+            batch = [doc]
+            batch_bytes = doc_bytes
+        else:
+            batch.append(doc)
+            batch_bytes += doc_bytes
+    if batch:
+        yield batch
+
+
+def _is_duplicate_key_error(exc) -> bool:
+    """Return True if a MongoDB write error indicates duplicate _id (code 11000)."""
+    if getattr(exc, "code", None) == 11000:
+        return True
+    details = getattr(exc, "details", None)
+    if isinstance(details, dict):
+        if details.get("code") == 11000:
+            return True
+        for err in details.get("writeErrors") or []:
+            if isinstance(err, dict) and err.get("code") == 11000:
+                return True
+    return False
 
 
 def insert_calls(report, elastic_db=None, mongodb=False):
@@ -231,9 +285,9 @@ def insert_calls(report, elastic_db=None, mongodb=False):
             to_insert_list = []
             for call_chunk in chunks(process["calls"], CHUNK_CALL_SIZE):
                 to_insert_list.extend(_build_mongo_call_docs(process["process_id"], report["info"]["id"], call_chunk))
-            if to_insert_list:
+            for batch in _iter_mongo_wire_batches(to_insert_list):
                 try:
-                    res = mongo_insert_many("calls", to_insert_list)
+                    res = mongo_insert_many("calls", batch)
                     if res and res.inserted_ids:
                         chunks_ids.extend(res.inserted_ids)
                 except Exception as exc:
@@ -247,14 +301,14 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                     already_inserted = 0
                     failed_indices = set()
                     if isinstance(details, dict) and isinstance(details.get("nInserted"), int):
-                        already_inserted = max(0, min(details["nInserted"], len(to_insert_list)))
-                        for doc in to_insert_list[:already_inserted]:
+                        already_inserted = max(0, min(details["nInserted"], len(batch)))
+                        for doc in batch[:already_inserted]:
                             if "_id" in doc:
                                 chunks_ids.append(doc["_id"])
                         for err in details.get("writeErrors") or []:
                             if isinstance(err, dict) and isinstance(err.get("index"), int):
                                 failed_indices.add(err["index"])
-                    for idx, chunk_doc in enumerate(to_insert_list[already_inserted:], start=already_inserted):
+                    for idx, chunk_doc in enumerate(batch[already_inserted:], start=already_inserted):
                         if idx in failed_indices:
                             continue
                         try:
@@ -262,13 +316,16 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                             if single_res and single_res.inserted_ids:
                                 chunks_ids.extend(single_res.inserted_ids)
                         except Exception as single_exc:
-                            log.error(
-                                "Failed to insert call chunk %d into MongoDB for task %s (PID %s): %s",
-                                idx,
-                                report["info"]["id"],
-                                process["process_id"],
-                                single_exc,
-                            )
+                            if _is_duplicate_key_error(single_exc) and chunk_doc.get("_id") is not None:
+                                chunks_ids.append(chunk_doc["_id"])
+                            else:
+                                log.error(
+                                    "Failed to insert call chunk %d into MongoDB for task %s (PID %s): %s",
+                                    idx,
+                                    report["info"]["id"],
+                                    process["process_id"],
+                                    single_exc,
+                                )
 
         elif elastic_db is not None:
             # Upload with parallel bulk for elastic

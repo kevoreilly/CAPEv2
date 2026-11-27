@@ -74,7 +74,10 @@ class KesakodeEngine(SimilarityEngine):
         # Bridge connection (kept in [similarity] with the other kesakode keys).
         self.host = (self.options.get("kesakode_host") or "http://127.0.0.1:8090").rstrip("/")
         self.api_key = self.options.get("kesakode_apikey") or ""
-        self.ssl_verify = _as_bool(self.options.get("kesakode_ssl_verify", True))
+        raw_ssl = self.options.get("kesakode_ssl_verify", True)
+        if raw_ssl is None or (isinstance(raw_ssl, str) and not raw_ssl.strip()):
+            raw_ssl = True
+        self.ssl_verify = _as_bool(raw_ssl)
 
         # On-demand (online only): when set, the online lookup is deferred to a
         # per-file button in the report (see web on_demand view), so processing

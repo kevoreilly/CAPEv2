@@ -25,11 +25,12 @@ cape ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
 
 import logging
 import os
-import socket
-import time
 import signal
+import socket
 import subprocess
-from threading import Thread
+import threading
+import time
+from threading import Lock, Thread
 
 from lib.cuckoo.common.abstracts import Auxiliary
 from lib.cuckoo.common.config import Config
@@ -97,7 +98,18 @@ def wait_for_pid_exit(pid, timeout=None, poll_interval=0.01, max_poll_interval=0
 
 def _is_mitmdump_enabled(task) -> bool:
     options = getattr(task, "options", None) or ""
-    return "mitmdump" in options
+    enabled = False
+    for option in options.split(","):
+        token = option.strip()
+        if not token:
+            continue
+        if "=" in token:
+            key, val = token.split("=", 1)
+            if key.strip().lower() == "mitmdump":
+                enabled = val.strip().lower() not in ("0", "no", "false", "")
+        elif token.lower() == "mitmdump":
+            enabled = True
+    return enabled
 
 
 class Mitmdump(Auxiliary):
@@ -112,7 +124,7 @@ class Mitmdump(Auxiliary):
     def start(self):
         """Start mitmdump in a separate thread."""
         if not _is_mitmdump_enabled(self.task):
-            log.info("Exiting mitmdump. No parameter received.")
+            log.debug("Exiting mitmdump. No parameter received.")
             return False
 
         self.mitmdump_thread = MitmdumpThread(self.task, self.machine)
@@ -134,7 +146,8 @@ class MitmdumpThread(Thread):
         self.machine = machine
         self.do_run = True
         self._enabled = _is_mitmdump_enabled(task)
-        self._firewall_enabled = False
+        self._state_lock = Lock()
+        self._firewall_enable_attempted = False
         self._process_started = False
         self.host_ip = mitmdump.cfg.get("host")
         self.host_iface = mitmdump.cfg.get("interface")
@@ -146,10 +159,56 @@ class MitmdumpThread(Thread):
     def _get_netns(self):
         options = getattr(self.task, "options", None) or ""
         for option in options.split(","):
-            if option.startswith("netns="):
-                _key, value = option.split("=", 1)
-                return value
+            token = option.strip()
+            if token.startswith("netns="):
+                _key, value = token.split("=", 1)
+                return value.strip()
         return ""
+
+    def _disable_firewall(self, netns=None):
+        with self._state_lock:
+            if not self._firewall_enable_attempted:
+                return
+            self._firewall_enable_attempted = False
+
+        if netns is None:
+            netns = self._get_netns()
+        try:
+            resp = rooter("disable_mitmdump", self.host_iface, self.machine.ip, self.host_port, netns)
+        except subprocess.CalledProcessError as e:
+            log.error("Failed to execute firewall rules: %s", e)
+            return
+        if isinstance(resp, dict) and resp.get("exception"):
+            log.error("Failed to execute firewall rules: %s", resp["exception"])
+
+    def _stop_process(self):
+        pidfile_path = os.path.join(self.mitmdump_path, "mitmdump.pid")
+        pid = read_pid_from_file(pidfile_path)
+        if pid:
+            log.info("MitmdumpThread.stop pid %s", pid)
+            # must directly kill subprocess since popen does sudo.
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            except OSError as e:
+                log.error("Failed to terminate mitmdump pid %s: %s", pid, e)
+            else:
+                if self.proc is not None and self.proc.pid == pid:
+                    try:
+                        self.proc.wait(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        log.warning("Timed out waiting for mitmdump pid %s to exit", pid)
+                else:
+                    wait_for_pid_exit(pid, 15)
+        elif self.proc is not None and self.proc.poll() is None:
+            self.proc.terminate()
+
+        if self.proc is not None and self.proc.poll() is None:
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                log.warning("Timed out waiting for mitmdump wrapper process %s", self.proc.pid)
 
     def stop(self):
         """Set stop mitmdump capture."""
@@ -158,27 +217,18 @@ class MitmdumpThread(Thread):
         if not self._enabled:
             return
 
+        if self.is_alive() and threading.current_thread() is not self:
+            self.join(timeout=65)
+
         log.info("MitmdumpThread.stop task.options %s", self.task.options)
 
-        if self._process_started:
-            pidfile_path = os.path.join(self.mitmdump_path, "mitmdump.pid")
-            pid = read_pid_from_file(pidfile_path)
-            if pid:
-                log.info("MitmdumpThread.stop pid %s", pid)
-                # must directly kill subprocess since popen does sudo.
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                else:
-                    wait_for_pid_exit(pid, 15)
-
-        if self._firewall_enabled:
-            try:
-                netns = self._get_netns()
-                rooter("disable_mitmdump", self.host_iface, self.machine.ip, self.host_port, netns)
-            except subprocess.CalledProcessError as e:
-                log.error("Failed to execute firewall rules: %s", e)
+        try:
+            with self._state_lock:
+                process_started = self._process_started
+            if process_started:
+                self._stop_process()
+        finally:
+            self._disable_firewall()
         log.info("MitmdumpThread.stop finished")
 
     def run(self):
@@ -193,17 +243,36 @@ class MitmdumpThread(Thread):
             return
 
         if not self.host_port:
-            log.exception("All ports in range are in use")
+            log.error("All ports in range are in use")
             return
 
         netns = self._get_netns()
 
+        with self._state_lock:
+            if not self.do_run:
+                return
+            self._firewall_enable_attempted = True
+
         try:
-            rooter("enable_mitmdump", self.host_iface, self.machine.ip, self.host_port, netns)
-            self._firewall_enabled = True
+            resp = rooter("enable_mitmdump", self.host_iface, self.machine.ip, self.host_port, netns)
         except subprocess.CalledProcessError as e:
             log.error("Failed to execute firewall rules: %s", e)
+            return
 
+        if isinstance(resp, dict) and resp.get("exception"):
+            log.error("Failed to execute firewall rules: %s", resp["exception"])
+            if resp.get("rooter_unavailable"):
+                with self._state_lock:
+                    self._firewall_enable_attempted = False
+            else:
+                self._disable_firewall(netns)
+            return
+
+        if not self.do_run:
+            self._disable_firewall(netns)
+            return
+
+        file_path = os.path.join(self.mitmdump_path, "dump.har")
         try:
             mitmdump_args = []
             listen_host = self.host_ip
@@ -214,7 +283,6 @@ class MitmdumpThread(Thread):
                 mitmdump_args.extend(["/usr/bin/sudo", "ip", "netns", "exec", netns, "/usr/bin/sudo", "-u", "cape"])
 
             os.makedirs(self.mitmdump_path, exist_ok=True)
-            file_path = os.path.join(self.mitmdump_path, "dump.har")
             mitmdump_args.extend(
                 [
                     "/opt/mitmproxy/mitmdump_wrapper.sh",
@@ -233,9 +301,11 @@ class MitmdumpThread(Thread):
                 "".join(mitmdump_args[-2:])
             ]  # concatenate the last two arguments, otherwise the HAR file will not be created.
             self.proc = subprocess.Popen(mitmdump_args, stdout=None, stderr=None, shell=False, cwd=self.mitmdump_path)
-            self._process_started = True
+            with self._state_lock:
+                self._process_started = True
         except (OSError, ValueError):
             log.exception("Failed to mitmdump (host=%s, port=%s, dump_path=%s)", self.host_ip, self.host_port, file_path)
+            self._disable_firewall(netns)
             return
 
         log.info(

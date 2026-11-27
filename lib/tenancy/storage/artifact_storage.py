@@ -32,8 +32,54 @@ def _safe_relpath(relpath: str) -> str:
     return relpath
 
 
+def _task_visible_for_scope(tid: int, scope: dict[str, Any]) -> bool:
+    from lib.tenancy.storage.scope import _elasticsearch_enabled, _mongodb_enabled
+
+    if scope in ({"_id": {"$in": []}}, {"info.id": -1}):
+        return False
+
+    if _mongodb_enabled():
+        from dev_utils.mongodb import mongo_find_one
+
+        return bool(mongo_find_one("analysis", {"$and": [{"info.id": tid}, scope]}, {"_id": 1}))
+
+    from lib.tenancy.context import get_current_viewer
+
+    viewer = get_current_viewer()
+    if viewer is None:
+        return False
+    if viewer.see_all:
+        return True
+
+    if _elasticsearch_enabled():
+        try:
+            from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
+            from lib.tenancy.policy import viewer_scope_es_filter
+
+            filters: list[dict[str, Any]] = [get_query_by_info_id(tid)]
+            es_filter = viewer_scope_es_filter(viewer)
+            if es_filter:
+                filters.append(es_filter)
+            res = elastic_handler.search(
+                index=get_analysis_index(),
+                body={"query": {"bool": {"filter": filters}}, "size": 1},
+            )
+            if (res or {}).get("hits", {}).get("hits"):
+                return True
+        except Exception:
+            pass
+
+    try:
+        from lib.tenancy.middleware import default_task_scope_resolver
+        from lib.tenancy.policy import can_read
+
+        task_scope = default_task_scope_resolver(tid)
+        return task_scope is not None and can_read(viewer, task_scope)
+    except Exception:
+        return False
+
+
 def _store_and_container(task_id: Any, scope: Optional[dict[str, Any]] = None) -> tuple[ArtifactStore, str]:
-    from dev_utils.mongodb import mongo_find_one
     from django.http import Http404
 
     try:
@@ -43,9 +89,8 @@ def _store_and_container(task_id: Any, scope: Optional[dict[str, Any]] = None) -
     except (TypeError, ValueError) as e:
         raise Http404("invalid task id") from e
 
-    if scope is not None:
-        if not mongo_find_one("analysis", {"$and": [{"info.id": tid}, scope]}, {"_id": 1}):
-            raise Http404("task not visible")
+    if scope is not None and not _task_visible_for_scope(tid, scope):
+        raise Http404("task not visible")
 
     cfg = object_storage_config()
     store, is_remote = get_artifact_store(cfg)

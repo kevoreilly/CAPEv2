@@ -3638,4 +3638,392 @@ def test_task_x_hours_stats_are_scoped_to_the_viewer(db, monkeypatch, mt_enabled
     assert sum(resp.data["stats"].values()) == 5
 
 
+def test_tenant_model_namespace_separation_and_inactive_tenant_revocation(monkeypatch):
+    from lib.tenancy import middleware as tmw
+    from lib.tenancy.policy import MultitenancyConfig
+    from lib.tenancy.resources import resolve_user_entitlements
+
+    cfg = MultitenancyConfig(enabled=True, mode="locked", default_visibility="tenant", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(tmw, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.resources.multitenancy_config", lambda: cfg)
+
+    active_tenant = types.SimpleNamespace(id=1, active=True)
+    inactive_tenant = types.SimpleNamespace(id=1, active=False)
+
+    grp_with_tenant = types.SimpleNamespace(id=10, name="grp-tenant-1")
+    grp_with_tenant.sandbox_policy = types.SimpleNamespace(
+        id=1,
+        group_id=10,
+        tenant_id=1,
+        tenant=active_tenant,
+        active=True,
+        is_tenant_boundary=True,
+        is_tenant_admin_group=False,
+        priority=10,
+        allowed_machines=["win10_*"],
+        allowed_tags=["win10"],
+        allowed_routes=["none"],
+    )
+    grp_direct_id_1 = types.SimpleNamespace(id=1, name="grp-direct-1", sandbox_policy=None)
+
+    u_tenant = types.SimpleNamespace(id=100, is_authenticated=True, is_superuser=False, groups=[grp_with_tenant])
+    u_group = types.SimpleNamespace(id=101, is_authenticated=True, is_superuser=False, groups=[grp_direct_id_1])
+
+    v_tenant = tmw.default_viewer_resolver(u_tenant)
+    v_group = tmw.default_viewer_resolver(u_group)
+    assert v_tenant.tenant_id == -1
+    assert v_group.tenant_id == 1
+    assert v_tenant.tenant_id != v_group.tenant_id
+
+    # Deactivating the Tenant revokes tenant resolution and group policy entitlements.
+    grp_with_tenant.sandbox_policy.tenant = inactive_tenant
+    v_inactive = tmw.default_viewer_resolver(u_tenant)
+    assert v_inactive.tenant_id is None
+    assert v_inactive.tenant_ids == ()
+    ent_inactive = resolve_user_entitlements(u_tenant, unassigned_policy="deny")
+    assert ent_inactive.allowed_machines == frozenset()
+
+    # Direct UserTenantMembership also maps into negative namespace and honors Tenant.active.
+    u_mem_active = types.SimpleNamespace(
+        id=102,
+        is_authenticated=True,
+        is_superuser=False,
+        tenant_membership=types.SimpleNamespace(tenant_id=5, tenant=types.SimpleNamespace(id=5, active=True), is_tenant_admin=True),
+        groups=[],
+    )
+    v_mem_active = tmw.default_viewer_resolver(u_mem_active)
+    assert v_mem_active.tenant_id == -5
+    assert v_mem_active.is_tenant_admin is True
+
+    u_mem_inactive = types.SimpleNamespace(
+        id=103,
+        is_authenticated=True,
+        is_superuser=False,
+        tenant_membership=types.SimpleNamespace(tenant_id=5, tenant=types.SimpleNamespace(id=5, active=False), is_tenant_admin=True),
+        groups=[],
+    )
+    v_mem_inactive = tmw.default_viewer_resolver(u_mem_inactive)
+    assert v_mem_inactive.tenant_id is None
+    assert v_mem_inactive.is_tenant_admin is False
+
+
+def test_gcs_refetch_banned_excludes_older_banned_tasks_for_same_sample(db, temp_pe32, monkeypatch):
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    import lib.cuckoo.common.gcp as gcp_mod
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core.data.task import TASK_BANNED, Task
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.acl import TaskAcl
+    from lib.tenancy.context import set_current_submission_visibility, set_current_viewer
+    from lib.tenancy.policy import MultitenancyConfig
+
+    cfg = MultitenancyConfig(enabled=True, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    monkeypatch.setattr(gcp_mod, "HAVE_GCP", True)
+    pe_bytes = Path(temp_pe32).read_bytes()
+    monkeypatch.setattr(gcp_mod, "download_from_gcs", lambda uri, dst: Path(dst).write_bytes(pe_bytes) or True)
+
+    core_hooks.clear_all_hooks()
+    ensure_acl_schema(db.engine)
+    try:
+        thooks.register_core_hooks()
+
+        # Tenant 1 older banned task outside the 1d window for the same sample.
+        set_current_viewer(_viewer(user_id=7, tenant_id=1))
+        set_current_submission_visibility("private")
+        old_tid = db.add_path(str(temp_pe32), user_id=7)
+
+        # Tenant 2 recent banned task inside the 1d window for the exact same sample.
+        set_current_viewer(_viewer(user_id=8, tenant_id=2))
+        set_current_submission_visibility("tenant")
+        recent_tid = db.add_path(str(temp_pe32), user_id=8)
+
+        with db.session.begin():
+            old_task = db.session.get(Task, old_tid)
+            old_task.status = TASK_BANNED
+            old_task.added_on = datetime.now() - timedelta(days=5)
+            recent_task = db.session.get(Task, recent_tid)
+            recent_task.status = TASK_BANNED
+
+        set_current_viewer(None)
+        set_current_submission_visibility(None)
+
+        gcp_mod.gcs_refetch_banned("1d", samples_bucket="test-bucket")
+
+        with Session(db.engine) as s:
+            all_tasks = s.scalars(select(Task).order_by(Task.id)).all()
+            assert len(all_tasks) == 3
+            new_tid = all_tasks[-1].id
+            acl = s.get(TaskAcl, new_tid)
+            assert acl is not None
+            assert (acl.user_id, acl.tenant_id, acl.visibility) == (8, 2, "tenant")
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_default_report_stamp_hook_skips_upload_at_stage_process(monkeypatch, caplog):
+    import logging
+
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.storage import reporting as storage_reporting
+
+    uploads = []
+    monkeypatch.setattr("lib.tenancy.storage.config.object_storage_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+
+    def _record_upload(results, task=None):
+        uploads.append((results["info"]["id"], task))
+
+    monkeypatch.setattr(storage_reporting, "upload_analysis_artifacts", _record_upload)
+
+    thooks.default_report_stamp_hook({"info": {"id": 42}}, task={"id": 42}, stage="process")
+    assert uploads == []
+
+    thooks.default_report_stamp_hook({"info": {"id": 42}}, task={"id": 42}, stage="mongodb")
+    assert len(uploads) == 1
+
+    def _boom(results, task=None):
+        raise RuntimeError("s3 unavailable")
+
+    monkeypatch.setattr(storage_reporting, "upload_analysis_artifacts", _boom)
+    with caplog.at_level(logging.ERROR, logger="lib.tenancy.hooks"):
+        thooks.default_report_stamp_hook({"info": {"id": 42}}, task={"id": 42}, stage="elasticsearchdb")
+    assert "failed to upload analysis artifacts" in caplog.text
+
+
+def test_tasks_set_visibility_succeeds_without_mongodb_when_es_only(monkeypatch):
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    import lib.cuckoo.common.config as config_mod
+    from lib.tenancy import views as tviews
+    from lib.tenancy.acl import resolve_task_scope
+
+    engine = sa.create_engine("sqlite://")
+    ensure_acl_schema(engine)
+    with Session(engine) as s:
+        set_task_acl(s, 42, user_id=7, tenant_id=1, visibility="private")
+        s.commit()
+
+    monkeypatch.setattr(tviews, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
+    real_config = config_mod.Config
+    monkeypatch.setattr(
+        config_mod,
+        "Config",
+        lambda name: types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=False),
+            elasticsearchdb=types.SimpleNamespace(enabled=True),
+        )
+        if name == "reporting"
+        else real_config(name),
+    )
+    es_calls = []
+
+    def _fail_mongo(*a, **kw):
+        raise AssertionError("MongoDB should not be called when disabled")
+
+    monkeypatch.setattr(tviews, "_default_mongo_update_one", _fail_mongo)
+    req = types.SimpleNamespace(method="POST", user=None, viewer=_viewer(7, 1), POST={"visibility": "tenant"})
+    resp = tviews.tasks_set_visibility(
+        req,
+        42,
+        scope_loader=lambda tid: (Session(engine, expire_on_commit=False, future=True), resolve_task_scope(Session(engine), tid)),
+        es_update_by_query=lambda q, sc: es_calls.append((q, sc)),
+    )
+    assert _status(resp) == 200
+    assert len(es_calls) == 1
+    assert es_calls[0][1]["params"]["stamp"]["visibility"] == "tenant"
+
+
+def test_ctx_scoped_search_skips_es_filter_on_calls_index():
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+
+    seen = []
+
+    class FakeES:
+        def search(self, index=None, body=None, query=None, **kw):
+            seen.append((index, body))
+            return {"hits": {"hits": []}}
+
+    fake_mod = types.SimpleNamespace(es=FakeES(), get_calls_index=lambda: "calls-*")
+    core_hooks.clear_all_hooks()
+    core_hooks.register_es_filter(lambda body: dict(body, _tenancy_filtered=True))
+    try:
+        thooks._ensure_own_report_wrappers(fake_mod, core_hooks, include_es=True)
+        tok = thooks._own_report_lookup_ctx.set(True)
+        try:
+            fake_mod.es.search(index="analysis-*", body={"query": {"term": {"info.id": 1}}})
+            fake_mod.es.search(index="calls-*", body={"query": {"match": {"_id": "abc"}}})
+            fake_mod.es.search(index="calls-2026-11-26", body={"query": {"match": {"_id": "def"}}})
+        finally:
+            thooks._own_report_lookup_ctx.reset(tok)
+    finally:
+        core_hooks.clear_all_hooks()
+
+    assert seen[0][1].get("_tenancy_filtered") is True
+    assert "_tenancy_filtered" not in seen[1][1]
+    assert "_tenancy_filtered" not in seen[2][1]
+
+
+def test_wrapped_reschedule_and_samples_use_explicit_transactions(db, temp_pe32, monkeypatch):
+    from sqlalchemy.orm import Session
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core.data.task import Task
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+    from lib.tenancy.policy import MultitenancyConfig
+    from lib.tenancy.resources import ResourceEntitlements
+
+    cfg = MultitenancyConfig(enabled=True, mode="locked", default_visibility="private", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+
+    tid = db.add_path(str(temp_pe32), user_id=7, machine="win10_secret")
+    sha256 = db.view_task(tid).sample.sha256
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        set_task_acl(db.session, tid, user_id=7, tenant_id=1, visibility=PRIVATE)
+        db.session.get(Task, tid).status = "completed"
+
+    core_hooks.clear_all_hooks()
+    try:
+        thooks.register_core_hooks()
+        set_current_viewer(_viewer(user_id=7, tenant_id=1))
+        set_current_entitlements(
+            ResourceEntitlements(unrestricted=False, allowed_machines=frozenset({"win10_other"}), allowed_routes=frozenset({"none"}))
+        )
+
+        # Denied reschedule must commit the restoration of source task status/custom.
+        assert db.reschedule(tid) is None
+        with Session(db.engine) as check_sess:
+            row = check_sess.get(Task, tid)
+            assert row.status == "completed"
+            assert row.custom != "Recovery_None"
+
+        # count_samples and check_file_uniq must run cleanly inside explicit transactions without leaving open tx.
+        assert db.count_samples() == 1
+        assert not db.session().in_transaction()
+        assert db.check_file_uniq(sha256) is True
+        assert not db.session().in_transaction()
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_wrapped_comments_allows_anonymous_post_when_auth_and_mt_disabled(monkeypatch):
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+
+    import analysis.views as av
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.policy import MultitenancyConfig
+
+    cfg = MultitenancyConfig(enabled=False, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setattr(av.settings, "WEB_AUTHENTICATION", False)
+    monkeypatch.setattr(av.settings, "COMMENTS", True)
+
+    core_hooks.clear_all_hooks()
+    try:
+        thooks.register_core_hooks()
+        writes = []
+        monkeypatch.setattr(av, "enabledconf", {"mongodb": True})
+        monkeypatch.setattr(av, "es_as_db", False)
+        monkeypatch.setattr(av, "mongo_find_one", lambda *a, **kw: {"_id": "oid-1", "info": {"comments": []}}, raising=False)
+        monkeypatch.setattr(av, "mongo_update_one", lambda *a, **kw: writes.append(a), raising=False)
+        monkeypatch.setattr(av, "redirect", lambda *a, **kw: "redirected-to-report")
+
+        req = RequestFactory().post("/analysis/5/comments/", {"commentbox": "hello"})
+        req.user = AnonymousUser()
+        assert av.comments(req, 5) == "redirected-to-report"
+        assert len(writes) == 1
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_dispatch_object_storage_view_stages_procdump(monkeypatch, tmp_path):
+    from lib.tenancy import views as tviews
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage import views as storage_views
+
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr("analysis.views.CUCKOO_ROOT", str(tmp_path))
+
+    staged = []
+
+    def _fake_stage_one(req, task_id, relpath, dest):
+        staged.append((task_id, relpath, dest))
+        if relpath.endswith(".zip"):
+            Path(dest).parent.mkdir(parents=True, exist_ok=True)
+            Path(dest).write_bytes(b"PK")
+
+    from pathlib import Path
+
+    monkeypatch.setattr(storage_views, "central_stage_one", _fake_stage_one)
+
+    def procdump(request, task_id, process_id, start, end, zipped=False):
+        return None
+
+    req = types.SimpleNamespace(user=types.SimpleNamespace(is_authenticated=True), path="/analysis/procdump/12/444/0/1/")
+    res = tviews.dispatch_object_storage_view(req, procdump, (), {"task_id": "12", "process_id": "444"})
+    assert res is None
+    assert [r for _, r, _ in staged] == ["memory/444.dmp", "memory/444.dmp.zip"]
+    assert (tmp_path / "storage" / "analyses" / "12" / "memory" / "444.dmp.zip").exists()
+
+
+def test_object_storage_es_only_and_sql_fallbacks(db, temp_pe32, monkeypatch):
+    import lib.cuckoo.common.config as config_mod
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.policy import MultitenancyConfig
+    from lib.tenancy.storage import artifact_storage, scope as storage_scope, views as storage_views
+
+    cfg = MultitenancyConfig(enabled=True, mode="locked", default_visibility="private", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(storage_scope, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setattr(
+        config_mod,
+        "Config",
+        lambda name: types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=False),
+            elasticsearchdb=types.SimpleNamespace(enabled=False),
+        ),
+    )
+
+    tid = db.add_path(str(temp_pe32), user_id=7)
+    sha256 = db.view_task(tid).sample.sha256
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        set_task_acl(db.session, tid, user_id=7, tenant_id=1, visibility=PRIVATE)
+
+    owner = types.SimpleNamespace(id=7, is_authenticated=True, is_superuser=False)
+    outsider = types.SimpleNamespace(id=8, is_authenticated=True, is_superuser=False)
+    monkeypatch.setattr("lib.tenancy.storage.artifact_storage.object_storage_config", lambda: types.SimpleNamespace(enabled=False))
+
+    set_current_viewer(_viewer(7, 1))
+    assert storage_scope.viewer_can_view_sample(owner, sha256=sha256) is True
+    assert storage_views._task_sample_sha256(types.SimpleNamespace(user=owner), tid) == sha256
+    _store, container = artifact_storage._store_and_container(tid, scope={"info.user_id": 7})
+    assert container == str(tid)
+
+    set_current_viewer(_viewer(8, 2))
+    assert storage_scope.viewer_can_view_sample(outsider, sha256=sha256) is False
+    assert storage_views._task_sample_sha256(types.SimpleNamespace(user=outsider), tid) == ""
+    from django.http import Http404
+
+    with pytest.raises(Http404):
+        artifact_storage._store_and_container(tid, scope={"info.user_id": 8})
+
+
+
 

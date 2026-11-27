@@ -28,6 +28,12 @@ except Exception:  # pragma: no cover
     User = None  # type: ignore[assignment]
 
 
+def tenant_model_namespace_id(tenant_pk: int) -> int:
+    """Map a `Tenant` model PK into the negative integer namespace so it never collides with `auth.Group.id`."""
+    val = int(tenant_pk)
+    return -val if val > 0 else val
+
+
 if HAVE_DJANGO:
 
     class Tenant(models.Model):
@@ -200,7 +206,9 @@ if HAVE_DJANGO:
             if not self.active or not self.is_tenant_boundary:
                 return None
             if self.tenant_id is not None:
-                return int(self.tenant_id)
+                if self.tenant is not None and not bool(getattr(self.tenant, "active", True)):
+                    return None
+                return tenant_model_namespace_id(self.tenant_id)
             if self.group_id is not None:
                 return int(self.group_id)
             return None
@@ -212,4 +220,5 @@ if HAVE_DJANGO:
 __all__ = [
     "HAVE_DJANGO",
     "reconcile_idp_groups_to_django_groups",
+    "tenant_model_namespace_id",
 ]

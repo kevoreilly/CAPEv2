@@ -230,6 +230,7 @@ anon_not_viewable_func_list = (
     "filtered_chunk",
     "search_behavior",
     "statistics_data",
+    "vtupload",
 )
 
 

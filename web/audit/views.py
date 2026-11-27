@@ -1,3 +1,4 @@
+import functools
 import json
 import os
 import sys
@@ -47,6 +48,15 @@ web_cfg = Config("web")
 db: AuditsMixIn = Database()
 
 anon_not_viewable_func_list = (
+    # Destructive / mutating endpoints must never be served anonymously under ANON_VIEW.
+    "create_test_session",
+    "reload_available_tests",
+    "delete_test_session",
+    "queue_test",
+    "queue_all_tests",
+    "unqueue_test",
+    "unqueue_all_tests",
+    "update_task_config",
 )
 
 # Conditional decorator for web authentication
@@ -67,6 +77,16 @@ class conditional_login_required:
             return func
         if not self.condition:
             return func
+        if func.__name__ in anon_not_viewable_func_list:
+
+            @functools.wraps(func)
+            def _staff_only(request, *args, **kwargs):
+                user = getattr(request, "user", None)
+                if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+                    return HttpResponseForbidden("Restricted to administrators.")
+                return func(request, *args, **kwargs)
+
+            return self.decorator(_staff_only)
         return self.decorator(func)
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

@@ -3638,6 +3638,181 @@ def test_task_x_hours_stats_are_scoped_to_the_viewer(db, monkeypatch, mt_enabled
     assert sum(resp.data["stats"].values()) == 5
 
 
+def test_tasks_reports_bulk_enforces_tenancy_for_path_query_and_recovery(db, temp_pe32, temp_pe64, mt_enabled):
+    from django.test import RequestFactory
+
+    from lib.tenancy.middleware import _RECOVERY_FOLLOWING_VIEW_NAMES, _TASK_ID_KWARGS
+    from lib.tenancy.policy import PRIVATE
+
+    assert "task_ids" in _TASK_ID_KWARGS
+    assert "tasks_reports_bulk" in _RECOVERY_FOLLOWING_VIEW_NAMES
+
+    def tasks_reports_bulk(request, task_ids=None, report_format="json"):
+        return None
+
+    victim = db.add_path(str(temp_pe32), user_id=7)
+    own = db.add_path(str(temp_pe64), user_id=8)
+    own_rec = db.add_path(str(temp_pe64), user_id=8, custom=f"Recovery_{victim}")
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        db.set_status(victim, "reported")
+        db.set_status(own, "reported")
+        db.set_status(own_rec, "recovered")
+        set_task_acl(db.session, victim, user_id=7, tenant_id=1, visibility=PRIVATE)
+        set_task_acl(db.session, own, user_id=8, tenant_id=2, visibility=PRIVATE)
+        set_task_acl(db.session, own_rec, user_id=8, tenant_id=2, visibility=PRIVATE)
+
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda _u: _viewer(user_id=8, tenant_id=2))
+    rf = RequestFactory()
+
+    # Own task allowed via path and via query
+    req_own_path = rf.get(f"/apiv2/tasks/get/reports/bulk/{own}/json/")
+    req_own_path.user = _User(8)
+    assert mw.process_view(req_own_path, tasks_reports_bulk, (), {"task_ids": str(own), "report_format": "json"}) is None
+
+    req_own_query = rf.get(f"/apiv2/tasks/get/reports/bulk/?task_ids={own}")
+    req_own_query.user = _User(8)
+    assert mw.process_view(req_own_query, tasks_reports_bulk, (), {}) is None
+
+    # Cross-tenant task denied via path, task_ids query, start_id/end_id query, mixed range, and recovery redirect
+    for url, kwargs in (
+        (f"/apiv2/tasks/get/reports/bulk/{victim}/json/", {"task_ids": str(victim)}),
+        (f"/apiv2/tasks/get/reports/bulk/{own},{victim}/json/", {"task_ids": f"{own},{victim}"}),
+        (f"/apiv2/tasks/get/reports/bulk/?task_ids={victim}", {}),
+        (f"/apiv2/tasks/get/reports/bulk/?task_ids={own}-{own},{victim}", {}),
+        (f"/apiv2/tasks/get/reports/bulk/?start_id={min(own, victim)}&end_id={max(own, victim)}", {}),
+        (f"/apiv2/tasks/get/reports/bulk/?task_ids={own_rec}", {}),
+    ):
+        req = rf.get(url)
+        req.user = _User(8)
+        res = mw.process_view(req, tasks_reports_bulk, (), kwargs)
+        assert res is not None and res.status_code == 404, f"Expected 404 for {url}"
+
+
+def test_vtupload_requires_manage_rights_and_blocks_anon_view(monkeypatch):
+    from django.conf import settings
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+
+    from lib.tenancy.middleware import _ANON_NOT_VIEWABLE_VIEWS, _MANAGE_KEYWORDS, classify_view_action
+    from lib.tenancy.views import _check_storage_view_login_required
+
+    assert "vtupload" in _MANAGE_KEYWORDS
+    assert "vtupload" in _ANON_NOT_VIEWABLE_VIEWS
+
+    def vtupload(request, category, task_id, filename, dlfile):
+        return None
+
+    assert classify_view_action("/analysis/vtupload/sample/1/a/b/", vtupload) == "manage"
+
+    monkeypatch.setattr(settings, "WEB_AUTHENTICATION", True, raising=False)
+    monkeypatch.setattr(settings, "ANON_VIEW", True, raising=False)
+    req = RequestFactory().get("/analysis/vtupload/sample/1/a/b/")
+    req.user = AnonymousUser()
+    redirect_resp = _check_storage_view_login_required(req, "vtupload")
+    assert redirect_resp is not None and redirect_resp.status_code == 302
+
+    import analysis.views as analysis_views
+
+    assert "vtupload" in analysis_views.anon_not_viewable_func_list
+
+
+def test_audit_mutating_views_blocked_for_anonymous_and_non_staff(monkeypatch):
+    from django.conf import settings
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+
+    import audit.views as audit_views
+
+    expected_mutating = {
+        "create_test_session",
+        "reload_available_tests",
+        "delete_test_session",
+        "queue_test",
+        "queue_all_tests",
+        "unqueue_test",
+        "unqueue_all_tests",
+        "update_task_config",
+    }
+    assert expected_mutating <= set(audit_views.anon_not_viewable_func_list)
+
+    monkeypatch.setattr(settings, "ANON_VIEW", True, raising=False)
+    monkeypatch.setattr(audit_views.web_cfg.audit_framework, "enabled", True, raising=False)
+
+    def delete_test_session(request, session_id):
+        return "deleted"
+
+    wrapped = audit_views.conditional_login_required(audit_views.login_required, True)(delete_test_session)
+
+    # Anonymous user gets redirected to login even under ANON_VIEW=True
+    anon_req = RequestFactory().post("/audit/delete_test_session/1/")
+    anon_req.user = AnonymousUser()
+    assert wrapped(anon_req, 1).status_code == 302
+
+    # Authenticated non-staff user gets 403 Forbidden
+    user_req = RequestFactory().post("/audit/delete_test_session/1/")
+    user_req.user = types.SimpleNamespace(is_authenticated=True, is_staff=False, is_superuser=False)
+    assert wrapped(user_req, 1).status_code == 403
+
+    # Staff admin is permitted
+    staff_req = RequestFactory().post("/audit/delete_test_session/1/")
+    staff_req.user = types.SimpleNamespace(is_authenticated=True, is_staff=True, is_superuser=False)
+    assert wrapped(staff_req, 1) == "deleted"
+
+    # Decorator wraps mutating views once (no redundant double login_required call)
+    wrap_calls = []
+
+    def counting_dec(fn):
+        wrap_calls.append(fn.__name__)
+        return fn
+
+    audit_views.conditional_login_required(counting_dec, True)(delete_test_session)
+    assert len(wrap_calls) == 1
+
+
+def test_tasks_reports_bulk_query_cap_and_validate_task_edge_cases(db, temp_pe32, temp_pe64, mt_enabled):
+    from django.test import RequestFactory
+
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+    from lib.tenancy.middleware import _MAX_TASK_ID_RANGE, _task_ids_from_query
+    from lib.tenancy.policy import PRIVATE
+
+    def tasks_reports_bulk(request, task_ids=None, report_format="json"):
+        return None
+
+    rf = RequestFactory()
+    # Repeated start_id x end_id cartesian blowup must fail closed in O(1) without expanding millions of IDs
+    qs = "&".join([f"start_id={i}" for i in range(1, 40)] + [f"end_id={i}" for i in range(1, 40)])
+    req_blowup = rf.get(f"/apiv2/tasks/get/reports/bulk/?{qs}")
+    assert _task_ids_from_query(req_blowup, tasks_reports_bulk) == ["<task id range limit exceeded>"]
+
+    # Total IDs across multiple task_ids params must stay bounded by _MAX_TASK_ID_RANGE
+    half = _MAX_TASK_ID_RANGE // 2 + 10
+    req_over = rf.get(f"/apiv2/tasks/get/reports/bulk/?task_ids=1-{half}&task_ids={half + 1}-{half * 2}")
+    assert _task_ids_from_query(req_over, tasks_reports_bulk) == ["<task id range limit exceeded>"]
+
+    # _wrapped_validate_task must enforce read ACL on non-recovered tasks, ignore falsy rtid=0, and fail closed on non-int IDs
+    victim = db.add_path(str(temp_pe32), user_id=7)
+    own = db.add_path(str(temp_pe64), user_id=8)
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        set_task_acl(db.session, victim, user_id=7, tenant_id=1, visibility=PRIVATE)
+        set_task_acl(db.session, own, user_id=8, tenant_id=2, visibility=PRIVATE)
+
+    fake_web_utils = types.SimpleNamespace(
+        validate_task=lambda tid, *_a, **_kw: {"error": False, "rtid": 0}
+    )
+    wrap_submission_and_web_utils(web_utils_mod=fake_web_utils)
+    tok = set_current_viewer(_viewer(user_id=8, tenant_id=2))
+    try:
+        assert fake_web_utils.validate_task(victim)["error"] is True
+        assert fake_web_utils.validate_task(own)["error"] is False
+        assert fake_web_utils.validate_task("not-an-int")["error"] is True
+    finally:
+        reset_current_viewer(tok)
+
+
 def test_tenant_model_namespace_separation_and_inactive_tenant_revocation(monkeypatch):
     from lib.tenancy import middleware as tmw
     from lib.tenancy.policy import MultitenancyConfig

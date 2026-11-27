@@ -141,6 +141,107 @@ class TestAnalyzer(unittest.TestCase):
         )
         mock_thread.return_value.start.assert_called_once_with()
 
+    def test_analyzer_run_handles_empty_and_multi_pids_and_preserves_internal_typeerror(self):
+        """Empty PID list finishes cleanly; multi-PID monitors all roots; internal TypeError is not masked."""
+
+        def _make_config():
+            return SimpleNamespace(
+                category="file",
+                package="generic",
+                file_type="archive",
+                file_name="bundle.zip",
+                options="",
+                enforce_timeout=False,
+                timeout="5",
+                id=1,
+                terminate_processes=False,
+            )
+
+        # 1. Empty PID list must not raise ValueError and must still call pack.finish().
+        inst_empty = analyzer.Analyzer()
+        empty_pkg = MagicMock()
+        empty_pkg.start.return_value = []
+        empty_pkg.check.return_value = False
+        empty_pkg.package_files.return_value = None
+
+        def prep_empty():
+            inst_empty.target = "/tmp/bundle.zip"
+            inst_empty.options = {}
+            inst_empty.config = _make_config()
+
+        with (
+            patch.object(inst_empty, "prepare", side_effect=prep_empty),
+            patch.object(inst_empty, "complete", return_value=True),
+            patch.object(analyzer.pkgutil, "iter_modules", return_value=[]),
+            patch.object(analyzer.Auxiliary, "__subclasses__", return_value=[]),
+            patch.object(analyzer, "choose_package_class", return_value=lambda *_a, **_kw: empty_pkg),
+            patch.object(analyzer, "Thread") as mock_thread,
+            patch.object(analyzer.time, "sleep"),
+        ):
+            self.assertTrue(inst_empty.run())
+        mock_thread.assert_not_called()
+        empty_pkg.finish.assert_called_once_with()
+
+        # 2. Multi-PID package passes all sorted PIDs to monitor_new_processes.
+        PROCESS_LIST.clear()
+        SEEN_LIST.clear()
+        inst_multi = analyzer.Analyzer()
+        multi_pkg = MagicMock()
+        multi_pkg.start.return_value = [2002, 1001]
+        multi_pkg.check.return_value = False
+        multi_pkg.package_files.return_value = None
+
+        def prep_multi():
+            inst_multi.target = "/tmp/bundle.zip"
+            inst_multi.options = {}
+            inst_multi.config = _make_config()
+
+        with (
+            patch.object(inst_multi, "prepare", side_effect=prep_multi),
+            patch.object(inst_multi, "complete", return_value=True),
+            patch.object(analyzer.pkgutil, "iter_modules", return_value=[]),
+            patch.object(analyzer.Auxiliary, "__subclasses__", return_value=[]),
+            patch.object(analyzer, "choose_package_class", return_value=lambda *_a, **_kw: multi_pkg),
+            patch.object(analyzer, "Process") as mock_proc,
+            patch.object(analyzer, "Thread") as mock_thread,
+            patch.object(analyzer.time, "sleep"),
+        ):
+            mock_proc.return_value.is_alive.return_value = True
+            self.assertTrue(inst_multi.run())
+        mock_thread.assert_called_once_with(
+            target=analyzer.monitor_new_processes,
+            args=((1001, 2002),),
+            kwargs={"options": {}},
+            daemon=True,
+        )
+
+        # 3. Internal TypeError inside start(path) must NOT retry start() with 0 args.
+        PROCESS_LIST.clear()
+        SEEN_LIST.clear()
+        calls = []
+
+        class BrokenPkg:
+            def start(self, path):
+                calls.append(path)
+                raise TypeError("internal bug inside start")
+
+        inst_err = analyzer.Analyzer()
+
+        def prep_err():
+            inst_err.target = "/tmp/bundle.zip"
+            inst_err.options = {}
+            inst_err.config = _make_config()
+
+        with (
+            patch.object(inst_err, "prepare", side_effect=prep_err),
+            patch.object(analyzer.pkgutil, "iter_modules", return_value=[]),
+            patch.object(analyzer.Auxiliary, "__subclasses__", return_value=[]),
+            patch.object(analyzer, "choose_package_class", return_value=lambda *_a, **_kw: BrokenPkg()),
+        ):
+            with self.assertRaisesRegex(analyzer.CuckooError, "internal bug inside start"):
+                inst_err.run()
+        self.assertEqual(calls, ["/tmp/bundle.zip"])
+
     def test_all_auxiliary_modules_import_cleanly(self):
         """Importing all Linux auxiliary modules must not crash when optional deps are absent."""
         import importlib

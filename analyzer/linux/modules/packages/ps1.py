@@ -2,7 +2,7 @@
 from lib.core.packages import Package
 
 
-class Pwsh(Package):
+class Ps1(Package):
     """Powershell script analysis package."""
 
     def prepare(self):

@@ -6,6 +6,7 @@ import argparse
 import base64
 import contextlib
 import enum
+import errno
 import http.server
 import ipaddress
 import json
@@ -27,7 +28,7 @@ from email.message import EmailMessage
 from email.parser import BytesHeaderParser
 from email.policy import default as email_policy
 from io import BufferedIOBase, BytesIO, StringIO
-from threading import Lock, Thread, local as thread_local
+from threading import Lock, RLock, Thread, local as thread_local
 from typing import Any, Dict, IO, Iterable, Optional, Tuple, Union
 from urllib.parse import parse_qs
 from zipfile import ZipFile
@@ -110,6 +111,7 @@ TERMINAL_STATUSES = [Status.COMPLETE, Status.FAILED, Status.EXCEPTION]
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
 _SHUTDOWN_LOCK = Lock()
+_STATE_LOCK = RLock()
 ANALYZER_FOLDER = ""
 agent_mutexes: dict = {}
 """Holds handles of mutexes held by the agent."""
@@ -121,9 +123,21 @@ state: Dict[str, Any] = {
 }
 
 
+def _default_file_mode() -> int:
+    if os.name == "nt":
+        return 0o666
+    cur_umask = os.umask(0o022)
+    os.umask(cur_umask)
+    return 0o666 & ~cur_umask
+
+
+_DEFAULT_FILE_MODE = _default_file_mode()
+
+
 _MULTIPART_CHUNK_SIZE = 1024 * 1024
 _MULTIPART_MEMORY_LIMIT = 1024 * 1024
 _MAX_PART_HEADER_BYTES = 64 * 1024
+_MAX_BOUNDARY_LWSP = 4096
 
 
 class _FormParseError(ValueError):
@@ -195,7 +209,26 @@ class _SpilledTempFile:
     def move_to(self, dest_path: str) -> None:
         self._fp.flush()
         self._fp.close()
-        shutil.move(self.name, dest_path)
+        try:
+            os.replace(self.name, dest_path)
+        except OSError as exc:
+            if exc.errno != errno.EXDEV:
+                raise
+            dest_dir = os.path.dirname(os.path.abspath(dest_path)) or "."
+            fd, tmp_dest = tempfile.mkstemp(prefix=".cape-part-", dir=dest_dir)
+            try:
+                with os.fdopen(fd, "wb") as dst_fp, open(self.name, "rb") as src_fp:
+                    shutil.copyfileobj(src_fp, dst_fp, 10 * 1024 * 1024)
+                os.replace(tmp_dest, dest_path)
+            except Exception:
+                with contextlib.suppress(OSError):
+                    os.unlink(tmp_dest)
+                raise
+            with contextlib.suppress(OSError):
+                os.unlink(self.name)
+        if os.name != "nt":
+            with contextlib.suppress(OSError):
+                os.chmod(dest_path, _DEFAULT_FILE_MODE)
         self._moved = True
 
     def close(self) -> None:
@@ -281,11 +314,18 @@ def _parse_multipart_stream(
                     buf.extend(chunk)
                 ws_end = after
                 while ws_end < len(buf) and buf[ws_end] in (0x20, 0x09):
+                    if ws_end - after >= _MAX_BOUNDARY_LWSP:
+                        raise _FormParseError("Multipart boundary trailing whitespace exceeds maximum size")
                     ws_end += 1
                     if ws_end == len(buf):
                         chunk = reader.read(chunk_size)
                         if chunk:
                             buf.extend(chunk)
+                while len(buf) < ws_end + 2:
+                    chunk = reader.read(chunk_size)
+                    if not chunk:
+                        break
+                    buf.extend(chunk)
                 if buf[after : after + 2] == b"--":
                     reader.drain(chunk_size)
                     return form, files
@@ -357,11 +397,18 @@ def _parse_multipart_stream(
                             buf.extend(chunk)
                         ws_end = after_delim
                         while ws_end < len(buf) and buf[ws_end] in (0x20, 0x09):
+                            if ws_end - after_delim >= _MAX_BOUNDARY_LWSP:
+                                raise _FormParseError("Multipart boundary trailing whitespace exceeds maximum size")
                             ws_end += 1
                             if ws_end == len(buf):
                                 chunk = reader.read(chunk_size)
                                 if chunk:
                                     buf.extend(chunk)
+                        while len(buf) < ws_end + 2:
+                            chunk = reader.read(chunk_size)
+                            if not chunk:
+                                break
+                            buf.extend(chunk)
                         if buf[after_delim : after_delim + 2] == b"--":
                             if idx > 0:
                                 if file_sink is not None:
@@ -608,7 +655,10 @@ class MiniHTTPServer:
 
     @staticmethod
     def is_client_allowed(path: str, method: Optional[str]) -> bool:
-        if "client_ip" in state and request.client_ip != state["client_ip"]:
+        with _STATE_LOCK:
+            has_pin = "client_ip" in state
+            pinned_ip = state.get("client_ip")
+        if has_pin and request.client_ip != pinned_ip:
             if request.client_ip != "127.0.0.1":
                 return False
             if path not in ["/status", "/browser_extension"] or method != "POST":
@@ -876,34 +926,35 @@ def get_index():
 
 def get_subprocess_status():
     """Return the subprocess status."""
-    async_subprocess = state.get("async_subprocess")
     message = "Analysis status"
-    if async_subprocess is None:
-        return json_success(message=message, status=str(state.get("status")), description=state.get("description"))
-    exitcode = async_subprocess.poll()
-    if exitcode is None or (sys.platform == "win32" and exitcode == 259):
-        # Process is still running.
-        state["status"] = Status.RUNNING
+    with _STATE_LOCK:
+        async_subprocess = state.get("async_subprocess")
+        if async_subprocess is None:
+            return json_success(message=message, status=str(state.get("status")), description=state.get("description"))
+        exitcode = async_subprocess.poll()
+        if exitcode is None or (sys.platform == "win32" and exitcode == 259):
+            # Process is still running.
+            state["status"] = Status.RUNNING
+            return json_success(
+                message=message,
+                status=str(state.get("status")),
+                description=state.get("description"),
+                process_id=async_subprocess.pid,
+            )
+        # Process completed; reset async subprocess state.
+        state["async_subprocess"] = None
+        if exitcode == 0:
+            state["status"] = Status.COMPLETE
+            state["description"] = ""
+        else:
+            state["status"] = Status.FAILED
+            state["description"] = f"Exited with exit code {exitcode}"
         return json_success(
             message=message,
             status=str(state.get("status")),
             description=state.get("description"),
-            process_id=async_subprocess.pid,
+            exitcode=exitcode,
         )
-    # Process completed; reset async subprocess state.
-    state["async_subprocess"] = None
-    if exitcode == 0:
-        state["status"] = Status.COMPLETE
-        state["description"] = ""
-    else:
-        state["status"] = Status.FAILED
-        state["description"] = f"Exited with exit code {exitcode}"
-    return json_success(
-        message=message,
-        status=str(state.get("status")),
-        description=state.get("description"),
-        exitcode=exitcode,
-    )
 
 
 def open_mutex(mutex_name):
@@ -946,9 +997,10 @@ def release_mutex(hndl_mutex):
 
 @app.route("/status")
 def get_status():
-    if state["status"] != Status.COMPLETE and state.get("async_subprocess") is not None:
-        return get_subprocess_status()
-    return json_success("Analysis status", status=str(state.get("status")), description=state.get("description"))
+    with _STATE_LOCK:
+        if state["status"] not in TERMINAL_STATUSES and state.get("async_subprocess") is not None:
+            return get_subprocess_status()
+        return json_success("Analysis status", status=str(state.get("status")), description=state.get("description"))
 
 
 @app.route("/mutex", methods=["POST"])
@@ -998,13 +1050,15 @@ def put_status():
     except ValueError:
         return json_error(400, "No valid status has been provided")
 
-    # If the new status is terminal, unset the async subprocess so /status reports
-    # the final analysis state rather than the child process state.
-    if status in TERMINAL_STATUSES:
-        state["async_subprocess"] = None
+    description = request.form.get("description")
+    with _STATE_LOCK:
+        # If the new status is terminal, unset the async subprocess so /status reports
+        # the final analysis state rather than the child process state.
+        if status in TERMINAL_STATUSES:
+            state["async_subprocess"] = None
 
-    state["status"] = status
-    state["description"] = request.form.get("description")
+        state["status"] = status
+        state["description"] = description
     return json_success("Analysis status updated")
 
 
@@ -1193,12 +1247,14 @@ def do_execute():
                 stdout = base64.b64encode(stdout)
                 stderr = base64.b64encode(stderr)
     except Exception as ex:
-        state["status"] = Status.FAILED
-        state["description"] = "Error execute command"
+        with _STATE_LOCK:
+            state["status"] = Status.FAILED
+            state["description"] = "Error execute command"
         return json_exception(f"Error executing command: {ex}")
 
-    state["status"] = Status.RUNNING
-    state["description"] = ""
+    with _STATE_LOCK:
+        state["status"] = Status.RUNNING
+        state["description"] = ""
     return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
 
 
@@ -1234,10 +1290,11 @@ def background_subprocess(command_args, cwd, base64_encode, shell=False):
 
 def spawn(args, cwd, base64_encode, shell=False):
     """Kick off a subprocess in the background."""
-    proc = subprocess.Popen(args, cwd=cwd, shell=shell)
-    state["status"] = Status.RUNNING
-    state["description"] = ""
-    state["async_subprocess"] = proc
+    with _STATE_LOCK:
+        proc = subprocess.Popen(args, cwd=cwd, shell=shell)
+        state["status"] = Status.RUNNING
+        state["description"] = ""
+        state["async_subprocess"] = proc
     return json_success("Successfully spawned command", process_id=proc.pid)
 
 
@@ -1257,24 +1314,28 @@ def do_execpy():
         request.form["filepath"],
     )
 
-    if async_exec and state["status"] == Status.RUNNING and state["async_subprocess"]:
-        return json_error(400, "Async process already running.")
     try:
         if async_exec:
-            return spawn(args, cwd, base64_encode)
+            with _STATE_LOCK:
+                if state["status"] == Status.RUNNING and state["async_subprocess"]:
+                    return json_error(400, "Async process already running.")
+                return spawn(args, cwd, base64_encode)
         exitcode, stdout, stderr = run_subprocess(args, cwd, base64_encode)
         if exitcode == 0:
-            state["status"] = Status.COMPLETE
-            state["description"] = ""
+            with _STATE_LOCK:
+                state["status"] = Status.COMPLETE
+                state["description"] = ""
             return json_success("Successfully executed command", stdout=stdout, stderr=stderr)
         # Process exited with non-zero result.
-        state["status"] = Status.FAILED
         message = "Error executing python command."
-        state["description"] = message
+        with _STATE_LOCK:
+            state["status"] = Status.FAILED
+            state["description"] = message
         return json_error(400, message, stdout=stdout, stderr=stderr, exitcode=exitcode)
     except Exception as ex:
-        state["status"] = Status.FAILED
-        state["description"] = "Error executing Python command"
+        with _STATE_LOCK:
+            state["status"] = Status.FAILED
+            state["description"] = "Error executing Python command"
         return json_exception(f"Error executing Python command: {ex}")
 
 
@@ -1314,10 +1375,11 @@ def do_browser_ext():
 
 @app.route("/pinning")
 def do_pinning():
-    if "client_ip" in state:
-        return json_error(500, "Agent has already been pinned to an IP!")
+    with _STATE_LOCK:
+        if "client_ip" in state:
+            return json_error(500, "Agent has already been pinned to an IP!")
 
-    state["client_ip"] = request.client_ip
+        state["client_ip"] = request.client_ip
     return json_success("Successfully pinned Agent", client_ip=request.client_ip)
 
 

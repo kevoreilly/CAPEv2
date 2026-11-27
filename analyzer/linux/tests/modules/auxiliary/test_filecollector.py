@@ -88,3 +88,42 @@ def test_filecollector_disabled_does_not_spawn_thread():
     assert collector.thread is None
     assert collector.start() is False
     assert collector.stop() is False
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_native_inotify_watcher_rename_recreate_and_symlink_skip(tmp_path):
+    watcher = filecollector.NativeInotifyWatcher()
+    try:
+        root = tmp_path / "root"
+        root.mkdir()
+        target = tmp_path / "outside"
+        target.mkdir()
+
+        # Directory symlink must be skipped and must not clobber watches.
+        link_dir = root / "link_to_outside"
+        link_dir.symlink_to(target)
+        watcher.add_watch(str(root), rec=True)
+        assert str(link_dir) not in watcher._path_to_wd
+        assert str(target) not in watcher._path_to_wd
+
+        # Renaming a watched directory and recreating the original path must evict
+        # the stale path->wd mapping so the recreated inode receives a fresh watch.
+        orig = root / "dir_a"
+        renamed = root / "dir_b"
+        orig.mkdir()
+        assert watcher._add_single_watch(str(orig), filecollector._WATCH_MASK) is True
+        old_wd = watcher._path_to_wd[str(orig)]
+
+        orig.rename(renamed)
+        assert watcher._add_single_watch(str(renamed), filecollector._WATCH_MASK) is True
+        assert watcher._path_to_wd[str(renamed)] == old_wd
+        assert str(orig) not in watcher._path_to_wd
+
+        orig.mkdir()
+        assert watcher._add_single_watch(str(orig), filecollector._WATCH_MASK) is True
+        new_wd = watcher._path_to_wd[str(orig)]
+        assert new_wd != old_wd
+        assert watcher._wd_to_path[new_wd] == str(orig)
+        assert watcher._wd_to_path[old_wd] == str(renamed)
+    finally:
+        watcher.close()

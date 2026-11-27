@@ -39,9 +39,7 @@ def is_elf_image(path) -> bool:
             if len(buf) < 52:
                 return False
             e_type, e_machine = struct.unpack(f"{fmt_char}HH", buf[16:20])
-            e_shoff, e_flags, e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum = struct.unpack(
-                f"{fmt_char}LLHHHHH", buf[32:52]
-            )
+            e_shentsize, e_shnum = struct.unpack(f"{fmt_char}HH", buf[46:50])
         else:  # ELF64
             if len(buf) < 64:
                 return False

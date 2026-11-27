@@ -4,6 +4,7 @@
 
 import datetime
 import hashlib
+import inspect
 import logging
 import os
 import pkgutil
@@ -80,9 +81,14 @@ def _is_procdump_enabled(options):
 def monitor_new_processes(parent_pid, interval=0.25, options=None):
     """Continuously monitor for new child processes."""
     do_procdump = _is_procdump_enabled(options)
-    known_processes = set(get_all_child_processes(parent_pid))
+    root_pids = (parent_pid,) if isinstance(parent_pid, int) else tuple(parent_pid)
+    known_processes = set()
+    for root_pid in root_pids:
+        known_processes.update(get_all_child_processes(root_pid))
     while True:
-        current_processes = set(get_all_child_processes(parent_pid))
+        current_processes = set()
+        for root_pid in root_pids:
+            current_processes.update(get_all_child_processes(root_pid))
         new_processes = current_processes - known_processes
 
         for pid in new_processes:
@@ -308,10 +314,12 @@ class Analyzer:
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
-            try:
-                pids = pack.start(self.target)
-            except TypeError:
-                pids = pack.start()
+            start_sig = inspect.signature(pack.start)
+            accepts_target = any(
+                p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+                for p in start_sig.parameters.values()
+            )
+            pids = pack.start(self.target) if accepts_target else pack.start()
         except NotImplementedError:
             raise CuckooError(f'The package "{package_class}" doesn\'t contain a run function')
         except CuckooPackageError as e:
@@ -332,19 +340,18 @@ class Analyzer:
             log.info("No process IDs returned by the package, running for the full timeout")
             pid_check = False
 
+        # Start the monitoring thread before the analysis loop when at least one PID exists.
         if PROCESS_LIST:
-            PID = next(iter(PROCESS_LIST))
+            monitor_target = next(iter(PROCESS_LIST)) if len(PROCESS_LIST) == 1 else tuple(sorted(PROCESS_LIST))
+            monitor_thread = Thread(
+                target=monitor_new_processes,
+                args=(monitor_target,),
+                kwargs={"options": self.options},
+                daemon=True,
+            )
+            monitor_thread.start()
         else:
-            raise ValueError("No PID available to monitor.")
-
-        # Start the monitoring thread before the analysis loop
-        monitor_thread = Thread(
-            target=monitor_new_processes,
-            args=(PID,),
-            kwargs={"options": self.options},
-            daemon=True,
-        )
-        monitor_thread.start()
+            log.info("No PID available to monitor; skipping child process monitor thread")
 
         # Check in the options if the user toggled the timeout enforce. If so,
         # we need to override pid_check and disable process monitor.

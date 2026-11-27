@@ -11,7 +11,7 @@ from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import Config, get_raw_config_str
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import get_cape_external_dir
@@ -401,8 +401,7 @@ class GCP(object):
 
         headers = {}
         try:
-            dist_cfg = Config("distributed")
-            auth_token = dist_cfg.distributed.get("auth_token")
+            auth_token = get_raw_config_str(Config("distributed"), "distributed", "auth_token")
             if auth_token:
                 headers["X-API-Token"] = auth_token
         except Exception as e:

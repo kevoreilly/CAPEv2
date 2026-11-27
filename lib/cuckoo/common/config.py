@@ -142,3 +142,18 @@ class AnalysisConfig(_BaseConfig):
 
     def _get_files_to_read(self):
         return (self._cfg,)
+
+
+def get_raw_config_str(cfg_obj, section: str, key: str) -> str:
+    """Read a config value as its raw stripped string, preserving values coerced to bool/int."""
+    sec = getattr(cfg_obj, section, None)
+    val = sec.get(key) if hasattr(sec, "get") else None
+    if isinstance(val, str):
+        return val.strip()
+    if val is None:
+        return ""
+    raw_cfg = cfg_obj.get_config() if hasattr(cfg_obj, "get_config") else None
+    raw_val = raw_cfg.get(section, {}).get(key) if isinstance(raw_cfg, dict) else None
+    if isinstance(raw_val, str):
+        return raw_val.strip()
+    return str(val).strip()

@@ -12,6 +12,7 @@ import random
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,7 +35,7 @@ from ctypes import (
     string_at,
     windll,
 )
-from ctypes.wintypes import BOOL, DWORD, HANDLE, LPCWSTR, LPVOID, LPWSTR
+from ctypes.wintypes import BOOL, DWORD, FILETIME, HANDLE, LPCWSTR, LPVOID, LPWSTR
 from pathlib import Path
 from shutil import copy
 from typing import Tuple
@@ -157,6 +158,8 @@ KERNEL32.GetCurrentProcess.argtypes = []
 KERNEL32.GetCurrentProcess.restype = HANDLE
 KERNEL32.GetExitCodeProcess.argtypes = [HANDLE, POINTER(c_ulong)]
 KERNEL32.GetExitCodeProcess.restype = BOOL
+KERNEL32.GetProcessTimes.argtypes = [HANDLE, POINTER(FILETIME), POINTER(FILETIME), POINTER(FILETIME), POINTER(FILETIME)]
+KERNEL32.GetProcessTimes.restype = BOOL
 KERNEL32.GetLastError.restype = DWORD
 KERNEL32.InitializeProcThreadAttributeList.argtypes = [LPVOID, DWORD, DWORD, POINTER(SIZE_T)]
 KERNEL32.InitializeProcThreadAttributeList.restype = BOOL
@@ -238,7 +241,8 @@ class Process:
     _monitor_handles: dict[int, tuple[object, str]] = {}
     _monitor_handles_lock = threading.Lock()
     _config_lock = threading.Lock()
-    _configured_pids: set[int] = set()
+    _logserver_lock = threading.Lock()
+    _configured_pids: dict[int, int | None] = {}
     # This adds 1 up to 30 times of 20 minutes to the startup
     # time of the process, therefore bypassing anti-vm checks
     # which check whether the VM has only been up for <10 minutes.
@@ -353,7 +357,7 @@ class Process:
             if entry and _is_valid_handle(entry[0]):
                 KERNEL32.CloseHandle(entry[0])
         with cls._config_lock:
-            cls._configured_pids.discard(pid)
+            cls._configured_pids.pop(pid, None)
 
     @classmethod
     def clear_monitor_handles(cls) -> None:
@@ -1091,27 +1095,83 @@ class Process:
                 return True
         return False
 
+    def _get_process_creation_time(self) -> int | None:
+        """Return the Win32 FILETIME creation timestamp for this process, or None if unavailable."""
+        creation = FILETIME()
+        exit_time = FILETIME()
+        kernel_time = FILETIME()
+        user_time = FILETIME()
+
+        if _is_valid_handle(self.h_process):
+            try:
+                if KERNEL32.GetProcessTimes(
+                    self.h_process, byref(creation), byref(exit_time), byref(kernel_time), byref(user_time)
+                ):
+                    ts = (creation.dwHighDateTime << 32) | creation.dwLowDateTime
+                    return ts or None
+            except Exception:
+                return None
+            return None
+
+        if self.pid:
+            with self._monitor_handles_lock:
+                mon = self._monitor_handles.get(int(self.pid))
+                if mon and _is_valid_handle(mon[0]):
+                    try:
+                        if KERNEL32.GetProcessTimes(
+                            mon[0], byref(creation), byref(exit_time), byref(kernel_time), byref(user_time)
+                        ):
+                            ts = (creation.dwHighDateTime << 32) | creation.dwLowDateTime
+                            return ts or None
+                    except Exception:
+                        return None
+        return None
+
+    @staticmethod
+    def _replace_config_file(tmp_path: str, config_path: str, max_attempts: int = 5) -> None:
+        """Atomically replace config_path with bounded retry on Windows sharing violations."""
+        for attempt in range(max_attempts):
+            try:
+                os.replace(tmp_path, config_path)
+                return
+            except PermissionError as err:
+                winerror = getattr(err, "winerror", None)
+                if (winerror is not None and winerror not in (5, 32)) or attempt + 1 >= max_attempts:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
+            except OSError as err:
+                if getattr(err, "winerror", None) not in (5, 32) or attempt + 1 >= max_attempts:
+                    raise
+                time.sleep(0.02 * (attempt + 1))
+
     def write_monitor_config(self, interest=None, nosleepskip=False):
         pid = int(self.pid)
         config_path = os.path.join(Path.cwd(), "dll", f"{pid}.ini")
         logserver_path = f"{LOGSERVER_PREFIX}{pid}"
         interest_str = interest or ""
 
-        with self._config_lock:
-            # start the logserver for this monitored process
+        # Start the logserver outside _config_lock so a stalled TCP connect()
+        # cannot block release_monitor_handle() or Analyzer.process_lock.
+        with self._logserver_lock:
             existing_server = LOGSERVER_POOL.get(logserver_path)
             if existing_server is None or existing_server.thread is None or not existing_server.thread.is_alive():
                 LOGSERVER_POOL[logserver_path] = LogServer(self.config.ip, self.config.port, logserver_path)
 
-            if pid in self._configured_pids and os.path.isfile(config_path):
+        creation_time = self._get_process_creation_time()
+
+        with self._config_lock:
+            if (
+                pid in self._configured_pids
+                and os.path.isfile(config_path)
+                and self._configured_pids[pid] == creation_time
+            ):
                 log.debug("Reusing existing monitor config for process %s: %s", pid, config_path)
-                return
+                return False
 
             log.info("Monitor config for process %s: %s", pid, config_path)
 
-            if "tlsdump" not in self.options:
-                Process.process_num += 1
-            firstproc = Process.process_num == 1
+            next_process_num = Process.process_num + (0 if "tlsdump" in self.options else 1)
+            firstproc = next_process_num == 1
 
             lines = [
                 f"host-ip={self.config.ip}\n",
@@ -1132,7 +1192,7 @@ class Process:
                 "force-sleepskip" not in self.options
                 and len(interest_str) > 2
                 and interest_str[:2] != "\\:"
-                and Process.process_num <= 2
+                and next_process_num <= 2
             ):
                 lines.append("force-sleepskip=0\n")
 
@@ -1167,12 +1227,14 @@ class Process:
             try:
                 with open(tmp_path, "w", encoding="utf-8") as config:
                     config.writelines(lines)
-                os.replace(tmp_path, config_path)
+                self._replace_config_file(tmp_path, config_path)
             except Exception:
                 with contextlib.suppress(OSError):
                     os.remove(tmp_path)
                 raise
-            self._configured_pids.add(pid)
+            Process.process_num = next_process_num
+            self._configured_pids[pid] = creation_time
+            return True
 
     def inject(self, interest=None, nosleepskip=False):
         """Cuckoo DLL injection.
@@ -1221,26 +1283,39 @@ class Process:
         if ttd:
             self.options["no-iat"] = 1
 
-        self.write_monitor_config(interest, nosleepskip)
-
-        path = os.path.dirname(nt_path_to_dos_path_ansi(self.get_filepath()))
-
-        if self.detect_dll_sideloading(path) and self.has_msimg32(path):
-            self.deploy_version_proxy(path)
-            return True
-
-        log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
-
+        created_config = self.write_monitor_config(interest, nosleepskip)
+        inject_ok = False
         try:
-            ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll])
+            path = os.path.dirname(nt_path_to_dos_path_ansi(self.get_filepath()))
 
-            if ret.returncode == 1:
-                log.info("Injected into %s %s", bit_str, self)
-            elif ret.returncode != 0:
-                log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
-        except Exception as e:
-            log.error("Error running process: %s", e)
-            return False
+            if self.detect_dll_sideloading(path) and self.has_msimg32(path):
+                self.deploy_version_proxy(path)
+                inject_ok = True
+                return True
+
+            log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)
+
+            try:
+                ret = subprocess.run([bin_name, "inject", str(self.pid), str(thread_id), dll])
+
+                if ret.returncode == 1:
+                    log.info("Injected into %s %s", bit_str, self)
+                    inject_ok = True
+                elif ret.returncode == 0:
+                    inject_ok = True
+                else:
+                    log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
+            except Exception as e:
+                log.error("Error running process: %s", e)
+                return False
+        finally:
+            if not inject_ok:
+                pid = int(self.pid)
+                with self._monitor_handles_lock:
+                    actively_monitored = pid in self._monitor_handles
+                if created_config or not actively_monitored:
+                    with self._config_lock:
+                        self._configured_pids.pop(pid, None)
 
         if not ttd:
             return True

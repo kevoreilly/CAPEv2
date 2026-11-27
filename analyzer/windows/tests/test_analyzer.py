@@ -1423,6 +1423,213 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(self.analyzer._pid_inject_locks, {})
         mock_proc.close.assert_called_once()
 
+    @patch("analyzer.subprocess.STARTUPINFO", create=True)
+    @patch("analyzer.pid_from_service_name")
+    @patch("analyzer.Process")
+    def test_handle_tasksched_releases_service_lock_before_subprocess_and_inject(
+        self, mock_process, mock_pid_from_service_name, _mock_si
+    ):
+        ana = self.analyzer
+        ana.SERVICES_PID = 512
+        mock_pid_from_service_name.return_value = 910
+        lock_states = []
+        entered_net_start = threading.Event()
+        allow_net_start = threading.Event()
+        service_done = threading.Event()
+
+        def fake_call(cmd, **_kwargs):
+            lock_states.append(("call", ana.service_lock.locked()))
+            if cmd == "net start schedule":
+                entered_net_start.set()
+                self.assertTrue(allow_net_start.wait(timeout=5.0))
+            return 0
+
+        def make_proc(**kwargs):
+            proc = MagicMock()
+            proc.get_filepath.return_value = r"C:\Windows\System32\svchost.exe"
+
+            def fake_inject(**_kw):
+                lock_states.append(("inject", kwargs.get("pid"), ana.service_lock.locked()))
+                return True
+
+            proc.inject.side_effect = fake_inject
+            return proc
+
+        self.call.side_effect = fake_call
+        mock_process.side_effect = make_proc
+
+        def run_service_handler():
+            self.pipe_handler._handle_service(b"schedule")
+            service_done.set()
+
+        t_sched = threading.Thread(target=self.pipe_handler._handle_tasksched, args=(None,))
+        t_sched.start()
+        self.assertTrue(entered_net_start.wait(timeout=2.0))
+
+        # Re-entrant SERVICE notification during `net start schedule` must not deadlock on service_lock.
+        t_svc = threading.Thread(target=run_service_handler)
+        t_svc.start()
+        self.assertTrue(service_done.wait(timeout=2.0), "_handle_service deadlocked waiting for service_lock")
+        t_svc.join(timeout=2.0)
+
+        allow_net_start.set()
+        t_sched.join(timeout=5.0)
+        self.assertFalse(t_sched.is_alive())
+        self.assertTrue(ana.MONITORED_TASKSCHED)
+        self.assertTrue(ana.MONITORED_SERVICES)
+        self.assertTrue(all(not locked for *_, locked in lock_states))
+
+    @patch("analyzer.subprocess.STARTUPINFO", create=True)
+    @patch("analyzer.pid_from_service_name")
+    @patch("analyzer.Process")
+    def test_handle_bits_releases_service_lock_before_subprocess_and_inject(
+        self, mock_process, mock_pid_from_service_name, _mock_si
+    ):
+        ana = self.analyzer
+        ana.SERVICES_PID = 513
+        mock_pid_from_service_name.side_effect = [700, 920]
+        lock_states = []
+        entered_net_start = threading.Event()
+        allow_net_start = threading.Event()
+        service_done = threading.Event()
+
+        def fake_call(cmd, **_kwargs):
+            lock_states.append(("call", ana.service_lock.locked()))
+            if cmd == "net start BITS":
+                entered_net_start.set()
+                self.assertTrue(allow_net_start.wait(timeout=5.0))
+            return 0
+
+        def make_proc(**kwargs):
+            proc = MagicMock()
+            proc.get_filepath.return_value = r"C:\Windows\System32\svchost.exe"
+
+            def fake_inject(**_kw):
+                lock_states.append(("inject", kwargs.get("pid"), ana.service_lock.locked()))
+                return True
+
+            proc.inject.side_effect = fake_inject
+            return proc
+
+        self.call.side_effect = fake_call
+        mock_process.side_effect = make_proc
+
+        def run_service_handler():
+            self.pipe_handler._handle_service(b"BITS")
+            service_done.set()
+
+        t_bits = threading.Thread(target=self.pipe_handler._handle_bits, args=(None,))
+        t_bits.start()
+        self.assertTrue(entered_net_start.wait(timeout=2.0))
+
+        t_svc = threading.Thread(target=run_service_handler)
+        t_svc.start()
+        self.assertTrue(service_done.wait(timeout=2.0), "_handle_service deadlocked waiting for service_lock")
+        t_svc.join(timeout=2.0)
+
+        allow_net_start.set()
+        t_bits.join(timeout=5.0)
+        self.assertFalse(t_bits.is_alive())
+        self.assertTrue(ana.MONITORED_BITS)
+        self.assertTrue(ana.MONITORED_DCOM)
+        self.assertTrue(ana.MONITORED_SERVICES)
+        self.assertTrue(all(not locked for *_, locked in lock_states))
+
+    @patch("analyzer.subprocess.STARTUPINFO", create=True)
+    @patch("analyzer.get_explorer_pid", return_value=801)
+    @patch("analyzer.pid_from_service_name")
+    @patch("analyzer.Process")
+    def test_shell_and_service_handlers_skip_already_tracked_pids_and_dedupe_critical_list(
+        self, mock_process, mock_pid_from_service_name, _mock_explorer, _mock_si
+    ):
+        ana = self.analyzer
+        ana.SERVICES_PID = 805
+        ana.process_list.pids.extend([801, 802, 803, 804, 805, 806])
+        ana.CRITICAL_PROCESS_LIST.append(805)
+        mock_pid_from_service_name.side_effect = [802, 803, 804, 806]
+
+        self.pipe_handler._handle_shell(None)
+        self.pipe_handler._handle_interop(None)
+        self.pipe_handler._handle_wmi(None)
+        self.pipe_handler._handle_tasksched(None)
+        self.pipe_handler._handle_bits(None)
+        self.pipe_handler._handle_service(b"MySvc")
+
+        mock_process.assert_not_called()
+        self.assertIsNone(ana.LASTINJECT_TIME)
+        self.assertEqual(sorted(ana.CRITICAL_PROCESS_LIST), [801, 802, 803, 804, 805, 806])
+
+    @patch("analyzer.get_explorer_pid", return_value=4300)
+    @patch("analyzer.Process")
+    def test_handle_shell_serializes_with_handle_process_via_pid_inject_lock(self, mock_process, _mock_explorer):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.config.category = "file"
+        entered_inject = threading.Event()
+        allow_finish = threading.Event()
+        active_injects = 0
+        max_concurrent_injects = 0
+        state_lock = threading.Lock()
+        inject_count = 0
+
+        def make_proc(**kwargs):
+            proc = MagicMock()
+            proc.pid = kwargs.get("pid")
+            proc.get_filepath.return_value = r"C:\Windows\explorer.exe"
+            proc.is_64bit.return_value = True
+
+            def fake_inject(*_args, **_kw):
+                nonlocal active_injects, max_concurrent_injects, inject_count
+                with state_lock:
+                    active_injects += 1
+                    inject_count += 1
+                    max_concurrent_injects = max(max_concurrent_injects, active_injects)
+                entered_inject.set()
+                allow_finish.wait(timeout=5.0)
+                self.pipe_handler._handle_loaded(b"4300")
+                with state_lock:
+                    active_injects -= 1
+                return True
+
+            proc.inject.side_effect = fake_inject
+            return proc
+
+        mock_process.side_effect = make_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            t1 = threading.Thread(target=self.pipe_handler._handle_process, args=(b"4300,5100",))
+            t2 = threading.Thread(target=self.pipe_handler._handle_shell, args=(None,))
+            t1.start()
+            self.assertTrue(entered_inject.wait(timeout=2.0))
+            t2.start()
+            threading.Event().wait(0.05)
+            self.assertEqual(max_concurrent_injects, 1)
+            allow_finish.set()
+            t1.join(timeout=5.0)
+            t2.join(timeout=5.0)
+
+        self.assertEqual(max_concurrent_injects, 1)
+        self.assertEqual(inject_count, 1)
+        self.assertEqual(ana.CRITICAL_PROCESS_LIST, [4300])
+        self.assertEqual(ana._pid_inject_locks, {})
+
+    @patch("analyzer.get_explorer_pid", return_value=4301)
+    @patch("analyzer.Process")
+    def test_inject_service_pid_releases_locks_before_sleep(self, mock_process, _mock_explorer):
+        ana = self.analyzer
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"C:\Windows\explorer.exe"
+        mock_process.return_value = mock_proc
+        sleep_checks = []
+
+        def check_sleep(ms):
+            sleep_checks.append((ms, ana.service_lock.locked(), ana.process_lock.locked(), dict(ana._pid_inject_locks)))
+
+        with patch("analyzer.KERNEL32.Sleep", side_effect=check_sleep):
+            self.pipe_handler._handle_shell(None)
+
+        self.assertEqual(sleep_checks, [(2000, False, False, {})])
+
 
 class TestUiaSurrogateHelpers(unittest.TestCase):
     def test_is_windows_dllhost_path(self):

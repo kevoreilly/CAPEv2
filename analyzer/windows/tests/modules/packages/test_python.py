@@ -85,6 +85,31 @@ class TestWindowsPython314Runtime(unittest.TestCase):
                 self.assertEqual(pkg.start(sample), 200)
             self.assertEqual(mock_exec.call_args[0][0], sys.executable)
 
+    def test_python_package_preserves_pythonhome_when_check_file_extension_raises(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_dir = os.path.join(tmpdir, "Python", "pythoncore-3.14-64")
+            os.makedirs(os.path.join(runtime_dir, "Lib"), exist_ok=True)
+            py_exe = os.path.join(runtime_dir, "python.exe")
+            with open(py_exe, "wb") as fh:
+                fh.write(b"MZ")
+            sample = os.path.join(tmpdir, "sample.bin")
+
+            pkg = python_pkg_mod.Python(options={})
+
+            with (
+                patch.dict(os.environ, {"LocalAppData": tmpdir, "HomeDrive": "", "ProgramFiles": "", "SystemRoot": ""}, clear=False),
+                patch.object(python_pkg_mod, "check_file_extension", side_effect=OSError("rename failed")),
+            ):
+                os.environ.pop("PYTHONHOME", None)
+                with self.assertRaises(OSError):
+                    pkg.start(sample)
+                self.assertNotIn("PYTHONHOME", os.environ)
+
+                os.environ["PYTHONHOME"] = "C:\\OriginalPython"
+                with self.assertRaises(OSError):
+                    pkg.start(sample)
+                self.assertEqual(os.environ.get("PYTHONHOME"), "C:\\OriginalPython")
+
     def test_pre_script_and_during_script_use_sys_executable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             pre_path = os.path.join(tmpdir, "pre_script.py")

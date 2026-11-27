@@ -39,6 +39,10 @@ class Python(Package):
                 else:
                     raise
 
+        arguments = self.options.get(OPT_ARGUMENTS, "")
+
+        path = check_file_extension(path, ".py")
+
         # Set PYTHONHOME to help Python locate its standard library during initialization.
         # Python may fail to load the 'encodings' module, resulting in:
         #       "ModuleNotFoundError: No module named 'encodings'"
@@ -51,9 +55,6 @@ class Python(Package):
             os.environ["PYTHONHOME"] = python_home
             set_pythonhome = True
 
-        arguments = self.options.get(OPT_ARGUMENTS, "")
-
-        path = check_file_extension(path, ".py")
         try:
             return self.execute(python, f"{path} {arguments}", path)
         finally:

@@ -185,3 +185,226 @@ def test_filecollector_setup_watches_resolves_usrmerge_top_level_symlinks(tmp_pa
         assert os.path.realpath(str(fake_root / "usr" / "bin" / "nested")) in watched_explicit
     finally:
         watcher_explicit.close()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_native_inotify_watcher_move_out_and_recreate_replaces_watch(tmp_path):
+    watcher = filecollector.NativeInotifyWatcher()
+    try:
+        root = tmp_path / "root"
+        outside = tmp_path / "outside"
+        root.mkdir()
+        outside.mkdir()
+        sub = root / "target"
+        sub.mkdir()
+
+        watcher.add_watch(str(root), rec=True)
+        old_wd = watcher._path_to_wd[str(sub)]
+
+        # Move the watched directory outside the watched root (no IN_IGNORED emitted),
+        # then recreate the same path as a new inode and drop a file inside it.
+        sub.rename(outside / "target")
+        sub.mkdir()
+        (sub / "early.bin").write_bytes(b"early")
+
+        seen_paths = set()
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            for _, p in watcher.read_events(timeout=0.05):
+                seen_paths.add(p)
+            if str(sub / "early.bin") in seen_paths and watcher._path_to_wd.get(str(sub)) != old_wd:
+                break
+
+        new_wd = watcher._path_to_wd.get(str(sub))
+        assert new_wd is not None
+        assert new_wd != old_wd
+        assert old_wd not in watcher._wd_to_path
+
+        # Subsequent writes inside the recreated directory must also emit events on the new watch.
+        late_file = sub / "late.bin"
+        late_file.write_bytes(b"late")
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline and str(late_file) not in seen_paths:
+            for _, p in watcher.read_events(timeout=0.05):
+                seen_paths.add(p)
+        assert str(late_file) in seen_paths
+    finally:
+        watcher.close()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_native_inotify_watcher_overwrite_rename_keeps_active_watch_across_ignored(tmp_path):
+    watcher = filecollector.NativeInotifyWatcher()
+    try:
+        root = tmp_path / "root"
+        root.mkdir()
+        dir_a = root / "dir_a"
+        dir_b = root / "dir_b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+
+        watcher.add_watch(str(root), rec=True)
+        wd_a = watcher._path_to_wd[str(dir_a)]
+        wd_b = watcher._path_to_wd[str(dir_b)]
+        assert wd_a != wd_b
+
+        # Overwrite empty dir_a with dir_b; kernel queues IN_MOVED_TO for dir_a and IN_IGNORED for wd_a.
+        dir_b.rename(dir_a)
+
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            watcher.read_events(timeout=0.05)
+            if watcher._path_to_wd.get(str(dir_a)) == wd_b and str(dir_b) not in watcher._path_to_wd:
+                break
+
+        # Drain any trailing IN_IGNORED event for wd_a and confirm it does not clobber dir_a -> wd_b.
+        watcher.read_events(timeout=0.05)
+        assert watcher._path_to_wd.get(str(dir_a)) == wd_b
+        assert watcher._wd_to_path.get(wd_b) == str(dir_a)
+        assert str(dir_b) not in watcher._path_to_wd
+        assert wd_a not in watcher._wd_to_path
+
+        dropped = dir_a / "after_overwrite.bin"
+        dropped.write_bytes(b"payload")
+        seen = set()
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline and str(dropped) not in seen:
+            for _, p in watcher.read_events(timeout=0.05):
+                seen.add(p)
+        assert str(dropped) in seen
+    finally:
+        watcher.close()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_native_inotify_watcher_passes_in_onlydir_and_rejects_non_directory(tmp_path):
+    regular_file = tmp_path / "plain.txt"
+    regular_file.write_text("hello")
+
+    watcher = filecollector.NativeInotifyWatcher()
+    try:
+        assert watcher._add_single_watch(str(regular_file), filecollector._WATCH_MASK) is False
+        assert str(regular_file) not in watcher._path_to_wd
+
+        captured_masks = []
+        orig_add = filecollector._LIBC.inotify_add_watch
+
+        def spy_add(fd, path_bytes, mask):
+            captured_masks.append(mask)
+            return orig_add(fd, path_bytes, mask)
+
+        target_dir = tmp_path / "dir_check"
+        target_dir.mkdir()
+        with patch.object(filecollector._LIBC, "inotify_add_watch", side_effect=spy_add):
+            assert watcher._add_single_watch(str(target_dir), filecollector._WATCH_MASK) is True
+        assert len(captured_masks) == 1
+        assert captured_masks[0] & filecollector.IN_ONLYDIR
+        assert captured_masks[0] & filecollector.IN_DONT_FOLLOW
+    finally:
+        watcher.close()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_native_inotify_watcher_uses_poll_and_closes_on_pollnval_and_ebadf(caplog):
+    import errno as errno_mod
+    import select
+
+    class _FakePoller:
+        def __init__(self, result):
+            self._result = result
+            self.registered = []
+
+        def register(self, fd, eventmask):
+            self.registered.append((fd, eventmask))
+
+        def poll(self, timeout_ms):
+            return self._result
+
+    # POLLNVAL closes watcher cleanly and stops FileCollector loop without spinning.
+    watcher = filecollector.NativeInotifyWatcher()
+    fd = watcher._fd
+    poller = _FakePoller([(fd, select.POLLNVAL)])
+    with (
+        patch.object(filecollector.select, "poll", return_value=poller),
+        caplog.at_level("WARNING", logger=filecollector.__name__),
+    ):
+        assert watcher.read_events(timeout=0.1) == []
+    assert watcher.is_closed is True
+    assert poller.registered == [(fd, select.POLLIN)]
+    assert any("error events" in rec.message for rec in caplog.records)
+
+    # EBADF from os.read closes watcher cleanly.
+    caplog.clear()
+    watcher2 = filecollector.NativeInotifyWatcher()
+    fd2 = watcher2._fd
+    poller2 = _FakePoller([(fd2, select.POLLIN)])
+    with (
+        patch.object(filecollector.select, "poll", return_value=poller2),
+        patch.object(filecollector.os, "read", side_effect=OSError(errno_mod.EBADF, "Bad file descriptor")),
+        caplog.at_level("WARNING", logger=filecollector.__name__),
+    ):
+        assert watcher2.read_events(timeout=0.1) == []
+    assert watcher2.is_closed is True
+    assert any("EBADF" in rec.message for rec in caplog.records)
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_native_inotify_watcher_warns_on_queue_overflow(tmp_path, caplog):
+    import select
+
+    class _ReadyPoller:
+        def register(self, fd, eventmask):
+            self.fd = fd
+
+        def poll(self, timeout_ms):
+            return [(self.fd, select.POLLIN)]
+
+    watcher = filecollector.NativeInotifyWatcher()
+    try:
+        watch_dir = tmp_path / "ovf"
+        watch_dir.mkdir()
+        watcher.add_watch(str(watch_dir))
+        wd = watcher._path_to_wd[str(watch_dir)]
+
+        overflow_ev = filecollector._EVENT_HEADER.pack(-1, filecollector.IN_Q_OVERFLOW, 0, 0)
+        name_bytes = b"kept.bin\x00\x00\x00\x00"
+        normal_ev = filecollector._EVENT_HEADER.pack(wd, filecollector.IN_CREATE, 0, len(name_bytes)) + name_bytes
+
+        with (
+            patch.object(filecollector.select, "poll", return_value=_ReadyPoller()),
+            patch.object(filecollector.os, "read", return_value=overflow_ev + normal_ev),
+            caplog.at_level("WARNING", logger=filecollector.__name__),
+        ):
+            events = watcher.read_events(timeout=0.1)
+
+        assert events == [(filecollector.IN_CREATE, os.path.join(str(watch_dir), "kept.bin"))]
+        assert any("overflowed" in rec.message for rec in caplog.records)
+    finally:
+        watcher.close()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_filecollector_run_exits_when_watcher_closes_on_pollnval(tmp_path):
+    import select
+
+    class _InvalidPoller:
+        def register(self, fd, eventmask):
+            self.fd = fd
+
+        def poll(self, timeout_ms):
+            return [(self.fd, select.POLLNVAL)]
+
+    watch_dir = tmp_path / "watch"
+    watch_dir.mkdir()
+    cfg = SimpleNamespace(filecollector=True)
+
+    with (
+        patch.object(filecollector.select, "poll", return_value=_InvalidPoller()),
+        patch.object(filecollector, "_POLL_TIMEOUT_SEC", 0.05),
+        patch.object(filecollector, "_STOP_DELAY_SEC", 0),
+    ):
+        collector = filecollector.FileCollector({}, cfg, watch_roots=[str(watch_dir)])
+        assert collector.initComplete is True
+        collector.thread.join(timeout=2.0)
+        assert not collector.thread.is_alive()
+        collector.stop()

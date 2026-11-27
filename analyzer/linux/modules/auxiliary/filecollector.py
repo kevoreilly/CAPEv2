@@ -26,7 +26,9 @@ IN_MOVED_TO = 0x00000080
 IN_CREATE = 0x00000100
 IN_DELETE_SELF = 0x00000400
 IN_MOVE_SELF = 0x00000800
+IN_Q_OVERFLOW = 0x00004000
 IN_IGNORED = 0x00008000
+IN_ONLYDIR = 0x01000000
 IN_DONT_FOLLOW = 0x02000000
 IN_ISDIR = 0x40000000
 
@@ -70,6 +72,9 @@ def _load_inotify_libc():
         add_watch = libc.inotify_add_watch
         add_watch.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32]
         add_watch.restype = ctypes.c_int
+        rm_watch = libc.inotify_rm_watch
+        rm_watch.argtypes = [ctypes.c_int, ctypes.c_int]
+        rm_watch.restype = ctypes.c_int
         return libc
     except (AttributeError, OSError) as err:
         log.warning("Unable to initialize Linux inotify via libc: %s", err)
@@ -95,57 +100,94 @@ class NativeInotifyWatcher:
         self._wd_to_path = {}
         self._path_to_wd = {}
 
-    def add_watch(self, path, mask=_WATCH_MASK, rec=False):
+    @property
+    def is_closed(self):
+        return self._fd < 0
+
+    def add_watch(self, path, mask=_WATCH_MASK, rec=False, force=False):
         """Watch a directory (and optionally its existing subdirectories)."""
         if self._fd < 0:
             return
         abs_path = os.path.abspath(path)
         if os.path.islink(abs_path):
             return
-        self._add_single_watch(abs_path, mask)
+        self._add_single_watch(abs_path, mask, force=force)
         if not rec:
             return
         for dirpath, dirnames, _ in os.walk(abs_path, followlinks=False):
             for dirname in list(dirnames):
                 subpath = os.path.join(dirpath, dirname)
-                if os.path.islink(subpath) or not self._add_single_watch(subpath, mask):
+                if os.path.islink(subpath) or not self._add_single_watch(subpath, mask, force=force):
                     dirnames.remove(dirname)
 
-    def _add_single_watch(self, abs_path, mask):
-        if os.path.islink(abs_path):
+    def _add_single_watch(self, abs_path, mask, force=False):
+        if self._fd < 0 or os.path.islink(abs_path):
             return False
-        if abs_path in self._path_to_wd:
+        if not force and abs_path in self._path_to_wd:
             return True
-        wd = _LIBC.inotify_add_watch(self._fd, os.fsencode(abs_path), mask | IN_DONT_FOLLOW)
+        wd = _LIBC.inotify_add_watch(self._fd, os.fsencode(abs_path), mask | IN_DONT_FOLLOW | IN_ONLYDIR)
         if wd < 0:
             err = ctypes.get_errno()
             if err not in (errno.ENOENT, errno.ENOTDIR, errno.EACCES, errno.ELOOP):
                 log.debug("inotify_add_watch failed for %s: %s", abs_path, os.strerror(err))
             return False
+        prev_wd = self._path_to_wd.get(abs_path)
+        if prev_wd is not None and prev_wd != wd:
+            if self._wd_to_path.get(prev_wd) == abs_path:
+                self._wd_to_path.pop(prev_wd, None)
+            _LIBC.inotify_rm_watch(self._fd, prev_wd)
         old_path = self._wd_to_path.get(wd)
         if old_path is not None and old_path != abs_path:
-            self._path_to_wd.pop(old_path, None)
+            if self._path_to_wd.get(old_path) == wd:
+                self._path_to_wd.pop(old_path, None)
         self._wd_to_path[wd] = abs_path
         self._path_to_wd[abs_path] = wd
         return True
 
     def read_events(self, timeout=_POLL_TIMEOUT_SEC, mask=_WATCH_MASK):
         """Poll for pending inotify events and return (mask, pathname) pairs."""
-        if self._fd < 0:
+        fd = self._fd
+        if fd < 0:
             return []
+        if timeout is None:
+            timeout_ms = None
+        elif timeout <= 0:
+            timeout_ms = 0
+        else:
+            timeout_ms = max(1, int(timeout * 1000))
         try:
-            ready, _, _ = select.select([self._fd], [], [], timeout)
-        except (OSError, ValueError):
+            poller = select.poll()
+            poller.register(fd, select.POLLIN)
+            ready = poller.poll(timeout_ms)
+        except InterruptedError:
+            return []
+        except (OSError, ValueError) as err:
+            if self._fd >= 0 and (getattr(err, "errno", None) == errno.EBADF or isinstance(err, ValueError)):
+                log.warning("Inotify fd became invalid during poll (%s); closing watcher", err)
+                self.close()
             return []
         if not ready:
             return []
 
+        _, revents = ready[0]
+        if revents & (select.POLLNVAL | select.POLLERR):
+            if self._fd >= 0:
+                log.warning("Inotify poll returned error events (0x%x); closing watcher", revents)
+                self.close()
+            return []
+        if not (revents & select.POLLIN):
+            return []
+
         try:
-            data = os.read(self._fd, _READ_BUF_SIZE)
+            data = os.read(fd, _READ_BUF_SIZE)
         except (BlockingIOError, InterruptedError):
             return []
         except OSError as err:
-            if err.errno not in (errno.EAGAIN, errno.EINTR, errno.EBADF):
+            if err.errno == errno.EBADF:
+                if self._fd >= 0:
+                    log.warning("Inotify fd closed unexpectedly (EBADF); stopping watcher")
+                    self.close()
+            elif err.errno not in (errno.EAGAIN, errno.EINTR):
                 log.debug("Error reading inotify fd: %s", err)
             return []
 
@@ -158,10 +200,14 @@ class NativeInotifyWatcher:
             raw_name = data[offset : offset + name_len].split(b"\x00", 1)[0]
             offset += name_len
 
+            if ev_mask & IN_Q_OVERFLOW:
+                log.warning("Inotify event queue overflowed; some file events may have been dropped")
+                continue
+
             base_path = self._wd_to_path.get(wd)
             if ev_mask & IN_IGNORED:
                 removed = self._wd_to_path.pop(wd, None)
-                if removed is not None:
+                if removed is not None and self._path_to_wd.get(removed) == wd:
                     self._path_to_wd.pop(removed, None)
                 continue
 
@@ -174,11 +220,11 @@ class NativeInotifyWatcher:
                 pathname = base_path
 
             if (ev_mask & IN_ISDIR) and (ev_mask & (IN_CREATE | IN_MOVED_TO)) and not os.path.islink(pathname):
-                self.add_watch(pathname, mask=mask, rec=True)
+                self.add_watch(pathname, mask=mask, rec=True, force=True)
                 # Catch files created inside the new directory before its watch attached.
                 for dirpath, dirnames, filenames in os.walk(pathname, followlinks=False):
                     dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
-                    self._add_single_watch(dirpath, mask)
+                    self._add_single_watch(dirpath, mask, force=True)
                     for filename in filenames:
                         events.append((IN_CREATE, os.path.join(dirpath, filename)))
 
@@ -325,7 +371,7 @@ class FileCollector(Auxiliary):
             self._init_event.set()
 
         try:
-            while self.do_run:
+            while self.do_run and not watcher.is_closed:
                 for ev_mask, pathname in watcher.read_events(timeout=_POLL_TIMEOUT_SEC):
                     if ev_mask & IN_ISDIR:
                         continue

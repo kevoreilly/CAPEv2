@@ -596,3 +596,260 @@ class ProcessTests(unittest.TestCase):
             finally:
                 Process.process_num = orig_num
                 os.chdir(orig_cwd)
+
+    def test_write_monitor_config_regenerates_on_pid_reuse_with_new_creation_time(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            fake_logserver = MagicMock()
+            fake_logserver.thread = MagicMock()
+            fake_logserver.thread.is_alive.return_value = True
+
+            creation_times = {0x1111: (0x01DB0000, 0x00001000), 0x2222: (0x01DB0000, 0x00002000)}
+
+            def fake_get_process_times(h_proc, ctime_ptr, _etime, _ktime, _utime):
+                raw = getattr(h_proc, "value", h_proc)
+                if raw in creation_times:
+                    hi, lo = creation_times[raw]
+                    ctime_ptr._obj.dwHighDateTime = hi
+                    ctime_ptr._obj.dwLowDateTime = lo
+                    return 1
+                return 0
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            p1 = Process(options={}, config=fake_cfg, pid=4210, h_process=0x1111)
+            p2 = Process(options={}, config=fake_cfg, pid=4210, h_process=0x2222)
+            try:
+                Process.process_num = 0
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", return_value=fake_logserver),
+                    patch("lib.api.process.KERNEL32") as mock_k32,
+                ):
+                    mock_k32.GetProcessTimes.side_effect = fake_get_process_times
+
+                    self.assertTrue(p1.write_monitor_config(interest="C:\\Temp\\first.exe"))
+                    self.assertEqual(Process.process_num, 1)
+
+                    # Same PID and creation time reuses existing config.
+                    self.assertFalse(p1.write_monitor_config(interest="C:\\Temp\\ignored.exe"))
+                    self.assertEqual(Process.process_num, 1)
+
+                    # Same PID with different creation time (OS PID reuse) regenerates config.
+                    self.assertTrue(p2.write_monitor_config(interest="C:\\Temp\\reused.exe"))
+                    self.assertEqual(Process.process_num, 2)
+                    with open(os.path.join(dll_dir, "4210.ini"), encoding="utf-8") as fh:
+                        contents = fh.read()
+                    self.assertIn("file-of-interest=C:\\Temp\\reused.exe\n", contents)
+            finally:
+                p1.h_process = None
+                p2.h_process = None
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)
+
+    def test_inject_failure_invalidates_configured_pid_cache(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            bin_dir = os.path.join(tmpdir, "bin")
+            os.makedirs(dll_dir, exist_ok=True)
+            os.makedirs(bin_dir, exist_ok=True)
+            for rel in (proc_mod.LOADER64_NAME, proc_mod.CAPEMON64_NAME):
+                full = os.path.join(tmpdir, rel)
+                os.makedirs(os.path.dirname(full), exist_ok=True)
+                with open(full, "wb") as fh:
+                    fh.write(b"MZ")
+
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            fake_logserver = MagicMock()
+            fake_logserver.thread = MagicMock()
+            fake_logserver.thread.is_alive.return_value = True
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            try:
+                Process.process_num = 0
+                p = Process(options={}, config=fake_cfg, pid=4211)
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", return_value=fake_logserver),
+                    patch.object(p, "is_alive", return_value=True),
+                    patch.object(p, "is_64bit", return_value=True),
+                    patch.object(p, "get_filepath", return_value=r"C:\Temp\sample.exe"),
+                    patch("lib.api.process.nt_path_to_dos_path_ansi", side_effect=lambda s: s),
+                    patch.object(p, "detect_dll_sideloading", return_value=False),
+                    patch("lib.api.process.subprocess.run") as mock_run,
+                ):
+                    # Non-zero/non-1 loader exit code discards cached config entry.
+                    mock_run.return_value = MagicMock(returncode=2)
+                    p.inject(interest=r"C:\Temp\attempt1.exe")
+                    self.assertNotIn(4211, Process._configured_pids)
+
+                    # Exception in subprocess.run also discards cached config entry.
+                    mock_run.side_effect = OSError("loader crashed")
+                    self.assertFalse(p.inject(interest=r"C:\Temp\attempt2.exe"))
+                    self.assertNotIn(4211, Process._configured_pids)
+
+                    # Successful injection keeps cached config entry and regenerates with new interest.
+                    mock_run.side_effect = None
+                    mock_run.return_value = MagicMock(returncode=1)
+                    self.assertTrue(p.inject(interest=r"C:\Temp\attempt3.exe"))
+                    self.assertIn(4211, Process._configured_pids)
+                    with open(os.path.join(dll_dir, "4211.ini"), encoding="utf-8") as fh:
+                        self.assertIn("file-of-interest=C:\\Temp\\attempt3.exe\n", fh.read())
+            finally:
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)
+
+    def test_write_monitor_config_retries_os_replace_permission_error(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            fake_logserver = MagicMock()
+            fake_logserver.thread = MagicMock()
+            fake_logserver.thread.is_alive.return_value = True
+
+            real_replace = os.replace
+            attempts = {"count": 0}
+
+            def flaky_replace(src, dst):
+                attempts["count"] += 1
+                if attempts["count"] <= 2:
+                    err = PermissionError("sharing violation")
+                    err.winerror = 32
+                    raise err
+                return real_replace(src, dst)
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            try:
+                Process.process_num = 0
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", return_value=fake_logserver),
+                    patch("lib.api.process.os.replace", side_effect=flaky_replace),
+                    patch("lib.api.process.time.sleep") as mock_sleep,
+                ):
+                    p = Process(options={}, config=fake_cfg, pid=4212)
+                    self.assertTrue(p.write_monitor_config(interest=r"C:\Temp\retry.exe"))
+
+                self.assertEqual(attempts["count"], 3)
+                self.assertEqual(mock_sleep.call_count, 2)
+                self.assertEqual(Process.process_num, 1)
+                self.assertIn(4212, Process._configured_pids)
+                self.assertEqual(os.listdir(dll_dir), ["4212.ini"])
+            finally:
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)
+
+    def test_write_monitor_config_does_not_leak_process_num_on_replace_failure(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            fake_logserver = MagicMock()
+            fake_logserver.thread = MagicMock()
+            fake_logserver.thread.is_alive.return_value = True
+
+            def always_locked(_src, _dst):
+                err = PermissionError("access denied")
+                err.winerror = 5
+                raise err
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            try:
+                Process.process_num = 0
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", return_value=fake_logserver),
+                    patch("lib.api.process.os.replace", side_effect=always_locked),
+                    patch("lib.api.process.time.sleep") as mock_sleep,
+                ):
+                    p = Process(options={}, config=fake_cfg, pid=4213)
+                    with self.assertRaises(PermissionError):
+                        p.write_monitor_config(interest=r"C:\Temp\fail.exe")
+
+                self.assertEqual(mock_sleep.call_count, 4)
+                self.assertEqual(Process.process_num, 0)
+                self.assertNotIn(4213, Process._configured_pids)
+                self.assertEqual(os.listdir(dll_dir), [])
+            finally:
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)
+
+    def test_write_monitor_config_does_not_hold_config_lock_during_logserver_connect(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            entered_ls = threading.Event()
+            allow_ls = threading.Event()
+            release_done = threading.Event()
+            config_lock_during_ls = []
+
+            def blocking_logserver(*_args, **_kwargs):
+                config_lock_during_ls.append(Process._config_lock.locked())
+                entered_ls.set()
+                self.assertTrue(allow_ls.wait(timeout=5.0))
+                ls = MagicMock()
+                ls.thread = MagicMock()
+                ls.thread.is_alive.return_value = True
+                return ls
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            try:
+                Process.process_num = 0
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", side_effect=blocking_logserver),
+                ):
+                    p = Process(options={}, config=fake_cfg, pid=4214)
+                    t_cfg = threading.Thread(target=p.write_monitor_config, kwargs={"interest": r"C:\Temp\ls.exe"})
+                    t_cfg.start()
+                    self.assertTrue(entered_ls.wait(timeout=2.0))
+
+                    def release_other():
+                        Process.release_monitor_handle(9999)
+                        release_done.set()
+
+                    t_rel = threading.Thread(target=release_other)
+                    t_rel.start()
+                    self.assertTrue(release_done.wait(timeout=2.0), "release_monitor_handle blocked on LogServer connect")
+                    t_rel.join(timeout=2.0)
+
+                    allow_ls.set()
+                    t_cfg.join(timeout=5.0)
+
+                self.assertEqual(config_lock_during_ls, [False])
+            finally:
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)

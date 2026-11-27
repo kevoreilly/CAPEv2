@@ -62,9 +62,15 @@ def flare_capa(proxy=None):
         http = _http_client(proxy)
         data = http.request("GET", "https://github.com/mandiant/capa-rules/archive/master.zip").data
         dest_folder = os.path.join(CUCKOO_ROOT, "data")
+        dest_folder_abs = os.path.abspath(dest_folder)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules-master")), ignore_errors=True)
         shutil.rmtree((os.path.join(dest_folder, "capa-rules")), ignore_errors=True)
-        zipfile.ZipFile(BytesIO(data)).extractall(path=dest_folder)
+        with zipfile.ZipFile(BytesIO(data)) as z:
+            for member in z.infolist():
+                target_path = os.path.abspath(os.path.join(dest_folder_abs, member.filename))
+                if not target_path.startswith(dest_folder_abs + os.sep) and target_path != dest_folder_abs:
+                    continue
+                z.extract(member, path=dest_folder_abs)
         os.rename(os.path.join(dest_folder, "capa-rules-master"), os.path.join(dest_folder, "capa-rules"))
 
         # shutil.rmtree((os.path.join(dest_folder, "capa-signatures")), ignore_errors=True)
@@ -255,8 +261,11 @@ def install(
             if not member.name.startswith(name_start) or name_start == member.name:
                 continue
 
+            target_folder_abs = os.path.abspath(os.path.join(CUCKOO_ROOT, folder))
             relpath = member.name[len(name_start) + 1 :]
-            filepath = os.path.join(CUCKOO_ROOT, folder, relpath)
+            filepath = os.path.abspath(os.path.join(target_folder_abs, relpath))
+            if not filepath.startswith(target_folder_abs + os.sep) and filepath != target_folder_abs:
+                continue
             if member.name.lower().endswith((".gitignore", "readme.md", "-ci.yml")):
                 continue
 

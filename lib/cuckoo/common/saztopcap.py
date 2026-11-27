@@ -130,7 +130,12 @@ def saz_to_pcap(sazpath):
 
         try:
             with z:
-                z.extractall(tmpdir)
+                dest_abs = os.path.abspath(tmpdir)
+                for member in z.infolist():
+                    target_path = os.path.abspath(os.path.join(dest_abs, member.filename))
+                    if not target_path.startswith(dest_abs + os.sep) and target_path != dest_abs:
+                        continue
+                    z.extract(member, path=dest_abs)
         except Exception as e:
             log.error("Failed to extract SAZ file to temp dir %s", e)
             return None

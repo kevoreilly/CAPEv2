@@ -53,10 +53,15 @@ class TestLoader():
             shutil.rmtree(payload_output_dir)
 
         with zipfile.ZipFile(payload_archive, 'r') as zip_ref:
-            if zip_password:
-                zip_ref.extractall(payload_output_dir, pwd=zip_password)
-            else:
-                zip_ref.extractall(payload_output_dir)
+            dest_abs = os.path.abspath(payload_output_dir)
+            for member in zip_ref.infolist():
+                target_path = os.path.abspath(os.path.join(dest_abs, member.filename))
+                if not target_path.startswith(dest_abs + os.sep) and target_path != dest_abs:
+                    continue
+                if zip_password:
+                    zip_ref.extract(member, path=dest_abs, pwd=zip_password)
+                else:
+                    zip_ref.extract(member, path=dest_abs)
 
         payload_path = None
         if not os.path.isdir(payload_output_dir):

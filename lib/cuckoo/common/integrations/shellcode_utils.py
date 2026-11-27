@@ -276,7 +276,8 @@ def shellcode_on_demand_kwargs(
                 options = info.get("options") or ""
         if package not in SHELLCODE_PACKAGES:
             return None
-        return {"arch": SHELLCODE_PACKAGES[package], "entry": get_options(options).get("offset")}
+        options_dict = options if isinstance(options, dict) else get_options(options)
+        return {"arch": SHELLCODE_PACKAGES[package], "entry": options_dict.get("offset")}
 
     if category != "CAPE":
         return None

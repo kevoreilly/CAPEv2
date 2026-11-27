@@ -386,5 +386,76 @@ def test_static_file_info_runs_malcat_before_flare_capa(monkeypatch, tmp_path):
     assert call_order == ["malcat", "flare_capa"]
 
 
+def test_malcat_capa_blank_ssl_verify_falls_back_to_similarity(monkeypatch):
+    from lib.cuckoo.common.integrations.malcat import capa as malcat_capa
+    from lib.cuckoo.common.integrations.malcat import client as malcat_client
+
+    created = []
+
+    class _FakeClient:
+        def __init__(self, host, api_key, ssl_verify, timeout):
+            created.append((host, api_key, ssl_verify, timeout))
+
+    monkeypatch.setattr(malcat_capa, "_client", None)
+    monkeypatch.setattr(malcat_client, "MalcatClient", _FakeClient)
+
+    # 1. Blank malcat_ssl_verify falls back to kesakode_ssl_verify=True (must NOT coerce "" -> False).
+    class _CfgBlank:
+        def __init__(self, _name):
+            pass
+
+        def get(self, section):
+            if section == "malcat":
+                return {"malcat_host": "", "malcat_apikey": "", "malcat_ssl_verify": "", "timeout": "60"}
+            if section == "similarity":
+                return {"kesakode_host": "https://bridge:8090", "kesakode_apikey": "k", "kesakode_ssl_verify": "yes"}
+            raise KeyError(section)
+
+    monkeypatch.setattr("lib.cuckoo.common.config.Config", _CfgBlank)
+    malcat_capa._get_client()
+    assert created[-1] == ("https://bridge:8090", "k", True, 60)
+
+    # 2. Missing [malcat] section falls back cleanly to [similarity].
+    monkeypatch.setattr(malcat_capa, "_client", None)
+
+    class _CfgMissingMalcat:
+        def __init__(self, _name):
+            pass
+
+        def get(self, section):
+            if section == "similarity":
+                return {"kesakode_host": "https://fallback:8090", "kesakode_apikey": "k2", "kesakode_ssl_verify": True}
+            raise KeyError(section)
+
+    monkeypatch.setattr("lib.cuckoo.common.config.Config", _CfgMissingMalcat)
+    malcat_capa._get_client()
+    assert created[-1] == ("https://fallback:8090", "k2", True, 120)
+    monkeypatch.setattr(malcat_capa, "_client", None)
+
+
+def test_malcat_bridge_analysis_cache_defers_tmp_unlink_while_acquired(tmp_path):
+    from lib.cuckoo.common.integrations.malcat import malcat_bridge as mb
+
+    cache = mb.AnalysisCache(max_entries=1, ttl=600)
+    tmp_a = tmp_path / "a.bin"
+    tmp_a.write_bytes(b"aaa")
+    entry_a = cache.new_entry("sha_a", object(), passes={"info"}, acquire=True)
+    cache.set_tmp(entry_a, str(tmp_a))
+
+    # Inserting a second entry evicts sha_a from LRU, but tmp_a stays alive while acquired.
+    tmp_b = tmp_path / "b.bin"
+    tmp_b.write_bytes(b"bbb")
+    entry_b = cache.new_entry("sha_b", object(), passes={"info"}, acquire=True)
+    cache.set_tmp(entry_b, str(tmp_b))
+    assert tmp_a.exists()
+
+    # Releasing entry_a unlinks the evicted backing temp file.
+    cache.release(entry_a)
+    assert not tmp_a.exists()
+    cache.release(entry_b)
+    cache.clear()
+    assert not tmp_b.exists()
+
+
 
 

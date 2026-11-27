@@ -267,6 +267,7 @@ def _build_batch_tasks_info(request, task_ids):
             continue
 
         task = None
+        sha256 = ""
         with suppress(Exception):
             from sqlalchemy import select
 
@@ -278,11 +279,13 @@ def _build_batch_tasks_info(request, task_ids):
             if filtered_stmt is not base_stmt:
                 with db.session.begin():
                     task_row = db.session.scalars(filtered_stmt).first()
-                if task_row:
-                    task = task_row.to_dict()
+                    if task_row:
+                        task = task_row.to_dict()
+                        sha256 = getattr(getattr(task_row, "sample", None), "sha256", "") or ""
             else:
                 task_obj = db.view_task(tid, details=True)
                 if task_obj:
+                    sha256 = getattr(getattr(task_obj, "sample", None), "sha256", "") or ""
                     task = task_obj.to_dict() if hasattr(task_obj, "to_dict") else task_obj
 
         if not task:
@@ -291,8 +294,9 @@ def _build_batch_tasks_info(request, task_ids):
         raw_status = str(task.get("status", "pending"))
         status = "processing" if raw_status == "completed" else raw_status
         target = task.get("target") or ""
-        sample = task.get("sample") or {}
-        sha256 = sample.get("sha256", "") if isinstance(sample, dict) else getattr(sample, "sha256", "")
+        if not sha256:
+            sample = task.get("sample") or {}
+            sha256 = sample.get("sha256", "") if isinstance(sample, dict) else getattr(sample, "sha256", "")
         is_reported = raw_status in {"reported", "distributed_completed"}
         is_terminal = raw_status in _BATCH_TERMINAL_STATUSES
         if not is_terminal:
@@ -1081,11 +1085,10 @@ def status(request, task_id):
         "task_status": task.status,
     }
     if interactive and task.status == "running" and not stop_requested:
-        machine = db.view_machine_by_label(task.machine) if task.machine else None
-        if machine:
-            guest_ip = machine.ip
+        vm_label, guest_ip = _resolve_guac_vm(task_id, task)
+        if vm_label:
             session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
-            session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+            session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
 
     # Populate instant Tier-1 static file info on initial page load when enabled (skipped during 5s HTMX #status-card polls).
@@ -1099,6 +1102,23 @@ def status(request, task_id):
     return render(request, "submission/status.html", response)
 
 
+def _resolve_guac_vm(task_id, task):
+    """Resolve `(vm_label, guest_ip)` locally or via central-mode worker lookup."""
+    machine = db.view_machine_by_label(task.machine) if getattr(task, "machine", None) else None
+    if machine:
+        return machine.label, machine.ip
+    with suppress(Exception):
+        from lib.tenancy.storage.config import central_mode_config
+
+        if central_mode_config().enabled:
+            from lib.tenancy.storage.guac import worker_vm_for_task
+
+            w_label, w_ip = worker_vm_for_task(task_id)
+            if w_label:
+                return w_label, w_ip or ""
+    return None, None
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remote_session(request, task_id):
     task = db.view_task(task_id)
@@ -1109,13 +1129,12 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine_by_label(task.machine)
-        if not machine:
+        vm_label, guest_ip = _resolve_guac_vm(task_id, task)
+        if not vm_label:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
-        guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{machine.label}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip}".encode("utf8")).decode("utf8")
 
     return render(
         request,

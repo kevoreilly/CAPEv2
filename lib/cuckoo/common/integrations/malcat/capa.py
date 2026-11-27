@@ -64,17 +64,23 @@ def _get_client():
         from lib.cuckoo.common.integrations.similarity.base import _as_bool
 
         integ = Config("integrations")
-        mcfg = dict(integ.get("malcat"))
         try:
-            scfg = dict(integ.get("similarity"))
+            mcfg = dict(integ.get("malcat") or {})
+        except Exception:
+            mcfg = {}
+        try:
+            scfg = dict(integ.get("similarity") or {})
         except Exception:
             scfg = {}
 
         host = mcfg.get("malcat_host") or scfg.get("kesakode_host") or "http://127.0.0.1:8090"
         api_key = mcfg.get("malcat_apikey") or scfg.get("kesakode_apikey") or ""
-        ssl_verify = _as_bool(
-            mcfg.get("malcat_ssl_verify", scfg.get("kesakode_ssl_verify", True))
-        )
+        raw_ssl = mcfg.get("malcat_ssl_verify")
+        if raw_ssl in (None, ""):
+            raw_ssl = scfg.get("kesakode_ssl_verify", True)
+            if raw_ssl in (None, ""):
+                raw_ssl = True
+        ssl_verify = _as_bool(raw_ssl)
         timeout = int(mcfg.get("timeout", 120) or 120)
         _client = MalcatClient(host=host, api_key=api_key, ssl_verify=ssl_verify, timeout=timeout)
     except Exception as err:

@@ -337,10 +337,12 @@ class AnalysisManager(threading.Thread):
 
         is_dead = False
         machinery = self.machinery_manager.machinery
-        bound_vnc_task = callable(getattr(machinery, "bind_vnc_task", None))
+        bind_fn = getattr(machinery, "bind_vnc_task", None)
+        bound_vnc_task = False
         try:
-            if bound_vnc_task:
-                machinery.bind_vnc_task(self.machine.label, self.task.id)
+            if callable(bind_fn):
+                bind_res = bind_fn(self.machine.label, self.task.id)
+                bound_vnc_task = True if bind_res is None else bool(bind_res)
             try:
                 self.machinery_manager.start_machine(self.machine)
             finally:

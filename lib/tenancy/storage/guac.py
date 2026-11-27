@@ -99,11 +99,12 @@ def worker_vm_for_task(task_id: Any) -> tuple[Optional[str], Optional[str]]:
     return (body.get("machine") or None, None)
 
 
-def worker_vnc_connection_for_task(task_id: Any) -> tuple[Optional[int], Optional[str]]:
-    """Return `(vnc_port, vnc_password)` for a task executing on a remote worker."""
+def worker_vnc_details_for_task(task_id: Any) -> tuple[Optional[str], Optional[int], Optional[str]]:
+    """Return `(machine, vnc_port, vnc_password)` for a task executing on a remote worker."""
     body = _worker_machine_body(task_id)
     if not body:
-        return (None, None)
+        return (None, None, None)
+    machine = body.get("machine") or None
     vp = body.get("vnc_port")
     try:
         vp = int(vp)
@@ -112,6 +113,12 @@ def worker_vnc_connection_for_task(task_id: Any) -> tuple[Optional[int], Optiona
     port = vp if vp and vp > 0 else None
     raw_password = body.get("vnc_password")
     password = raw_password if isinstance(raw_password, str) and raw_password else None
+    return (machine, port, password)
+
+
+def worker_vnc_connection_for_task(task_id: Any) -> tuple[Optional[int], Optional[str]]:
+    """Return `(vnc_port, vnc_password)` for a task executing on a remote worker."""
+    _, port, password = worker_vnc_details_for_task(task_id)
     return (port, password)
 
 

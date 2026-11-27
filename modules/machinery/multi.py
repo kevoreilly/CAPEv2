@@ -116,11 +116,13 @@ class MultiMachinery(Machinery):
         if callable(fn):
             fn(label)
 
-    def bind_vnc_task(self, label, task_id):
+    def bind_vnc_task(self, label, task_id) -> bool:
         sub = self._sub_machinery(label)
         fn = getattr(sub, "bind_vnc_task", None)
-        if callable(fn):
-            fn(label, task_id)
+        if not callable(fn):
+            return False
+        res = fn(label, task_id)
+        return True if res is None else bool(res)
 
     def unbind_vnc_task(self, label):
         sub = self._sub_machinery(label)

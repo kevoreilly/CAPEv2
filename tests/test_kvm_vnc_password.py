@@ -691,7 +691,7 @@ def test_multi_machinery_forwards_vnc_helpers():
     multi._machines = {"m1": {"machinery": "kvm"}, "m2": {"machinery": "other"}}
     multi._machineries = {"kvm": {"module": _SubKVM()}, "other": {"module": _SubOther()}}
 
-    multi.bind_vnc_task("vm-kvm", 7)
+    assert multi.bind_vnc_task("vm-kvm", 7) is True
     assert multi.get_vnc_password("vm-kvm") == "MuLtI123"
     multi.store_vnc_port("vm-kvm", 7)
     multi.clear_vnc_password("vm-kvm")
@@ -704,29 +704,132 @@ def test_multi_machinery_forwards_vnc_helpers():
         ("unbind", "vm-kvm"),
     ]
 
-    # Non-VNC sub-machinery and unknown labels must safely no-op.
+    # Non-VNC sub-machinery and unknown labels must safely no-op and return False on bind.
     assert multi.get_vnc_password("vm-other") is None
     assert multi.get_vnc_password("missing") is None
-    multi.bind_vnc_task("vm-other", 8)
+    assert multi.bind_vnc_task("vm-other", 8) is False
+    assert multi.bind_vnc_task("missing", 8) is False
     multi.store_vnc_port("vm-other", 8)
     multi.clear_vnc_password("vm-other")
     multi.unbind_vnc_task("vm-other")
 
 
-def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_snapshot():
+def test_libvirt_start_fails_closed_when_db_set_vnc_password_returns_false(monkeypatch):
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+
+    vm = _FakeDomain("<domain><devices><graphics type='vnc' port='5901' passwd='old'/></devices></domain>")
+    db = _FakeDB()
+    db.set_vnc_password = lambda tid, pwd: False
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm, db=db)
+    machinery.bind_vnc_task("vm1", 404)
+
+    with pytest.raises(CuckooMachineError, match="Unable to persist per-task VNC password"):
+        LibVirtMachinery.start(machinery, "vm1")
+
+    assert vm.resume_count == 0
+    assert vm.destroy_count == 1
+    assert machinery.get_vnc_password("vm1") is None
+
+
+def test_libvirt_start_retries_transient_db_operational_error_on_pre_resume_persist(db: _Database, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+    monkeypatch.setattr("lib.cuckoo.core.database.time.sleep", lambda _s: None)
+
+    tid = db.add_url("https://example.invalid/retry-persist")
+    db.set_status(tid, TASK_RUNNING)
+    with db.session.begin():
+        db.add_machine(
+            name="vm1",
+            label="vm1",
+            arch="x64",
+            ip="192.168.122.10",
+            platform="windows",
+            tags="x64",
+            interface="virbr0",
+            snapshot="ready",
+            resultserver_ip="192.168.122.1",
+            resultserver_port="2042",
+            reserved=False,
+        )
+
+    attempts = 0
+    real_set = db.set_vnc_password
+
+    def flaky_set(task_id, password):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OperationalError("UPDATE tasks", {}, Exception("connection dropped"))
+        return real_set(task_id, password)
+
+    monkeypatch.setattr(db, "set_vnc_password", flaky_set)
+
+    vm = _FakeDomain("<domain><devices><graphics type='vnc' port='5901' passwd='old'/></devices></domain>")
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm, db=db)
+    machinery.bind_vnc_task("vm1", tid)
+
+    LibVirtMachinery.start(machinery, "vm1")
+
+    assert attempts == 2
+    assert vm.resume_count == 1
+    assert vm.destroy_count == 0
+    pwd = machinery.get_vnc_password("vm1")
+    assert pwd is not None
+    assert db.view_task(tid).get_attribute("vnc_password") == pwd
+
+
+@pytest.mark.parametrize(
+    "start_mode",
+    [
+        pytest.param("snapshot", id="snapshot-mode"),
+        pytest.param("dirty", id="dirty-mode"),
+    ],
+)
+def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_in_both_modes(monkeypatch, start_mode):
+    import sys
     from importlib import import_module
 
     guac_views = import_module("guac.views")
     assert "kvmremote" in guac_views.machinery_available
 
-    fake_libvirt = _make_fake_libvirt()
     expired_xml = (
         "<domain><devices>"
         "<graphics type='vnc' port='5901' passwd='placeholder' passwdValidTo='1970-01-01T00:00:01'/>"
         "</devices></domain>"
     )
     vm_expired = _FakeDomain(expired_xml)
-    guac_views._refresh_direct_vnc_password_if_expired(vm_expired, fake_libvirt, "adminpwd")
+    created_count = 0
+
+    def fake_create():
+        nonlocal created_count
+        created_count += 1
+
+    vm_expired.create = fake_create
+
+    class _DirectConn(_FakeConn):
+        def close(self):
+            pass
+
+    fake_libvirt = _make_fake_libvirt()
+    fake_libvirt.open = lambda dsn: _DirectConn(vm_expired)
+
+    monkeypatch.setitem(sys.modules, "libvirt", fake_libvirt)
+    monkeypatch.setattr(guac_views.web_cfg.guacamole, "password", "adminpwd", raising=False)
+    monkeypatch.setattr(guac_views, "_view_vm_machine", lambda _name: None)
+
+    guac_views.bg_revert_and_start("qemu:///system", "vm1", start_mode, "ready")
+
+    if start_mode == "snapshot":
+        assert vm_expired.revert_calls == [("ready", 0)]
+        assert created_count == 0
+    else:
+        assert vm_expired.revert_calls == []
+        assert created_count == 1
+
     assert len(vm_expired.updated_devices) == 1
     elem = ET.fromstring(vm_expired.updated_devices[0][0])
     assert elem.get("passwd") == "adminpwd"
@@ -738,13 +841,51 @@ def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_snapshot
 
 
 @pytest.mark.parametrize(
-    "enabled, auth_only, authenticated, task_status, expected_status, expect_password",
+    "oidc_enabled, expect_session_auth",
     [
-        pytest.param(False, True, True, TASK_RUNNING, 403, False, id="disabled-by-default"),
-        pytest.param(True, True, False, TASK_RUNNING, 401, False, id="auth-required-rejects-anon"),
-        pytest.param(True, True, True, TASK_RUNNING, 200, True, id="authenticated-running-returns-password"),
-        pytest.param(True, False, False, TASK_RUNNING, 200, True, id="explicit-unauth-allowed-when-configured"),
-        pytest.param(True, True, True, TASK_FAILED_ANALYSIS, 404, False, id="non-running-task-returns-404"),
+        pytest.param(True, False, id="oidc-bool-true-drops-session-auth"),
+        pytest.param("yes", False, id="oidc-str-yes-drops-session-auth"),
+        pytest.param(False, True, id="oidc-bool-false-keeps-session-auth"),
+        pytest.param("no", True, id="oidc-str-no-keeps-session-auth"),
+    ],
+)
+def test_task_vnc_auth_classes_respects_oauth_oidc_section(oidc_enabled, expect_session_auth):
+    from importlib import import_module
+    from rest_framework.authentication import SessionAuthentication
+
+    apiv2_views = import_module("apiv2.views")
+    fake_cfg = SimpleNamespace(oauth_oidc={"enabled": oidc_enabled})
+    classes = apiv2_views._task_vnc_auth_classes(fake_cfg)
+    assert (SessionAuthentication in classes) is expect_session_auth
+
+
+@pytest.mark.parametrize(
+    "enabled, auth_only, user_kwargs, task_status, expected_status, expect_password",
+    [
+        pytest.param(False, True, {"is_authenticated": True, "id": 7}, TASK_RUNNING, 403, False, id="disabled-by-default"),
+        pytest.param("no", True, {"is_authenticated": True, "id": 7}, TASK_RUNNING, 403, False, id="disabled-string-no"),
+        pytest.param(True, True, {"is_authenticated": False, "id": None}, TASK_RUNNING, 401, False, id="auth-required-rejects-anon"),
+        pytest.param(True, "yes", {"is_authenticated": False, "id": None}, TASK_RUNNING, 401, False, id="auth-only-string-yes"),
+        pytest.param(True, True, {"is_authenticated": True, "id": 7}, TASK_RUNNING, 200, True, id="owner-running-returns-password"),
+        pytest.param(
+            True, True, {"is_authenticated": True, "id": 20}, TASK_RUNNING, 404, False, id="non-owner-denied-without-tenancy"
+        ),
+        pytest.param(
+            True, True, {"is_authenticated": True, "id": 20, "is_staff": True}, TASK_RUNNING, 200, True, id="staff-allowed-without-tenancy"
+        ),
+        pytest.param(
+            True,
+            True,
+            {"is_authenticated": True, "id": 20, "is_superuser": True},
+            TASK_RUNNING,
+            200,
+            True,
+            id="superuser-allowed-without-tenancy",
+        ),
+        pytest.param(
+            "yes", "no", {"is_authenticated": False, "id": None}, TASK_RUNNING, 200, True, id="explicit-unauth-allowed-when-configured"
+        ),
+        pytest.param(True, True, {"is_authenticated": True, "id": 7}, TASK_FAILED_ANALYSIS, 404, False, id="non-running-task-returns-404"),
     ],
 )
 def test_apiv2_tasks_vnc_endpoint_gating(
@@ -752,7 +893,7 @@ def test_apiv2_tasks_vnc_endpoint_gating(
     monkeypatch,
     enabled,
     auth_only,
-    authenticated,
+    user_kwargs,
     task_status,
     expected_status,
     expect_password,
@@ -762,7 +903,23 @@ def test_apiv2_tasks_vnc_endpoint_gating(
 
     apiv2_views = import_module("apiv2.views")
 
-    tid = db.add_url("https://example.invalid/vnc-api", options="vnc_port=5906", machine="win10-1")
+    tid = db.add_url("https://example.invalid/vnc-api", options="vnc_port=5906", machine="requested-pool", user_id=7)
+    with db.session.begin():
+        machine = db.add_machine(
+            name="m-win10",
+            label="win10-1",
+            arch="x64",
+            ip="192.168.122.10",
+            platform="windows",
+            tags="x64",
+            interface="virbr0",
+            snapshot="ready",
+            resultserver_ip="192.168.122.1",
+            resultserver_port="2042",
+            reserved=False,
+        )
+        task_obj = db.view_task(tid)
+        db.create_guest(machine, "KVM", task_obj)
     db.set_status(tid, TASK_RUNNING)
     db.set_vnc_password(tid, "ApIv2Pw1")
     if task_status != TASK_RUNNING:
@@ -777,10 +934,13 @@ def test_apiv2_tasks_vnc_endpoint_gating(
     )
 
     req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    is_auth = user_kwargs["is_authenticated"]
     req.user = SimpleNamespace(
-        is_authenticated=authenticated,
-        is_active=authenticated,
-        id=7 if authenticated else None,
+        is_authenticated=is_auth,
+        is_active=is_auth,
+        id=user_kwargs["id"],
+        is_staff=user_kwargs.get("is_staff", False),
+        is_superuser=user_kwargs.get("is_superuser", False),
     )
 
     resp = apiv2_views.tasks_vnc(req, str(tid))
@@ -799,4 +959,52 @@ def test_apiv2_tasks_vnc_endpoint_gating(
     view_req = RequestFactory().get(f"/apiv2/tasks/view/{tid}/")
     view_resp = apiv2_views.tasks_view(view_req, str(tid))
     assert "ApIv2Pw1" not in str(view_resp.data)
+
+
+def test_apiv2_tasks_vnc_does_not_query_requested_machine_and_resolves_distributed_worker(db: _Database, monkeypatch):
+    from importlib import import_module
+    from django.test import RequestFactory
+    import lib.tenancy.storage.guac as storage_guac
+
+    apiv2_views = import_module("apiv2.views")
+    monkeypatch.setattr(apiv2_views, "db", db)
+    monkeypatch.setattr(apiv2_views.apiconf, "taskvnc", {"enabled": True, "auth_only": True}, raising=False)
+
+    # 1. Local task without bound guest must NOT fall back to requested task.machine or call local_vnc_port.
+    tid_local = db.add_url("https://example.invalid/no-guest", machine="other-tenants-vm", user_id=7)
+    db.set_status(tid_local, TASK_RUNNING)
+    db.set_vnc_password(tid_local, "LoCaL123")
+
+    local_port_calls = []
+    monkeypatch.setattr(storage_guac, "worker_ip_for_task", lambda _tid: None)
+    monkeypatch.setattr(storage_guac, "local_vnc_port", lambda label, **kw: local_port_calls.append(label) or 5999)
+
+    req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid_local}/")
+    req.user = SimpleNamespace(is_authenticated=True, is_active=True, id=7, is_staff=False, is_superuser=False)
+    resp = apiv2_views.tasks_vnc(req, str(tid_local))
+    assert resp.status_code == 200
+    assert resp.data["data"]["machine"] == ""
+    assert resp.data["data"]["vnc_port"] is None
+    assert resp.data["data"]["vnc_password"] == "LoCaL123"
+    assert local_port_calls == []
+
+    # 2. Distributed task resolves machine, port, and password from remote worker without reading control-plane attrs.
+    monkeypatch.setattr(storage_guac, "worker_ip_for_task", lambda _tid: "10.20.30.40")
+    monkeypatch.setattr(
+        storage_guac,
+        "worker_vnc_details_for_task",
+        lambda _tid: ("worker-vm-9", 5909, "WoRkEr99"),
+    )
+    req2 = RequestFactory().get(f"/apiv2/tasks/vnc/{tid_local}/")
+    req2.user = SimpleNamespace(is_authenticated=True, is_active=True, id=7, is_staff=False, is_superuser=False)
+    resp2 = apiv2_views.tasks_vnc(req2, str(tid_local))
+    assert resp2.status_code == 200
+    assert resp2.data["data"] == {
+        "task_id": tid_local,
+        "machine": "worker-vm-9",
+        "vnc_port": 5909,
+        "vnc_password": "WoRkEr99",
+    }
+    assert resp2["Cache-Control"] == "no-store"
+
 

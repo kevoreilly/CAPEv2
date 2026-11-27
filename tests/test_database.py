@@ -2173,7 +2173,7 @@ class TestDatabaseEngine:
         ],
     )
     def test_vnc_password_helpers_ignore_invalid_task_ids(self, db: _Database, bad_task_id):
-        db.set_vnc_password(bad_task_id, "Ab12Cd34")
+        assert db.set_vnc_password(bad_task_id, "Ab12Cd34") is False
         db.clear_vnc_password(bad_task_id)
 
     def test_set_and_clear_vnc_password_uses_attributes_not_options(self, db: _Database):
@@ -2182,10 +2182,10 @@ class TestDatabaseEngine:
             options="foo=bar",
             attributes={"main_task_id": 77, "custom": "keep"},
         )
-        db.set_vnc_password(tid, "")
+        assert db.set_vnc_password(tid, "") is False
         assert db.view_task(tid).get_attribute("vnc_password") is None
 
-        db.set_vnc_password(tid, "Xy12Zw34")
+        assert db.set_vnc_password(tid, "Xy12Zw34") is True
         loaded = db.view_task(tid)
         assert loaded.options == "foo=bar"
         assert loaded.get_attribute("vnc_password") == "Xy12Zw34"

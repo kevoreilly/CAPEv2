@@ -42,7 +42,7 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.database import Database, _Database, run_db_unit
 from lib.cuckoo.core.data.task import Task
 from lib.cuckoo.core.data.machines import Machine
 
@@ -535,11 +535,35 @@ class LibVirtMachinery(Machinery):
         """Drop any cached in-memory per-task VNC password for a VM label."""
         self._clear_vnc_password(label)
 
-    def bind_vnc_task(self, label: str, task_id: int) -> None:
+    def bind_vnc_task(self, label: str, task_id: int) -> bool:
         """Associate a task ID with a VM label so start() persists vnc_password before vm.resume()."""
         lock, _, task_ids = self._ensure_vnc_state()
         with lock:
             task_ids[label] = task_id
+        return True
+
+    def _persist_vnc_password(self, task_id: int, password: str) -> bool:
+        if hasattr(self.db, "session") and hasattr(self.db, "transaction"):
+            result = run_db_unit(
+                self.db,
+                lambda: self.db.set_vnc_password(task_id, password),
+                f"persist vnc_password for task {task_id}",
+                logger=log,
+            )
+        else:
+            result = self.db.set_vnc_password(task_id, password)
+        return True if result is None else bool(result)
+
+    def _clear_persisted_vnc_password(self, task_id: int) -> None:
+        if hasattr(self.db, "session") and hasattr(self.db, "transaction"):
+            run_db_unit(
+                self.db,
+                lambda: self.db.clear_vnc_password(task_id),
+                f"clear vnc_password for task {task_id}",
+                logger=log,
+            )
+        else:
+            self.db.clear_vnc_password(task_id)
 
     def unbind_vnc_task(self, label: str) -> None:
         """Remove any pending task ID binding for a VM label."""
@@ -698,7 +722,10 @@ class LibVirtMachinery(Machinery):
                 if bound_task_id is not None:
                     # Commit before vm.resume() so interactive consumers waiting on
                     # VIR_DOMAIN_RUNNING never observe a live VM without its password.
-                    self.db.set_vnc_password(bound_task_id, password)
+                    if not self._persist_vnc_password(bound_task_id, password):
+                        raise CuckooMachineError(
+                            f"Unable to persist per-task VNC password for task {bound_task_id} on virtual machine {label}"
+                        )
                     persisted_in_db = True
                 vm.resume()
                 self._wait_status(label, self.RUNNING)
@@ -714,7 +741,7 @@ class LibVirtMachinery(Machinery):
                 self._clear_vnc_password(label)
                 if persisted_in_db and bound_task_id is not None:
                     try:
-                        self.db.clear_vnc_password(bound_task_id)
+                        self._clear_persisted_vnc_password(bound_task_id)
                     except Exception as clear_err:
                         log.error(
                             "Failed to clear VNC password in database for task %s: %s",

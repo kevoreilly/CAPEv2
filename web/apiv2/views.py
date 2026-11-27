@@ -1072,12 +1072,24 @@ def tasks_view(request, task_id):
     return Response(resp)
 
 
-_OIDC_ENABLED = bool(getattr(web_conf, "oidc", {}).get("enabled", False)) if hasattr(getattr(web_conf, "oidc", None), "get") else False
-_TASK_VNC_AUTH_CLASSES = [
-    cls
-    for cls in (ApiKeyAuthentication, None if _OIDC_ENABLED else SessionAuthentication)
-    if cls is not None
-]
+def _cfg_bool(val) -> bool:
+    """Convert config boolean values safely, handling strings like 'no' and '0'."""
+    if isinstance(val, str):
+        return val.strip().lower() in ("yes", "true", "on", "1")
+    return bool(val)
+
+
+def _task_vnc_auth_classes(cfg):
+    oidc_cfg = getattr(cfg, "oauth_oidc", None)
+    oidc_enabled = _cfg_bool(oidc_cfg.get("enabled", False)) if hasattr(oidc_cfg, "get") else False
+    return [
+        cls
+        for cls in (ApiKeyAuthentication, None if oidc_enabled else SessionAuthentication)
+        if cls is not None
+    ]
+
+
+_TASK_VNC_AUTH_CLASSES = _task_vnc_auth_classes(web_conf)
 
 
 @csrf_exempt
@@ -1086,43 +1098,63 @@ _TASK_VNC_AUTH_CLASSES = [
 def tasks_vnc(request, task_id):
     """Return active VNC connection details (including ephemeral per-task password) for a running task."""
     vnc_conf = getattr(apiconf, "taskvnc", None)
-    if not (vnc_conf and vnc_conf.get("enabled", False)):
+    if not (vnc_conf and _cfg_bool(vnc_conf.get("enabled", False))):
         return Response({"error": True, "error_value": "Task VNC API is Disabled"}, status=403)
 
-    if vnc_conf.get("auth_only", True) and not getattr(request.user, "is_authenticated", False):
+    if _cfg_bool(vnc_conf.get("auth_only", True)) and not getattr(request.user, "is_authenticated", False):
         return Response({"error": True, "error_value": "Authentication required"}, status=401)
 
     task = db.view_task(int(task_id), details=True)
     if not task or task.status != TASK_RUNNING:
         return Response({"error": True, "error_value": "Running task not found"}, status=404)
 
-    guest = getattr(task, "guest", None)
-    guest_label = getattr(guest, "label", None) if guest is not None else None
-    vm_label = str(guest_label or getattr(task, "machine", None) or "")
-    vnc_port = None
-    opts = get_options(getattr(task, "options", "") or "")
-    raw_port = opts.get("vnc_port")
-    if raw_port is not None:
-        with suppress(TypeError, ValueError):
-            parsed_port = int(raw_port)
-            if parsed_port > 0:
-                vnc_port = parsed_port
-    if vnc_port is None and vm_label:
-        with suppress(Exception):
-            from lib.tenancy.storage.guac import local_vnc_port
+    # When TenancyMiddleware is not active, enforce owner or staff/superuser authorization
+    # on authenticated callers so one user cannot retrieve another user's live VNC password.
+    if getattr(request, "viewer", None) is None and getattr(request.user, "is_authenticated", False):
+        is_admin = bool(getattr(request.user, "is_superuser", False) or getattr(request.user, "is_staff", False))
+        user_id = getattr(request.user, "id", None)
+        if not is_admin and (user_id is None or getattr(task, "user_id", None) != user_id):
+            return Response({"error": True, "error_value": "Running task not found"}, status=404)
 
-            vnc_port = local_vnc_port(vm_label, retries=1)
+    from lib.tenancy.storage.guac import local_vnc_port, worker_ip_for_task, worker_vnc_details_for_task
+
+    worker_ip = None
+    with suppress(Exception):
+        worker_ip = worker_ip_for_task(task.id)
+
+    vm_label = ""
+    vnc_port = None
+    vnc_password = None
+    if worker_ip:
+        w_machine, vnc_port, vnc_password = worker_vnc_details_for_task(task.id)
+        vm_label = str(w_machine or "")
+    else:
+        guest = getattr(task, "guest", None)
+        guest_label = getattr(guest, "label", None) if guest is not None else None
+        vm_label = str(guest_label or "")
+        opts = get_options(getattr(task, "options", "") or "")
+        raw_port = opts.get("vnc_port")
+        if raw_port is not None:
+            with suppress(TypeError, ValueError):
+                parsed_port = int(raw_port)
+                if parsed_port > 0:
+                    vnc_port = parsed_port
+        if vnc_port is None and vm_label:
+            with suppress(Exception):
+                vnc_port = local_vnc_port(vm_label, retries=1)
+        task_attrs = getattr(task, "attributes", None)
+        if isinstance(task_attrs, dict):
+            raw_pwd = task_attrs.get("vnc_password")
+            if isinstance(raw_pwd, str) and raw_pwd:
+                vnc_password = raw_pwd
 
     data = {
         "task_id": int(task.id),
         "machine": vm_label,
         "vnc_port": vnc_port,
     }
-    task_attrs = getattr(task, "attributes", None)
-    if isinstance(task_attrs, dict):
-        vnc_password = task_attrs.get("vnc_password")
-        if isinstance(vnc_password, str) and vnc_password:
-            data["vnc_password"] = vnc_password
+    if vnc_password:
+        data["vnc_password"] = vnc_password
 
     resp = Response({"error": False, "data": data})
     resp["Cache-Control"] = "no-store"
@@ -1527,13 +1559,6 @@ def _parse_bulk_task_ids(raw_task_ids: str = "", start_id: str = "", end_id: str
     if not task_ids:
         return None, "No valid Task IDs specified"
     return task_ids, None
-
-
-def _cfg_bool(val) -> bool:
-    """Convert config boolean values safely, handling strings like 'no' and '0'."""
-    if isinstance(val, str):
-        return val.strip().lower() in ("yes", "true", "on", "1")
-    return bool(val)
 
 
 _BULK_REPORTS_AUTH_CLASSES = [

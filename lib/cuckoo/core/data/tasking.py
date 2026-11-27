@@ -819,16 +819,18 @@ class TasksMixIn:
             else:
                 task.options = f"vnc_port={port}"
 
-    def set_vnc_password(self, task_id: int, password: str) -> None:
+    def set_vnc_password(self, task_id: int, password: str) -> bool:
         """Persist an ephemeral per-task VNC password in Task.attributes."""
         try:
             task_id = int(task_id)
         except (TypeError, ValueError):
-            return
+            return False
         if not password:
-            return
+            return False
         if not self.set_task_attribute(task_id, "vnc_password", password):
             log.debug("Database error setting VNC password: For task %s", task_id)
+            return False
+        return True
 
     def clear_vnc_password(self, task_id: int) -> None:
         """Remove any ephemeral per-task VNC password from Task.attributes."""

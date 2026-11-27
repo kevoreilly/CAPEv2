@@ -1523,6 +1523,8 @@ class TestAnalysisManager:
 
         monkeypatch.setattr(MockMachinery, "start", lambda self_m, label: None, raising=False)
         monkeypatch.setattr(MockMachinery, "stop", lambda self_m, label: None, raising=False)
+        # Simulate MultiMachinery returning False when sub-machinery lacks bind_vnc_task.
+        monkeypatch.setattr(MockMachinery, "bind_vnc_task", lambda self_m, label, tid: False, raising=False)
         monkeypatch.setattr(MockMachinery, "get_vnc_password", lambda self_m, label: "EaRlY123", raising=False)
 
         with pytest.raises(RuntimeError, match="routing setup failed"):

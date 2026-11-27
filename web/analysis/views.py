@@ -3788,7 +3788,9 @@ def search(request, searched=""):
         for result in records or []:
             new = None
             if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
-                new = get_analysis_info(db, id=int(result["_source"]["task_id"]))
+                task_id = result.get("task_id") if "task_id" in result else (result.get("_source") or {}).get("task_id")
+                if task_id is not None:
+                    new = get_analysis_info(db, id=int(task_id))
             if enabledconf["mongodb"] and term and "info" in result:
                 new = get_analysis_info(db, id=int(result["info"]["id"]))
             if es_as_db:
@@ -3931,17 +3933,21 @@ def comments(request, task_id):
         if not comment:
             return render(request, "error.html", {"error": "No comment provided."})
 
+        report = None
+        esid = None
+        esidx = None
         if enabledconf["mongodb"]:
             report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
         if es_as_db:
-            query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
-            report = query["_source"]
-            esid = query["_id"]
-            esidx = query["_index"]
-        if "comments" in report["info"]:
-            curcomments = report["info"]["comments"]
-        else:
-            curcomments = []
+            hits = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id)).get("hits", {}).get("hits", [])
+            if hits:
+                query = hits[0]
+                report = query.get("_source")
+                esid = query.get("_id")
+                esidx = query.get("_index")
+        if not report:
+            return render(request, "error.html", {"error": "Analysis not found."})
+        curcomments = list((report.get("info") or {}).get("comments") or [])
         buf = {}
         buf["Timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         escape_map = {
@@ -3958,7 +3964,7 @@ def comments(request, task_id):
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
             mongo_update_one("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
-        if es_as_db:
+        if es_as_db and esid is not None and esidx is not None:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
 
@@ -4398,6 +4404,34 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         del details
 
     if request.headers.get("HX-Request"):
+        def _load_on_demand_graphs():
+            vba2graph_dict_content = {}
+            vba2graph_svg_path = os.path.join(
+                CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", sha256 + ".svg"
+            )
+            if path_exists(vba2graph_svg_path) and _path_safe(vba2graph_svg_path):
+                vba2graph_dict_content[sha256] = Path(vba2graph_svg_path).read_text()
+
+            bingraph_dict_content = {}
+            bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+            if path_exists(bingraph_path):
+                for f in os.listdir(bingraph_path):
+                    if f.startswith(sha256):
+                        tmp_file = os.path.join(bingraph_path, f)
+                        if _path_safe(tmp_file):
+                            bingraph_dict_content[sha256] = Path(tmp_file).read_text()
+
+            return {
+                "vba2graph": {
+                    "enabled": bool(vba2graph_dict_content) or (HAVE_VBA2GRAPH and processing_cfg.vba2graph.enabled),
+                    "content": vba2graph_dict_content,
+                },
+                "bingraph": {
+                    "enabled": bool(bingraph_dict_content) or (HAVE_BINGRAPH and reporting_cfg.bingraph.enabled),
+                    "content": bingraph_dict_content,
+                },
+            }
+
         report = mongo_find_one("analysis", {"info.id": int(task_id)}) if enabledconf["mongodb"] else None
         if not report:
             task = db.view_task(task_id)
@@ -4406,6 +4440,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 from submission.static_preview import get_static_preview
 
                 preview = dict(get_static_preview(task, run_full=False) or {})
+                preview["graphs"] = _load_on_demand_graphs()
                 preview["expand_service"] = service
                 return render(request, "analysis/generic/_file_info.html", preview)
             return HttpResponse("Analysis not found", status=404)
@@ -4430,23 +4465,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         if not file_obj:
             return HttpResponse("File not found in analysis", status=404)
 
-        vba2graph_dict_content = {}
-        vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", sha256 + ".svg")
-        if path_exists(vba2graph_svg_path) and _path_safe(vba2graph_svg_path):
-            vba2graph_dict_content[sha256] = Path(vba2graph_svg_path).read_text()
-
-        bingraph_dict_content = {}
-        bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
-        if path_exists(bingraph_path):
-            for f in os.listdir(bingraph_path):
-                if f.startswith(sha256):
-                    tmp_file = os.path.join(bingraph_path, f)
-                    bingraph_dict_content[sha256] = Path(tmp_file).read_text()
-
-        graphs = {
-            "vba2graph": {"enabled": HAVE_VBA2GRAPH and processing_cfg.vba2graph.enabled, "content": vba2graph_dict_content},
-            "bingraph": {"enabled": HAVE_BINGRAPH and reporting_cfg.bingraph.enabled, "content": bingraph_dict_content},
-        }
+        graphs = _load_on_demand_graphs()
 
         context = {
             "file": file_obj,

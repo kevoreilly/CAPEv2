@@ -451,6 +451,8 @@ def inner_unqueue_test(testrun: TestRun) -> Optional[int]:
     if testrun.cape_task_id is not None and testrun.status == TEST_QUEUED:
         task_id = testrun.cape_task_id
         cape_task = db.view_task(task_id)
+        if cape_task is None:
+            return None
         if cape_task.status == TASK_PENDING:
             db.delete_task(task_id)
             testrun.status = TEST_UNQUEUED

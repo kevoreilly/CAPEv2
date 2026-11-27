@@ -1250,3 +1250,145 @@ class TestStaticPreview(SimpleTestCase):
         self.assertIn(f"v{CUCKOO_VERSION}", submit_no_commit)
         self.assertNotIn("/commit/", submit_no_commit)
 
+    def test_search_unwrapped_es_hit_comments_missing_report_and_audit_unqueue_missing_task(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        import analysis.views as av
+        import audit.views as audit_views
+
+        rf = RequestFactory()
+
+        # H-17: analysis.views.search handles unwrapped ES searchonly records without '_source'.
+        req = rf.post("/analysis/search/", data={"search": "foo"})
+        req.user = SimpleNamespace(id=1, is_staff=True, is_authenticated=True)
+        seen_ids = []
+        with (
+            patch.object(av, "perform_search", return_value=[{"task_id": 77}, {"_source": {"task_id": 88}}]),
+            patch.object(av, "get_analysis_info", side_effect=lambda _db, id: seen_ids.append(id) or {"id": id}),
+            patch.dict(av.enabledconf, {"mongodb": True, "elasticsearchdb": True}, clear=False),
+            patch.object(av, "essearch", True),
+            patch.object(av, "es_as_db", False),
+            patch.object(av, "render", return_value=HttpResponse("ok")),
+        ):
+            resp = av.search(req)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(seen_ids, [77, 88])
+
+        # M-30: analysis.views.comments handles missing MongoDB report and empty ES hits cleanly.
+        c_req = rf.post("/analysis/5/comments/", data={"commentbox": "note"})
+        c_req.user = SimpleNamespace(id=1, is_authenticated=True)
+        with (
+            patch.object(av.settings, "COMMENTS", True),
+            patch.dict(av.enabledconf, {"mongodb": True}, clear=False),
+            patch.object(av, "mongo_find_one", return_value=None, create=True),
+            patch.object(av, "es_as_db", False),
+            patch.object(av, "render", return_value=HttpResponse("not-found")) as mock_render,
+        ):
+            resp_c = av.comments(c_req, 5)
+        self.assertEqual(resp_c.content, b"not-found")
+        self.assertEqual(mock_render.call_args[0][1], "error.html")
+
+        # M-31: audit.views.inner_unqueue_test returns None on dangling cape_task_id.
+        dangling_run = SimpleNamespace(cape_task_id=9999, status=audit_views.TEST_QUEUED)
+        with patch.object(audit_views.db, "view_task", return_value=None):
+            self.assertIsNone(audit_views.inner_unqueue_test(dangling_run))
+
+    def test_magika_row_failed_reporting_status_and_static_preview_on_demand_graphs(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from django.http import HttpResponse
+        from django.template.loader import render_to_string
+        from django.test import RequestFactory
+
+        import analysis.views as av
+
+        # M-32: _file_info.html renders Magika File Type row when file.magika is present.
+        html_magika = render_to_string(
+            "analysis/generic/_file_info.html",
+            {
+                "file": {
+                    "sha256": "a" * 64,
+                    "name": "sample.bin",
+                    "magika": {
+                        "label": "pebin",
+                        "description": "PE executable",
+                        "mime_type": "application/x-dosexec",
+                        "score": 0.99,
+                        "low_confidence": False,
+                    },
+                },
+                "tab_name": "static",
+                "id": 1,
+                "config": {},
+                "on_demand": {},
+                "graphs": {"bingraph": {"enabled": False, "content": {}}, "vba2graph": {"enabled": False, "content": {}}},
+                "analysis": {"info": {"id": 1}},
+            },
+        )
+        self.assertIn("Magika File Type", html_magika)
+        self.assertIn("PE executable", html_magika)
+        self.assertIn("/analysis/search/magika:pebin", html_magika)
+
+        # L-5: status.html renders failure banner for failed_reporting instead of pulsing in-progress.
+        html_status = render_to_string(
+            "submission/status.html",
+            {
+                "title": "Task Status",
+                "completed": False,
+                "status": "failed_reporting",
+                "task_id": 1,
+                "interactive": False,
+                "session_data": "",
+                "static_preview_enabled": False,
+                "static_preview_on_demand": False,
+                "allow_stop_analysis": False,
+                "stop_requested": False,
+                "task_status": "failed_reporting",
+            },
+        )
+        self.assertIn("Analysis Failed (failed_reporting)", html_status)
+        self.assertNotIn("Dynamic Analysis in Progress...", html_status)
+
+        # M-33: on_demand static preview preserves generated BinGraph SVG instead of zeroing graphs.
+        sha = "b" * 64
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = Path(tmpdir) / "storage" / "binaries"
+            bin_dir.mkdir(parents=True)
+            (bin_dir / sha).write_bytes(b"MZ" + b"\x00" * 64)
+            bg_dir = Path(tmpdir) / "storage" / "analyses" / "15" / "bingraph"
+            bg_dir.mkdir(parents=True)
+            (bg_dir / f"{sha}-ent.svg").write_text("<svg>bingraph-ok</svg>")
+
+            req = RequestFactory().get(f"/analysis/on_demand/bingraph/15/static/{sha}", HTTP_HX_REQUEST="true")
+            req.user = SimpleNamespace(id=1, is_authenticated=True)
+            fake_task = SimpleNamespace(id=15, sample=SimpleNamespace(sha256=sha), category="file", package="", options="")
+            captured_ctx = {}
+
+            def _capture_render(_req, _tpl, ctx):
+                captured_ctx.update(ctx)
+                return HttpResponse("rendered")
+
+            with (
+                patch.object(av, "CUCKOO_ROOT", tmpdir),
+                patch.object(av, "ANALYSIS_BASE_PATH", str(Path(tmpdir) / "storage")),
+                patch.object(av, "_path_safe", return_value=True),
+                patch.dict(av.enabledconf, {"mongodb": False, "bingraph": True}, clear=False),
+                patch.object(av, "HAVE_BINGRAPH", True),
+                patch.object(av, "bingraph_gen", return_value=None, create=True),
+                patch.object(av, "path_exists", side_effect=lambda p: Path(p).exists()),
+                patch.object(av.db, "view_task", return_value=fake_task),
+                patch("submission.static_preview.get_static_preview", return_value={"file": {"sha256": sha}}),
+                patch.object(av, "render", side_effect=_capture_render),
+            ):
+                av.on_demand(req, "bingraph", "15", "static", sha)
+
+            self.assertTrue(captured_ctx["graphs"]["bingraph"]["enabled"])
+            self.assertEqual(captured_ctx["graphs"]["bingraph"]["content"][sha], "<svg>bingraph-ok</svg>")
+

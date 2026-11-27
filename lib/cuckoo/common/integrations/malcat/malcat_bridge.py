@@ -89,8 +89,23 @@ class AnalysisCache:
     def __init__(self, max_entries=16, ttl=600):
         self.max_entries = max(1, int(max_entries))
         self.ttl = int(ttl)
+        self._lock = threading.RLock()
         self._store = {}          # sha256 -> entry dict
         self._order = []          # sha256, LRU (oldest first)
+
+    @staticmethod
+    def _unlink_entry_tmps(entry):
+        paths = []
+        tmp = entry.pop("tmp", None)
+        if tmp:
+            paths.append(tmp)
+        retired = entry.pop("retired_tmps", None) or []
+        paths.extend(retired)
+        for path in paths:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     def _evict_expired(self):
         if self.ttl <= 0:
@@ -104,15 +119,15 @@ class AnalysisCache:
         entry = self._store.pop(sha, None)
         if sha in self._order:
             self._order.remove(sha)
-        if entry and entry.get("tmp"):
-            try:
-                os.unlink(entry["tmp"])
-            except OSError:
-                pass
+        if entry is not None:
+            entry["evicted"] = True
+            if entry.get("refs", 0) <= 0:
+                self._unlink_entry_tmps(entry)
 
     def clear(self):
-        for sha in list(self._store.keys()):
-            self._drop(sha)
+        with self._lock:
+            for sha in list(self._store.keys()):
+                self._drop(sha)
 
     def _touch(self, sha):
         if sha in self._order:
@@ -120,22 +135,77 @@ class AnalysisCache:
         self._order.append(sha)
 
     def get(self, sha):
-        self._evict_expired()
-        entry = self._store.get(sha)
-        if entry is not None:
-            self._touch(sha)
-        return entry
+        with self._lock:
+            self._evict_expired()
+            entry = self._store.get(sha)
+            if entry is not None:
+                self._touch(sha)
+            return entry
 
-    def new_entry(self, sha, analysis, passes=None):
-        entry = {"analysis": analysis, "ts": time.time(),
-                 "extracted": {}, "kesakode": {},
-                 "passes": set(passes or ())}
-        self._store[sha] = entry
-        self._touch(sha)
-        while len(self._order) > self.max_entries:
-            oldest = self._order[0]
-            self._drop(oldest)
-        return entry
+    def acquire(self, sha):
+        with self._lock:
+            self._evict_expired()
+            entry = self._store.get(sha)
+            if entry is not None:
+                self._touch(sha)
+                entry["refs"] = entry.get("refs", 0) + 1
+            return entry
+
+    def release(self, entry):
+        if entry is None:
+            return
+        with self._lock:
+            refs = max(0, entry.get("refs", 0) - 1)
+            entry["refs"] = refs
+            if refs == 0:
+                if entry.get("evicted"):
+                    self._unlink_entry_tmps(entry)
+                else:
+                    retired = entry.pop("retired_tmps", None) or []
+                    for path in retired:
+                        try:
+                            os.unlink(path)
+                        except OSError:
+                            pass
+
+    def set_tmp(self, entry, tmp_path):
+        if entry is None or tmp_path is None:
+            return
+        with self._lock:
+            old_tmp = entry.get("tmp")
+            if old_tmp and old_tmp != tmp_path:
+                if entry.get("refs", 0) <= 1:
+                    try:
+                        os.unlink(old_tmp)
+                    except OSError:
+                        pass
+                else:
+                    entry.setdefault("retired_tmps", []).append(old_tmp)
+            entry["tmp"] = tmp_path
+
+    def new_entry(self, sha, analysis, passes=None, acquire=False):
+        with self._lock:
+            existing = self._store.get(sha)
+            if existing is not None:
+                self._drop(sha)
+            entry = {
+                "analysis": analysis,
+                "ts": time.time(),
+                "extracted": {},
+                "kesakode": {},
+                "passes": set(passes or ()),
+                "refs": 1 if acquire else 0,
+                "evicted": False,
+                "lock": threading.RLock(),
+            }
+            self._store[sha] = entry
+            self._touch(sha)
+            while len(self._order) > self.max_entries:
+                oldest = self._order[0]
+                if oldest == sha:
+                    break
+                self._drop(oldest)
+            return entry
 
 
 # Set from config in cmd_serve; None disables caching.
@@ -452,97 +522,108 @@ def run_analysis(data_bytes, features, filetype_force, kesakode_mode, license, q
             result["malcat_version"] = None
 
         # -- one analysis per sha256 (cache) ------------------------------
-        entry = _CACHE.get(sha256) if _CACHE is not None else None
+        cache = _CACHE
+        entry = cache.acquire(sha256) if cache is not None else None
+        cached_acquired = entry is not None
         tmp = None
         req_features = set(features)
-        if entry is None:
-            t0 = time.time()
-            analysis, tmp = _malcat_analyse(data_bytes, req_features, filetype_force)
-            result["analyse_seconds"] = round(time.time() - t0, 3)
-            result["cached"] = False
-            passes = _enabled_passes(req_features)
-            if _CACHE is not None:
-                entry = _CACHE.new_entry(sha256, analysis, passes=passes)
-            else:
-                entry = {"analysis": analysis, "extracted": {}, "kesakode": {}, "passes": passes}
-        elif not req_features.issubset(entry.get("passes", set())):
-            # Cached entry was analysed with stripped passes (e.g. kesakode-only)
-            # and a later call needs anomalies/capa/yara: re-analyse with the union
-            # of passes while keeping cached Kesakode verdicts (no extra token spent).
-            combined = req_features | entry.get("passes", set())
-            t0 = time.time()
-            analysis, tmp = _malcat_analyse(data_bytes, combined, filetype_force)
-            result["analyse_seconds"] = round(time.time() - t0, 3)
-            result["cached"] = False
-            old_tmp = entry.get("tmp")
-            if old_tmp:
-                try:
-                    os.unlink(old_tmp)
-                except OSError:
-                    pass
-                entry.pop("tmp", None)
-            entry["analysis"] = analysis
-            entry["passes"] = _enabled_passes(combined)
-        else:
-            analysis = entry["analysis"]
-            result["analyse_seconds"] = 0.0
-            result["cached"] = True
-
         try:
-            f = getattr(analysis, "file", None)
-            result["file"] = {
-                "type": getattr(f, "type", "") or "",
-                "architecture": str(getattr(analysis, "architecture", "") or ""),
-                "size": getattr(f, "size", len(data_bytes)),
-            }
-            if "info" in features:
-                if "info" not in entry["extracted"]:
-                    entry["extracted"]["info"] = {
-                        "functions": len(getattr(analysis, "fns", []) or []),
-                        "strings": len(getattr(analysis, "strings", []) or []),
-                        "constants": len(getattr(analysis, "constants", []) or []),
-                        "carved": len(getattr(analysis, "carved", []) or []),
+            if entry is None:
+                t0 = time.time()
+                analysis, tmp = _malcat_analyse(data_bytes, req_features, filetype_force)
+                result["analyse_seconds"] = round(time.time() - t0, 3)
+                result["cached"] = False
+                passes = _enabled_passes(req_features)
+                if cache is not None:
+                    entry = cache.new_entry(sha256, analysis, passes=passes, acquire=True)
+                    cached_acquired = True
+                    if tmp is not None:
+                        cache.set_tmp(entry, tmp)
+                        tmp = None
+                else:
+                    entry = {
+                        "analysis": analysis,
+                        "extracted": {},
+                        "kesakode": {},
+                        "passes": passes,
+                        "lock": threading.RLock(),
                     }
-                result["counts"] = entry["extracted"]["info"]
 
-            for feat in features:
-                try:
-                    if feat == "kesakode":
-                        result["features"]["kesakode"] = _kesakode_cached(
-                            entry, analysis, kesakode_mode, license, quota_reserve)
-                    elif feat == "info":
-                        pass  # handled above
-                    elif feat in entry["extracted"]:
-                        result["features"][feat] = entry["extracted"][feat]
-                    elif feat == "capa":
-                        entry["extracted"]["capa"] = _extract_capa(analysis)
-                        result["features"]["capa"] = entry["extracted"]["capa"]
-                    elif feat == "anomalies":
-                        entry["extracted"]["anomalies"] = _extract_anomalies(analysis)
-                        result["features"]["anomalies"] = entry["extracted"]["anomalies"]
-                    elif feat == "yara":
-                        entry["extracted"]["yara"] = [
-                            s.name for s in getattr(analysis, "sigs", []) or []
-                            if getattr(s, "matches", False)]
-                        result["features"]["yara"] = entry["extracted"]["yara"]
-                    elif feat == "constants":
-                        entry["extracted"]["constants"] = [
-                            getattr(c, "name", str(c))
-                            for c in getattr(analysis, "constants", []) or []]
-                        result["features"]["constants"] = entry["extracted"]["constants"]
-                except Exception as err:
-                    result["errors"][feat] = f"{type(err).__name__}: {err}"
+            entry_lock = entry.get("lock") or threading.RLock()
+            with entry_lock:
+                if not req_features.issubset(entry.get("passes", set())):
+                    # Cached entry was analysed with stripped passes (e.g. kesakode-only)
+                    # and a later call needs anomalies/capa/yara: re-analyse with the union
+                    # of passes while keeping cached Kesakode verdicts (no extra token spent).
+                    combined = req_features | entry.get("passes", set())
+                    t0 = time.time()
+                    analysis, tmp = _malcat_analyse(data_bytes, combined, filetype_force)
+                    result["analyse_seconds"] = round(time.time() - t0, 3)
+                    result["cached"] = False
+                    entry["analysis"] = analysis
+                    entry["passes"] = _enabled_passes(combined)
+                    if tmp is not None and cache is not None:
+                        cache.set_tmp(entry, tmp)
+                        tmp = None
+                else:
+                    analysis = entry["analysis"]
+                    result.setdefault("analyse_seconds", 0.0)
+                    result.setdefault("cached", True)
+
+                f = getattr(analysis, "file", None)
+                result["file"] = {
+                    "type": getattr(f, "type", "") or "",
+                    "architecture": str(getattr(analysis, "architecture", "") or ""),
+                    "size": getattr(f, "size", len(data_bytes)),
+                }
+                if "info" in features:
+                    if "info" not in entry["extracted"]:
+                        entry["extracted"]["info"] = {
+                            "functions": len(getattr(analysis, "fns", []) or []),
+                            "strings": len(getattr(analysis, "strings", []) or []),
+                            "constants": len(getattr(analysis, "constants", []) or []),
+                            "carved": len(getattr(analysis, "carved", []) or []),
+                        }
+                    result["counts"] = entry["extracted"]["info"]
+
+                for feat in features:
+                    try:
+                        if feat == "kesakode":
+                            result["features"]["kesakode"] = _kesakode_cached(
+                                entry, analysis, kesakode_mode, license, quota_reserve)
+                        elif feat == "info":
+                            pass  # handled above
+                        elif feat in entry["extracted"]:
+                            result["features"][feat] = entry["extracted"][feat]
+                        elif feat == "capa":
+                            entry["extracted"]["capa"] = _extract_capa(analysis)
+                            result["features"]["capa"] = entry["extracted"]["capa"]
+                        elif feat == "anomalies":
+                            entry["extracted"]["anomalies"] = _extract_anomalies(analysis)
+                            result["features"]["anomalies"] = entry["extracted"]["anomalies"]
+                        elif feat == "yara":
+                            entry["extracted"]["yara"] = [
+                                s.name for s in getattr(analysis, "sigs", []) or []
+                                if getattr(s, "matches", False)]
+                            result["features"]["yara"] = entry["extracted"]["yara"]
+                        elif feat == "constants":
+                            entry["extracted"]["constants"] = [
+                                getattr(c, "name", str(c))
+                                for c in getattr(analysis, "constants", []) or []]
+                            result["features"]["constants"] = entry["extracted"]["constants"]
+                    except Exception as err:
+                        result["errors"][feat] = f"{type(err).__name__}: {err}"
         finally:
             # Only delete the temp file when we are NOT caching the analysis;
             # if cached, keep it until the entry is evicted (some Malcat objects
             # may lazily reference the mapped file).
-            if tmp is not None and _CACHE is None:
+            if tmp is not None:
                 try:
                     os.unlink(tmp)
                 except OSError:
                     pass
-            elif tmp is not None:
-                entry["tmp"] = tmp  # tracked for cleanup on eviction
+            if cached_acquired and cache is not None:
+                cache.release(entry)
     return result
 
 

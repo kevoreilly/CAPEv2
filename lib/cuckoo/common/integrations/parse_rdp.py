@@ -153,24 +153,24 @@ def validate_sig(hostname, alternate_faddress, pkcs7_certificates, ca_bundle_pat
         except Exception as e:
             sign_data["usage_error"] = f"{e}"
 
-        main_subject = _parse_verification_subject(hostname)
-        if main_subject is not None:
-            try:
+        try:
+            main_subject = _parse_verification_subject(hostname)
+            if main_subject is not None:
                 verifier = verification.PolicyBuilder().store(store).build_server_verifier(main_subject)
                 verifier.verify(main_cert, intermediates)
                 sign_data["main_valid"] = True
-            except Exception as e:
-                sign_data["validation_errors"].append(f"{e}")
+        except Exception as e:
+            sign_data["validation_errors"].append(f"{e}")
 
         if alternate_faddress:
-            alt_subject = _parse_verification_subject(alternate_faddress)
-            if alt_subject is not None:
-                try:
+            try:
+                alt_subject = _parse_verification_subject(alternate_faddress)
+                if alt_subject is not None:
                     verifier = verification.PolicyBuilder().store(store).build_server_verifier(alt_subject)
                     verifier.verify(main_cert, intermediates)
                     sign_data["alt_valid"] = True
-                except Exception as e:
-                    sign_data["validation_errors"].append(f"{e}")
+            except Exception as e:
+                sign_data["validation_errors"].append(f"{e}")
 
         if sign_data["main_valid"] or sign_data["alt_valid"]:
             sign_data["valid"] = True

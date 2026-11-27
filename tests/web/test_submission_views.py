@@ -405,4 +405,53 @@ class TestSubmissionViews(SimpleTestCase):
         self.assertIn("import-reconstruction=1", option_parts)
         self.assertNotIn("import_reconstruction=1", option_parts)
 
+    def test_build_batch_tasks_info_populates_sha256_and_resolves_central_guac_vm(self):
+        from base64 import urlsafe_b64decode
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+
+        import submission.views as sv
+
+        sha = "c" * 64
+
+        class _FakeTaskObj:
+            sample = SimpleNamespace(sha256=sha)
+
+            def to_dict(self):
+                return {"id": 55, "status": "running", "target": "/tmp/evil.exe", "category": "file"}
+
+        rf = RequestFactory()
+        with patch.object(sv.db, "view_task", return_value=_FakeTaskObj()):
+            rows, all_terminal = sv._build_batch_tasks_info(rf.get("/submit/"), [55])
+        self.assertFalse(all_terminal)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["sha256"], sha)
+
+        # M-28: remote_session falls back to central-mode worker_vm_for_task when local machine is absent.
+        running_task = SimpleNamespace(id=55, status="running", machine=None, options="interactive=1")
+        captured = {}
+
+        def _capture_render(_req, tpl, ctx):
+            captured["tpl"] = tpl
+            captured["ctx"] = ctx
+            return HttpResponse("ok")
+
+        with (
+            patch.object(sv.db, "view_task", return_value=running_task),
+            patch.object(sv.db, "view_machine_by_label", return_value=None) as mock_vm_lookup,
+            patch("lib.tenancy.storage.config.central_mode_config", return_value=SimpleNamespace(enabled=True)),
+            patch("lib.tenancy.storage.guac.worker_vm_for_task", return_value=("worker-win11", "10.0.0.9")),
+            patch.object(sv, "render", side_effect=_capture_render),
+        ):
+            resp = sv.remote_session(rf.get("/submit/remote_session/55/"), 55)
+        self.assertEqual(resp.status_code, 200)
+        mock_vm_lookup.assert_not_called()
+        self.assertEqual(captured["tpl"], "submission/remote_status.html")
+        self.assertTrue(captured["ctx"]["running"])
+        decoded = urlsafe_b64decode(captured["ctx"]["session_data"].encode()).decode()
+        self.assertTrue(decoded.endswith("|worker-win11|10.0.0.9"))
+
 

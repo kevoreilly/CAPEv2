@@ -1434,3 +1434,22 @@ def test_xpress_lz77_clamps_huge_match_length_and_handles_overlap():
     overlap = struct.pack("<I", 0x10000000) + b"ABC" + struct.pack("<H", (1 << 3) | 4)
     assert _xpress_lz77(overlap, 10) == b"ABCBCBCBCB"
     assert _xpress_lz77(overlap, 0) == b""
+def test_shellcode_on_demand_kwargs_handles_dict_options_from_mongodb():
+    from lib.cuckoo.common.integrations.shellcode_utils import shellcode_on_demand_kwargs
+
+    sha = "a" * 64
+    mongo_doc = {
+        "info": {"package": "shellcode_x64", "options": {"offset": "0x20"}},
+        "target": {"file": {"sha256": sha}},
+    }
+    res = shellcode_on_demand_kwargs(
+        task_id=10,
+        category="static",
+        sha256=sha,
+        db=None,
+        mongodb_enabled=True,
+        mongo_find_one_fn=lambda *a, **kw: mongo_doc,
+        analysis_base_path="/tmp",
+        path_safe_fn=lambda _p: True,
+    )
+    assert res == {"arch": "x64", "entry": "0x20"}

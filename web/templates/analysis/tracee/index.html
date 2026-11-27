@@ -86,21 +86,40 @@
             // proctree
             let procTreeStyle = "";
 
+            function escapeHtml(text) {
+                if (typeof text !== "string") {
+                    text = text != null ? text.toString() : "";
+                }
+                const map = {
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#039;"
+                };
+                return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            }
+
             function buildProcTree(currentTree) {
                 const li = document.createElement("li");
                 let liInnerHtml = ``;
 
                 if (!currentTree.details.desc) currentTree.details.desc = "(unknown)"
 
-                let procDescription = currentTree.details.desc ? currentTree.details.desc.toString() : "Unknown";
-                if (procDescription.length > 512) procDescription = procDescription.substring(0, 512) + `... <details><summary>Full Cmdline</summary><div>${currentTree.details.desc.toString()}</div></details>`;
+                const rawDesc = currentTree.details.desc ? currentTree.details.desc.toString() : "Unknown";
+                const escapedDesc = escapeHtml(rawDesc);
+                let procDescription = escapedDesc;
+                if (rawDesc.length > 512) {
+                    procDescription = escapeHtml(rawDesc.substring(0, 512)) + `... <details><summary>Full Cmdline</summary><div>${escapedDesc}</div></details>`;
+                }
 
-                if (currentTree.details.desc.toString().includes("tracee-health-check-1903ae") || currentTree.details.desc.toString().includes("PARENT")) {
-                    liInnerHtml += `<label style="display: none;"><input type="checkbox" id="tracee-${currentTree.pid}" /> ${currentTree.pid} - ${procDescription}</label>`;
+                const escapedPid = escapeHtml(currentTree.pid);
+                if (rawDesc.includes("tracee-health-check-1903ae") || rawDesc.includes("PARENT")) {
+                    liInnerHtml += `<label style="display: none;"><input type="checkbox" id="tracee-${escapedPid}" /> ${escapedPid} - ${procDescription}</label>`;
                 }
                 else {
                     shownProcs[currentTree.pid] = true;
-                    liInnerHtml += `<label><input type="checkbox" id="tracee-${currentTree.pid}" checked /> ${currentTree.pid} - ${procDescription}</label>`;
+                    liInnerHtml += `<label><input type="checkbox" id="tracee-${escapedPid}" checked /> ${escapedPid} - ${procDescription}</label>`;
                 }
 
                 const childIds = Object.keys(currentTree.children);

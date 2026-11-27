@@ -3688,7 +3688,7 @@ def full_memory_dump_strings(request, analysis_number):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)
         if path_exists(path):
             filename = name
-            if not _path_safe(ANALYSIS_BASE_PATH):
+            if not _path_safe(path):
                 return render(request, "error.html", {"error": f"File not found: {name}"})
             break
     if filename:

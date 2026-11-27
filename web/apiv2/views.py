@@ -3028,10 +3028,21 @@ def statistics_data(requests, days):
 
 @api_view(["POST"])
 def tasks_delete_many(request):
+    if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
+        return Response({"error": True, "error_value": "Task Deletion API is Disabled"})
+
     response = {}
     delete_mongo = request.POST.get("delete_mongo", True)
     for task_id in request.POST.get("ids", "").split(",") or []:
-        task_id = int(task_id)
+        task_id = task_id.strip()
+        if not task_id:
+            continue
+        try:
+            task_id = int(task_id)
+        except ValueError:
+            response.setdefault(task_id, "invalid id")
+            continue
+
         task = db.view_task(task_id)
         if task:
             if task.status == TASK_RUNNING:

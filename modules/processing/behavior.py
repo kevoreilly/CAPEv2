@@ -44,6 +44,7 @@ from lib.cuckoo.common.utils import (
     bytes2str,
     convert_to_printable,
     default_converter,
+    get_options,
     logtime,
     pretty_print_arg,
     pretty_print_retval,
@@ -577,7 +578,7 @@ class Summary:
 
     key = "summary"
 
-    def __init__(self, options):
+    def __init__(self, options, task=None):
         self.keys = _UniqueList()
         self.read_keys = _UniqueList()
         self.write_keys = _UniqueList()
@@ -591,7 +592,31 @@ class Summary:
         self.created_services = _UniqueList()
         self.executed_commands = _UniqueList()
         self.resolved_apis = _UniqueList()
+        self.api_counts = defaultdict(int)
         self.options = options
+        self.task = task
+
+        raw_detect = (
+            self.options.get("detect_apispam", True)
+            if hasattr(self.options, "get")
+            else getattr(self.options, "detect_apispam", True)
+        )
+        if raw_detect is None:
+            self.detect_apispam = True
+        elif isinstance(raw_detect, str):
+            self.detect_apispam = raw_detect.strip().lower() not in ("0", "false", "no", "off")
+        else:
+            self.detect_apispam = bool(raw_detect)
+
+        raw_limit = (
+            self.options.get("apispam_limit", 256)
+            if hasattr(self.options, "get")
+            else getattr(self.options, "apispam_limit", 256)
+        )
+        try:
+            self.apispam_limit = int(raw_limit if raw_limit is not None else 256)
+        except (ValueError, TypeError):
+            self.apispam_limit = 256
 
         self.dispatch = {
             "NtCreateKey": self._handle_NtCreateKey,
@@ -792,7 +817,15 @@ class Summary:
         """Generate processes list from streamed calls/processes.
         @return: None.
         """
-        api = call["api"]
+        api = call.get("api")
+        if self.detect_apispam and self.apispam_limit > 0 and api:
+            try:
+                repeated = max(0, int(call.get("repeated", 0) or 0))
+            except (ValueError, TypeError):
+                repeated = 0
+            self.api_counts[api] += 1 + repeated
+        if not api:
+            return
         handler = self.dispatch.get(api)
         if handler:
             handler(call, process)
@@ -865,6 +898,28 @@ class Summary:
         """Get registry keys, mutexes and files.
         @return: Summary of keys, read keys, written keys, mutexes and files.
         """
+        apispam = []
+        apispam_exclude_apis = ""
+
+        if self.detect_apispam and self.apispam_limit > 0:
+            apispam = sorted(api for api, count in self.api_counts.items() if count >= self.apispam_limit)
+
+            if apispam:
+                existing = []
+                if isinstance(self.task, dict):
+                    task_options = self.task.get("options", "")
+                    if isinstance(task_options, str):
+                        parsed_options = get_options(task_options)
+                    elif isinstance(task_options, dict):
+                        parsed_options = task_options
+                    else:
+                        parsed_options = {}
+                    existing_exclude = parsed_options.get("exclude-apis", "")
+                    if isinstance(existing_exclude, str) and existing_exclude:
+                        existing = [item for item in existing_exclude.split(":") if item]
+                merged = sorted(set(existing + apispam))
+                apispam_exclude_apis = ":".join(merged)
+
         # Unwrap to plain lists: everything downstream (json, orjson, bson, the web UI)
         # expects a list, and nothing after this point needs the membership index.
         return {
@@ -881,6 +936,8 @@ class Summary:
             "mutexes": self.mutexes.as_list(),
             "created_services": self.created_services.as_list(),
             "started_services": self.started_services.as_list(),
+            "apispam": apispam,
+            "apispam_exclude_apis": apispam_exclude_apis,
         }
 
 
@@ -1636,7 +1693,7 @@ class BehaviorAnalysis(Processing):
             instances = [
                 Anomaly(),
                 ProcessTree(),
-                Summary(self.options),
+                Summary(self.options, task=self.task),
                 Enhanced(),
                 EncryptedBuffers(),
                 NetworkMap(),

@@ -116,13 +116,16 @@ PID = os.getpid()
 PPID = Process(pid=PID).get_parent_pid()
 HIDE_PIDS = None
 
-# Windows UI Automation cross-bitness COM surrogates (UIAutomationCore.dll).
-# Activated by DcomLaunch whenever the analyzer's human auxiliary queries a
-# window of the opposite bitness (32-bit analyzer -> 64-bit window or vice versa).
+# Windows UI Automation / MSAA cross-bitness COM surrogates
+# (UIAutomationCore.dll and oleacc.dll). Activated by DcomLaunch whenever the
+# analyzer's human auxiliary queries a window of the opposite bitness
+# (32-bit analyzer -> 64-bit window or vice versa).
 UIA_SURROGATE_APPIDS = frozenset(
     {
-        "{49f171dd-b51a-40d3-9a6c-52d674cc729d}",  # UIAutomationCrossBitnessHook64
-        "{60a90a2f-858d-42af-8929-82be9d99e8a1}",  # UIAutomationCrossBitnessHook32
+        "{49f171dd-b51a-40d3-9a6c-52d674cc729d}",  # UIAutomationCrossBitnessHook64 (UIAutomationCore.dll)
+        "{60a90a2f-858d-42af-8929-82be9d99e8a1}",  # UIAutomationCrossBitnessHook32 (UIAutomationCore.dll)
+        "{53362c64-a296-4f2d-a2f8-fd984d08340b}",  # RemoteProxyFactory64 (oleacc.dll)
+        "{53362c32-a296-4f2d-a2f8-fd984d08340b}",  # RemoteProxyFactory32 (oleacc.dll)
     }
 )
 _DLLHOST_PROCESSID_RE = re.compile(r"(?:^|\s)[/-]processid:(\{[0-9a-f-]{36}\})(?:\s|$)", re.IGNORECASE)
@@ -149,7 +152,7 @@ def is_windows_dllhost_path(filepath):
 
 
 def is_uia_surrogate_command_line(cmdline):
-    """Return True if cmdline invokes one of Windows' UIA cross-bitness surrogates."""
+    """Return True if cmdline invokes one of Windows' UIA/MSAA cross-bitness surrogates."""
     if not isinstance(cmdline, str) or not cmdline:
         return False
     match = _DLLHOST_PROCESSID_RE.search(cmdline)
@@ -161,7 +164,7 @@ def is_uia_surrogate_command_line(cmdline):
 
 
 def is_uia_surrogate_process(proc, filepath, analyzer=None):
-    """Return True if proc is a DcomLaunch-spawned UIA cross-bitness dllhost surrogate."""
+    """Return True if proc is a DcomLaunch-spawned UIA/MSAA cross-bitness dllhost surrogate."""
     if not is_windows_dllhost_path(filepath):
         return False
     cmdline = proc.get_command_line()
@@ -1619,7 +1622,7 @@ class CommandPipeHandler:
                     log.info("Announced %s process name: %s pid: %d", "64-bit" if is_64bit else "32-bit", filename, process_id)
                     # We want to prevent multiple injection attempts if one is already underway
                     if is_uia_surrogate_process(proc, filepath, self.analyzer):
-                        log.info("Skipping injection into UIA cross-bitness surrogate process %s (pid: %d)", filename, process_id)
+                        log.info("Skipping injection into UIA/MSAA cross-bitness surrogate process %s (pid: %d)", filename, process_id)
                     elif not in_protected_path(filepath) and not self.analyzer.files.is_protected_filename(filename):
                         if process_id not in INJECT_LIST:
                             INJECT_LIST.append(process_id)

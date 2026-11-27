@@ -106,7 +106,7 @@ def _is_mitmdump_enabled(task) -> bool:
         if "=" in token:
             key, val = token.split("=", 1)
             if key.strip().lower() == "mitmdump":
-                enabled = val.strip().lower() not in ("0", "no", "false", "")
+                enabled = val.strip().lower() not in ("0", "no", "false", "off", "none", "")
         elif token.lower() == "mitmdump":
             enabled = True
     return enabled
@@ -202,7 +202,12 @@ class MitmdumpThread(Thread):
                 else:
                     wait_for_pid_exit(pid, 15)
         elif self.proc is not None and self.proc.poll() is None:
-            self.proc.terminate()
+            try:
+                self.proc.terminate()
+            except ProcessLookupError:
+                pass
+            except OSError as e:
+                log.error("Failed to terminate mitmdump wrapper process %s: %s", getattr(self.proc, "pid", None), e)
 
         if self.proc is not None and self.proc.poll() is None:
             try:
@@ -225,6 +230,7 @@ class MitmdumpThread(Thread):
         try:
             with self._state_lock:
                 process_started = self._process_started
+                self._process_started = False
             if process_started:
                 self._stop_process()
         finally:

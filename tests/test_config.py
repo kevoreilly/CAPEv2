@@ -7,7 +7,7 @@ import textwrap
 
 import pytest
 
-from lib.cuckoo.common.config import AnalysisConfig, Config, ConfigMeta
+from lib.cuckoo.common.config import AnalysisConfig, Config, ConfigMeta, get_raw_config_str
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_write_file
 
@@ -169,3 +169,45 @@ class TestConfig:
         with pytest.raises(configparser.InterpolationMissingOptionError):
             ConfigMeta.refresh()
             _ = Config("processing")
+
+    @pytest.mark.parametrize(
+        "env_val, coerced_expected",
+        [
+            ("001234", 1234),
+            ("true", True),
+            ("false", False),
+            ("no", False),
+            ("1", 1),
+            ("0", 0),
+        ],
+    )
+    def test_get_raw_config_str_returns_interpolated_env_value_for_coerced_types(
+        self, custom_conf_path, monkeypatch, env_val, coerced_expected
+    ):
+        custom_conf = custom_conf_path / "distributed.conf"
+        write_config(
+            custom_conf,
+            """
+            [distributed]
+            auth_token = %(ENV:CAPE_TEST_RAW_TOKEN)s
+            """,
+        )
+        monkeypatch.setenv("CAPE_TEST_RAW_TOKEN", env_val)
+        cfg = Config("distributed")
+        ConfigMeta.refresh()
+
+        assert cfg.distributed.auth_token is coerced_expected if isinstance(coerced_expected, bool) else cfg.distributed.auth_token == coerced_expected
+        assert get_raw_config_str(cfg, "distributed", "auth_token") == env_val
+
+    def test_get_raw_config_str_fallback_for_stub_objects(self):
+        from types import SimpleNamespace
+
+        stub_with_get_config = SimpleNamespace(
+            distributed={"auth_token": False},
+            get_config=lambda: {"distributed": {"auth_token": "false"}},
+        )
+        assert get_raw_config_str(stub_with_get_config, "distributed", "auth_token") == "false"
+
+        stub_plain = SimpleNamespace(distributed={"auth_token": 42})
+        assert get_raw_config_str(stub_plain, "distributed", "auth_token") == "42"
+        assert get_raw_config_str(stub_plain, "distributed", "missing") == ""

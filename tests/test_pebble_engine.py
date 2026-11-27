@@ -713,5 +713,64 @@ def test_reaper_skips_finished_future_past_pickup_grace():
         assert future in engine._pending
 
 
+def test_reaper_avoids_running_to_done_toctou_race():
+    """If a future completes between running() and done(), or completes after the
+    outer done() check before acquiring self._lock, _reap_stalled() must skip it."""
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=2,
+        timeout=900,
+        stall_grace=300,
+        pickup_grace=10,
+    )
+
+    # Case 1: finishes right after running() returns True (done() returns True).
+    class _FinishAfterRunning(_MockFuture):
+        def __init__(self):
+            super().__init__(running=True, done=False)
+            self.order = []
+
+        def running(self):
+            self.order.append("running")
+            self._running = False
+            self._done = True
+            return True
+
+        def done(self):
+            self.order.append("done")
+            return self._done
+
+    # Case 2: finishes between the outer done() check and the locked re-check.
+    class _FinishBeforeLock(_MockFuture):
+        def __init__(self):
+            super().__init__(running=False, done=False)
+            self.done_calls = 0
+
+        def done(self):
+            self.done_calls += 1
+            return self.done_calls >= 2
+
+    f1 = _FinishAfterRunning()
+    f2 = _FinishBeforeLock()
+    with engine._lock:
+        engine._pending[f1] = 601
+        engine._scheduled_at[f1] = time.monotonic() - 120
+        engine._pending[f2] = 602
+        engine._scheduled_at[f2] = time.monotonic() - 120
+
+    engine._reap_stalled()
+
+    assert f1.order == ["running", "done"]
+    assert f2.done_calls == 2
+    assert source.failed == []
+    assert not f1._cancelled and not f2._cancelled
+    with engine._lock:
+        assert f1 in engine._pending and f2 in engine._pending
+        assert engine._finalizing == set()
+
+
 
 

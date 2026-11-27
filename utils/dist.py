@@ -219,6 +219,7 @@ logging.getLogger("_internal").addFilter(_no_status_filter)
 
 dist_ignore_patterns = shutil.ignore_patterns(*[pattern.strip() for pattern in dist_conf.distributed.ignore_patterns.split(",")])
 STATUSES = {}
+_STATUSES_LOCK = threading.Lock()
 ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
@@ -834,6 +835,8 @@ def _node_submit_task_body(task_id, node, task, _tx):
             if (t := wdb.get(Task, task_id)) is not None:
                 t.finished = True
                 t.retrieved = True
+                t.notificated = True
+                t.deleted = True
             with main_db.session.begin():
                 main_db.set_status(task.main_task_id, TASK_FAILED_REPORTING)
 
@@ -1715,7 +1718,8 @@ class StatusThread(threading.Thread):
                 log.warning("submit_tasks: node %s no longer exists", node_name)
                 return False
             if not node.enabled:
-                STATUSES.pop(node.name, None)
+                with _STATUSES_LOCK:
+                    STATUSES.pop(node.name, None)
                 log.info("submit_tasks: node %s is disabled, skipping submission", node_name)
                 return False
             if node.name not in SERVER_TAGS:
@@ -1794,7 +1798,9 @@ class StatusThread(threading.Thread):
                     # check if node exist and its correct
                     if options.get("node"):
                         requested_node = options.get("node")
-                        if requested_node not in STATUSES:
+                        with _STATUSES_LOCK:
+                            requested_node_online = requested_node in STATUSES
+                        if not requested_node_online:
                             # if the requested node is not available
                             force_push = True
                         elif requested_node != node.name:
@@ -2025,14 +2031,17 @@ class StatusThread(threading.Thread):
 
     def _status_pass(self, statuses: dict, MINIMUMQUEUE: dict, master_storage_only: bool):
         """Poll every enabled node and submit tasks. Node HTTP calls run outside any transaction."""
-        global STATUSES
         with dist_transaction() as db:
             disabled = db.scalars(select(Node.name).where(Node.enabled.is_(False))).all()
             nodes = db.scalars(select(Node).where(Node.enabled.is_(True))).all()
 
         # Remove disabled nodes
-        for name in disabled:
-            STATUSES.pop(name, None)
+        if disabled:
+            with _STATUSES_LOCK:
+                for name in disabled:
+                    STATUSES.pop(name, None)
+            for name in disabled:
+                statuses.pop(name, None)
 
         # Request a status update on all CAPE nodes.
         stop_event = getattr(self, "stop_event", _SHUTDOWN_EVENT)
@@ -2047,16 +2056,19 @@ class StatusThread(threading.Thread):
                 # This will declare worker as dead after X failed connections checks
                 if failed_count[node.name] == dead_count:
                     log.info("[-] %s dead", node.name)
-                    STATUSES.pop(node.name, None)
+                    statuses.pop(node.name, None)
+                    with _STATUSES_LOCK:
+                        STATUSES.pop(node.name, None)
                 continue
             failed_count[node.name] = 0
 
             log_line = f"STATUS | {node.name:<15} | Pend: {status['tasks']['pending']:>3} | Run: {status['tasks']['running']:>3} | Done: {status['tasks']['completed']:>3} | Rep: {status['tasks']['reported']:>4}"
             log.info(log_line)
 
+            status["enabled"] = True
             statuses[node.name] = status
-            statuses[node.name]["enabled"] = True
-            STATUSES = statuses
+            with _STATUSES_LOCK:
+                STATUSES[node.name] = status
             node_name = node.name
             try:
                 # first submit tasks with specified node
@@ -2070,14 +2082,20 @@ class StatusThread(threading.Thread):
                 if not res:
                     continue
                 # Balance the tasks, works fine if no tags are set
+                with _STATUSES_LOCK:
+                    statuses_copy = dict(STATUSES)
+                if not statuses_copy:
+                    continue
                 node_name = min(
-                    STATUSES,
+                    statuses_copy,
                     key=lambda k: (
-                        STATUSES[k]["tasks"]["completed"] + STATUSES[k]["tasks"]["pending"] + STATUSES[k]["tasks"]["running"]
+                        statuses_copy[k]["tasks"]["completed"]
+                        + statuses_copy[k]["tasks"]["pending"]
+                        + statuses_copy[k]["tasks"]["running"]
                     ),
                 )
                 pend_tasks_num = MINIMUMQUEUE[node_name] - (
-                    STATUSES[node_name]["tasks"]["pending"] + STATUSES[node_name]["tasks"]["running"]
+                    statuses_copy[node_name]["tasks"]["pending"] + statuses_copy[node_name]["tasks"]["running"]
                 )
             except KeyError:
                 # servers hotplug
@@ -2094,7 +2112,7 @@ class StatusThread(threading.Thread):
             if master_storage_only:
                 self.submit_tasks(node_name, pend_tasks_num)
             elif (
-                statuses.get(main_server_name, {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get(main_server_name, 0)
+                statuses_copy.get(main_server_name, {}).get("tasks", {}).get("pending", 0) > MINIMUMQUEUE.get(main_server_name, 0)
                 and status["tasks"]["pending"] < MINIMUMQUEUE[node_name]
             ):
                 self.submit_tasks(node_name, pend_tasks_num)
@@ -2441,7 +2459,8 @@ def create_app(database_connection):
                 if node:
                     node.enabled = False
                     node_url = node.url
-                    STATUSES.pop(name, None)
+                    with _STATUSES_LOCK:
+                        STATUSES.pop(name, None)
                     if unmount:
                         in_flight = _count_node_inflight_tasks(db, node.id) + _ACTIVE_SUBMITS.get(node.id, 0)
         if unmount and node_url:
@@ -2488,7 +2507,9 @@ def create_app(database_connection):
             "processed": unified_counts.processed,
             "pending": unified_counts.pending,
         }
-        return {"nodes": STATUSES, "tasks": tasks_counts}
+        with _STATUSES_LOCK:
+            nodes_snapshot = dict(STATUSES)
+        return {"nodes": nodes_snapshot, "tasks": tasks_counts}
 
     @app.get("/task/{main_task_id}")
     def get_task_info(main_task_id: int):
@@ -2558,7 +2579,9 @@ def show_status_cli():
     print(f"Pending tasks    : {unified_counts.pending}")
     print("-" * 30)
     print("Active Nodes:")
-    for node_name, status in STATUSES.items():
+    with _STATUSES_LOCK:
+        statuses_snapshot = dict(STATUSES)
+    for node_name, status in statuses_snapshot.items():
         print(f"  Node: {node_name:<15} | Status: {status.get('status', 'unknown')}")
 
 

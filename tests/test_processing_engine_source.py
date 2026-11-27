@@ -91,3 +91,54 @@ def test_mark_failed_does_not_overwrite_reported_task(db, temp_pe32):
 
     with db.session.begin():
         assert db.view_task(t1).status == TASK_REPORTED
+
+
+def test_mark_failed_atomic_update_ignores_stale_identity_map(db, temp_pe32):
+    from sqlalchemy import text
+
+    from lib.cuckoo.core.data.task import TASK_REPORTED
+
+    with db.session.begin():
+        t1 = db.add_path(temp_pe32)
+        db.set_status(t1, TASK_COMPLETED)
+        # Keep Task(id=t1) cached in db.session's identity map (expire_on_commit=False).
+        cached = db.view_task(t1)
+        assert cached is not None and cached.status == TASK_COMPLETED
+
+    # Simulate another process/connection finishing reporting while db.session holds cached COMPLETED.
+    with db.engine.begin() as conn:
+        conn.execute(text("UPDATE tasks SET status = :st WHERE id = :tid"), {"st": TASK_REPORTED, "tid": t1})
+
+    src = TaskSource(db)
+    src.mark_failed(t1)
+
+    # DB status must remain TASK_REPORTED and the cached ORM instance must be expired to reflect it.
+    with db.engine.connect() as conn:
+        assert conn.execute(text("SELECT status FROM tasks WHERE id = :tid"), {"tid": t1}).scalar_one() == TASK_REPORTED
+    with db.session.begin():
+        assert cached.status == TASK_REPORTED
+        assert db.view_task(t1).status == TASK_REPORTED
+
+
+def test_mark_failed_mock_db_fallback_respects_reported_status():
+    from lib.cuckoo.core.data.task import TASK_REPORTED
+
+    class _MockDB:
+        def __init__(self, status):
+            self.session = _FakeSession()
+            self._status = status
+            self.set_calls = []
+
+        def view_task(self, task_id):
+            return type("_T", (), {"id": task_id, "status": self._status})()
+
+        def set_status(self, task_id, status):
+            self.set_calls.append((task_id, status))
+
+    reported_db = _MockDB(TASK_REPORTED)
+    TaskSource(reported_db).mark_failed(10)
+    assert reported_db.set_calls == []
+
+    completed_db = _MockDB(TASK_COMPLETED)
+    TaskSource(completed_db).mark_failed(11)
+    assert completed_db.set_calls == [(11, TASK_FAILED_PROCESSING)]

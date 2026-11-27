@@ -1814,3 +1814,144 @@ def test_dist_thread_local_session_close_stale_and_pre_request_connect_retry():
         assert mock_task.finished is False
         assert mock_task.retrieved is False
         mock_main_db.set_status.assert_not_called()
+
+
+def test_failed_submission_marked_notificated_and_deleted_skipped_by_notification_pass(dist_sqlite, tmp_path):
+    from unittest.mock import MagicMock, patch
+
+    import utils.dist as dist_mod
+    from lib.cuckoo.core.data.task import TASK_FAILED_REPORTING
+
+    missing_sample = str(tmp_path / "missing_sample.bin")
+    node_id, task_pk = _add_node_and_task(dist_sqlite, category="file", path=missing_sample)
+
+    mock_main_db = MagicMock()
+    mock_main_db.get_parent_sample_from_task.return_value = None
+    with (
+        patch.object(dist_mod, "main_db", mock_main_db),
+        patch.object(dist_mod.http_session, "post") as mock_post,
+    ):
+        assert dist_mod.node_submit_task(task_pk, node_id, 500) is None
+        mock_main_db.set_status.assert_called_once_with(500, TASK_FAILED_REPORTING)
+
+        with dist_sqlite() as s:
+            row = s.get(Task, task_pk)
+            assert row is not None
+            assert row.finished is True
+            assert row.retrieved is True
+            assert row.notificated is True
+            assert row.deleted is True
+
+        # Retriever._notification_pass() must not pick up failed submissions or overwrite status to TASK_REPORTED.
+        mock_main_db.set_status.reset_mock()
+        dist_mod.Retriever()._notification_pass(["http://callback.example.invalid/notify"], {"x-api-key": "k"})
+        mock_main_db.set_status.assert_not_called()
+        mock_post.assert_not_called()
+
+
+def test_statuses_lock_guards_delete_node_status_pass_and_get_status(dist_sqlite, monkeypatch):
+    import threading
+    import types
+    from unittest.mock import patch
+
+    import utils.dist as dist_mod
+
+    class _FakeFastAPI:
+        def __init__(self, **_kwargs):
+            self.routes = {}
+
+        def _reg(self, method, path):
+            def _dec(fn):
+                self.routes[(method, path)] = fn
+                return fn
+
+            return _dec
+
+        get = lambda self, p: self._reg("GET", p)  # noqa: E731
+        post = lambda self, p: self._reg("POST", p)  # noqa: E731
+        put = lambda self, p: self._reg("PUT", p)  # noqa: E731
+        delete = lambda self, p: self._reg("DELETE", p)  # noqa: E731
+
+    fake_fastapi = types.ModuleType("fastapi")
+    fake_fastapi.FastAPI = _FakeFastAPI
+    fake_fastapi.HTTPException = Exception
+    fake_fastapi.Depends = lambda x: x
+    fake_fastapi.Security = lambda x: x
+    fake_security = types.ModuleType("fastapi.security")
+    fake_security.APIKeyHeader = lambda **kwargs: kwargs
+    fake_pydantic = types.ModuleType("pydantic")
+    fake_pydantic.BaseModel = object
+
+    monkeypatch.setitem(sys.modules, "fastapi", fake_fastapi)
+    monkeypatch.setitem(sys.modules, "fastapi.security", fake_security)
+    monkeypatch.setitem(sys.modules, "pydantic", fake_pydantic)
+    monkeypatch.setattr(dist_mod, "FastAPI", _FakeFastAPI)
+    monkeypatch.setattr(dist_mod, "NFS_FETCH", False)
+
+    with dist_sqlite() as s, s.begin():
+        s.add(Node(name="worker-race", url="http://10.0.0.41:8000/apiv2/", apikey="k", enabled=True))
+        s.add(Node(name="worker-disabled", url="http://10.0.0.42:8000/apiv2/", apikey="k", enabled=False))
+
+    app = dist_mod.create_app("sqlite:///:memory:")
+    get_status_fn = app.routes[("GET", "/status")]
+    delete_node_fn = app.routes[("DELETE", "/node/{name}")]
+
+    with patch.dict(dist_mod.STATUSES, {"worker-disabled": {"tasks": {"pending": 0, "running": 0, "completed": 0, "reported": 0}}}, clear=True):
+        # 1. GET /status returns a shallow copy, not the live shared STATUSES dict.
+        resp = get_status_fn()
+        assert resp["nodes"] is not dist_mod.STATUSES
+        assert "worker-disabled" in resp["nodes"]
+
+        # 2. If delete_node removes the only active node mid-_status_pass (during submit_tasks),
+        #    _status_pass snapshots STATUSES cleanly and does not raise ValueError on min().
+        st = dist_mod.StatusThread()
+        local_statuses = {"worker-disabled": {"tasks": {"pending": 0, "running": 0, "completed": 0, "reported": 0}}}
+
+        def _fake_submit(node_name, *_args, **_kwargs):
+            delete_node_fn(node_name, unmount=False)
+            return True
+
+        with (
+            patch.object(
+                dist_mod,
+                "node_status",
+                return_value={"tasks": {"pending": 0, "running": 0, "completed": 0, "reported": 0}},
+            ),
+            patch.object(st, "submit_tasks", side_effect=_fake_submit),
+        ):
+            st._status_pass(local_statuses, {"worker-race": 2}, master_storage_only=True)
+
+        assert "worker-disabled" not in dist_mod.STATUSES
+        assert "worker-race" not in dist_mod.STATUSES
+
+        # 3. Concurrent writes/pops/reads under _STATUSES_LOCK never raise RuntimeError.
+        errors = []
+        stop = threading.Event()
+
+        def _writer():
+            try:
+                for i in range(200):
+                    with dist_mod._STATUSES_LOCK:
+                        dist_mod.STATUSES[f"n{i % 5}"] = {"tasks": {"pending": 0, "running": 0, "completed": 0, "reported": 0}}
+                    with dist_mod._STATUSES_LOCK:
+                        dist_mod.STATUSES.pop(f"n{(i + 1) % 5}", None)
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                stop.set()
+
+        def _reader():
+            try:
+                while not stop.is_set():
+                    snap = get_status_fn()["nodes"]
+                    list(snap.items())
+            except Exception as exc:
+                errors.append(exc)
+
+        tw = threading.Thread(target=_writer)
+        tr = threading.Thread(target=_reader)
+        tw.start()
+        tr.start()
+        tw.join(timeout=5)
+        tr.join(timeout=5)
+        assert errors == []

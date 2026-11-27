@@ -107,11 +107,17 @@ def is_blocklisted(category: str, relpath: str, filepath: str) -> bool:
 def clean_category(folder: str) -> None:
     """Delete untracked community content of a category, rooted at CUCKOO_ROOT, preserving git-tracked core files."""
     target = os.path.join(CUCKOO_ROOT, folder)
+    if os.path.islink(target):
+        log.warning("Refusing to clean symlinked category folder: %s", target)
+        return
     if not path_exists(target):
         return
     tracked = core_tracked_files()
     if not tracked:
-        shutil.rmtree(target)
+        log.warning(
+            "Refusing to clean %s because core git-tracked files could not be determined",
+            target,
+        )
         return
 
     for root, dirs, files in os.walk(target, topdown=False):
@@ -149,7 +155,7 @@ def core_tracked_files():
     tracked = None
     try:
         proc = subprocess.run(
-            ["git", "-C", CUCKOO_ROOT, "ls-files", "-z"],
+            ["git", "-C", CUCKOO_ROOT, "-c", f"safe.directory={CUCKOO_ROOT}", "ls-files", "-z"],
             capture_output=True,
             timeout=60,
             check=False,

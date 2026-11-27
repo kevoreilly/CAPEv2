@@ -30,6 +30,7 @@ class _BaseConfig:
 
     def __init__(self):
         self.fullconfig = None
+        self._raw_strings = {}
         self.refresh()
 
     def _get_files_to_read(self):
@@ -70,11 +71,14 @@ class _BaseConfig:
             )
             raise
 
+        raw_strings = {}
         for section in config.sections():
             dct = Dictionary()
+            raw_section = {}
             for name, value in config.items(section):
                 if name.startswith("env:"):
                     continue
+                raw_section[name] = value
                 try:
                     # Ugly fix to avoid '0' and '1' to be parsed as a boolean value.
                     # We raise an exception to parse it as an integer.
@@ -89,7 +93,9 @@ class _BaseConfig:
                         value = config.get(section, name)
 
                 setattr(dct, name, value)
+            raw_strings[section] = raw_section
             setattr(self, section, dct)
+        self._raw_strings = raw_strings
 
         return config
 
@@ -153,6 +159,16 @@ def get_raw_config_str(cfg_obj, section: str, key: str) -> str:
     if val is None:
         return ""
     raw_cfg = cfg_obj.get_config() if hasattr(cfg_obj, "get_config") else None
+    raw_strings = getattr(cfg_obj, "_raw_strings", None)
+    if (
+        isinstance(raw_strings, dict)
+        and raw_cfg is getattr(cfg_obj, "fullconfig", None)
+        and section in raw_strings
+        and key in raw_strings[section]
+    ):
+        raw_str = raw_strings[section][key]
+        if isinstance(raw_str, str):
+            return raw_str.strip()
     raw_val = raw_cfg.get(section, {}).get(key) if isinstance(raw_cfg, dict) else None
     if isinstance(raw_val, str):
         return raw_val.strip()

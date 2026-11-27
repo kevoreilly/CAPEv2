@@ -1311,12 +1311,14 @@ def files_clean_before(timerange: str):
             return
         try:
             docs = mongo_find("files", {}, {"_id": 1, "sha256": 1})
-            if docs:
-                for doc in docs:
-                    for key in ("sha256", "_id"):
-                        val = doc.get(key)
-                        if isinstance(val, str) and len(val) == 64:
-                            referenced.add(val.lower())
+            if docs is None:
+                log.warning("MongoDB query returned None; aborting storage/files cleanup to preserve referenced artifacts")
+                return
+            for doc in docs:
+                for key in ("sha256", "_id"):
+                    val = doc.get(key)
+                    if isinstance(val, str) and len(val) == 64:
+                        referenced.add(val.lower())
         except Exception as e:
             log.error("Failed to fetch referenced files from MongoDB; aborting storage/files cleanup: %s", e)
             return

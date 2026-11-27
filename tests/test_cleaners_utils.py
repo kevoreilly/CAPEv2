@@ -550,6 +550,11 @@ def test_files_clean_before_fails_closed_when_mongodb_disconnected_or_errors(tmp
     target = shard_dir / sha
     target.write_bytes(b"referenced-payload")
     os.utime(target, (old_ts, old_ts))
+    monkeypatch.setattr(
+        cleaners_utils,
+        "path_get_date",
+        lambda path, key="st_ctime": os.stat(path).st_mtime,
+    )
 
     monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
     monkeypatch.setattr(cleaners_utils.repconf.mongodb, "enabled", True)
@@ -569,5 +574,15 @@ def test_files_clean_before_fails_closed_when_mongodb_disconnected_or_errors(tmp
     )
     cleaners_utils.files_clean_before("1d")
     assert target.exists()
+
+    # 3. MongoDB query returns None (e.g., exhausted AutoReconnect retries) -> must NOT delete artifact
+    monkeypatch.setattr(cleaners_utils, "mongo_find", lambda *a, **k: None, raising=False)
+    cleaners_utils.files_clean_before("1d")
+    assert target.exists()
+
+    # 4. MongoDB query returns an empty iterable (truly unreferenced) -> deletes expired artifact
+    monkeypatch.setattr(cleaners_utils, "mongo_find", lambda *a, **k: [], raising=False)
+    cleaners_utils.files_clean_before("1d")
+    assert not target.exists()
 
 

@@ -476,7 +476,7 @@ class AnalysisManager(threading.Thread):
             ResultServer().add_task(self.task, self.machine)
         except Exception as e:
             self.log.exception("Failed to add task to result-server")
-            if self.error_queue:
+            if self.error_queue and not isinstance(e, CuckooOperationalError):
                 self.error_queue.put(e)
             raise
         try:

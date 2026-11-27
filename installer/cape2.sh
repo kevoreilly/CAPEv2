@@ -248,9 +248,9 @@ function librenms_sneck_config() {
         echo '#ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
     fi
     echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:1'
-    echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python cuckoo.py" 1:1'
-    echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python.*process.py" 1:'
-    echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python rooter.py" 1'
+    echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python3? cuckoo.py" 1:1'
+    echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python3?.*process.py" 1:'
+    echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv|\.venv).*bin/python3? rooter.py" 1'
     if [ "$clamav_enable" -ge 1 ]; then
         echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
     else
@@ -258,10 +258,10 @@ function librenms_sneck_config() {
     fi
     if [ "$MONGO_ENABLE" -ge 1 ]; then
         echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python manage.py)" 1:'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python3? manage.py)" 1:'
     else
         echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python manage.py)" 0'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(granian.*web\.wsgi|cape-web|(poetry|uv|\.venv).*bin/python3? manage.py)" 0'
     fi
 }
 
@@ -574,17 +574,18 @@ fi
 server {
     listen 80 default_server;
     server_name $1;
-    return 301 https://$host$request_uri;
+    return 301 https://\$host\$request_uri;
 }
 
 server {
-    if ($http_user_agent = "") {
+    if (\$http_user_agent = "") {
         return 444;
     }
     # SSL configuration
-    listen 443 ssl http2;
-    #listen [::]:443 ssl http2;
-    listen 443 http3 reuseport;  # UDP listener for QUIC+HTTP/3
+    listen 443 ssl;
+    http2 on;
+    #listen [::]:443 ssl;
+    listen 443 quic reuseport;  # UDP listener for QUIC+HTTP/3
     #ssl        on; # Obsolete in Nginx > 1.25.1
     ssl_protocols       TLSv1.2 TLSv1.3; # QUIC requires TLS 1.3
     ssl_certificate         /etc/letsencrypt/live/$1/fullchain.pem;
@@ -593,13 +594,13 @@ server {
     ssl_verify_client on;
 
     add_header Alt-Svc 'h3=":443"; ma=86400'; # Advertise that QUIC is available
-    add_header QUIC-Status $quic;     # Sent when QUIC was used
+    add_header QUIC-Status \$http3;     # Sent when QUIC/HTTP3 was used
 
     server_name $1 www.$1;
     location / {
-        try_files $uri $uri/ =404;
+        try_files \$uri \$uri/ =404;
     }
-}:
+}
 EOF
     fi
 
@@ -851,14 +852,18 @@ function install_yara_python() {
     # Build and install using the modern pip interface with config-settings
     # This replaces the legacy setup.py build approach
 
-    # Install from PyPI
+    # Install from PyPI (force rebuild even if uv sync already installed a wheel without extensions)
     sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
-        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" yara-python \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" install --python "$CAPE_ROOT/.venv/bin/python" \
+        --reinstall-package yara-python yara-python \
         --no-binary :all: \
         --config-setting="--global-option=build" \
         --config-setting="--global-option=--enable-cuckoo" \
         --config-setting="--global-option=--enable-magic" \
         --config-setting="--global-option=--enable-profiling"
+    # objects.py prefers yara-x when both are installed; uninstall yara-x when explicitly selecting yara-python
+    sudo -Hu "${USER}" env UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" \
+        "$PYTHON_MGR" "$PYTHON_MGR_PIP" uninstall --python "$CAPE_ROOT/.venv/bin/python" yara-x 2>/dev/null || true
 
     # Install from local source (commented out)
     # sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install /tmp/yara-python \
@@ -1831,8 +1836,8 @@ function sync_installed_systemd_units() {
             svc_name=$(basename "$svc_src")
             local svc_dest="$systemd_dir/$svc_name"
             [ -f "$svc_dest" ] || continue
-            # Do not overwrite masked unit symlinks (e.g. -> /dev/null) in /etc/systemd/system
-            if [ "$systemd_dir" = "/etc/systemd/system" ] && [ -L "$svc_dest" ]; then
+            # Do not follow or overwrite symlinked units (e.g. masked -> /dev/null or dev symlink -> $CAPE_ROOT/systemd/)
+            if [ -L "$svc_dest" ]; then
                 continue
             fi
 
@@ -1953,7 +1958,7 @@ function migrate_to_uv() {
         grep -qi '^plyara==' "$freeze_file" && extra_args="$extra_args --extra yara" || true
         grep -qi '^fastmcp==' "$freeze_file" && extra_args="$extra_args --extra mcp" || true
         grep -qi '^fastapi==' "$freeze_file" && extra_args="$extra_args --group dist" || true
-        grep -qi '^volatility3==' "$freeze_file" && had_volatility3=1 || true
+        grep -qiE '^volatility3([= @]|$)' "$freeze_file" && had_volatility3=1 || true
         grep -qi '^libvirt-python==' "$freeze_file" && had_libvirt=1 || true
         grep -qiE '^batch[-_]deobfuscator([= @]|$)' "$freeze_file" && had_batch_deobfuscator=1 || true
     fi

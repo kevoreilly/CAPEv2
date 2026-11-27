@@ -490,3 +490,109 @@ class ProcessTests(unittest.TestCase):
                 child.stdin.close()
             child.terminate()
             child.wait(timeout=5)
+
+    def test_write_monitor_config_idempotent_for_pending_pid_and_resets_on_release(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            fake_logserver = MagicMock()
+            fake_logserver.thread = MagicMock()
+            fake_logserver.thread.is_alive.return_value = True
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            try:
+                Process.process_num = 0
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", return_value=fake_logserver) as mock_ls,
+                ):
+                    p = Process(options={}, config=fake_cfg, pid=4200)
+                    p.write_monitor_config(interest="http://example.test/landing")
+                    self.assertEqual(Process.process_num, 1)
+                    self.assertEqual(mock_ls.call_count, 1)
+
+                    ini_path = os.path.join(dll_dir, "4200.ini")
+                    with open(ini_path, encoding="utf-8") as fh:
+                        first_contents = fh.read()
+                    self.assertIn("first-process=1\n", first_contents)
+                    self.assertIn("file-of-interest=http://example.test/landing\n", first_contents)
+
+                    # Re-injection for the same pending PID reuses config and preserves process_num/first-process.
+                    p.write_monitor_config(interest=r"C:\Program Files\Internet Explorer\iexplore.exe")
+                    self.assertEqual(Process.process_num, 1)
+                    self.assertEqual(mock_ls.call_count, 1)
+                    with open(ini_path, encoding="utf-8") as fh:
+                        self.assertEqual(fh.read(), first_contents)
+
+                    # No atomic temp files left behind.
+                    self.assertEqual(os.listdir(dll_dir), ["4200.ini"])
+
+                    # Once released (PID exited / reused), writing config again creates a fresh entry.
+                    Process.release_monitor_handle(4200)
+                    fake_logserver.thread.is_alive.return_value = False
+                    p.write_monitor_config(interest=r"C:\Temp\reused.exe")
+                    self.assertEqual(Process.process_num, 2)
+                    self.assertEqual(mock_ls.call_count, 2)
+                    with open(ini_path, encoding="utf-8") as fh:
+                        reused_contents = fh.read()
+                    self.assertIn("first-process=0\n", reused_contents)
+                    self.assertIn("file-of-interest=C:\\Temp\\reused.exe\n", reused_contents)
+            finally:
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)
+
+    def test_write_monitor_config_concurrent_different_pids_serializes_process_num(self):
+        import tempfile
+
+        from lib.api import process as proc_mod
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dll_dir = os.path.join(tmpdir, "dll")
+            os.makedirs(dll_dir, exist_ok=True)
+            fake_cfg = MagicMock(ip="192.168.56.1", port=2042)
+            barrier = threading.Barrier(2)
+
+            def make_ls(*_args, **_kwargs):
+                ls = MagicMock()
+                ls.thread = MagicMock()
+                ls.thread.is_alive.return_value = True
+                return ls
+
+            orig_cwd = os.getcwd()
+            orig_num = Process.process_num
+            os.chdir(tmpdir)
+            try:
+                Process.process_num = 0
+                with (
+                    patch.dict(proc_mod.LOGSERVER_POOL, {}, clear=True),
+                    patch("lib.api.process.LogServer", side_effect=make_ls),
+                ):
+                    def worker(pid):
+                        barrier.wait(timeout=5.0)
+                        Process(options={}, config=fake_cfg, pid=pid).write_monitor_config(interest=f"C:\\Temp\\p{pid}.exe")
+
+                    t1 = threading.Thread(target=worker, args=(4201,))
+                    t2 = threading.Thread(target=worker, args=(4202,))
+                    t1.start()
+                    t2.start()
+                    t1.join(timeout=5.0)
+                    t2.join(timeout=5.0)
+
+                    self.assertEqual(Process.process_num, 2)
+                    self.assertEqual(sorted(os.listdir(dll_dir)), ["4201.ini", "4202.ini"])
+                    contents = []
+                    for pid in (4201, 4202):
+                        with open(os.path.join(dll_dir, f"{pid}.ini"), encoding="utf-8") as fh:
+                            contents.append(fh.read())
+                    first_flags = sorted("first-process=1\n" in c for c in contents)
+                    self.assertEqual(first_flags, [False, True])
+            finally:
+                Process.process_num = orig_num
+                os.chdir(orig_cwd)

@@ -8,6 +8,7 @@ Major components not yet tested:
 import os
 import random
 import tempfile
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -1224,6 +1225,202 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.pipe_handler._handle_kprocess(data=b"3879")
         self.assertNotIn(3879, ana.process_list.pids)
         self.assertFalse(ana.process_lock.locked())
+        mock_proc.close.assert_called_once()
+
+    @patch("analyzer.Process")
+    def test_handle_process_serializes_concurrent_injections_and_skips_after_loaded(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.config.category = "file"
+        entered_inject = threading.Event()
+        allow_finish = threading.Event()
+        active_injects = 0
+        max_concurrent_injects = 0
+        state_lock = threading.Lock()
+        inject_calls = []
+
+        def make_proc(**kwargs):
+            proc = MagicMock()
+            proc.pid = kwargs.get("pid")
+            proc.get_filepath.return_value = r"C:\Temp\child.exe"
+            proc.is_64bit.return_value = True
+
+            def fake_inject(interest):
+                nonlocal active_injects, max_concurrent_injects
+                with state_lock:
+                    active_injects += 1
+                    max_concurrent_injects = max(max_concurrent_injects, active_injects)
+                    inject_calls.append(kwargs.get("thread_id"))
+                entered_inject.set()
+                allow_finish.wait(timeout=5.0)
+                # Simulate InjectDllViaThread: DllMain sends LOADED:<pid> while inject() is still running.
+                # This also proves process_lock is NOT held across proc.inject().
+                self.pipe_handler._handle_loaded(b"4100")
+                with state_lock:
+                    active_injects -= 1
+                return True
+
+            proc.inject.side_effect = fake_inject
+            return proc
+
+        mock_process.side_effect = make_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            t1 = threading.Thread(target=self.pipe_handler._handle_process, args=(b"4100,5000",))
+            t2 = threading.Thread(target=self.pipe_handler._handle_resume, args=(b"4100,0",))
+            t1.start()
+            self.assertTrue(entered_inject.wait(timeout=2.0))
+            t2.start()
+            # Give t2 a moment to block on the per-PID injection lock while t1 is inside inject().
+            threading.Event().wait(0.05)
+            self.assertEqual(max_concurrent_injects, 1)
+            allow_finish.set()
+            t1.join(timeout=5.0)
+            t2.join(timeout=5.0)
+            self.assertFalse(t1.is_alive())
+            self.assertFalse(t2.is_alive())
+            self.assertEqual([], analyzer.INJECT_LIST)
+
+        self.assertEqual(max_concurrent_injects, 1)
+        self.assertEqual(inject_calls, [5000])
+        self.assertEqual(ana.NUM_INJECTED, 1)
+        self.assertIn(4100, ana.process_list.pids)
+        self.assertEqual(ana._pid_inject_locks, {})
+
+    @patch("analyzer.Process")
+    def test_handle_process_allows_sequential_reinjection_before_loaded_without_double_counting(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.config.category = "url"
+        ana.config.target = "http://example.test/sample"
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"C:\Program Files\Internet Explorer\iexplore.exe"
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_process(b"4101,5001")
+            # Process is still suspended (not yet LOADED) so a RunPE/RESUME notification must still re-inject.
+            self.pipe_handler._handle_resume(b"4101,0")
+            self.assertEqual(analyzer.INJECT_LIST, [4101])
+
+        self.assertEqual(mock_proc.inject.call_count, 2)
+        # URL target must remain the interest value on re-injection because NUM_INJECTED was not double-bumped.
+        self.assertEqual(
+            [c.args[0] for c in mock_proc.inject.call_args_list],
+            ["http://example.test/sample", "http://example.test/sample"],
+        )
+        self.assertEqual(ana.NUM_INJECTED, 1)
+
+    @patch("analyzer.Process")
+    def test_handle_resume_skipped_surrogate_does_not_update_lastinject_time(self, mock_process):
+        ana = self.analyzer
+        ana.config = MagicMock()
+        ana.DCOMLAUNCH_PID = 700
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.return_value = r"\Device\HarddiskVolume2\Windows\System32\dllhost.exe"
+        mock_proc.get_command_line.return_value = (
+            r"C:\Windows\system32\DllHost.exe /Processid:{53362C64-A296-4F2D-A2F8-FD984D08340B}"
+        )
+        mock_proc.get_parent_pid.return_value = 700
+        mock_proc.is_64bit.return_value = True
+        mock_process.return_value = mock_proc
+
+        with patch("analyzer.INJECT_LIST", []):
+            self.pipe_handler._handle_resume(b"3882,0")
+            self.assertEqual(analyzer.INJECT_LIST, [])
+
+        mock_proc.inject.assert_not_called()
+        self.assertIsNone(ana.LASTINJECT_TIME)
+
+    @patch("analyzer.pid_from_service_name")
+    @patch("analyzer.Process")
+    def test_handle_interop_and_wmi_concurrent_inject_dcomlaunch_once(self, mock_process, mock_pid_from_service_name):
+        entered_dcom = threading.Event()
+        allow_dcom = threading.Event()
+        injected_pids = []
+
+        def fake_pid_lookup(name):
+            return 700 if name == "DcomLaunch" else 701
+
+        def make_proc(**kwargs):
+            pid = kwargs.get("pid")
+            proc = MagicMock()
+            proc.get_filepath.return_value = r"C:\Windows\System32\svchost.exe"
+
+            def fake_inject(**_kw):
+                injected_pids.append(pid)
+                if pid == 700:
+                    entered_dcom.set()
+                    allow_dcom.wait(timeout=5.0)
+                return True
+
+            proc.inject.side_effect = fake_inject
+            return proc
+
+        mock_pid_from_service_name.side_effect = fake_pid_lookup
+        mock_process.side_effect = make_proc
+
+        t1 = threading.Thread(target=self.pipe_handler._handle_interop, args=(None,))
+        t2 = threading.Thread(target=self.pipe_handler._handle_wmi, args=(None,))
+        t1.start()
+        self.assertTrue(entered_dcom.wait(timeout=2.0))
+        t2.start()
+        threading.Event().wait(0.05)
+        allow_dcom.set()
+        t1.join(timeout=5.0)
+        t2.join(timeout=5.0)
+
+        self.assertEqual(injected_pids.count(700), 1)
+        self.assertEqual(injected_pids.count(701), 1)
+
+    @patch("analyzer.Process")
+    def test_handle_service_concurrent_injects_services_once(self, mock_process):
+        ana = self.analyzer
+        ana.SERVICES_PID = 512
+        entered = threading.Event()
+        allow = threading.Event()
+        injected = []
+
+        def make_proc(**kwargs):
+            proc = MagicMock()
+            proc.get_filepath.return_value = r"C:\Windows\System32\services.exe"
+
+            def fake_inject(**_kw):
+                injected.append(kwargs.get("pid"))
+                entered.set()
+                allow.wait(timeout=5.0)
+                return True
+
+            proc.inject.side_effect = fake_inject
+            return proc
+
+        mock_process.side_effect = make_proc
+
+        t1 = threading.Thread(target=self.pipe_handler._handle_service, args=(b"svcA",))
+        t2 = threading.Thread(target=self.pipe_handler._handle_service, args=(b"svcB",))
+        t1.start()
+        self.assertTrue(entered.wait(timeout=2.0))
+        t2.start()
+        threading.Event().wait(0.05)
+        allow.set()
+        t1.join(timeout=5.0)
+        t2.join(timeout=5.0)
+
+        self.assertEqual(injected, [512])
+        self.assertTrue(ana.MONITORED_SERVICES)
+
+    @patch("analyzer.Process")
+    def test_inject_process_releases_lock_and_closes_on_exception(self, mock_process):
+        mock_proc = MagicMock()
+        mock_proc.get_filepath.side_effect = RuntimeError("query boom")
+        mock_process.return_value = mock_proc
+
+        with self.assertRaises(RuntimeError):
+            self.pipe_handler._inject_process(process_id=4102, thread_id=5002, mode=0)
+
+        self.assertFalse(self.analyzer.process_lock.locked())
+        self.assertEqual(self.analyzer._pid_inject_locks, {})
         mock_proc.close.assert_called_once()
 
 

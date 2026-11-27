@@ -58,7 +58,7 @@ class Machine(Base):
     arch: Mapped[str] = mapped_column(String(255), nullable=False)
     ip: Mapped[str] = mapped_column(String(255), nullable=False)
     platform: Mapped[str] = mapped_column(String(255), nullable=False)
-    tags: Mapped[List["Tag"]] = relationship(secondary=machines_tags, back_populates="machines")
+    tags: Mapped[List["Tag"]] = relationship(secondary=machines_tags, back_populates="machines", order_by="Tag.id")
     interface: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     snapshot: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     locked: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)

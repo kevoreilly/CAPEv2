@@ -62,15 +62,42 @@ class _ThreadLocalSessionProxy:
     def __init__(self, retry_cfg: Retry):
         self._retry_cfg = retry_cfg
         self._local = threading.local()
+        self._lock = threading.Lock()
+        self._sessions: dict[int, tuple[threading.Thread, requests.Session]] = {}
+
+    def close_stale(self) -> int:
+        """Close and discard sessions belonging to threads that have already exited."""
+        to_close: list[requests.Session] = []
+        with self._lock:
+            stale_ids = [tid for tid, (thread, _sess) in self._sessions.items() if not thread.is_alive()]
+            for tid in stale_ids:
+                to_close.append(self._sessions.pop(tid)[1])
+        for sess in to_close:
+            with contextlib.suppress(Exception):
+                sess.close()
+        return len(to_close)
+
+    def close_all(self) -> None:
+        """Close all tracked thread-local sessions."""
+        with self._lock:
+            to_close = [sess for _thread, sess in self._sessions.values()]
+            self._sessions.clear()
+        for sess in to_close:
+            with contextlib.suppress(Exception):
+                sess.close()
 
     def _get_session(self) -> requests.Session:
         sess = getattr(self._local, "session", None)
         if sess is None:
+            self.close_stale()
             sess = requests.Session()
             adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20, max_retries=self._retry_cfg)
             sess.mount("http://", adapter)
             sess.mount("https://", adapter)
             self._local.session = sess
+            cur_thread = threading.current_thread()
+            with self._lock:
+                self._sessions[id(cur_thread)] = (cur_thread, sess)
         return sess
 
     def __getattr__(self, name: str):
@@ -79,6 +106,30 @@ class _ThreadLocalSessionProxy:
 
 http_session = _ThreadLocalSessionProxy(_HTTP_RETRY_IDEMPOTENT)
 idempotent_post_session = _ThreadLocalSessionProxy(_HTTP_RETRY_WITH_POST)
+atexit.register(http_session.close_all)
+atexit.register(idempotent_post_session.close_all)
+
+
+def _is_pre_request_connect_error(exc: BaseException) -> bool:
+    """Return True when the transport failure happened before any HTTP request bytes were sent."""
+    if isinstance(exc, requests.exceptions.ConnectTimeout):
+        return True
+    if not isinstance(exc, requests.exceptions.ConnectionError):
+        return False
+    seen = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if isinstance(cur, (urllib3.exceptions.NewConnectionError, urllib3.exceptions.ConnectTimeoutError)):
+            return True
+        if isinstance(cur, urllib3.exceptions.MaxRetryError) and cur.reason is not None:
+            cur = cur.reason
+            continue
+        if cur.args and isinstance(cur.args[0], BaseException):
+            cur = cur.args[0]
+            continue
+        cur = cur.__cause__ or cur.__context__
+    return False
 
 _NODE_LIFECYCLE_LOCK = threading.RLock()
 _ACTIVE_SUBMITS: dict[int, int] = {}
@@ -88,7 +139,7 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
-from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.config import Config, get_raw_config_str
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
@@ -813,6 +864,14 @@ def _node_submit_task_body(task_id, node, task, _tx):
                     timeout=request_timeout,
                 )
         except (OSError, requests.RequestException) as e:
+            if _is_pre_request_connect_error(e):
+                log.warning(
+                    "Transient connection error submitting file task (Main: %d) to %s; will retry: %s",
+                    task.main_task_id,
+                    node.name,
+                    e,
+                )
+                return
             log.error("Error submitting file task (Main: %d): %s", task.main_task_id, e)
             _mark_failed_reporting()
             return
@@ -827,6 +886,14 @@ def _node_submit_task_body(task_id, node, task, _tx):
                 timeout=request_timeout,
             )
         except requests.RequestException as e:
+            if _is_pre_request_connect_error(e):
+                log.warning(
+                    "Transient connection error submitting url task (Main: %d) to %s; will retry: %s",
+                    task.main_task_id,
+                    node.name,
+                    e,
+                )
+                return
             log.error("Error submitting url task (Main: %d): %s", task.main_task_id, e)
             _mark_failed_reporting()
             return
@@ -846,6 +913,14 @@ def _node_submit_task_body(task_id, node, task, _tx):
                     timeout=request_timeout,
                 )
         except (OSError, requests.RequestException) as e:
+            if _is_pre_request_connect_error(e):
+                log.warning(
+                    "Transient connection error submitting static task (Main: %d) to %s; will retry: %s",
+                    task.main_task_id,
+                    node.name,
+                    e,
+                )
+                return
             log.error("Error submitting static task (Main: %d): %s", task.main_task_id, e)
             _mark_failed_reporting()
             return
@@ -1838,29 +1913,33 @@ class StatusThread(threading.Thread):
             return []
         results = []
         max_workers = int(dist_conf.distributed.dist_threads)
-        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="submit") as executor:
-            future_to_info = {}
-            for dist_id, main_task_id in tasks:
-                if _is_shutting_down(stop_event):
-                    break
-                try:
-                    future = executor.submit(node_submit_task, dist_id, node_id, main_task_id)
-                except RuntimeError as e:
-                    if _is_shutting_down(stop_event) or "interpreter shutdown" in str(e):
-                        log.info("Stopping parallel task submission during interpreter shutdown")
-                        _SHUTDOWN_EVENT.set()
+        try:
+            with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="submit") as executor:
+                future_to_info = {}
+                for dist_id, main_task_id in tasks:
+                    if _is_shutting_down(stop_event):
                         break
-                    raise
-                future_to_info[future] = (dist_id, main_task_id)
-            for future in as_completed(future_to_info):
-                info = future_to_info[future]
-                try:
-                    results.append((info, future.result(), False))
-                except Exception as e:
-                    if is_db_disconnect(e):
-                        restart_db_connection()
-                    log.exception("Exception during parallel submission for task %d: %s", info[0], e)
-                    results.append((info, None, True))
+                    try:
+                        future = executor.submit(node_submit_task, dist_id, node_id, main_task_id)
+                    except RuntimeError as e:
+                        if _is_shutting_down(stop_event) or "interpreter shutdown" in str(e):
+                            log.info("Stopping parallel task submission during interpreter shutdown")
+                            _SHUTDOWN_EVENT.set()
+                            break
+                        raise
+                    future_to_info[future] = (dist_id, main_task_id)
+                for future in as_completed(future_to_info):
+                    info = future_to_info[future]
+                    try:
+                        results.append((info, future.result(), False))
+                    except Exception as e:
+                        if is_db_disconnect(e):
+                            restart_db_connection()
+                        log.exception("Exception during parallel submission for task %d: %s", info[0], e)
+                        results.append((info, None, True))
+        finally:
+            http_session.close_stale()
+            idempotent_post_session.close_stale()
         return results
 
     def load_vm_tags(self, db, node_id, node_name):
@@ -2218,19 +2297,7 @@ def create_app(database_connection):
         exitnodes: Optional[bool] = None
         enabled: Optional[bool] = None
 
-    def _load_raw_auth_token() -> str:
-        val = dist_conf.distributed.get("auth_token")
-        if isinstance(val, str):
-            return val.strip()
-        if val is None:
-            return ""
-        raw_cfg = dist_conf.get_config() if hasattr(dist_conf, "get_config") else None
-        raw_val = raw_cfg.get("distributed", {}).get("auth_token") if isinstance(raw_cfg, dict) else None
-        if isinstance(raw_val, str):
-            return raw_val.strip()
-        return str(val).strip()
-
-    AUTH_TOKEN = _load_raw_auth_token()
+    AUTH_TOKEN = get_raw_config_str(dist_conf, "distributed", "auth_token")
 
     api_key_header = APIKeyHeader(name="X-API-Token", auto_error=False)
 
@@ -2400,7 +2467,9 @@ def create_app(database_connection):
                         # let fstab.py match and unmount by validated worker mount point.
                         send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry_by_folder", *[name])
                     else:
-                        send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[resolved_nfs_host, name])
+                        res = send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry", *[resolved_nfs_host, name])
+                        if isinstance(res, dict) and res.get("output") is False and not res.get("exception"):
+                            send_socket_command(dist_conf.NFS.fstab_socket, "remove_entry_by_folder", *[name])
                 _NODE_NFS_HOSTS.pop(name, None)
         return None
 

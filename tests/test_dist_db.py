@@ -1628,7 +1628,7 @@ def test_dist_nfs_unmounted_returns_false_and_submit_does_not_overwrite_failed_r
 
 def test_dist_auth_token_raw_string_and_delete_node_nfs_host_and_active_submit(dist_sqlite, monkeypatch, tmp_path):
     import types
-    from unittest.mock import patch
+    from unittest.mock import call, patch
 
     import utils.dist as dist_mod
     import utils.fstab as fstab_mod
@@ -1718,5 +1718,99 @@ def test_dist_auth_token_raw_string_and_delete_node_nfs_host_and_active_submit(d
     monkeypatch.setattr(fstab_mod, "path_write_file", lambda _p, data, mode="text": written.append(data))
     monkeypatch.setattr(fstab_mod.subprocess, "check_output", lambda _cmd: b"")
 
-    fstab_mod.remove_nfs_entry_by_folder("worker-pub")
+    assert fstab_mod.remove_nfs_entry_by_folder("worker-pub") is True
     assert written and str(worker_dir) not in written[0]
+
+    # 5. Post-restart mismatch between private url_host and distinct private nfs_host falls back to folder removal
+    written.clear()
+    assert fstab_mod.remove_nfs_entry("10.0.0.2", "worker-pub") is False
+    assert written == []
+    with dist_sqlite() as s, s.begin():
+        node_split = Node(name="worker-split", url="http://10.0.0.2:8000/apiv2/", apikey="k", enabled=True)
+        s.add(node_split)
+    with patch(
+        "utils.dist.send_socket_command",
+        side_effect=[{"output": False, "exception": None}, {"output": True, "exception": None}],
+    ) as mock_sock:
+        assert delete_node_fn("worker-split", unmount=True) is None
+        assert mock_sock.call_args_list == [
+            call(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry", "10.0.0.2", "worker-split"),
+            call(dist_mod.dist_conf.NFS.fstab_socket, "remove_entry_by_folder", "worker-split"),
+        ]
+
+
+def test_dist_thread_local_session_close_stale_and_pre_request_connect_retry():
+    import threading
+    from unittest.mock import MagicMock, patch
+
+    import requests
+    import urllib3
+
+    import utils.dist as dist_mod
+
+    # 1. Thread-local sessions created by exited worker threads are deterministically closed by close_stale()
+    proxy = dist_mod._ThreadLocalSessionProxy(dist_mod._HTTP_RETRY_IDEMPOTENT)
+    closed = []
+
+    def _worker():
+        sess = proxy._get_session()
+        orig_close = sess.close
+
+        def _track_close():
+            closed.append(sess)
+            orig_close()
+
+        sess.close = _track_close
+
+    t = threading.Thread(target=_worker)
+    t.start()
+    t.join()
+    assert proxy.close_stale() == 1
+    assert len(closed) == 1
+    assert proxy.close_stale() == 0
+
+    # 2. Pre-request connect failures (ConnectTimeout / NewConnectionError) leave task pending for retry
+    mock_node = MagicMock(id=2, name="worker1", url="http://10.0.0.9:8000/apiv2/", apikey="k", enabled=True)
+    for exc in (
+        requests.exceptions.ConnectTimeout("connect timed out"),
+        requests.exceptions.ConnectionError(
+            urllib3.exceptions.MaxRetryError(
+                None,
+                "/apiv2/tasks/create/url/",
+                reason=urllib3.exceptions.NewConnectionError(None, "connection refused"),
+            )
+        ),
+    ):
+        mock_task = MagicMock(
+            id=11,
+            main_task_id=45,
+            category="url",
+            path="https://example.invalid/",
+            package="",
+            timeout=120,
+            priority=1,
+            options="",
+            machine="",
+            platform="windows",
+            tags="",
+            custom="",
+            clock="10-31-2026 14:05:09",
+            memory=False,
+            enforce_timeout=False,
+            route="none",
+            tlp="",
+            finished=False,
+            retrieved=False,
+        )
+        mock_db = MagicMock()
+        mock_db.get.side_effect = lambda model, _pk, _t=mock_task: mock_node if model is dist_mod.Node else _t
+        with (
+            patch("utils.dist.dist_transaction") as mock_tx,
+            patch("utils.dist.main_db") as mock_main_db,
+            patch.object(dist_mod.http_session, "post", side_effect=exc),
+        ):
+            mock_tx.return_value.__enter__.return_value = mock_db
+            assert dist_mod.node_submit_task(11, 2, 45) is None
+        assert mock_task.finished is False
+        assert mock_task.retrieved is False
+        mock_main_db.set_status.assert_not_called()

@@ -958,6 +958,14 @@ class RunReporting:
                 self.process(module)
         else:
             log.info("No reporting modules loaded")
+
+        try:
+            from lib.cuckoo.common.hooks import run_report_hooks
+
+            run_report_hooks(self.results, task=self.task, stage="post_reporting")
+        except Exception as e:
+            log.exception("Failed to run post_reporting hooks: %s", e)
+
         return self.reporting_errors
 
 

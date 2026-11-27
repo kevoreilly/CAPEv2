@@ -1079,17 +1079,23 @@ def _cfg_bool(val) -> bool:
     return bool(val)
 
 
-def _task_vnc_auth_classes(cfg):
+def _task_vnc_auth_classes(cfg, api_cfg=None):
+    effective_api_cfg = apiconf if api_cfg is None else api_cfg
+    api_sec = getattr(effective_api_cfg, "api", None)
+    token_auth_enabled = _cfg_bool(api_sec.get("token_auth_enabled", False)) if hasattr(api_sec, "get") else False
     oidc_cfg = getattr(cfg, "oauth_oidc", None)
     oidc_enabled = _cfg_bool(oidc_cfg.get("enabled", False)) if hasattr(oidc_cfg, "get") else False
     return [
         cls
-        for cls in (ApiKeyAuthentication, None if oidc_enabled else SessionAuthentication)
+        for cls in (
+            ApiKeyAuthentication if token_auth_enabled else None,
+            None if (token_auth_enabled and oidc_enabled) else SessionAuthentication,
+        )
         if cls is not None
     ]
 
 
-_TASK_VNC_AUTH_CLASSES = _task_vnc_auth_classes(web_conf)
+_TASK_VNC_AUTH_CLASSES = _task_vnc_auth_classes(web_conf, apiconf)
 
 
 @csrf_exempt

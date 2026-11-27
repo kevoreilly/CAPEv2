@@ -911,21 +911,30 @@ def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_in_both_
 
 
 @pytest.mark.parametrize(
-    "oidc_enabled, expect_session_auth",
+    "token_auth_enabled, oidc_enabled, expect_api_key, expect_session_auth",
     [
-        pytest.param(True, False, id="oidc-bool-true-drops-session-auth"),
-        pytest.param("yes", False, id="oidc-str-yes-drops-session-auth"),
-        pytest.param(False, True, id="oidc-bool-false-keeps-session-auth"),
-        pytest.param("no", True, id="oidc-str-no-keeps-session-auth"),
+        pytest.param(True, True, True, False, id="token-on-oidc-bool-true-drops-session-auth"),
+        pytest.param("yes", "yes", True, False, id="token-on-oidc-str-yes-drops-session-auth"),
+        pytest.param(True, False, True, True, id="token-on-oidc-bool-false-keeps-session-auth"),
+        pytest.param("yes", "no", True, True, id="token-on-oidc-str-no-keeps-session-auth"),
+        pytest.param(False, True, False, True, id="token-off-oidc-bool-true-keeps-session-auth"),
+        pytest.param("no", "yes", False, True, id="token-off-oidc-str-yes-keeps-session-auth"),
+        pytest.param(False, False, False, True, id="token-off-oidc-bool-false-keeps-session-auth"),
+        pytest.param("no", "no", False, True, id="token-off-oidc-str-no-keeps-session-auth"),
     ],
 )
-def test_task_vnc_auth_classes_respects_oauth_oidc_section(oidc_enabled, expect_session_auth):
+def test_task_vnc_auth_classes_respects_oauth_oidc_section(
+    token_auth_enabled, oidc_enabled, expect_api_key, expect_session_auth
+):
     from importlib import import_module
+    from apikey.authentication import ApiKeyAuthentication
     from rest_framework.authentication import SessionAuthentication
 
     apiv2_views = import_module("apiv2.views")
     fake_cfg = SimpleNamespace(oauth_oidc={"enabled": oidc_enabled})
-    classes = apiv2_views._task_vnc_auth_classes(fake_cfg)
+    fake_api_cfg = SimpleNamespace(api={"token_auth_enabled": token_auth_enabled})
+    classes = apiv2_views._task_vnc_auth_classes(fake_cfg, api_cfg=fake_api_cfg)
+    assert (ApiKeyAuthentication in classes) is expect_api_key
     assert (SessionAuthentication in classes) is expect_session_auth
 
 

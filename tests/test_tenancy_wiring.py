@@ -2985,19 +2985,26 @@ def test_recovery_following_endpoints_and_validate_task_enforce_target_acl(db, t
 
     victim = db.add_path(str(temp_pe32), user_id=7)
     own_rec = db.add_path(str(temp_pe64), user_id=8, custom=f"Recovery_{victim}")
+    user7_rec = db.add_path(str(temp_pe64), user_id=7, custom=f"Recovery_{victim}")
     ensure_acl_schema(db.engine)
     with db.session.begin():
         db.set_status(victim, "reported")
         db.set_status(own_rec, "recovered")
+        db.set_status(user7_rec, "recovered")
         set_task_acl(db.session, victim, user_id=7, tenant_id=1, visibility="private")
         set_task_acl(db.session, own_rec, user_id=8, tenant_id=2, visibility="private")
+        set_task_acl(db.session, user7_rec, user_id=7, tenant_id=1, visibility="private")
 
     set_current_viewer(_viewer(8, 2))
     denied = wu.validate_task(own_rec)
     assert denied["error"] is True and denied["error_value"] == "Task does not exist"
 
+    # Both source task_id and target rtid must be readable: user 7 owns victim but not user 8's own_rec.
     set_current_viewer(_viewer(7, 1))
-    allowed = wu.validate_task(own_rec)
+    denied_source = wu.validate_task(own_rec)
+    assert denied_source["error"] is True and denied_source["error_value"] == "Task does not exist"
+
+    allowed = wu.validate_task(user7_rec)
     assert allowed["error"] is False and allowed["rtid"] == victim
 
     # Legacy target task without a TaskAcl row falls back to tasks.user_id
@@ -3011,7 +3018,7 @@ def test_recovery_following_endpoints_and_validate_task_enforce_target_acl(db, t
     assert denied_fallback["error"] is True and denied_fallback["error_value"] == "Task does not exist"
 
     set_current_viewer(_viewer(7, 1))
-    allowed_fallback = wu.validate_task(own_rec)
+    allowed_fallback = wu.validate_task(user7_rec)
     assert allowed_fallback["error"] is False and allowed_fallback["rtid"] == victim
 
 
@@ -4276,6 +4283,611 @@ def test_object_storage_es_only_and_sql_fallbacks(db, temp_pe32, monkeypatch):
 
     with pytest.raises(Http404):
         artifact_storage._store_and_container(tid, scope={"info.user_id": 8})
+
+
+def test_inactive_tenant_denies_locked_mode_entitlements_and_reconciles_idp_groups(monkeypatch):
+    from lib.tenancy.policy import MultitenancyConfig
+    from lib.tenancy.resources import reconcile_idp_groups_to_django_groups, resolve_user_entitlements
+
+    cfg = MultitenancyConfig(enabled=True, mode="locked", default_visibility="tenant", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr("lib.tenancy.resources.multitenancy_config", lambda: cfg)
+
+    inactive_tenant = types.SimpleNamespace(id=1, active=False)
+    active_tenant = types.SimpleNamespace(id=2, active=True)
+
+    grp_inactive_t = types.SimpleNamespace(id=10, name="grp-inactive-tenant")
+    pol_inactive_t = types.SimpleNamespace(
+        id=1,
+        group=grp_inactive_t,
+        group_id=10,
+        tenant_id=1,
+        tenant=inactive_tenant,
+        active=True,
+        idp_groups=["okta-inactive-tenant"],
+        allowed_machines=["win10_*"],
+        allowed_routes=["none"],
+    )
+    grp_inactive_t.sandbox_policy = pol_inactive_t
+
+    grp_inactive_p = types.SimpleNamespace(id=11, name="grp-inactive-policy")
+    pol_inactive_p = types.SimpleNamespace(
+        id=2,
+        group=grp_inactive_p,
+        group_id=11,
+        tenant_id=2,
+        tenant=active_tenant,
+        active=False,
+        idp_groups=["okta-inactive-policy"],
+        allowed_machines=["win11_*"],
+        allowed_routes=["none"],
+    )
+    grp_inactive_p.sandbox_policy = pol_inactive_p
+
+    grp_active = types.SimpleNamespace(id=12, name="grp-active")
+    pol_active = types.SimpleNamespace(
+        id=3,
+        group=grp_active,
+        group_id=12,
+        tenant_id=2,
+        tenant=active_tenant,
+        active=True,
+        idp_groups=["okta-active"],
+        allowed_machines=["win10_active"],
+        allowed_routes=["none"],
+    )
+    grp_active.sandbox_policy = pol_active
+
+    grp_manual = types.SimpleNamespace(id=13, name="grp-manual")
+    pol_manual = types.SimpleNamespace(
+        id=4,
+        group=grp_manual,
+        group_id=13,
+        tenant_id=None,
+        tenant=None,
+        active=True,
+        idp_groups=[],
+    )
+    grp_manual.sandbox_policy = pol_manual
+
+    # Default unassigned_policy=None under mode="locked": inactive tenant must fail closed to deny_all(), not allow_all().
+    u_groups = types.SimpleNamespace(id=200, is_authenticated=True, is_superuser=False, groups=[grp_inactive_t])
+    ent_groups = resolve_user_entitlements(u_groups)
+    assert ent_groups.unrestricted is False
+    assert ent_groups.allowed_machines == frozenset()
+    assert ent_groups.allow_interactive is False
+
+    # explicit_policies path with only inactive-tenant/inactive policies also fails closed under mode="locked".
+    u_explicit = types.SimpleNamespace(
+        id=201,
+        is_authenticated=True,
+        is_superuser=False,
+        sandbox_policies=[pol_inactive_t, pol_inactive_p],
+    )
+    ent_explicit = resolve_user_entitlements(u_explicit)
+    assert ent_explicit.unrestricted is False
+    assert ent_explicit.allowed_machines == frozenset()
+
+    # reconcile_idp_groups_to_django_groups must not add deactivated-tenant/policy groups and must remove stale ones.
+    class _FakeGroups:
+        def __init__(self, initial):
+            self._items = list(initial)
+
+        def add(self, *items):
+            for it in items:
+                if it not in self._items:
+                    self._items.append(it)
+
+        def remove(self, *items):
+            for it in items:
+                if it in self._items:
+                    self._items.remove(it)
+
+        def all(self):
+            return list(self._items)
+
+    u_idp = types.SimpleNamespace(
+        id=202,
+        is_authenticated=True,
+        groups=_FakeGroups([grp_inactive_t, grp_inactive_p, grp_manual]),
+    )
+    matched = reconcile_idp_groups_to_django_groups(
+        u_idp,
+        ["okta-inactive-tenant", "okta-inactive-policy", "okta-active"],
+        policies=[pol_inactive_t, pol_inactive_p, pol_active, pol_manual],
+    )
+    assert matched == [grp_active]
+    assert u_idp.groups.all() == [grp_manual, grp_active]
+
+
+def test_tasks_machine_blocks_synthetic_anonymous_admin_and_requested_machine_fallback(monkeypatch):
+    import json
+
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+
+    from lib.tenancy import middleware as tmw
+    from lib.tenancy import views as tviews
+    from lib.tenancy.policy import MultitenancyConfig
+
+    mt_off = MultitenancyConfig(enabled=False, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(tmw, "multitenancy_config", lambda: mt_off)
+    monkeypatch.setattr(tviews, "multitenancy_config", lambda: mt_off)
+    monkeypatch.setattr(tmw, "_web_authentication_enabled", lambda: False)
+
+    fake_task = types.SimpleNamespace(
+        id=55,
+        status="running",
+        machine="requested-other-vm",
+        guest=types.SimpleNamespace(label="bound-guest-vm"),
+        attributes={"vnc_password": "SeCrEt99"},
+    )
+    port_calls = []
+
+    def _port(label):
+        port_calls.append(label)
+        return 5911 if label == "bound-guest-vm" else 5999
+
+    def _call(req):
+        res = tviews.tasks_machine(
+            req,
+            55,
+            viewer_resolver=tmw.default_viewer_resolver,
+            task_loader=lambda tid: fake_task if tid == 55 else None,
+            vnc_port_resolver=_port,
+            control_plane_token_getter=lambda: "",
+        )
+        status = getattr(res, "status_code", None) or res.get("status_code")
+        body = json.loads(res.content) if hasattr(res, "content") else res
+        return status, body
+
+    rf = RequestFactory()
+    # Unauthenticated AnonymousUser with synthetic local_admin viewer from MT=off & web_auth=off must get 404.
+    anon_req = rf.get("/apiv2/tasks/machine/55/")
+    anon_req.user = AnonymousUser()
+    anon_req.viewer = tmw.default_viewer_resolver(anon_req.user)
+    assert anon_req.viewer.is_local_admin is True
+    st, body = _call(anon_req)
+    assert st == 404
+    assert "SeCrEt99" not in str(body)
+
+    # Authenticated non-staff/non-superuser with synthetic local_admin viewer must also get 404.
+    reg_req = rf.get("/apiv2/tasks/machine/55/")
+    reg_req.user = types.SimpleNamespace(id=7, is_authenticated=True, is_staff=False, is_superuser=False)
+    reg_req.viewer = tmw.default_viewer_resolver(reg_req.user)
+    assert reg_req.viewer.is_local_admin is True
+    st, body = _call(reg_req)
+    assert st == 404
+    assert "SeCrEt99" not in str(body)
+
+    # Authenticated staff and superuser are permitted.
+    staff_req = rf.get("/apiv2/tasks/machine/55/")
+    staff_req.user = types.SimpleNamespace(id=2, is_authenticated=True, is_staff=True, is_superuser=False)
+    st, body = _call(staff_req)
+    assert st == 200 and body["vnc_password"] == "SeCrEt99" and body["machine"] == "bound-guest-vm"
+
+    # Under multitenancy with local_admins_manage_all_tenants=no, a tenant-scoped superuser is denied.
+    mt_scoped = MultitenancyConfig(enabled=True, mode="locked", default_visibility="tenant", local_admins_manage_all_tenants=False)
+    monkeypatch.setattr(tmw, "multitenancy_config", lambda: mt_scoped)
+    monkeypatch.setattr(tviews, "multitenancy_config", lambda: mt_scoped)
+    scoped_super_req = rf.get("/apiv2/tasks/machine/55/")
+    scoped_super_req.user = types.SimpleNamespace(id=1, is_authenticated=True, is_staff=True, is_superuser=True, groups=[])
+    st, body = _call(scoped_super_req)
+    assert st == 404 and "SeCrEt99" not in str(body)
+
+    # Without a bound guest, tasks_machine must NOT fall back to requested task.machine or resolve its VNC port.
+    monkeypatch.setattr(tmw, "multitenancy_config", lambda: mt_off)
+    monkeypatch.setattr(tviews, "multitenancy_config", lambda: mt_off)
+    fake_task.guest = None
+    port_calls.clear()
+    super_req = rf.get("/apiv2/tasks/machine/55/")
+    super_req.user = types.SimpleNamespace(id=1, is_authenticated=True, is_staff=False, is_superuser=True)
+    st, body = _call(super_req)
+    assert st == 200
+    assert body["machine"] == ""
+    assert body["vnc_port"] is None
+    assert port_calls == []
+
+
+def test_post_reporting_uploads_object_storage_without_mongo_or_es_and_es_order_follows_jsondump(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core import plugins as plugins_mod
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.storage.config import ObjectStorageConfig
+    from modules.reporting.elasticsearchdb import ElasticSearchDB
+    from modules.reporting.jsondump import JsonDump
+
+    assert ElasticSearchDB.order == 9999
+    assert ElasticSearchDB.order > JsonDump.order
+
+    analysis_dir = tmp_path / "storage" / "analyses" / "77"
+    (analysis_dir / "reports").mkdir(parents=True)
+    store_root = tmp_path / "store"
+    cfg = ObjectStorageConfig(enabled=True, backend="local", local_root=str(store_root), prefix="results")
+    monkeypatch.setattr("lib.tenancy.storage.config.object_storage_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.storage.reporting.object_storage_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.storage.reporting.CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+
+    class _FakeJsonDump:
+        order = 10
+
+        def set_path(self, p):
+            self.p = p
+
+        def set_task(self, t):
+            self.t = t
+
+        def set_options(self, o):
+            self.o = o
+
+        conf_path = str(tmp_path / "analysis.conf")
+
+        def run(self, results):
+            (Path(self.p) / "reports" / "report.json").write_text('{"ok": true}')
+
+    monkeypatch.setattr(plugins_mod, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(plugins_mod, "list_plugins", lambda group="": [_FakeJsonDump] if group == "reporting" else [])
+    monkeypatch.setattr(plugins_mod, "AnalysisConfig", lambda _p: {})
+
+    task = {"id": 77, "attributes": {}}
+    results = {"info": {"id": 77}, "statistics": {"reporting": []}}
+
+    core_hooks.clear_all_hooks()
+    core_hooks.register_report_hook(thooks.default_report_stamp_hook)
+    try:
+        runner = plugins_mod.RunReporting(task=task, results=results)
+        runner.cfg = types.SimpleNamespace(get=lambda _name: types.SimpleNamespace(enabled=True))
+        assert runner.run() == 0
+    finally:
+        core_hooks.clear_all_hooks()
+
+    uploaded_report = store_root / "results" / "77" / "reports" / "report.json"
+    assert uploaded_report.exists()
+    assert uploaded_report.read_text() == '{"ok": true}'
+    assert task.get("_object_storage_uploaded") is True
+
+    # A second post_reporting hook call with the same task must be a no-op (no duplicate upload).
+    upload_calls = []
+    monkeypatch.setattr(
+        "lib.tenancy.storage.reporting.ObjectStorage.run",
+        lambda self, res: upload_calls.append(res["info"]["id"]),
+    )
+    thooks.default_report_stamp_hook({"info": {"id": 77}}, task=task, stage="post_reporting")
+    assert upload_calls == []
+
+
+def test_task_visible_for_scope_evaluates_explicit_scope_without_mongodb(db, temp_pe32, monkeypatch):
+    import lib.cuckoo.common.config as config_mod
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+    from lib.tenancy.policy import MultitenancyConfig, ViewerContext, viewer_scope_match
+    from lib.tenancy.storage import artifact_storage
+
+    cfg = MultitenancyConfig(enabled=True, mode="locked", default_visibility="private", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+
+    tid_priv = db.add_path(str(temp_pe32), user_id=7)
+    tid_tenant = db.add_path(str(temp_pe32), user_id=7)
+    tid_pub = db.add_path(str(temp_pe32), user_id=9)
+    ensure_acl_schema(db.engine)
+    with db.session.begin():
+        set_task_acl(db.session, tid_priv, user_id=7, tenant_id=1, visibility=PRIVATE)
+        set_task_acl(db.session, tid_tenant, user_id=7, tenant_id=1, visibility="tenant")
+        set_task_acl(db.session, tid_pub, user_id=9, tenant_id=3, visibility="public")
+
+    monkeypatch.setattr(
+        config_mod,
+        "Config",
+        lambda name: types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=False),
+            elasticsearchdb=types.SimpleNamespace(enabled=False),
+        ),
+    )
+
+    # Even with an ambient local_admin viewer, an explicit narrower scope must be enforced (not ignored).
+    tok_admin = set_current_viewer(ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True))
+    try:
+        assert artifact_storage._task_visible_for_scope(tid_priv, {"info.user_id": 8}) is False
+        assert artifact_storage._task_visible_for_scope(tid_priv, viewer_scope_match(_viewer(8, 2))) is False
+        assert artifact_storage._task_visible_for_scope(tid_priv, {"$where": "1==1"}) is False
+    finally:
+        reset_current_viewer(tok_admin)
+
+    # Even with ambient viewer=None, an explicit matching scope must succeed against SQL TaskAcl.
+    tok_none = set_current_viewer(None)
+    try:
+        assert artifact_storage._task_visible_for_scope(tid_priv, {"info.user_id": 7}) is True
+        assert artifact_storage._task_visible_for_scope(tid_tenant, viewer_scope_match(_viewer(8, 1))) is True
+        assert artifact_storage._task_visible_for_scope(tid_priv, viewer_scope_match(_viewer(8, 1))) is False
+        assert (
+            artifact_storage._task_visible_for_scope(
+                tid_priv, viewer_scope_match(ViewerContext(user_id=8, tenant_id=1, is_tenant_admin=True))
+            )
+            is True
+        )
+        assert artifact_storage._task_visible_for_scope(tid_pub, viewer_scope_match(ViewerContext.anonymous())) is True
+        assert artifact_storage._task_visible_for_scope(tid_priv, viewer_scope_match(ViewerContext.anonymous())) is False
+    finally:
+        reset_current_viewer(tok_none)
+
+    # When Elasticsearch is enabled (without Mongo), ES receives a filter derived from explicit `scope`, not ambient viewer.
+    monkeypatch.setattr(
+        config_mod,
+        "Config",
+        lambda name: types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=False),
+            elasticsearchdb=types.SimpleNamespace(enabled=True),
+        ),
+    )
+    es_bodies = []
+
+    class _FakeES:
+        def search(self, index=None, body=None, **_kw):
+            es_bodies.append(body)
+            return {"hits": {"hits": []}}
+
+    fake_es_mod = types.ModuleType("dev_utils.elasticsearchdb")
+    fake_es_mod.elastic_handler = _FakeES()
+    fake_es_mod.get_analysis_index = lambda: "analysis-*"
+    fake_es_mod.get_query_by_info_id = lambda tid: {"term": {"info.id": tid}}
+    monkeypatch.setitem(sys.modules, "dev_utils.elasticsearchdb", fake_es_mod)
+
+    tok_admin2 = set_current_viewer(ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True))
+    try:
+        assert artifact_storage._task_visible_for_scope(tid_priv, {"info.user_id": 8}) is False
+        assert len(es_bodies) == 1
+        assert {"term": {"info.user_id": 8}} in es_bodies[0]["query"]["bool"]["filter"]
+    finally:
+        reset_current_viewer(tok_admin2)
+
+
+def test_resolve_tenant_from_user_stops_parent_walk_on_inactive_intermediate(monkeypatch):
+    from lib.tenancy import middleware as tmw
+    from lib.tenancy.policy import MultitenancyConfig
+
+    cfg = MultitenancyConfig(enabled=True, mode="locked", default_visibility="tenant", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(tmw, "multitenancy_config", lambda: cfg)
+
+    grp_grandparent = types.SimpleNamespace(id=100, name="grandparent")
+    grp_grandparent.sandbox_policy = types.SimpleNamespace(
+        id=1,
+        group_id=100,
+        parent_group=None,
+        inherit_parent_tasks=True,
+        tenant_id=None,
+        tenant=None,
+        is_tenant_boundary=True,
+        is_tenant_admin_group=False,
+        priority=10,
+        active=True,
+    )
+
+    grp_mid_inactive_pol = types.SimpleNamespace(id=200, name="mid-inactive-policy")
+    grp_mid_inactive_pol.sandbox_policy = types.SimpleNamespace(
+        id=2,
+        group_id=200,
+        parent_group=grp_grandparent,
+        inherit_parent_tasks=True,
+        tenant_id=None,
+        tenant=None,
+        is_tenant_boundary=True,
+        is_tenant_admin_group=False,
+        priority=20,
+        active=False,
+    )
+
+    grp_child1 = types.SimpleNamespace(id=300, name="child-1")
+    grp_child1.sandbox_policy = types.SimpleNamespace(
+        id=3,
+        group_id=300,
+        parent_group=grp_mid_inactive_pol,
+        inherit_parent_tasks=True,
+        tenant_id=None,
+        tenant=None,
+        is_tenant_boundary=True,
+        is_tenant_admin_group=False,
+        priority=30,
+        active=True,
+    )
+
+    u1 = types.SimpleNamespace(id=1, is_authenticated=True, is_superuser=False, groups=[grp_child1])
+    v1 = tmw.default_viewer_resolver(u1)
+    assert v1.tenant_id == 300
+    assert v1.tenant_ids == (300,)
+
+    # Same when intermediate policy is active=True but its Tenant is active=False.
+    grp_mid_inactive_tenant = types.SimpleNamespace(id=201, name="mid-inactive-tenant")
+    grp_mid_inactive_tenant.sandbox_policy = types.SimpleNamespace(
+        id=4,
+        group_id=201,
+        parent_group=grp_grandparent,
+        inherit_parent_tasks=True,
+        tenant_id=9,
+        tenant=types.SimpleNamespace(id=9, active=False),
+        is_tenant_boundary=True,
+        is_tenant_admin_group=False,
+        priority=20,
+        active=True,
+    )
+    grp_child2 = types.SimpleNamespace(id=301, name="child-2")
+    grp_child2.sandbox_policy = types.SimpleNamespace(
+        id=5,
+        group_id=301,
+        parent_group=grp_mid_inactive_tenant,
+        inherit_parent_tasks=True,
+        tenant_id=None,
+        tenant=None,
+        is_tenant_boundary=True,
+        is_tenant_admin_group=False,
+        priority=30,
+        active=True,
+    )
+
+    u2 = types.SimpleNamespace(id=2, is_authenticated=True, is_superuser=False, groups=[grp_child2])
+    v2 = tmw.default_viewer_resolver(u2)
+    assert v2.tenant_id == 301
+    assert v2.tenant_ids == (301,)
+
+
+def test_procdump_staging_respects_anon_view_and_validate_task_fails_closed_on_db_error(db, temp_pe32, monkeypatch, tmp_path):
+    from django.conf import settings as dj_settings
+
+    from lib.tenancy import views as tviews
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+    from lib.tenancy.storage import config as storage_cfg
+    from lib.tenancy.storage import views as storage_views
+
+    # 1. L12a: anonymous procdump stages when WEB_AUTHENTICATION=True & ANON_VIEW=True, redirects when ANON_VIEW=False.
+    monkeypatch.setattr(storage_cfg, "central_mode_config", lambda: types.SimpleNamespace(enabled=True))
+    monkeypatch.setattr("analysis.views.CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(dj_settings, "WEB_AUTHENTICATION", True)
+
+    staged = []
+    monkeypatch.setattr(storage_views, "central_stage_one", lambda req, tid, rel, dst: staged.append(rel))
+
+    def procdump(request, task_id, process_id, start, end, zipped=False):
+        return None
+
+    anon_req = types.SimpleNamespace(
+        user=types.SimpleNamespace(is_authenticated=False),
+        path="/analysis/procdump/12/444/0/1/",
+        get_full_path=lambda: "/analysis/procdump/12/444/0/1/",
+    )
+
+    monkeypatch.setattr(dj_settings, "ANON_VIEW", True)
+    res_anon_ok = tviews.dispatch_object_storage_view(anon_req, procdump, (), {"task_id": "12", "process_id": "444"})
+    assert res_anon_ok is None
+    assert staged == ["memory/444.dmp", "memory/444.dmp.zip"]
+
+    staged.clear()
+    monkeypatch.setattr(dj_settings, "ANON_VIEW", False)
+    res_anon_redir = tviews.dispatch_object_storage_view(anon_req, procdump, (), {"task_id": "12", "process_id": "444"})
+    assert getattr(res_anon_redir, "status_code", None) == 302
+    assert staged == []
+
+    # 2. L12b: _wrapped_validate_task fails closed if db.session.get(Task, tid) raises (even with MT disabled).
+    tid = db.add_path(str(temp_pe32), user_id=7)
+    fake_web_utils = types.SimpleNamespace(validate_task=lambda t, *_a, **_kw: {"error": False, "rtid": t})
+    wrap_submission_and_web_utils(web_utils_mod=fake_web_utils)
+
+    class _ExplodingSession:
+        def begin(self):
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def get(self, *_a, **_kw):
+            raise RuntimeError("db connection lost")
+
+    monkeypatch.setattr(
+        "lib.cuckoo.core.database.Database",
+        lambda: types.SimpleNamespace(engine=db.engine, session=_ExplodingSession()),
+    )
+    tok = set_current_viewer(_viewer(user_id=8, tenant_id=2))
+    try:
+        denied = fake_web_utils.validate_task(tid)
+        assert denied == {"error": True, "error_value": "Task does not exist"}
+    finally:
+        reset_current_viewer(tok)
+
+
+def test_gcs_refetch_banned_preserves_exact_task_scope_under_time_skew_and_failed_download(db, temp_pe32, monkeypatch):
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import Session
+
+    import lib.cuckoo.common.cleaners_utils as cleaners_mod
+    import lib.cuckoo.common.gcp as gcp_mod
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.cuckoo.core.data.task import TASK_BANNED, Task
+    from lib.tenancy import hooks as thooks
+    from lib.tenancy.acl import TaskAcl
+    from lib.tenancy.context import set_current_submission_visibility, set_current_viewer
+    from lib.tenancy.policy import MultitenancyConfig
+
+    cfg = MultitenancyConfig(enabled=True, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True)
+    monkeypatch.setattr(thooks, "multitenancy_config", lambda: cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", lambda: cfg)
+    monkeypatch.setenv("CAPE_AS_ROOT", "1")
+    monkeypatch.setattr(gcp_mod, "HAVE_GCP", True)
+    pe_bytes = Path(temp_pe32).read_bytes()
+
+    # Simulate shifting convert_into_time (which previously skewed _wrapped_refetch vs gcp.py).
+    base_cutoff = datetime.now() - timedelta(hours=12)
+    cutoff_calls = {"n": 0}
+
+    def _skewed_cutoff(_spec):
+        cutoff_calls["n"] += 1
+        return base_cutoff + timedelta(seconds=cutoff_calls["n"] * 60)
+
+    monkeypatch.setattr(cleaners_mod, "convert_into_time", _skewed_cutoff)
+
+    dl_calls = {"n": 0}
+
+    def _flaky_download(_uri, dst):
+        dl_calls["n"] += 1
+        if dl_calls["n"] == 1:
+            return False  # First in-window task download fails; second task must still inherit its OWN ACL.
+        Path(dst).write_bytes(pe_bytes)
+        return True
+
+    monkeypatch.setattr(gcp_mod, "download_from_gcs", _flaky_download)
+
+    core_hooks.clear_all_hooks()
+    ensure_acl_schema(db.engine)
+    try:
+        thooks.register_core_hooks()
+
+        # Tenant 1 task just inside base_cutoff but before skewed cutoff (would bleed under 2-query skew).
+        set_current_viewer(_viewer(user_id=7, tenant_id=1))
+        set_current_submission_visibility("private")
+        tid_t1 = db.add_path(str(temp_pe32), user_id=7)
+
+        # Tenant 2 task in window whose download fails.
+        set_current_viewer(_viewer(user_id=8, tenant_id=2))
+        set_current_submission_visibility("tenant")
+        tid_t2 = db.add_path(str(temp_pe32), user_id=8)
+
+        # Tenant 3 task in window for the exact same sample whose download succeeds.
+        set_current_viewer(_viewer(user_id=9, tenant_id=3))
+        set_current_submission_visibility("private")
+        tid_t3 = db.add_path(str(temp_pe32), user_id=9)
+
+        with db.session.begin():
+            t1 = db.session.get(Task, tid_t1)
+            t1.status = TASK_BANNED
+            t1.added_on = base_cutoff + timedelta(seconds=10)
+            t2 = db.session.get(Task, tid_t2)
+            t2.status = TASK_BANNED
+            t2.added_on = base_cutoff + timedelta(hours=1)
+            t3 = db.session.get(Task, tid_t3)
+            t3.status = TASK_BANNED
+            t3.added_on = base_cutoff + timedelta(hours=2)
+
+        set_current_viewer(None)
+        set_current_submission_visibility(None)
+
+        gcp_mod.gcs_refetch_banned("1d", samples_bucket="test-bucket")
+        assert cutoff_calls["n"] == 1
+
+        with Session(db.engine) as s:
+            all_tasks = s.scalars(select(Task).order_by(Task.id)).all()
+            assert len(all_tasks) == 4
+            new_tid = all_tasks[-1].id
+            acl = s.get(TaskAcl, new_tid)
+            assert acl is not None
+            assert (acl.user_id, acl.tenant_id, acl.visibility) == (9, 3, "private")
+    finally:
+        core_hooks.clear_all_hooks()
+
 
 
 

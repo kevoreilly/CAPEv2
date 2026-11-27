@@ -186,7 +186,11 @@ class ObjectStorage(Report):
             return
 
         info = results.setdefault("info", {})
-        if info.get("_object_storage_uploaded"):
+        task_dict = getattr(self, "task", None)
+        if info.get("_object_storage_uploaded") or (
+            isinstance(task_dict, dict) and task_dict.get("_object_storage_uploaded")
+        ):
+            info["_object_storage_uploaded"] = True
             return
 
         store, _is_remote = get_artifact_store(cfg)
@@ -237,6 +241,8 @@ class ObjectStorage(Report):
         if failed == 0:
             _emit_done_marker(store, container, getattr(self, "analysis_path", None), cfg, task_id, uploaded)
             info["_object_storage_uploaded"] = True
+            if isinstance(task_dict, dict):
+                task_dict["_object_storage_uploaded"] = True
         else:
             log.warning(
                 "object_storage: %d upload(s) failed for task_id=%s; NOT marking done",
@@ -269,6 +275,9 @@ def upload_analysis_artifacts(
     info = results.get("info")
     if not isinstance(info, dict) or info.get("_object_storage_uploaded"):
         return
+    if isinstance(task, dict) and task.get("_object_storage_uploaded"):
+        info["_object_storage_uploaded"] = True
+        return
     task_id = info.get("local_task_id") or info.get("id")
     if analysis_path is None and task_id is not None:
         cand = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
@@ -280,3 +289,5 @@ def upload_analysis_artifacts(
     if analysis_path:
         reporter.set_path(analysis_path)
     reporter.run(results)
+    if isinstance(task, dict) and info.get("_object_storage_uploaded"):
+        task["_object_storage_uploaded"] = True

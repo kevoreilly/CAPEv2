@@ -580,6 +580,7 @@ def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
         return
 
     from lib.cuckoo.common.cleaners_utils import convert_into_time
+    from lib.cuckoo.common.hooks import task_copy_scope
     from lib.cuckoo.core.database import Database
     from lib.cuckoo.core.data.task import TASK_BANNED, Task
     from utils.submit import submit_file
@@ -643,14 +644,15 @@ def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
         try:
             if download_from_gcs(gcs_uri, tmp_path):
                 log.info("Successfully downloaded %s, resubmitting...", sha256)
-                task_ids, extra_details = submit_file(
-                    db=db,
-                    file_path=tmp_path,
-                    options=task["options"],
-                    custom=task["custom"],
-                    category=task["category"],
-                    filename=os.path.basename(task["target"]),
-                )
+                with task_copy_scope(db, task["id"]):
+                    task_ids, extra_details = submit_file(
+                        db=db,
+                        file_path=tmp_path,
+                        options=task["options"],
+                        custom=task["custom"],
+                        category=task["category"],
+                        filename=os.path.basename(task["target"]),
+                    )
                 if task_ids:
                     log.info("Task %d refetched as new task(s): %s", task["id"], task_ids)
                 else:

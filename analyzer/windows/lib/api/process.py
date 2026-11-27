@@ -430,15 +430,18 @@ class Process:
         """
         h_proc = self.h_process if _is_valid_handle(self.h_process) else None
         if h_proc is None and self.pid:
+            mon_failed = False
             with self._monitor_handles_lock:
                 mon = self._monitor_handles.get(int(self.pid))
                 if mon and _is_valid_handle(mon[0]):
                     exit_code = c_ulong(0)
                     ok = KERNEL32.GetExitCodeProcess(mon[0], byref(exit_code))
-                    if not ok:
-                        log.debug("Failed getting exit code for %s", self)
-                        return None
-                    return exit_code.value
+                    if ok:
+                        return exit_code.value
+                    mon_failed = True
+            if mon_failed:
+                log.debug("Failed getting exit code for %s", self)
+                return None
 
         if h_proc is None:
             self.open()

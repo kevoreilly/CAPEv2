@@ -137,6 +137,7 @@ _DEFAULT_FILE_MODE = _default_file_mode()
 _MULTIPART_CHUNK_SIZE = 1024 * 1024
 _MULTIPART_MEMORY_LIMIT = 1024 * 1024
 _MAX_PART_HEADER_BYTES = 64 * 1024
+_MAX_BOUNDARY_LWSP = 4096
 
 
 class _FormParseError(ValueError):
@@ -313,6 +314,8 @@ def _parse_multipart_stream(
                     buf.extend(chunk)
                 ws_end = after
                 while ws_end < len(buf) and buf[ws_end] in (0x20, 0x09):
+                    if ws_end - after >= _MAX_BOUNDARY_LWSP:
+                        raise _FormParseError("Multipart boundary trailing whitespace exceeds maximum size")
                     ws_end += 1
                     if ws_end == len(buf):
                         chunk = reader.read(chunk_size)
@@ -394,6 +397,8 @@ def _parse_multipart_stream(
                             buf.extend(chunk)
                         ws_end = after_delim
                         while ws_end < len(buf) and buf[ws_end] in (0x20, 0x09):
+                            if ws_end - after_delim >= _MAX_BOUNDARY_LWSP:
+                                raise _FormParseError("Multipart boundary trailing whitespace exceeds maximum size")
                             ws_end += 1
                             if ws_end == len(buf):
                                 chunk = reader.read(chunk_size)
@@ -650,7 +655,10 @@ class MiniHTTPServer:
 
     @staticmethod
     def is_client_allowed(path: str, method: Optional[str]) -> bool:
-        if "client_ip" in state and request.client_ip != state["client_ip"]:
+        with _STATE_LOCK:
+            has_pin = "client_ip" in state
+            pinned_ip = state.get("client_ip")
+        if has_pin and request.client_ip != pinned_ip:
             if request.client_ip != "127.0.0.1":
                 return False
             if path not in ["/status", "/browser_extension"] or method != "POST":

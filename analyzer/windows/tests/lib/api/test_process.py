@@ -179,6 +179,41 @@ class ProcessTests(unittest.TestCase):
             ],
         )
 
+    def test_exit_code_monitor_failure_debug_log_does_not_deadlock(self):
+        proc_logger = logging.getLogger("lib.api.process")
+        orig_handlers = list(proc_logger.handlers)
+        orig_level = proc_logger.level
+        orig_propagate = proc_logger.propagate
+        handler = _FormattingListHandler()
+
+        try:
+            proc_logger.handlers = [handler]
+            proc_logger.setLevel(logging.DEBUG)
+            proc_logger.propagate = False
+
+            def fill_image_name(_h_proc, buf, _size):
+                buf.value = b"\\Device\\HarddiskVolume1\\deadlock_check.exe"
+                return len(buf.value)
+
+            with patch("lib.api.process.KERNEL32") as mock_k32, patch("lib.api.process.PSAPI") as mock_psapi:
+                mock_k32.GetExitCodeProcess.return_value = 0
+                mock_psapi.GetProcessImageFileNameA.side_effect = fill_image_name
+                with Process._monitor_handles_lock:
+                    Process._monitor_handles[556] = (0xBEEF, "")
+
+                checker = Process(pid=556)
+                result = []
+                worker = threading.Thread(target=lambda: result.append(checker.exit_code()), daemon=True)
+                worker.start()
+                worker.join(timeout=2.0)
+                self.assertFalse(worker.is_alive(), "exit_code() deadlocked while formatting debug log")
+                self.assertEqual(result, [None])
+                self.assertTrue(any("deadlock_check.exe" in msg for _, msg in handler.messages))
+        finally:
+            proc_logger.handlers = orig_handlers
+            proc_logger.setLevel(orig_level)
+            proc_logger.propagate = orig_propagate
+
     def test_resume_handles_unsigned_dword_failure(self):
         with patch("lib.api.process.KERNEL32") as mock_k32:
             mock_k32.ResumeThread.return_value = 0xFFFFFFFF

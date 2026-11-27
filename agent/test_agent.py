@@ -1106,6 +1106,12 @@ class TestServerResilienceAndConcurrency:
                 for sink in files.values():
                     sink.close()
 
+        # Excess trailing LWSP after a boundary is rejected instead of growing buf unboundedly.
+        huge_lwsp = f"--{boundary}" + (" " * (agent._MAX_BOUNDARY_LWSP + 1)) + "\r\n"
+        reader_bad = agent._BoundedReader(io.BytesIO(huge_lwsp.encode()), len(huge_lwsp))
+        with pytest.raises(agent._FormParseError, match="whitespace"):
+            agent._parse_multipart_stream(reader_bad, boundary.encode(), chunk_size=64, spool_max_bytes=1024)
+
     def test_spilled_temp_file_move_to_overwrite_and_exdev(self, tmp_path, monkeypatch):
         import errno
         import stat

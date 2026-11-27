@@ -2143,4 +2143,84 @@ class TestDatabaseEngine:
             file_db.session.remove()
             file_db.engine.dispose()
 
+    def test_reschedule_preserves_user_id_and_attributes(self, db: _Database):
+        tid = db.add_url(
+            "https://example.invalid/resched",
+            user_id=42,
+            attributes={"main_task_id": 9001, "custom_flag": True},
+        )
+        new_tid = db.reschedule(tid)
+        assert new_tid is not None and new_tid != tid
+        new_task = db.view_task(new_tid)
+        assert new_task.user_id == 42
+        assert new_task.attributes.get("main_task_id") == 9001
+        assert new_task.attributes.get("custom_flag") is True
+
+    def test_sample_path_by_hash_temp_fallback_uses_transaction(self, db: _Database, tmp_path):
+        import hashlib
+
+        sample_file = tmp_path / "temp_sample.bin"
+        payload = b"unique-fallback-sample-payload"
+        sample_file.write_bytes(payload)
+        sha256 = hashlib.sha256(payload).hexdigest()
+
+        tid = db.add_path(str(sample_file))
+        assert tid is not None
+        # Ensure storage/binaries/<sha256> does not exist so fallback SQL query executes
+        found = db.sample_path_by_hash(sha256)
+        assert found == [str(sample_file)]
+
+    def test_audit_get_test_session_updates_objectives_without_nested_session_lock(self, db: _Database, monkeypatch):
+        from lib.cuckoo.core.data.audit_data import (
+            AvailableTest,
+            TEST_COMPLETE,
+            TEST_RUNNING,
+            TestObjectiveInstance,
+            TestObjectiveTemplate,
+            TestRun,
+            TestSession,
+        )
+        from lib.cuckoo.core.data.task import TASK_REPORTED
+
+        tid = db.add_url("https://example.invalid/audit-run")
+        with db.session.begin():
+            db.set_status(tid, TASK_REPORTED)
+            avail = AvailableTest(
+                name="audit_t1",
+                package="exe",
+                payload_path="/tmp/fake.exe",
+                module_path="/tmp/fake_audit_mod",
+                task_config={},
+            )
+            tpl = TestObjectiveTemplate(full_name="audit_t1.obj_a", name="obj_a")
+            avail.objective_templates.append(tpl)
+            sess = TestSession()
+            run = TestRun(session=sess, test_definition=avail, cape_task_id=tid, status=TEST_RUNNING)
+            inst = TestObjectiveInstance(run=run, template=tpl, state="untested")
+            db.session.add_all([avail, tpl, sess, run, inst])
+            db.session.flush()
+            session_id = sess.id
+
+        class _FakeValidator:
+            def __init__(self, mod_path, storage):
+                pass
+
+            def evaluate(self):
+                return {"obj_a": {"state": "success", "state_reason": "matched"}}
+
+        import lib.cuckoo.core.data.audits as audits_mod
+
+        monkeypatch.setattr(audits_mod, "TestResultValidator", _FakeValidator)
+        loaded = db.get_test_session(session_id)
+        assert loaded is not None
+        assert len(loaded.runs) == 1
+        assert loaded.runs[0].status == TEST_COMPLETE
+        assert loaded.runs[0].raw_results == {"obj_a": {"state": "success", "state_reason": "matched"}}
+        assert loaded.runs[0].objectives[0].state == "success"
+
+        # Verify changes were actually flushed and committed before expunge_all()
+        reloaded = db.get_test_session(session_id)
+        assert reloaded.runs[0].status == TEST_COMPLETE
+        assert reloaded.runs[0].objectives[0].state == "success"
+
 

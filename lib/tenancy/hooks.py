@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
+from fnmatch import fnmatchcase
 import functools
 import json
 import logging
@@ -633,15 +634,31 @@ def _ensure_own_report_wrappers(mod: Any, core_hooks: Any, *, include_es: bool =
             and not getattr(orig_search, "_cape_tenancy_wrapped", False)
         ):
 
-            def _ctx_scoped_search(index: Any, body: Any = None, query: Any = None, _os=orig_search, **kw: Any):
+            def _ctx_scoped_search(index: Any, body: Any = None, query: Any = None, _os=orig_search, _mod=mod, **kw: Any):
                 if not _own_report_lookup_ctx.get():
                     if body is not None:
                         return _os(index=index, body=body, **kw)
                     if query is not None:
                         return _os(index=index, query=query, **kw)
                     return _os(index=index, **kw)
+                calls_idx = None
+                get_calls_idx = getattr(_mod, "get_calls_index", None)
+                if not callable(get_calls_idx):
+                    es_db = sys.modules.get("dev_utils.elasticsearchdb")
+                    if es_db is None:
+                        with contextlib.suppress(Exception):
+                            import dev_utils.elasticsearchdb as es_db  # type: ignore[import-not-found]
+                    get_calls_idx = getattr(es_db, "get_calls_index", None) if es_db is not None else None
+                if callable(get_calls_idx):
+                    with contextlib.suppress(Exception):
+                        calls_idx = get_calls_idx()
+                is_calls_index = bool(
+                    calls_idx
+                    and isinstance(index, str)
+                    and (index == calls_idx or fnmatchcase(index, str(calls_idx)))
+                )
                 eff_body = body if body is not None else ({"query": query} if query is not None else {})
-                if isinstance(eff_body, dict):
+                if not is_calls_index and isinstance(eff_body, dict):
                     eff_body = core_hooks.apply_es_filter(eff_body)
                 return _os(index=index, body=eff_body, **kw)
 
@@ -787,7 +804,6 @@ def _wrap_compare_and_analysis_views() -> None:
                 if not getattr(user, "is_authenticated", False) and (
                     getattr(_amod.settings, "WEB_AUTHENTICATION", False)
                     or multitenancy_config().enabled
-                    or user is not None
                 ):
                     from django.contrib.auth.decorators import login_required
 
@@ -866,6 +882,14 @@ def _wrap_compare_and_analysis_views() -> None:
 _refetch_state_ctx: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
     "cape_tenancy_refetch_state", default=None
 )
+
+
+def _in_session_tx(sess: Any):
+    raw_sess = sess() if callable(sess) else sess
+    in_tx = bool(raw_sess is not None and hasattr(raw_sess, "in_transaction") and raw_sess.in_transaction())
+    if in_tx or not hasattr(sess, "begin"):
+        return contextlib.nullcontext()
+    return sess.begin()
 
 
 def wrap_submission_and_web_utils(
@@ -996,9 +1020,10 @@ def wrap_submission_and_web_utils(
                     if not new_id and _copy_denied.get()[0] and before is not None:
                         from lib.cuckoo.core.data.task import Task
 
-                        row = self.session.get(Task, int(task_id))
-                        if row is not None and row.status == "recovered":  # only reschedule's own change
-                            row.status, row.custom = before
+                        with _in_session_tx(self.session):
+                            row = self.session.get(Task, int(task_id))
+                            if row is not None and row.status == "recovered":  # only reschedule's own change
+                                row.status, row.custom = before
                     return new_id
                 finally:
                     _copy_denied.reset(denied)
@@ -1026,7 +1051,8 @@ def wrap_submission_and_web_utils(
                 from lib.cuckoo.core.data.task import Task
 
                 stmt = select(func.count(func.distinct(Task.sample_id))).where(Task.sample_id.isnot(None))
-                return self.session.execute(default_sql_task_query_filter(stmt, viewer)).scalar() or 0
+                with _in_session_tx(self.session):
+                    return self.session.execute(default_sql_task_query_filter(stmt, viewer)).scalar() or 0
 
             _wrapped_count_samples._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             _record_attr_patch(samples_cls, "count_samples", orig_count_samples)
@@ -1053,7 +1079,8 @@ def wrap_submission_and_web_utils(
                 if hours and int(hours) > 0:
                     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
                     stmt = stmt.where(Task.added_on >= now_utc - timedelta(hours=int(hours)))
-                return self.session.scalars(default_sql_task_query_filter(stmt, viewer)).first() is not None
+                with _in_session_tx(self.session):
+                    return self.session.scalars(default_sql_task_query_filter(stmt, viewer)).first() is not None
 
             _wrapped_check_uniq._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             _record_attr_patch(samples_cls, "check_file_uniq", orig_check_uniq)
@@ -1075,7 +1102,13 @@ def wrap_submission_and_web_utils(
 
                             from lib.cuckoo.core.data.task import TASK_BANNED, Task
 
-                            rows = self.session.scalars(select(Task).where(Task.status == TASK_BANNED)).all()
+                            stmt = select(Task).where(Task.status == TASK_BANNED)
+                            past_time = state.get("past_time")
+                            if past_time is not None:
+                                stmt = stmt.where(Task.added_on >= past_time)
+                            stmt = stmt.order_by(Task.id)
+                            with _in_session_tx(self.session):
+                                rows = self.session.scalars(stmt).all()
                             for t in rows:
                                 sid = getattr(t, "sample_id", None)
                                 tid = getattr(t, "id", None)
@@ -1423,7 +1456,17 @@ def wrap_submission_and_web_utils(
                     _record_attr_patch(g_db, "list_tasks", orig_list)
                     setattr(g_db, "list_tasks", _ctx_tracking_list)
 
-                tok = _refetch_state_ctx.set({"db": g_db, "tasks_by_sample": None, "current_tid": None})
+                past_time = None
+                raw_time_range = a[0] if a else kw.get("time_range")
+                if raw_time_range is not None:
+                    with contextlib.suppress(Exception):
+                        from lib.cuckoo.common.cleaners_utils import convert_into_time
+
+                        past_time = convert_into_time(raw_time_range)
+
+                tok = _refetch_state_ctx.set(
+                    {"db": g_db, "tasks_by_sample": None, "current_tid": None, "past_time": past_time}
+                )
                 try:
                     return _orig(*a, **kw)
                 finally:
@@ -1692,7 +1735,7 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
         except (TypeError, ValueError):
             pass
 
-    if stage != "acl_probe":
+    if stage not in ("acl_probe", "process"):
         try:
             from lib.tenancy.storage.config import object_storage_config
             from lib.tenancy.storage.reporting import upload_analysis_artifacts
@@ -1700,7 +1743,7 @@ def default_report_stamp_hook(results: Dict[str, Any], **context: Any) -> None:
             if object_storage_config().enabled:
                 upload_analysis_artifacts(results, task=task if isinstance(task, dict) else None)
         except Exception:
-            pass
+            log.exception("tenancy: failed to upload analysis artifacts at stage=%s", stage)
 
     info = results.get("info")
     if not isinstance(info, dict):

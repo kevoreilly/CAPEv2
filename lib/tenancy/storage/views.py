@@ -47,6 +47,10 @@ _TENANT_UNSET = object()
 def central_delete_analysis(request: Any, task_id: Any, tenant_id: Any = _TENANT_UNSET) -> None:
     """Delete a task's Mongo analysis + call chunks, tenant-scoped when object storage is enabled."""
     from lib.tenancy.storage.config import object_storage_config, object_storage_own_analysis_filter
+    from lib.tenancy.storage.scope import _mongodb_enabled
+
+    if not _mongodb_enabled():
+        return
 
     if not object_storage_config().enabled:
         from dev_utils.mongodb import mongo_delete_data
@@ -93,15 +97,69 @@ def central_delete_analysis(request: Any, task_id: Any, tenant_id: Any = _TENANT
 
 
 def _task_sample_sha256(request: Any, task_id: Any) -> str:
-    from dev_utils.mongodb import mongo_find_one
-    from lib.tenancy.storage.scope import viewer_scope
+    from lib.tenancy.storage.scope import _elasticsearch_enabled, _mongodb_enabled, viewer_scope
 
-    doc = mongo_find_one(
-        "analysis",
-        central_analysis_query(task_id, scope=viewer_scope(request.user)),
-        {"target.file.sha256": 1, "_id": 0},
-    )
-    return str((((doc or {}).get("target") or {}).get("file") or {}).get("sha256") or "").lower()
+    if _mongodb_enabled():
+        from dev_utils.mongodb import mongo_find_one
+
+        doc = mongo_find_one(
+            "analysis",
+            central_analysis_query(task_id, scope=viewer_scope(request.user)),
+            {"target.file.sha256": 1, "_id": 0},
+        )
+        return str((((doc or {}).get("target") or {}).get("file") or {}).get("sha256") or "").lower()
+
+    if _elasticsearch_enabled():
+        try:
+            from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
+            from lib.tenancy.context import get_current_viewer
+            from lib.tenancy.middleware import default_viewer_resolver
+            from lib.tenancy.policy import multitenancy_config, viewer_scope_es_filter
+
+            filters: list[dict[str, Any]] = [get_query_by_info_id(int(task_id))]
+            if multitenancy_config().enabled:
+                viewer = get_current_viewer()
+                user = getattr(request, "user", None)
+                if viewer is None or (user is not None and getattr(user, "id", None) != viewer.user_id):
+                    viewer = default_viewer_resolver(user)
+                es_filter = viewer_scope_es_filter(viewer)
+                if es_filter:
+                    filters.append(es_filter)
+            res = elastic_handler.search(
+                index=get_analysis_index(),
+                body={"query": {"bool": {"filter": filters}}, "size": 1, "_source": ["target.file.sha256"]},
+            )
+            hits = (res or {}).get("hits", {}).get("hits") or []
+            if hits:
+                src = hits[0].get("_source") or {}
+                sha256 = str(((src.get("target") or {}).get("file") or {}).get("sha256") or "").lower()
+                if sha256:
+                    return sha256
+        except Exception:
+            pass
+
+    try:
+        from lib.cuckoo.core.database import Database
+        from lib.tenancy.context import get_current_viewer
+        from lib.tenancy.middleware import default_task_scope_resolver, default_viewer_resolver
+        from lib.tenancy.policy import can_read, multitenancy_config
+
+        tid = int(task_id)
+        if multitenancy_config().enabled:
+            viewer = get_current_viewer()
+            user = getattr(request, "user", None)
+            if viewer is None or (user is not None and getattr(user, "id", None) != viewer.user_id):
+                viewer = default_viewer_resolver(user)
+            task_scope = default_task_scope_resolver(tid)
+            if task_scope is None or not can_read(viewer, task_scope):
+                return ""
+        db = Database()
+        with db.session.begin():
+            task = db.view_task(tid)
+            sample = getattr(task, "sample", None) if task is not None else None
+            return str(getattr(sample, "sha256", "") or "").lower()
+    except Exception:
+        return ""
 
 
 def central_stage_one(request: Any, task_id: Any, s3_relpath: str, dest_abspath: str) -> None:

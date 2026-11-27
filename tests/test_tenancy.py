@@ -1322,7 +1322,7 @@ def test_idp_multi_group_reconciliation_and_group_tenant_resolution(monkeypatch)
     assert user.groups.all() == [grp_manual, grp_tier1, grp_eu]
 
     viewer = default_viewer_resolver(user)
-    assert viewer.tenant_id == 7
+    assert viewer.tenant_id == -7
     assert viewer.is_tenant_admin is True
 
     ent = resolve_user_entitlements(user)

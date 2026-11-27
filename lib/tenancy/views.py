@@ -123,6 +123,15 @@ def _session_user_with_csrf(request: Any, user: Any) -> tuple[Any, Optional[tupl
     return user, None
 
 
+def _mongodb_reporting_enabled() -> bool:
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return bool(Config("reporting").mongodb.enabled)
+    except Exception:
+        return False
+
+
 def _default_es_update_by_query() -> Optional[Callable[[dict, dict], Any]]:
     """An ES restamper when Elasticsearch holds report copies, else None."""
     try:
@@ -223,7 +232,11 @@ def tasks_set_visibility(
                 status=400,
             )
 
-        updater = mongo_update_one if mongo_update_one is not None else _default_mongo_update_one
+        updater = (
+            mongo_update_one
+            if mongo_update_one is not None
+            else (_default_mongo_update_one if _mongodb_reporting_enabled() else None)
+        )
         try:
             toggle_task_visibility_cas(
                 session,
@@ -341,6 +354,7 @@ _INTERCEPTED_STORAGE_VIEWS = frozenset(
         "filereport",
         "full_memory_dump_file",
         "full_memory_dump_strings",
+        "procdump",
         "file",
         "vtupload",
         "pcapstream",
@@ -502,6 +516,34 @@ def dispatch_object_storage_view(
 
     if view_name == "on_demand":
         return storage_views.central_on_demand(request)
+
+    if view_name == "procdump":
+        # Avoid staging before analysis.views.procdump's @conditional_login_required runs.
+        try:
+            from django.conf import settings
+
+            if settings.configured and bool(getattr(settings, "WEB_AUTHENTICATION", False)):
+                user = getattr(request, "user", None)
+                if not getattr(user, "is_authenticated", False):
+                    return None
+        except Exception:
+            pass
+        task_id = view_kwargs.get("task_id") or (view_args[0] if len(view_args) > 0 else None)
+        process_id = view_kwargs.get("process_id") or (view_args[1] if len(view_args) > 1 else None)
+        if task_id is not None and process_id is not None:
+            try:
+                from analysis.views import CUCKOO_ROOT
+            except ImportError:
+                from lib.cuckoo.common.constants import CUCKOO_ROOT
+            origname = f"{process_id}.dmp"
+            mem_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory")
+            dmp_dest = os.path.join(mem_dir, origname)
+            zip_dest = f"{dmp_dest}.zip"
+            if not os.path.exists(dmp_dest) and not os.path.exists(zip_dest):
+                storage_views.central_stage_one(request, task_id, f"memory/{origname}", dmp_dest)
+                if not os.path.exists(dmp_dest):
+                    storage_views.central_stage_one(request, task_id, f"memory/{origname}.zip", zip_dest)
+        return None
 
     return None
 

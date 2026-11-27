@@ -540,3 +540,34 @@ def test_cuckoo_clean_mongo_recreates_indexes_only_after_drop_succeeds(db, tmp_p
         assert db.get_tasks_status_count() == {}
 
 
+def test_files_clean_before_fails_closed_when_mongodb_disconnected_or_errors(tmp_path, monkeypatch):
+    import os
+
+    old_ts = 1_577_836_800  # 2020-01-01
+    sha = "a" * 64
+    shard_dir = tmp_path / "storage" / "files" / sha[:2]
+    shard_dir.mkdir(parents=True)
+    target = shard_dir / sha
+    target.write_bytes(b"referenced-payload")
+    os.utime(target, (old_ts, old_ts))
+
+    monkeypatch.setattr(cleaners_utils, "CUCKOO_ROOT", str(tmp_path))
+    monkeypatch.setattr(cleaners_utils.repconf.mongodb, "enabled", True)
+
+    # 1. MongoDB disconnected -> must NOT delete storage/files artifact
+    monkeypatch.setattr(cleaners_utils, "is_reporting_db_connected", lambda: False)
+    cleaners_utils.files_clean_before("1d")
+    assert target.exists()
+
+    # 2. MongoDB connected but query raises -> must NOT delete storage/files artifact
+    monkeypatch.setattr(cleaners_utils, "is_reporting_db_connected", lambda: True)
+    monkeypatch.setattr(
+        cleaners_utils,
+        "mongo_find",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("cursor timeout")),
+        raising=False,
+    )
+    cleaners_utils.files_clean_before("1d")
+    assert target.exists()
+
+

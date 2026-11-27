@@ -354,3 +354,70 @@ def test_log_critical_error_suppresses_traceback_for_startup_error_unless_debug(
     assert not recorded[0].exc_info
     assert isinstance(recorded[1].exc_info, tuple)
     assert isinstance(recorded[2].exc_info, tuple)
+
+
+def test_multiworker_add_task_raises_and_cleans_up_on_set_task_failure(monkeypatch):
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    class _FailingWorker:
+        def __init__(self, ip, port, listen_ip):
+            self.ip = ip
+            self.port = port
+            self.listen_ip = listen_ip
+            self.pid = 99999
+            self.started = False
+            self.closed = False
+
+        def start(self):
+            self.started = True
+
+        def is_alive(self):
+            return False
+
+        def set_task(self, task_id, main_task_id=None):
+            return False
+
+        def close(self):
+            self.closed = True
+
+    created = []
+
+    def _factory(**kw):
+        w = _FailingWorker(**kw)
+        created.append(w)
+        return w
+
+    monkeypatch.setattr(rs_mod, "ResultServerWorkerProcess", _factory)
+    rs = object.__new__(rs_mod.ResultServer)
+    rs.multiworker = True
+    rs.ip = "127.0.0.1"
+    rs.workers = {}
+
+    task = types.SimpleNamespace(id=77, attributes={})
+    machine = types.SimpleNamespace(ip="192.168.56.10", resultserver_port=2043)
+
+    with pytest.raises(CuckooOperationalError, match="failed to start for task #77"):
+        rs._add_task_multiworker(task, machine)
+
+    assert "192.168.56.10" not in rs.workers
+    assert len(created) == 1 and created[0].started and created[0].closed
+
+
+def test_worker_set_task_returns_false_immediately_when_failed_event_set():
+    import threading
+    import time
+
+    w = object.__new__(rs_mod.ResultServerWorkerProcess)
+    w.ip = "192.168.56.11"
+    w.listen_ip = "127.0.0.1"
+    w.port = 2044
+    w._task_id = types.SimpleNamespace(value=0)
+    w._main_task_id = types.SimpleNamespace(value=0)
+    w._ready = threading.Event()
+    w._failed = threading.Event()
+    w._failed.set()
+    w.is_alive = lambda: True
+
+    t0 = time.monotonic()
+    assert w.set_task(12) is False
+    assert time.monotonic() - t0 < 1.0

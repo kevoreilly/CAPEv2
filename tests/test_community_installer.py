@@ -55,11 +55,45 @@ def test_clean_category_is_rooted_at_cuckoo_root(monkeypatch):
     removed = []
     monkeypatch.setattr(community.shutil, "rmtree", removed.append)
     monkeypatch.setattr(community, "path_exists", lambda path: True)
+    monkeypatch.setattr(community, "core_tracked_files", lambda: None)
 
     community.clean_category("modules/machinery")
 
     # Not the relative path, which would delete relative to the current directory.
     assert removed == [os.path.join(CUCKOO_ROOT, "modules/machinery")]
+
+
+def test_clean_category_preserves_git_tracked_files_and_deletes_untracked(monkeypatch, tmp_path):
+    root = tmp_path / "cape"
+    cat = root / "modules" / "signatures"
+    sub = cat / "windows"
+    empty_sub = cat / "community_only"
+    sub.mkdir(parents=True)
+    empty_sub.mkdir(parents=True)
+
+    core_init = cat / "__init__.py"
+    core_init.write_text("# core\n")
+    core_sig = sub / "core_sig.py"
+    core_sig.write_text("# core sig\n")
+    comm_sig = sub / "comm_sig.py"
+    comm_sig.write_text("# community sig\n")
+    comm_only = empty_sub / "extra.py"
+    comm_only.write_text("# extra\n")
+
+    tracked = frozenset({
+        os.path.normpath("modules/signatures/__init__.py"),
+        os.path.normpath("modules/signatures/windows/core_sig.py"),
+    })
+    monkeypatch.setattr(community, "CUCKOO_ROOT", str(root))
+    monkeypatch.setattr(community, "core_tracked_files", lambda: tracked)
+
+    community.clean_category("modules/signatures")
+
+    assert core_init.exists()
+    assert core_sig.exists()
+    assert not comm_sig.exists()
+    assert not comm_only.exists()
+    assert not empty_sub.exists()
 
 
 def test_clean_category_noop_when_absent(monkeypatch):

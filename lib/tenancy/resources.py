@@ -213,9 +213,19 @@ class ResourceEntitlements:
         return result
 
 
+def _policy_is_active(pol: Any) -> bool:
+    if pol is None or not bool(getattr(pol, "active", True)):
+        return False
+    if getattr(pol, "tenant_id", None) is not None:
+        tenant_obj = getattr(pol, "tenant", None)
+        if tenant_obj is not None and not bool(getattr(tenant_obj, "active", True)):
+            return False
+    return True
+
+
 def expand_policies_with_parents(policies: Sequence[Any]) -> List[Any]:
     """Expand direct `GroupSandboxPolicy` objects with inherited `parent_group` policies."""
-    active_direct = [p for p in (policies or []) if p is not None and bool(getattr(p, "active", True))]
+    active_direct = [p for p in (policies or []) if _policy_is_active(p)]
     ordered_direct = sorted(
         active_direct,
         key=lambda p: (-int(getattr(p, "priority", 0) or 0), int(getattr(p, "id", 0) or 0)),
@@ -236,7 +246,7 @@ def expand_policies_with_parents(policies: Sequence[Any]) -> List[Any]:
             if parent_grp is None:
                 break
             parent_pol = getattr(parent_grp, "sandbox_policy", None)
-            if parent_pol is None or not bool(getattr(parent_pol, "active", True)):
+            if not _policy_is_active(parent_pol):
                 break
             parent_key = int(getattr(parent_pol, "id", 0) or id(parent_pol))
             if parent_key in seen_ids:
@@ -372,9 +382,12 @@ def resolve_user_entitlements(
         if groups_rel is not None:
             if hasattr(groups_rel, "all"):
                 try:
-                    qs = list(groups_rel.select_related("sandbox_policy").all())
+                    qs = list(groups_rel.select_related("sandbox_policy", "sandbox_policy__tenant").all())
                 except Exception:
-                    qs = list(groups_rel.all())
+                    try:
+                        qs = list(groups_rel.select_related("sandbox_policy").all())
+                    except Exception:
+                        qs = list(groups_rel.all())
             elif isinstance(groups_rel, (list, tuple, set)):
                 qs = list(groups_rel)
             else:

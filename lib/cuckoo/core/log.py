@@ -396,10 +396,23 @@ class DatabaseHandler(logging.Handler):
     Used to log errors related to tasks in database.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._emitting = threading.local()
+
     def emit(self, record):
         # TODO Should this also attempt to guess the task ID from _tasks?
+        if getattr(self._emitting, "active", False):
+            return
         if hasattr(record, "task_id") and record.task_id is not None:
-            Database().add_error(self.format(record), int(record.task_id))
+            self._emitting.active = True
+            try:
+                Database().add_error(self.format(record), int(record.task_id))
+            except Exception:
+                # Never allow DB errors (outage, FK violation on deleted task) to escape logging calls.
+                self.handleError(record)
+            finally:
+                self._emitting.active = False
 
 
 class TaskHandler(logging.Handler):

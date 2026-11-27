@@ -140,6 +140,8 @@ class PebbleEngine(ProcessingEngine):
         now = time.monotonic()
         for future in pending_keys:
             try:
+                if future.done():
+                    continue
                 is_running = future.running()
             except Exception:
                 is_running = False

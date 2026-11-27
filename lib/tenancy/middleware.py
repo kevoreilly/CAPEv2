@@ -102,6 +102,12 @@ def _anon_view_enabled() -> bool:
     return False
 
 
+def _tenant_model_namespace_id(tenant_pk: int) -> int:
+    """Map a `Tenant` model PK into the negative integer namespace so it never collides with `auth.Group.id`."""
+    val = int(tenant_pk)
+    return -val if val > 0 else val
+
+
 def _resolve_policy_tenant_id(group: Any, policy: Any) -> Optional[int]:
     """Return effective integer `tenant_id` for a `(group, sandbox_policy)` pair."""
     if policy is not None:
@@ -111,7 +117,10 @@ def _resolve_policy_tenant_id(group: Any, policy: Any) -> Optional[int]:
             return None
         explicit_tid = getattr(policy, "tenant_id", None)
         if explicit_tid is not None:
-            return int(explicit_tid)
+            tenant_obj = getattr(policy, "tenant", None)
+            if tenant_obj is not None and not bool(getattr(tenant_obj, "active", True)):
+                return None
+            return _tenant_model_namespace_id(explicit_tid)
         pol_gid = getattr(policy, "group_id", None)
         if pol_gid is not None:
             return int(pol_gid)
@@ -128,7 +137,10 @@ def _resolve_tenant_from_user(
     try:
         profile = getattr(user, "userprofile", None)
         if profile is not None and getattr(profile, "tenant_id", None) is not None:
-            tid = int(profile.tenant_id)
+            tenant_obj = getattr(profile, "tenant", None)
+            if tenant_obj is not None and not bool(getattr(tenant_obj, "active", True)):
+                return None, False, (), ()
+            tid = _tenant_model_namespace_id(profile.tenant_id)
             is_adm = bool(getattr(profile, "is_tenant_admin", False))
             return tid, is_adm, (tid,), ((tid,) if is_adm else ())
     except Exception:
@@ -137,7 +149,10 @@ def _resolve_tenant_from_user(
     try:
         membership = getattr(user, "tenant_membership", None)
         if membership is not None and getattr(membership, "tenant_id", None) is not None:
-            tid = int(membership.tenant_id)
+            tenant_obj = getattr(membership, "tenant", None)
+            if tenant_obj is not None and not bool(getattr(tenant_obj, "active", True)):
+                return None, False, (), ()
+            tid = _tenant_model_namespace_id(membership.tenant_id)
             is_adm = bool(getattr(membership, "is_tenant_admin", False))
             return tid, is_adm, (tid,), ((tid,) if is_adm else ())
     except Exception:
@@ -148,9 +163,12 @@ def _resolve_tenant_from_user(
         if groups_rel is not None:
             if hasattr(groups_rel, "all"):
                 try:
-                    qs = list(groups_rel.select_related("sandbox_policy").all())
+                    qs = list(groups_rel.select_related("sandbox_policy", "sandbox_policy__tenant").all())
                 except Exception:
-                    qs = list(groups_rel.all())
+                    try:
+                        qs = list(groups_rel.select_related("sandbox_policy").all())
+                    except Exception:
+                        qs = list(groups_rel.all())
             elif isinstance(groups_rel, (list, tuple, set)):
                 qs = list(groups_rel)
             else:

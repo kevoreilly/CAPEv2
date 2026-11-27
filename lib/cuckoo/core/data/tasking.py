@@ -964,6 +964,7 @@ class TasksMixIn:
                 log.warning("Unable to find valid target for task: %s", task_id)
                 return
 
+            task_attrs = dict(task.attributes) if isinstance(task.attributes, dict) else task.attributes
             new_task_id = None
             if task.category in ("file", "url"):
                 new_task_id = add(
@@ -981,6 +982,8 @@ class TasksMixIn:
                     task.clock,
                     tlp=task.tlp,
                     route=task.route,
+                    user_id=task.user_id,
+                    attributes=task_attrs,
                 )
             elif task.category in ("pcap", "static"):
                 new_task_id = add(
@@ -997,6 +1000,8 @@ class TasksMixIn:
                     task.enforce_timeout,
                     task.clock,
                     tlp=task.tlp,
+                    user_id=task.user_id,
+                    attributes=task_attrs,
                 )
 
             self.session.get(Task, task_id).custom = f"Recovery_{new_task_id}"

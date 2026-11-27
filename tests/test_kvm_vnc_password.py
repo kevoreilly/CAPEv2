@@ -612,6 +612,8 @@ def test_libvirt_start_fails_closed_when_revert_paused_constant_missing(monkeypa
 
 
 def test_libvirt_start_redacts_password_echoed_in_libvirt_error_and_logs_destroy_failure(monkeypatch, caplog):
+    import traceback
+
     fake_libvirt = _make_fake_libvirt()
     monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
 
@@ -628,7 +630,10 @@ def test_libvirt_start_redacts_password_echoed_in_libvirt_error_and_logs_destroy
         with pytest.raises(CuckooMachineError) as exc_info:
             LibVirtMachinery.start(machinery, "vm1")
 
+    formatted_tb = "".join(traceback.format_exception(exc_info.value))
     assert sentinel not in str(exc_info.value)
+    assert sentinel not in formatted_tb
+    assert exc_info.value.__cause__ is None
     assert sentinel not in caplog.text
     assert "<redacted>" in str(exc_info.value)
     assert "Failed to destroy VM vm1" in caplog.text
@@ -732,7 +737,7 @@ def test_libvirt_start_fails_closed_when_db_set_vnc_password_returns_false(monke
     assert machinery.get_vnc_password("vm1") is None
 
 
-def test_libvirt_start_retries_transient_db_operational_error_on_pre_resume_persist(db: _Database, monkeypatch):
+def test_libvirt_start_retries_transient_db_operational_error_on_pre_resume_persist(db: _Database, monkeypatch, caplog):
     from sqlalchemy.exc import OperationalError
 
     fake_libvirt = _make_fake_libvirt()
@@ -763,7 +768,11 @@ def test_libvirt_start_retries_transient_db_operational_error_on_pre_resume_pers
         nonlocal attempts
         attempts += 1
         if attempts == 1:
-            raise OperationalError("UPDATE tasks", {}, Exception("connection dropped"))
+            raise OperationalError(
+                "UPDATE tasks SET attributes=? WHERE tasks.id = ?",
+                (f'{{"vnc_password": "{password}"}}', task_id),
+                Exception("connection dropped"),
+            )
         return real_set(task_id, password)
 
     monkeypatch.setattr(db, "set_vnc_password", flaky_set)
@@ -772,14 +781,58 @@ def test_libvirt_start_retries_transient_db_operational_error_on_pre_resume_pers
     machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm, db=db)
     machinery.bind_vnc_task("vm1", tid)
 
-    LibVirtMachinery.start(machinery, "vm1")
+    with caplog.at_level(logging.WARNING):
+        LibVirtMachinery.start(machinery, "vm1")
 
     assert attempts == 2
     assert vm.resume_count == 1
     assert vm.destroy_count == 0
     pwd = machinery.get_vnc_password("vm1")
     assert pwd is not None
+    assert pwd not in caplog.text
+    assert "<redacted>" in caplog.text
     assert db.view_task(tid).get_attribute("vnc_password") == pwd
+
+
+def test_store_vnc_port_retries_transient_db_operational_error_and_redacts_password(db: _Database, monkeypatch, caplog):
+    from sqlalchemy.exc import OperationalError
+
+    fake_libvirt = _make_fake_libvirt()
+    monkeypatch.setattr(abstracts, "libvirt", fake_libvirt, raising=False)
+    monkeypatch.setattr("lib.cuckoo.core.database.time.sleep", lambda _s: None)
+
+    tid = db.add_url("https://example.invalid/store-vnc-retry")
+    db.set_status(tid, TASK_RUNNING)
+
+    attempts = 0
+    real_set_port = db.set_vnc_port
+
+    def flaky_set_port(task_id, port):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OperationalError(
+                "UPDATE tasks SET options=? WHERE tasks.id = ?",
+                ('{"vnc_password": "StOrE123"}', task_id),
+                Exception("connection reset"),
+            )
+        return real_set_port(task_id, port)
+
+    monkeypatch.setattr(db, "set_vnc_port", flaky_set_port)
+
+    vm = _FakeDomain("<domain><devices><graphics type='vnc' port='5912' passwd='old'/></devices></domain>")
+    machinery = _make_machinery(KVM, vnc_per_task_password=True, vm=vm, db=db)
+    machinery._set_vnc_password("vm1", "StOrE123")
+
+    with caplog.at_level(logging.WARNING):
+        machinery.store_vnc_port("vm1", tid)
+
+    assert attempts == 2
+    assert "StOrE123" not in caplog.text
+    assert "<redacted>" in caplog.text
+    reloaded = db.view_task(tid)
+    assert reloaded.get_attribute("vnc_password") == "StOrE123"
+    assert "vnc_port=5912" in (reloaded.options or "")
 
 
 @pytest.mark.parametrize(
@@ -802,19 +855,25 @@ def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_in_both_
         "</devices></domain>"
     )
     vm_expired = _FakeDomain(expired_xml)
-    created_count = 0
+    created_calls = []
 
     def fake_create():
-        nonlocal created_count
-        created_count += 1
+        vm_expired.events.append(("create", 0))
+        created_calls.append(0)
+
+    def fake_create_with_flags(flags=0):
+        vm_expired.events.append(("create_with_flags", flags))
+        created_calls.append(flags)
 
     vm_expired.create = fake_create
+    vm_expired.createWithFlags = fake_create_with_flags
 
     class _DirectConn(_FakeConn):
         def close(self):
             pass
 
     fake_libvirt = _make_fake_libvirt()
+    fake_libvirt.VIR_DOMAIN_START_PAUSED = 1
     fake_libvirt.open = lambda dsn: _DirectConn(vm_expired)
 
     monkeypatch.setitem(sys.modules, "libvirt", fake_libvirt)
@@ -824,12 +883,23 @@ def test_guac_views_supports_kvmremote_and_refreshes_expired_direct_vnc_in_both_
     guac_views.bg_revert_and_start("qemu:///system", "vm1", start_mode, "ready")
 
     if start_mode == "snapshot":
-        assert vm_expired.revert_calls == [("ready", 0)]
-        assert created_count == 0
+        assert vm_expired.revert_calls == [("ready", fake_libvirt.VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED)]
+        assert created_calls == []
+        assert vm_expired.events == [
+            ("revert", fake_libvirt.VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED),
+            ("update_device", fake_libvirt.VIR_DOMAIN_AFFECT_LIVE),
+            ("resume",),
+        ]
     else:
         assert vm_expired.revert_calls == []
-        assert created_count == 1
+        assert created_calls == [fake_libvirt.VIR_DOMAIN_START_PAUSED]
+        assert vm_expired.events == [
+            ("create_with_flags", fake_libvirt.VIR_DOMAIN_START_PAUSED),
+            ("update_device", fake_libvirt.VIR_DOMAIN_AFFECT_LIVE),
+            ("resume",),
+        ]
 
+    assert vm_expired.resume_count == 1
     assert len(vm_expired.updated_devices) == 1
     elem = ET.fromstring(vm_expired.updated_devices[0][0])
     assert elem.get("passwd") == "adminpwd"
@@ -1006,5 +1076,95 @@ def test_apiv2_tasks_vnc_does_not_query_requested_machine_and_resolves_distribut
         "vnc_password": "WoRkEr99",
     }
     assert resp2["Cache-Control"] == "no-store"
+
+
+def test_apiv2_tasks_vnc_enforces_owner_check_when_tenancy_middleware_loaded_for_object_storage_only(
+    db: _Database, monkeypatch
+):
+    from importlib import import_module
+    from django.test import RequestFactory
+    from lib.tenancy.policy import MTConfig, ViewerContext
+
+    apiv2_views = import_module("apiv2.views")
+    monkeypatch.setattr(apiv2_views, "db", db)
+    monkeypatch.setattr(apiv2_views.apiconf, "taskvnc", {"enabled": True, "auth_only": True}, raising=False)
+    monkeypatch.setattr(
+        "lib.tenancy.policy.multitenancy_config",
+        lambda: MTConfig(enabled=False, mode="shared", default_visibility="public", local_admins_manage_all_tenants=True),
+    )
+
+    tid = db.add_url("https://example.invalid/objstore-only", user_id=7)
+    db.set_status(tid, TASK_RUNNING)
+    db.set_vnc_password(tid, "ObJStOr1")
+
+    # Simulate TenancyMiddleware loaded for [object_storage] with [multitenancy]=no and [web_auth]=no:
+    # default_viewer_resolver() yields is_local_admin=True (see_all=True) even for a non-staff user.
+    non_owner_req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    non_owner_req.user = SimpleNamespace(is_authenticated=True, is_active=True, id=20, is_staff=False, is_superuser=False)
+    non_owner_req.viewer = ViewerContext(user_id=20, tenant_id=None, is_local_admin=True, is_authenticated=True)
+    resp = apiv2_views.tasks_vnc(non_owner_req, str(tid))
+    assert resp.status_code == 404
+    assert "ObJStOr1" not in str(resp.data)
+
+    # Owner and staff remain permitted.
+    owner_req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    owner_req.user = SimpleNamespace(is_authenticated=True, is_active=True, id=7, is_staff=False, is_superuser=False)
+    owner_req.viewer = ViewerContext(user_id=7, tenant_id=None, is_local_admin=True, is_authenticated=True)
+    owner_resp = apiv2_views.tasks_vnc(owner_req, str(tid))
+    assert owner_resp.status_code == 200
+    assert owner_resp.data["data"]["vnc_password"] == "ObJStOr1"
+
+    staff_req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    staff_req.user = SimpleNamespace(is_authenticated=True, is_active=True, id=20, is_staff=True, is_superuser=False)
+    staff_req.viewer = ViewerContext(user_id=20, tenant_id=None, is_local_admin=True, is_authenticated=True)
+    staff_resp = apiv2_views.tasks_vnc(staff_req, str(tid))
+    assert staff_resp.status_code == 200
+    assert staff_resp.data["data"]["vnc_password"] == "ObJStOr1"
+
+
+def test_apiv2_tasks_vnc_prefers_live_libvirt_port_over_task_options(db: _Database, monkeypatch):
+    from importlib import import_module
+    from django.test import RequestFactory
+    import lib.tenancy.storage.guac as storage_guac
+
+    apiv2_views = import_module("apiv2.views")
+    monkeypatch.setattr(apiv2_views, "db", db)
+    monkeypatch.setattr(apiv2_views.apiconf, "taskvnc", {"enabled": True, "auth_only": True}, raising=False)
+    monkeypatch.setattr(storage_guac, "worker_ip_for_task", lambda _tid: None)
+
+    tid = db.add_url("https://example.invalid/live-port", options="vnc_port=5906", user_id=7)
+    with db.session.begin():
+        machine = db.add_machine(
+            name="m-live",
+            label="win10-live",
+            arch="x64",
+            ip="192.168.122.11",
+            platform="windows",
+            tags="x64",
+            interface="virbr0",
+            snapshot="ready",
+            resultserver_ip="192.168.122.1",
+            resultserver_port="2042",
+            reserved=False,
+        )
+        db.create_guest(machine, "KVM", db.view_task(tid))
+    db.set_status(tid, TASK_RUNNING)
+    db.set_vnc_password(tid, "LiVePrt1")
+
+    monkeypatch.setattr(storage_guac, "local_vnc_port", lambda label, **kw: 5915 if label == "win10-live" else None)
+    req = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    req.user = SimpleNamespace(is_authenticated=True, is_active=True, id=7, is_staff=False, is_superuser=False)
+    resp = apiv2_views.tasks_vnc(req, str(tid))
+    assert resp.status_code == 200
+    assert resp.data["data"]["vnc_port"] == 5915
+
+    # Falls back to task.options when live libvirt lookup returns None.
+    monkeypatch.setattr(storage_guac, "local_vnc_port", lambda label, **kw: None)
+    req2 = RequestFactory().get(f"/apiv2/tasks/vnc/{tid}/")
+    req2.user = SimpleNamespace(is_authenticated=True, is_active=True, id=7, is_staff=False, is_superuser=False)
+    resp2 = apiv2_views.tasks_vnc(req2, str(tid))
+    assert resp2.status_code == 200
+    assert resp2.data["data"]["vnc_port"] == 5906
+
 
 

@@ -813,7 +813,7 @@ class TasksMixIn:
 
             # Replace any prior vnc_port token so dead-machine retries do not duplicate it.
             if task.options:
-                parts = [p for p in task.options.split(",") if not p.strip().startswith("vnc_port=")]
+                parts = [p for p in task.options.split(",") if p.split("=", 1)[0].strip() != "vnc_port"]
                 parts.append(f"vnc_port={port}")
                 task.options = ",".join(parts)
             else:

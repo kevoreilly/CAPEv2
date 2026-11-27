@@ -11,7 +11,7 @@ import sys
 import time
 import traceback
 from contextlib import contextmanager, suppress
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -77,7 +77,15 @@ def is_operational_error(exc: BaseException) -> bool:
     )
 
 
-def run_db_unit(db, fn, desc: str, logger: Optional[logging.Logger] = None, attempts: int = 2, backoff: float = 1.0):
+def run_db_unit(
+    db,
+    fn,
+    desc: str,
+    logger: Optional[logging.Logger] = None,
+    attempts: int = 2,
+    backoff: float = 1.0,
+    redact_error: Optional[Callable[[BaseException], str]] = None,
+):
     """Run fn() as one unit of work in its own db.transaction() and return its result.
 
     On OperationalError (server restart, dropped connection) the transaction rolls back,
@@ -101,7 +109,8 @@ def run_db_unit(db, fn, desc: str, logger: Optional[logging.Logger] = None, atte
         except Exception as e:
             if attempt >= attempts or not is_operational_error(e):
                 raise
-            (logger or log).warning("Database connection error during %s, retrying (%d/%d): %s", desc, attempt, attempts - 1, e)
+            logged_err = redact_error(e) if redact_error is not None else e
+            (logger or log).warning("Database connection error during %s, retrying (%d/%d): %s", desc, attempt, attempts - 1, logged_err)
             time.sleep(backoff)
 
 

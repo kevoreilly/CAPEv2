@@ -1108,9 +1108,16 @@ def tasks_vnc(request, task_id):
     if not task or task.status != TASK_RUNNING:
         return Response({"error": True, "error_value": "Running task not found"}, status=404)
 
-    # When TenancyMiddleware is not active, enforce owner or staff/superuser authorization
-    # on authenticated callers so one user cannot retrieve another user's live VNC password.
-    if getattr(request, "viewer", None) is None and getattr(request.user, "is_authenticated", False):
+    # Enforce owner or staff/superuser authorization on authenticated callers whenever
+    # TenancyMiddleware did not actively enforce tenant/owner scoping (e.g. middleware
+    # inactive, or loaded only for [object_storage] with [multitenancy] and [web_auth] off).
+    viewer = getattr(request, "viewer", None)
+    tenancy_scoped = False
+    if viewer is not None:
+        from lib.tenancy.policy import multitenancy_config
+
+        tenancy_scoped = bool(multitenancy_config().enabled) or not getattr(viewer, "see_all", False)
+    if not tenancy_scoped and getattr(request.user, "is_authenticated", False):
         is_admin = bool(getattr(request.user, "is_superuser", False) or getattr(request.user, "is_staff", False))
         user_id = getattr(request.user, "id", None)
         if not is_admin and (user_id is None or getattr(task, "user_id", None) != user_id):
@@ -1132,16 +1139,17 @@ def tasks_vnc(request, task_id):
         guest = getattr(task, "guest", None)
         guest_label = getattr(guest, "label", None) if guest is not None else None
         vm_label = str(guest_label or "")
-        opts = get_options(getattr(task, "options", "") or "")
-        raw_port = opts.get("vnc_port")
-        if raw_port is not None:
-            with suppress(TypeError, ValueError):
-                parsed_port = int(raw_port)
-                if parsed_port > 0:
-                    vnc_port = parsed_port
-        if vnc_port is None and vm_label:
+        if vm_label:
             with suppress(Exception):
                 vnc_port = local_vnc_port(vm_label, retries=1)
+        if vnc_port is None:
+            opts = get_options(getattr(task, "options", "") or "")
+            raw_port = opts.get("vnc_port")
+            if raw_port is not None:
+                with suppress(TypeError, ValueError):
+                    parsed_port = int(raw_port)
+                    if parsed_port > 0:
+                        vnc_port = parsed_port
         task_attrs = getattr(task, "attributes", None)
         if isinstance(task_attrs, dict):
             raw_pwd = task_attrs.get("vnc_password")

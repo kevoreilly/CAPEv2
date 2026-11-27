@@ -506,18 +506,29 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
         conn = libvirt.open(machinery_dsn)
         if conn:
             dom = conn.lookupByName(vm_name)
+            direct_pwd = web_cfg.guacamole.password or ""
+            paused = False
             if start_mode == "snapshot":
                 snap = dom.snapshotLookupByName(snapshot_name, flags=0)
-                dom.revertToSnapshot(snap, flags=0)
+                revert_flags = getattr(libvirt, "VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED", 0) if direct_pwd else 0
+                dom.revertToSnapshot(snap, flags=revert_flags)
+                paused = bool(revert_flags)
             else:
-                dom.create()
+                start_flags = getattr(libvirt, "VIR_DOMAIN_START_PAUSED", 0) if direct_pwd else 0
+                if start_flags and hasattr(dom, "createWithFlags"):
+                    dom.createWithFlags(start_flags)
+                    paused = True
+                else:
+                    dom.create()
 
-            direct_pwd = web_cfg.guacamole.password or ""
             try:
                 _refresh_direct_vnc_password_if_expired(dom, libvirt, direct_pwd)
             except Exception as vnc_err:
                 safe_err = str(vnc_err).replace(direct_pwd, "<redacted>") if direct_pwd else str(vnc_err)
                 logger.warning("Failed to refresh expired VNC password on direct console VM %s: %s", vm_name, safe_err)
+            finally:
+                if paused:
+                    dom.resume()
 
             # Enforce 'none' (no internet) route by default
             try:

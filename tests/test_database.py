@@ -2235,6 +2235,10 @@ class TestDatabaseEngine:
         db.set_vnc_port(tid, 5902)
         assert db.view_task(tid).options == "foo=bar,vnc_port=5902"
 
+        tid_ws = db.add_url("https://example.invalid/vnc-port-ws", options="foo=bar, vnc_port = 5901")
+        db.set_vnc_port(tid_ws, 5903)
+        assert db.view_task(tid_ws).options == "foo=bar,vnc_port=5903"
+
     def test_sample_path_by_hash_temp_fallback_uses_transaction(self, db: _Database, tmp_path):
         import hashlib
 

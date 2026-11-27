@@ -597,6 +597,65 @@ class TestGuacConsumers:
         finally:
             await communicator.disconnect()
 
+    async def test_consumer_local_refreshes_post_port_vnc_password_and_redacts_handshake_error(
+        self, guac_consumer_app_factory, monkeypatch, caplog
+    ):
+        # 1. _view_task_with_guest must clear the scoped session around view_task so a reused
+        # sync thread never serves a stale Task.attributes dict from SQLAlchemy's identity map.
+        removed = []
+
+        class _SessionTrackedDB(FakeDatabase):
+            def __init__(self, tasks):
+                super().__init__(task=tasks[0])
+                self._tasks = list(tasks)
+                self._calls = 0
+                self.session = SimpleNamespace(remove=lambda: removed.append("remove"))
+
+            def view_task(self, task_id, details=False):
+                self.view_task_details_args.append(details)
+                idx = min(self._calls, len(self._tasks) - 1)
+                self._calls += 1
+                return self._tasks[idx]
+
+        # First view_task (pre-_get_vnc_port) has no password yet; second read (post-_get_vnc_port) sees it.
+        fake_db = _SessionTrackedDB(
+            [
+                FakeTask(123, "running", attributes={}),
+                FakeTask(123, "running", attributes={"vnc_password": "LaTePw99"}),
+            ]
+        )
+        guac_consumer_app, _ = guac_consumer_app_factory(fake_db=fake_db)
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "password", "static_pwd", raising=False)
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "guest_protocol", "vnc", raising=False)
+        caplog.set_level(logging.DEBUG, logger="guac-session")
+        communicator = _make_communicator(guac_consumer_app, "session_late_pwd", "123_session_late_pwd")
+        try:
+            connected, subprotocol = await communicator.connect()
+            assert connected is True
+            assert subprotocol == "guacamole"
+            client = FakeGuacamoleClient.instances[0]
+            assert client.handshake_kwargs["password"] == "LaTePw99"
+            assert len(removed) >= 4
+            assert "LaTePw99" not in caplog.text
+        finally:
+            await communicator.disconnect()
+
+        # 2. If guacd handshake raises an error echoing the VNC password, connect() redacts it.
+        FakeGuacamoleClient.instances.clear()
+        caplog.clear()
+        fake_db2 = FakeDatabase(task=FakeTask(123, "running", attributes={"vnc_password": "HaNdShK9"}))
+        guac_consumer_app2, _ = guac_consumer_app_factory(fake_db=fake_db2)
+        monkeypatch.setattr(
+            FakeGuacamoleClient,
+            "handshake",
+            lambda self, **kwargs: (_ for _ in ()).throw(RuntimeError(f"auth rejected for {kwargs['password']}")),
+        )
+        communicator2 = _make_communicator(guac_consumer_app2, "session_err_pwd", "123_session_err_pwd")
+        connected2, _ = await communicator2.connect()
+        assert connected2 is False
+        assert "HaNdShK9" not in caplog.text
+        assert "<redacted>" in caplog.text
+
     async def test_consumer_rejects_unauthorized_task_viewer_and_non_admin_direct_vnc(
         self, guac_consumer_app_factory, monkeypatch
     ):

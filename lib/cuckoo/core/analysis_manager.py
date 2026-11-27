@@ -156,9 +156,14 @@ class AnalysisManager(threading.Thread):
         self.guest_started_on: Optional[datetime.datetime] = None
         self.stuck_vm_killed: bool = False
 
-    def _db_unit(self, fn: Callable[[], Any], desc: str) -> Any:
+    def _db_unit(
+        self,
+        fn: Callable[[], Any],
+        desc: str,
+        redact_error: Optional[Callable[[BaseException], str]] = None,
+    ) -> Any:
         """Run fn() in its own transaction, retried once on a lost DB connection."""
-        return run_db_unit(self.db, fn, desc, logger=self.log)
+        return run_db_unit(self.db, fn, desc, logger=self.log, redact_error=redact_error)
 
     @main_thread_only
     def prepare_task_and_machine_to_start(self) -> None:
@@ -336,26 +341,45 @@ class AnalysisManager(threading.Thread):
         assert self.machinery_manager and self.machine and self.guest
 
         is_dead = False
+        task_id = self.task.id
+        guest_id = self.guest.id
+        machine_label = self.machine.label
+        machine_name = self.machine.name
         machinery = self.machinery_manager.machinery
         bind_fn = getattr(machinery, "bind_vnc_task", None)
         bound_vnc_task = False
         try:
             if callable(bind_fn):
-                bind_res = bind_fn(self.machine.label, self.task.id)
+                bind_res = bind_fn(machine_label, task_id)
                 bound_vnc_task = True if bind_res is None else bool(bind_res)
             try:
                 self.machinery_manager.start_machine(self.machine)
             finally:
                 if bound_vnc_task and callable(getattr(machinery, "unbind_vnc_task", None)):
-                    machinery.unbind_vnc_task(self.machine.label)
+                    machinery.unbind_vnc_task(machine_label)
 
             if not bound_vnc_task and callable(getattr(machinery, "get_vnc_password", None)):
-                vnc_password = machinery.get_vnc_password(self.machine.label)
+                vnc_password = machinery.get_vnc_password(machine_label)
                 if vnc_password:
-                    self._db_unit(
-                        lambda: self.db.set_vnc_password(self.task.id, vnc_password),
-                        f"persist vnc_password for task {self.task.id}",
-                    )
+                    try:
+                        persisted = self._db_unit(
+                            lambda: self.db.set_vnc_password(task_id, vnc_password),
+                            f"persist vnc_password for task {task_id}",
+                            redact_error=lambda err: str(err).replace(vnc_password, "<redacted>"),
+                        )
+                        if persisted is False:
+                            raise CuckooMachineError(
+                                f"Unable to persist per-task VNC password for task {task_id}"
+                            )
+                    except Exception as err:
+                        with contextlib.suppress(Exception):
+                            machinery.stop(machine_label)
+                        if isinstance(err, CuckooMachineError):
+                            raise
+                        safe_err = str(err).replace(vnc_password, "<redacted>")
+                        raise CuckooMachineError(
+                            f"Unable to persist per-task VNC password for task {task_id}: {safe_err}"
+                        ) from None
 
             yield
 
@@ -369,57 +393,57 @@ class AnalysisManager(threading.Thread):
             # this task again with another available machine.
             self.log.error("%s", e)
             if callable(getattr(machinery, "clear_vnc_password", None)):
-                machinery.clear_vnc_password(self.machine.label)
+                machinery.clear_vnc_password(machine_label)
 
             # Remove the guest from the database, so that we can assign a
             # new guest when the task is being analyzed with another machine.
             def _forget_dead_machine():
-                self.db.guest_remove(self.guest.id)
-                self.db.clear_vnc_password(self.task.id)
+                self.db.guest_remove(guest_id)
+                self.db.clear_vnc_password(task_id)
                 # Re-read: after a retry the session that loaded self.task is gone.
-                self.db.assign_machine_to_task(self.db.view_task(self.task.id), None)
+                self.db.assign_machine_to_task(self.db.view_task(task_id), None)
                 # ToDo do we really need to delete machine here?
-                self.machinery_manager.machinery.delete_machine(self.machine.name)
+                self.machinery_manager.machinery.delete_machine(machine_name)
 
-            self._db_unit(_forget_dead_machine, f"dead machine cleanup for {self.machine.name}")
+            self._db_unit(_forget_dead_machine, f"dead machine cleanup for {machine_name}")
 
             # Remove the analysis directory that has been created so
             # far, as perform_analysis() is going to be doing that again.
             shutil.rmtree(self.storage)
 
-            raise CuckooDeadMachine(self.machine.name) from e
+            raise CuckooDeadMachine(machine_name) from e
         finally:
             if not is_dead:
                 try:
                     self.machinery_manager.stop_machine(self.machine)
                 except CuckooMachineError as e:
-                    self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
+                    self.log.warning("Unable to stop machine %s: %s", machine_label, e)
                 except Exception as e:
-                    self.log.error("Unexpected error stopping machine %s: %s", self.machine.label, e)
+                    self.log.error("Unexpected error stopping machine %s: %s", machine_label, e)
 
                 try:
                     self._db_unit(
-                        lambda: self.db.clear_vnc_password(self.task.id),
-                        f"clear vnc_password for task {self.task.id}",
+                        lambda: self.db.clear_vnc_password(task_id),
+                        f"clear vnc_password for task {task_id}",
                     )
                 except Exception as e:
-                    self.log.error("Failed to clear VNC password for task %s in database: %s", self.task.id, e)
+                    self.log.error("Failed to clear VNC password for task %s in database: %s", task_id, e)
 
                 try:
                     # Release the analysis machine, but only if the machine is not dead.
                     # unlock_machine() merges, so the (possibly detached) self.machine is safe to reuse on retry.
                     self._db_unit(
                         lambda: self.machinery_manager.machinery.release(self.machine),
-                        f"release of machine {self.machine.label}",
+                        f"release of machine {machine_label}",
                     )
                 except CuckooMachineError as e:
                     self.log.error(
                         "Unable to release machine %s, reason %s. You might need to restore it manually",
-                        self.machine.label,
+                        machine_label,
                         e,
                     )
                 except Exception as e:
-                    self.log.error("Failed to release machine %s in database: %s", self.machine.label, e)
+                    self.log.error("Failed to release machine %s in database: %s", machine_label, e)
 
     def dump_machine_memory(self) -> None:
         if not self.cfg.cuckoo.memory_dump and not self.task.memory:

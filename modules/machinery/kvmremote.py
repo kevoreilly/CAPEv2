@@ -53,3 +53,6 @@ class KVMRemote(LibVirtMachinery):
                 self.db.set_machine_interface(label, iface)
             else:
                 log.warning("Can't get iface for %s", label)
+
+    def store_vnc_port(self, label: str, task_id: int):
+        self._store_vnc_details(label, task_id)

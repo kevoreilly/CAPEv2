@@ -815,6 +815,30 @@ class TasksMixIn:
             else:
                 task.options = f"vnc_port={port}"
 
+    def set_vnc_password(self, task_id: int, password: str) -> None:
+        """Persist an ephemeral per-task VNC password in Task.attributes."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return
+        if not password:
+            return
+        if not self.set_task_attribute(task_id, "vnc_password", password):
+            log.debug("Database error setting VNC password: For task %s", task_id)
+
+    def clear_vnc_password(self, task_id: int) -> None:
+        """Remove any ephemeral per-task VNC password from Task.attributes."""
+        with self.session.begin():
+            try:
+                task_id = int(task_id)
+            except (TypeError, ValueError):
+                return
+            task = self.session.get(Task, task_id)
+            if task is None or not isinstance(task.attributes, dict):
+                return
+            if "vnc_password" in task.attributes:
+                del task.attributes["vnc_password"]
+
     def _task_arch_tags_helper(self, task: Task):
         # Are there available machines that match up with a task?
         task_archs = [tag.name for tag in task.tags if tag.name in ("x86", "x64")]
@@ -933,8 +957,11 @@ class TasksMixIn:
             elif task.category == "static":
                 add = self.add_static
 
-            # Change status to recovered.
-            self.session.get(Task, task_id).status = TASK_RECOVERED
+            # Change status to recovered and scrub any ephemeral VNC password from the old task.
+            recovered_task = self.session.get(Task, task_id)
+            recovered_task.status = TASK_RECOVERED
+            if isinstance(recovered_task.attributes, dict) and "vnc_password" in recovered_task.attributes:
+                del recovered_task.attributes["vnc_password"]
 
             # Normalize tags.
             if task.tags:
@@ -965,6 +992,8 @@ class TasksMixIn:
                 return
 
             task_attrs = dict(task.attributes) if isinstance(task.attributes, dict) else task.attributes
+            if isinstance(task_attrs, dict):
+                task_attrs.pop("vnc_password", None)
             new_task_id = None
             if task.category in ("file", "url"):
                 new_task_id = add(

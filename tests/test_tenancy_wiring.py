@@ -3562,6 +3562,29 @@ def test_tasks_machine_endpoint_authorizes_control_plane_token_and_local_admin(m
     status, body = _call(admin_req, ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True))
     assert status == 200
     assert body["machine"] == "win11_seabios_107"
+    assert "vnc_password" not in body
+
+    fake_task.attributes = {"vnc_password": "WoRkEr12"}
+    status, body = _call(good_tok_req, ViewerContext.anonymous())
+    assert status == 200
+    assert body["vnc_port"] == 5907
+    assert body["vnc_password"] == "WoRkEr12"
+
+
+def test_worker_vnc_connection_for_task_reads_port_and_password_in_single_call(monkeypatch):
+    from lib.tenancy.storage import guac as storage_guac
+
+    calls = []
+
+    def fake_body(task_id):
+        calls.append(task_id)
+        return {"machine": "vm1", "vnc_port": 5908, "vnc_password": "AbCd1234"}
+
+    monkeypatch.setattr(storage_guac, "_worker_machine_body", fake_body)
+
+    assert storage_guac.worker_vnc_connection_for_task(42) == (5908, "AbCd1234")
+    assert calls == [42]
+    assert storage_guac.worker_vnc_port_for_task(42) == 5908
 
 
 def test_perform_search_files_pipeline_guards_replace_root_with_object_type_match():

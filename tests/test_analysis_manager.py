@@ -1436,6 +1436,111 @@ class TestAnalysisManager:
             am2.run_analysis_on_guest()
         fake_gm2.set_status_in_db.assert_called_once_with("failed")
 
+    def test_run_analysis_on_guest_persists_vnc_password_before_guest_start_without_leaking_options(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        monkeypatch,
+    ):
+        from lib.cuckoo.core.guest import GuestManager
+
+        with db.session.begin():
+            t = db.session.merge(task)
+            m = db.session.merge(machine)
+            db.create_guest(m, "MockMachinery", t)
+
+        events = []
+
+        def fake_get_vnc_password(self_m, label):
+            assert label == machine.label
+            return "VnC12345"
+
+        def fake_store_vnc_port(self_m, label, task_id):
+            events.append(("store_vnc_port", label, task_id))
+            db.set_vnc_password(task_id, "VnC12345")
+
+        monkeypatch.setattr(MockMachinery, "get_vnc_password", fake_get_vnc_password, raising=False)
+        monkeypatch.setattr(MockMachinery, "store_vnc_port", fake_store_vnc_port, raising=False)
+
+        seen_guest_options = {}
+
+        def fake_start_analysis(gm_self, options):
+            events.append(("start_analysis", db.view_task(task.id).get_attribute("vnc_password")))
+            seen_guest_options.update(options)
+
+        mocker.patch.object(GuestManager, "start_analysis", autospec=True, side_effect=fake_start_analysis)
+        mocker.patch.object(GuestManager, "get_status_from_db", side_effect=["starting", "stopping"])
+        mocker.patch.object(GuestManager, "wait_for_completion")
+        mocker.patch.object(GuestManager, "set_status_in_db")
+
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        assert Config("web").guacamole.enabled is False
+        assert am.run_analysis_on_guest() is True
+
+        assert events == [
+            ("store_vnc_port", machine.label, task.id),
+            ("start_analysis", "VnC12345"),
+        ]
+        assert "vnc_password" not in seen_guest_options
+        assert "VnC12345" not in str(seen_guest_options)
+
+    def test_perform_analysis_clears_vnc_password_on_teardown(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+    ):
+        import contextlib
+
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+        db.set_vnc_password(task.id, "TeArDoWn")
+        assert db.view_task(task.id).get_attribute("vnc_password") == "TeArDoWn"
+
+        mocker.patch.object(am, "init_storage", return_value=True)
+        mocker.patch.object(am, "category_checks", return_value=None)
+        mocker.patch.object(machinery_manager, "scale_pool")
+        mocker.patch.object(am, "machine_running", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "result_server", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "network_routing", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "run_auxiliary", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "run_analysis_on_guest", return_value=True)
+
+        assert am.perform_analysis() is True
+        assert db.view_task(task.id).get_attribute("vnc_password") is None
+
+    def test_machine_running_clears_vnc_password_on_dead_machine(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        tmp_cuckoo_root: pathlib.Path,
+    ):
+        from lib.cuckoo.common.exceptions import CuckooMachineError
+        from lib.cuckoo.core.analysis_manager import CuckooDeadMachine
+
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+        am.init_storage()
+        db.set_vnc_password(task.id, "DeAdVm12")
+
+        mocker.patch.object(machinery_manager, "start_machine", side_effect=CuckooMachineError("vnc auth failed"))
+
+        with pytest.raises(CuckooDeadMachine):
+            with am.machine_running():
+                pass
+
+        assert db.view_task(task.id).get_attribute("vnc_password") is None
+
 
 
 

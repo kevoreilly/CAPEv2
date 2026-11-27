@@ -355,6 +355,7 @@ class AnalysisManager(threading.Thread):
             # new guest when the task is being analyzed with another machine.
             def _forget_dead_machine():
                 self.db.guest_remove(self.guest.id)
+                self.db.clear_vnc_password(self.task.id)
                 # Re-read: after a retry the session that loaded self.task is gone.
                 self.db.assign_machine_to_task(self.db.view_task(self.task.id), None)
                 # ToDo do we really need to delete machine here?
@@ -493,8 +494,12 @@ class AnalysisManager(threading.Thread):
         self.guest_manager = guest_manager
 
         def _prepare_guest_start():
-            if Config("web").guacamole.enabled and hasattr(self.machinery_manager.machinery, "store_vnc_port"):
-                self.machinery_manager.machinery.store_vnc_port(self.machine.label, self.task.id)
+            machinery = self.machinery_manager.machinery
+            has_vnc_password = callable(getattr(machinery, "get_vnc_password", None)) and bool(
+                machinery.get_vnc_password(self.machine.label)
+            )
+            if (Config("web").guacamole.enabled or has_vnc_password) and hasattr(machinery, "store_vnc_port"):
+                machinery.store_vnc_port(self.machine.label, self.task.id)
             clock = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
             return clock
@@ -572,6 +577,7 @@ class AnalysisManager(threading.Thread):
                 def _stop_guest():
                     self.db.guest_stop(self.guest.id)
                     self.db.delete_guac_sessions_for_task(self.task.id)
+                    self.db.clear_vnc_password(self.task.id)
 
                 try:
                     self._db_unit(_stop_guest, f"guest_stop for guest {self.guest.id}")

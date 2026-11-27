@@ -72,10 +72,11 @@ class WebsocketCommunicator(_BaseApplicationCommunicator):
 
 
 class FakeTask:
-    def __init__(self, task_id, status="running", guest=None):
+    def __init__(self, task_id, status="running", guest=None, attributes=None):
         self.id = task_id
         self.status = status
         self.guest = guest
+        self.attributes = attributes if attributes is not None else {}
 
 
 class FakeDatabase:
@@ -502,6 +503,88 @@ class TestGuacConsumers:
             assert client.host == "10.20.30.40"
             assert client.handshake_kwargs["hostname"] == "localhost"
             assert client.handshake_kwargs["port"] == 5909
+        finally:
+            await communicator.disconnect()
+
+    @pytest.mark.parametrize(
+        "task_attrs, static_password, guest_protocol, expected_password",
+        [
+            pytest.param({"vnc_password": "PeRtAsK1"}, "static_pwd", "vnc", "PeRtAsK1", id="local-per-task-vnc-password"),
+            pytest.param({}, "static_pwd", "vnc", "static_pwd", id="local-fallback-static-password"),
+            pytest.param({"vnc_password": "PeRtAsK1"}, "rdp_secret", "rdp", "rdp_secret", id="rdp-ignores-vnc-password"),
+        ],
+    )
+    async def test_consumer_local_vnc_password_selection(
+        self,
+        guac_consumer_app_factory,
+        monkeypatch,
+        caplog,
+        task_attrs,
+        static_password,
+        guest_protocol,
+        expected_password,
+    ):
+        fake_db = FakeDatabase(task=FakeTask(123, "running", attributes=task_attrs))
+        guac_consumer_app, _ = guac_consumer_app_factory(fake_db=fake_db)
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "password", static_password, raising=False)
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "guest_protocol", guest_protocol, raising=False)
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "guest_rdp_port", 3389, raising=False)
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "ignore_rdp_cert", True, raising=False)
+        caplog.set_level(logging.DEBUG, logger="guac-session")
+        communicator = _make_communicator(guac_consumer_app, "session_pwd", "123_session_pwd")
+        try:
+            connected, subprotocol = await communicator.connect()
+            assert connected is True
+            assert subprotocol == "guacamole"
+            client = FakeGuacamoleClient.instances[0]
+            assert client.handshake_kwargs["password"] == expected_password
+            if "vnc_password" in task_attrs:
+                assert task_attrs["vnc_password"] not in caplog.text
+        finally:
+            await communicator.disconnect()
+
+    @pytest.mark.parametrize(
+        "worker_password, static_password, expected_password",
+        [
+            pytest.param("DiStPw12", "static_pwd", "DiStPw12", id="distributed-worker-password"),
+            pytest.param(None, "static_pwd", "static_pwd", id="distributed-fallback-static-password"),
+        ],
+    )
+    async def test_consumer_distributed_vnc_password_selection(
+        self,
+        guac_consumer_app_factory,
+        monkeypatch,
+        caplog,
+        worker_password,
+        static_password,
+        expected_password,
+    ):
+        import lib.tenancy.storage.guac as storage_guac
+
+        guac_consumer_app, _ = guac_consumer_app_factory()
+        monkeypatch.setattr(consumers.web_cfg.guacamole, "password", static_password, raising=False)
+        monkeypatch.setattr(
+            storage_guac,
+            "libvirt_dsn_for_task",
+            lambda task_id, local_dsn: ("qemu+ssh://cape@10.20.30.40/system", "10.20.30.40"),
+        )
+        monkeypatch.setattr(
+            storage_guac,
+            "worker_vnc_connection_for_task",
+            lambda task_id: (5909, worker_password),
+        )
+        caplog.set_level(logging.DEBUG, logger="guac-session")
+        communicator = _make_communicator(guac_consumer_app, "session_dist_pwd", "123_session_dist_pwd")
+        try:
+            connected, subprotocol = await communicator.connect()
+            assert connected is True
+            assert subprotocol == "guacamole"
+            client = FakeGuacamoleClient.instances[0]
+            assert client.host == "10.20.30.40"
+            assert client.handshake_kwargs["port"] == 5909
+            assert client.handshake_kwargs["password"] == expected_password
+            if worker_password:
+                assert worker_password not in caplog.text
         finally:
             await communicator.disconnect()
 

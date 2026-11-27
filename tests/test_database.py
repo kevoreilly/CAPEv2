@@ -2147,14 +2147,57 @@ class TestDatabaseEngine:
         tid = db.add_url(
             "https://example.invalid/resched",
             user_id=42,
-            attributes={"main_task_id": 9001, "custom_flag": True},
+            attributes={"main_task_id": 9001, "custom_flag": True, "vnc_password": "OldPwd12"},
         )
         new_tid = db.reschedule(tid)
         assert new_tid is not None and new_tid != tid
+        old_task = db.view_task(tid)
+        assert old_task.get_attribute("vnc_password") is None
         new_task = db.view_task(new_tid)
         assert new_task.user_id == 42
         assert new_task.attributes.get("main_task_id") == 9001
         assert new_task.attributes.get("custom_flag") is True
+        assert "vnc_password" not in (new_task.attributes or {})
+
+    @pytest.mark.parametrize(
+        "bad_task_id",
+        [
+            pytest.param(999999, id="nonexistent-id"),
+            pytest.param("not-an-int", id="non-numeric-id"),
+            pytest.param(None, id="none-id"),
+        ],
+    )
+    def test_vnc_password_helpers_ignore_invalid_task_ids(self, db: _Database, bad_task_id):
+        db.set_vnc_password(bad_task_id, "Ab12Cd34")
+        db.clear_vnc_password(bad_task_id)
+
+    def test_set_and_clear_vnc_password_uses_attributes_not_options(self, db: _Database):
+        tid = db.add_url(
+            "https://example.invalid/vnc-attrs",
+            options="foo=bar",
+            attributes={"main_task_id": 77, "custom": "keep"},
+        )
+        db.set_vnc_password(tid, "")
+        assert db.view_task(tid).get_attribute("vnc_password") is None
+
+        db.set_vnc_password(tid, "Xy12Zw34")
+        loaded = db.view_task(tid)
+        assert loaded.options == "foo=bar"
+        assert loaded.get_attribute("vnc_password") == "Xy12Zw34"
+        assert loaded.get_attribute("main_task_id") == 77
+        assert loaded.get_attribute("custom") == "keep"
+        assert loaded.to_dict()["attributes"]["vnc_password"] == "Xy12Zw34"
+
+        db.clear_vnc_password(tid)
+        cleared = db.view_task(tid)
+        assert cleared.options == "foo=bar"
+        assert "vnc_password" not in (cleared.attributes or {})
+        assert cleared.get_attribute("main_task_id") == 77
+        assert cleared.get_attribute("custom") == "keep"
+        assert "vnc_password" not in (cleared.to_dict()["attributes"] or {})
+
+        # Clearing a second time is a safe no-op.
+        db.clear_vnc_password(tid)
 
     def test_sample_path_by_hash_temp_fallback_uses_transaction(self, db: _Database, tmp_path):
         import hashlib

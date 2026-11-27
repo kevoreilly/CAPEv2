@@ -345,7 +345,13 @@ def tasks_machine(
 
         vnc_port_resolver = local_vnc_port
     vnc_port = vnc_port_resolver(vm_label) if vm_label else None
-    return _json_response({"error": False, "machine": vm_label, "vnc_port": vnc_port}, status=200)
+    payload: Dict[str, Any] = {"error": False, "machine": vm_label, "vnc_port": vnc_port}
+    task_attrs = getattr(task, "attributes", None)
+    if isinstance(task_attrs, dict):
+        vnc_password = task_attrs.get("vnc_password")
+        if isinstance(vnc_password, str) and vnc_password:
+            payload["vnc_password"] = vnc_password
+    return _json_response(payload, status=200)
 
 
 _INTERCEPTED_STORAGE_VIEWS = frozenset(

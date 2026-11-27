@@ -54,8 +54,12 @@ class Suricata(Processing):
         pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
         return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
 
-    def cmd_wrapper(self, cmd):
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    def cmd_wrapper(self, cmd, cwd=None):
+        if isinstance(cmd, str):
+            import shlex
+
+            cmd = shlex.split(cmd)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=False, cwd=cwd)
         stdout, stderr = p.communicate()
         return p.returncode, stdout, stderr
 
@@ -247,7 +251,7 @@ class Suricata(Processing):
             if not path_exists(SURICATA_BIN):
                 log.warning("Unable to Run Suricata: Bin File %s does not exist", SURICATA_CONF)
                 return suricata["alerts"]
-            cmd = f"{SURICATA_BIN} -c {SURICATA_CONF} -k none -l {self.logs_path} -r {self.pcap_path}"
+            cmd = [SURICATA_BIN, "-c", SURICATA_CONF, "-k", "none", "-l", self.logs_path, "-r", self.pcap_path]
             ret, _, stderr = self.cmd_wrapper(cmd)
             if ret != 0:
                 log.warning("Suricata returned a Exit Value Other than Zero: %s", stderr)
@@ -481,8 +485,8 @@ class Suricata(Processing):
 
         if SURICATA_FILES_DIR_FULL_PATH and path_exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH and path_exists(Z7_PATH):
             # /opt/CAPEv2/data/7zz a -pinfected -y files.zip files-json.log files
-            cmdstr = f"cd {self.logs_path} && {Z7_PATH} a -p{FILES_ZIP_PASS} -y files.zip {SURICATA_FILE_LOG} {SURICATA_FILES_DIR}"
-            ret, _, stderr = self.cmd_wrapper(cmdstr)
+            cmd = [Z7_PATH, "a", f"-p{FILES_ZIP_PASS}", "-y", "files.zip", SURICATA_FILE_LOG, SURICATA_FILES_DIR]
+            ret, _, stderr = self.cmd_wrapper(cmd, cwd=self.logs_path)
             if ret > 1:
                 log.warning("Suricata: Failed to create %s/files.zip - Error %d", self.logs_path, ret)
 

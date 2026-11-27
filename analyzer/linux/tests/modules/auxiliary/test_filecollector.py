@@ -127,3 +127,61 @@ def test_native_inotify_watcher_rename_recreate_and_symlink_skip(tmp_path):
         assert watcher._wd_to_path[old_wd] == str(renamed)
     finally:
         watcher.close()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Requires Linux inotify")
+def test_filecollector_setup_watches_resolves_usrmerge_top_level_symlinks(tmp_path):
+    fake_root = tmp_path / "sysroot"
+    (fake_root / "usr" / "bin" / "nested").mkdir(parents=True)
+    (fake_root / "usr" / "sbin").mkdir(parents=True)
+    (fake_root / "usr" / "lib" / "systemd" / "system").mkdir(parents=True)
+    (fake_root / "usr" / "share").mkdir(parents=True)
+    (fake_root / "etc" / "conf.d").mkdir(parents=True)
+    (fake_root / "proc" / "1").mkdir(parents=True)
+
+    # Top-level usrmerge symlinks (unignored: bin, sbin; duplicate target: sbin_alias; ignored: lib)
+    (fake_root / "bin").symlink_to("usr/bin")
+    (fake_root / "sbin").symlink_to("usr/sbin")
+    (fake_root / "sbin_alias").symlink_to("usr/bin")
+    (fake_root / "lib").symlink_to("usr/lib")
+    # Symlinks pointing to root, ignored root, or pseudo-fs subtree must not be watched recursively
+    (fake_root / "loop_root").symlink_to(".")
+    (fake_root / "link_usr").symlink_to("usr")
+    (fake_root / "link_proc_sub").symlink_to("proc/1")
+    # Symlink below a watched root must still be skipped
+    (fake_root / "etc" / "link_share").symlink_to("../usr/share")
+
+    cfg = SimpleNamespace(filecollector=False)
+    collector = filecollector.FileCollector({}, cfg)
+    watcher = filecollector.NativeInotifyWatcher()
+    try:
+        collector._setup_watches(watcher, root_dir=str(fake_root))
+        watched = set(watcher._path_to_wd.keys())
+
+        assert os.path.realpath(str(fake_root)) in watched
+        assert os.path.realpath(str(fake_root / "usr" / "bin")) in watched
+        assert os.path.realpath(str(fake_root / "usr" / "bin" / "nested")) in watched
+        assert os.path.realpath(str(fake_root / "usr" / "sbin")) in watched
+        assert os.path.realpath(str(fake_root / "etc")) in watched
+        assert os.path.realpath(str(fake_root / "etc" / "conf.d")) in watched
+
+        # Ignored trees and symlinks below roots remain unwatched
+        assert os.path.realpath(str(fake_root / "usr")) not in watched
+        assert os.path.realpath(str(fake_root / "usr" / "lib")) not in watched
+        assert os.path.realpath(str(fake_root / "usr" / "lib" / "systemd" / "system")) not in watched
+        assert os.path.realpath(str(fake_root / "usr" / "share")) not in watched
+        assert os.path.realpath(str(fake_root / "proc")) not in watched
+        assert os.path.realpath(str(fake_root / "proc" / "1")) not in watched
+    finally:
+        watcher.close()
+
+    # Explicit watch_roots pointing at a top-level symlink also resolves and watches the target.
+    collector_explicit = filecollector.FileCollector({}, cfg, watch_roots=[str(fake_root / "bin")])
+    watcher_explicit = filecollector.NativeInotifyWatcher()
+    try:
+        collector_explicit._setup_watches(watcher_explicit)
+        watched_explicit = set(watcher_explicit._path_to_wd.keys())
+        assert os.path.realpath(str(fake_root / "usr" / "bin")) in watched_explicit
+        assert os.path.realpath(str(fake_root / "usr" / "bin" / "nested")) in watched_explicit
+    finally:
+        watcher_explicit.close()

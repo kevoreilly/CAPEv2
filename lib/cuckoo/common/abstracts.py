@@ -7,7 +7,9 @@ import datetime
 import io
 import logging
 import os
+import secrets
 import socket
+import string
 import threading
 import time
 import timeit
@@ -15,7 +17,7 @@ import xml.etree.ElementTree as ET
 from builtins import NotImplementedError
 from contextlib import suppress
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 try:
     import dns.resolver
@@ -40,7 +42,7 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.database import Database, _Database, run_db_unit
 from lib.cuckoo.core.data.task import Task
 from lib.cuckoo.core.data.machines import Machine
 
@@ -454,6 +456,10 @@ class LibVirtMachinery(Machinery):
     ERROR = "machete"
     ABORTED = "abort"
 
+    # Standard RFB DES VNC authentication uses at most 8 ASCII bytes.
+    VNC_PASSWORD_LENGTH = 8
+    VNC_PASSWORD_ALPHABET = string.ascii_letters + string.digits
+
     def __init__(self):
         if not HAVE_LIBVIRT:
             raise CuckooDependencyError(
@@ -463,6 +469,176 @@ class LibVirtMachinery(Machinery):
         super().__init__()
         self.conn = None
         self.conn_lock = threading.Lock()
+        self._vnc_passwords: Dict[str, str] = {}
+        self._vnc_task_ids: Dict[str, int] = {}
+        self._vnc_passwords_lock = threading.Lock()
+
+    def _vnc_per_task_password_enabled(self) -> bool:
+        """Return True when per-detonation VNC password rotation is enabled in config."""
+        section = getattr(self.options, getattr(self, "module_name", ""), None)
+        if section is None:
+            return False
+        raw = section.get("vnc_per_task_password", False) if hasattr(section, "get") else getattr(section, "vnc_per_task_password", False)
+        if isinstance(raw, str):
+            return raw.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(raw)
+
+    @classmethod
+    def _generate_vnc_password(cls) -> str:
+        """Generate a cryptographically random 8-character ASCII VNC password."""
+        return "".join(secrets.choice(cls.VNC_PASSWORD_ALPHABET) for _ in range(cls.VNC_PASSWORD_LENGTH))
+
+    @staticmethod
+    def _redact_vnc_password(err: BaseException, password: str) -> str:
+        """Scrub a generated VNC password from exception text before logging or raising."""
+        msg = str(err)
+        return msg.replace(password, "<redacted>") if password else msg
+
+    def _ensure_vnc_state(self) -> tuple[threading.Lock, Dict[str, str], Dict[str, int]]:
+        lock = getattr(self, "_vnc_passwords_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            self._vnc_passwords_lock = lock
+        passwords = getattr(self, "_vnc_passwords", None)
+        if passwords is None:
+            passwords = {}
+            self._vnc_passwords = passwords
+        task_ids = getattr(self, "_vnc_task_ids", None)
+        if task_ids is None:
+            task_ids = {}
+            self._vnc_task_ids = task_ids
+        return lock, passwords, task_ids
+
+    def get_vnc_password(self, label: str) -> Optional[str]:
+        """Return the active per-task VNC password for a running VM label, if any."""
+        lock = getattr(self, "_vnc_passwords_lock", None)
+        passwords = getattr(self, "_vnc_passwords", None)
+        if lock is None or passwords is None:
+            return None
+        with lock:
+            return passwords.get(label)
+
+    def _set_vnc_password(self, label: str, password: str) -> None:
+        lock, passwords, _ = self._ensure_vnc_state()
+        with lock:
+            passwords[label] = password
+
+    def _clear_vnc_password(self, label: str) -> None:
+        lock = getattr(self, "_vnc_passwords_lock", None)
+        passwords = getattr(self, "_vnc_passwords", None)
+        if lock is None or passwords is None:
+            return
+        with lock:
+            passwords.pop(label, None)
+
+    def clear_vnc_password(self, label: str) -> None:
+        """Drop any cached in-memory per-task VNC password for a VM label."""
+        self._clear_vnc_password(label)
+
+    def bind_vnc_task(self, label: str, task_id: int) -> bool:
+        """Associate a task ID with a VM label so start() persists vnc_password before vm.resume()."""
+        lock, _, task_ids = self._ensure_vnc_state()
+        with lock:
+            task_ids[label] = task_id
+        return True
+
+    def _persist_vnc_password(self, task_id: int, password: str) -> bool:
+        if hasattr(self.db, "session") and hasattr(self.db, "transaction"):
+            result = run_db_unit(
+                self.db,
+                lambda: self.db.set_vnc_password(task_id, password),
+                f"persist vnc_password for task {task_id}",
+                logger=log,
+            )
+        else:
+            result = self.db.set_vnc_password(task_id, password)
+        return True if result is None else bool(result)
+
+    def _clear_persisted_vnc_password(self, task_id: int) -> None:
+        if hasattr(self.db, "session") and hasattr(self.db, "transaction"):
+            run_db_unit(
+                self.db,
+                lambda: self.db.clear_vnc_password(task_id),
+                f"clear vnc_password for task {task_id}",
+                logger=log,
+            )
+        else:
+            self.db.clear_vnc_password(task_id)
+
+    def unbind_vnc_task(self, label: str) -> None:
+        """Remove any pending task ID binding for a VM label."""
+        lock = getattr(self, "_vnc_passwords_lock", None)
+        task_ids = getattr(self, "_vnc_task_ids", None)
+        if lock is None or task_ids is None:
+            return
+        with lock:
+            task_ids.pop(label, None)
+
+    def _get_bound_vnc_task(self, label: str) -> Optional[int]:
+        lock = getattr(self, "_vnc_passwords_lock", None)
+        task_ids = getattr(self, "_vnc_task_ids", None)
+        if lock is None or task_ids is None:
+            return None
+        with lock:
+            return task_ids.get(label)
+
+    def _apply_vnc_password(self, label: str, vm, password: str) -> None:
+        """Apply a live VNC password to all VNC graphics devices on a QEMU/libvirt domain."""
+        xml_flags = getattr(libvirt, "VIR_DOMAIN_XML_SECURE", 1)
+        try:
+            root = ET.fromstring(vm.XMLDesc(xml_flags))
+        except (libvirt.libvirtError, ET.ParseError) as e:
+            safe_err = self._redact_vnc_password(e, password)
+            raise CuckooMachineError(f"Unable to read domain XML for VNC password update on {label}: {safe_err}") from e
+
+        vnc_devices = root.findall("./devices/graphics[@type='vnc']")
+        if not vnc_devices:
+            raise CuckooMachineError(f"No VNC graphics device found in domain XML for {label}")
+
+        live_flag = getattr(libvirt, "VIR_DOMAIN_AFFECT_LIVE", 1)
+        for graphics in vnc_devices:
+            graphics.set("passwd", password)
+            # Remove any pre-expired snapshot validity timestamp so the new password takes effect immediately.
+            graphics.attrib.pop("passwdValidTo", None)
+            try:
+                vm.updateDeviceFlags(ET.tostring(graphics, encoding="unicode"), live_flag)
+            except libvirt.libvirtError as e:
+                safe_err = self._redact_vnc_password(e, password)
+                log.error(
+                    "Failed to enforce per-task VNC password on %s: %s. "
+                    "Ensure <graphics type='vnc' ... passwd='...'> is configured in domain/snapshot XML "
+                    "or vnc_password is set in /etc/libvirt/qemu.conf",
+                    label,
+                    safe_err,
+                )
+                raise CuckooMachineError(f"Unable to set per-task VNC password on virtual machine {label}: {safe_err}") from e
+
+    def _store_vnc_details(self, label: str, task_id: int) -> None:
+        """Persist the active VNC port (and per-task VNC password, if set) for a task."""
+        vm = self._lookup(label)
+        try:
+            xml = ET.fromstring(vm.XMLDesc())
+        except (libvirt.libvirtError, ET.ParseError) as e:
+            raise CuckooMachineError(f"Unable to read VNC details for virtual machine {label}: {e}") from e
+
+        password = self.get_vnc_password(label)
+        if password:
+            self.db.set_vnc_password(task_id, password)
+
+        graphics = xml.find("./devices/graphics[@type='vnc']")
+        if graphics is None:
+            graphics = xml.find("./devices/graphics")
+        if graphics is not None:
+            raw_port = graphics.get("port")
+            try:
+                port = int(raw_port) if raw_port is not None else -1
+            except (TypeError, ValueError):
+                port = -1
+            if port > 0:
+                self.db.set_vnc_port(task_id, port)
+                return
+
+        log.warning("Can't get VNC port for %s", label)
 
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.
@@ -485,6 +661,7 @@ class LibVirtMachinery(Machinery):
             raise CuckooMachineError("Machine label required")
 
         log.debug("Starting machine %s", label)
+        self._clear_vnc_password(label)
 
         with self.db.transaction():
             vm_info = self.db.view_machine_by_label(label)
@@ -519,11 +696,64 @@ class LibVirtMachinery(Machinery):
         if not snapshot:
             raise CuckooMachineError(f"No snapshot found for virtual machine {label}")
 
+        rotate_vnc_password = self._vnc_per_task_password_enabled()
+        if rotate_vnc_password:
+            revert_flags = getattr(libvirt, "VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED", None)
+            if not revert_flags:
+                raise CuckooMachineError(
+                    f"Libvirt binding does not expose VIR_DOMAIN_SNAPSHOT_REVERT_PAUSED; "
+                    f"cannot enforce per-task VNC password on virtual machine {label}"
+                )
+        else:
+            revert_flags = 0
+
         log.debug("Using snapshot %s for virtual machine %s", snapshot.getName(), label)
         try:
-            vm.revertToSnapshot(snapshot, flags=0)
+            vm.revertToSnapshot(snapshot, flags=revert_flags)
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}. Your snapshot MUST BE in running state!") from e
+
+        if rotate_vnc_password:
+            password = self._generate_vnc_password()
+            bound_task_id = self._get_bound_vnc_task(label)
+            persisted_in_db = False
+            try:
+                self._apply_vnc_password(label, vm, password)
+                if bound_task_id is not None:
+                    # Commit before vm.resume() so interactive consumers waiting on
+                    # VIR_DOMAIN_RUNNING never observe a live VM without its password.
+                    if not self._persist_vnc_password(bound_task_id, password):
+                        raise CuckooMachineError(
+                            f"Unable to persist per-task VNC password for task {bound_task_id} on virtual machine {label}"
+                        )
+                    persisted_in_db = True
+                vm.resume()
+                self._wait_status(label, self.RUNNING)
+            except Exception as e:
+                try:
+                    vm.destroy()
+                except Exception as destroy_err:
+                    log.error(
+                        "Failed to destroy VM %s after VNC password enforcement error: %s",
+                        label,
+                        self._redact_vnc_password(destroy_err, password),
+                    )
+                self._clear_vnc_password(label)
+                if persisted_in_db and bound_task_id is not None:
+                    try:
+                        self._clear_persisted_vnc_password(bound_task_id)
+                    except Exception as clear_err:
+                        log.error(
+                            "Failed to clear VNC password in database for task %s: %s",
+                            bound_task_id,
+                            self._redact_vnc_password(clear_err, password),
+                        )
+                if isinstance(e, CuckooMachineError):
+                    raise
+                safe_err = self._redact_vnc_password(e, password)
+                raise CuckooMachineError(f"Unable to enforce per-task VNC password on virtual machine {label}: {safe_err}") from e
+            self._set_vnc_password(label, password)
+            return
 
         # Check state.
         self._wait_status(label, self.RUNNING)
@@ -538,25 +768,28 @@ class LibVirtMachinery(Machinery):
 
         log.debug("Stopping machine %s", label)
 
-        if self._status(label) == self.POWEROFF:
-            raise CuckooMachineError(f"Trying to stop an already stopped machine {label}")
-
-        # Force virtual machine shutdown.
-        conn = self._connect(label)
         try:
-            vm = conn.lookupByName(label)
-            if not vm.isActive():
-                log.debug("Trying to stop an already stopped machine %s, skipping", label)
-            else:
-                vm.destroy()  # Machete's way!
-        except libvirt.libvirtError as e:
-            if "domain is not running" in str(e).lower():
-                log.debug("Machine %s stopped before destroy completed, skipping", label)
-            else:
-                raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}") from e
+            if self._status(label) == self.POWEROFF:
+                raise CuckooMachineError(f"Trying to stop an already stopped machine {label}")
 
-        # Check state.
-        self._wait_status(label, self.POWEROFF)
+            # Force virtual machine shutdown.
+            conn = self._connect(label)
+            try:
+                vm = conn.lookupByName(label)
+                if not vm.isActive():
+                    log.debug("Trying to stop an already stopped machine %s, skipping", label)
+                else:
+                    vm.destroy()  # Machete's way!
+            except libvirt.libvirtError as e:
+                if "domain is not running" in str(e).lower():
+                    log.debug("Machine %s stopped before destroy completed, skipping", label)
+                else:
+                    raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}") from e
+
+            # Check state.
+            self._wait_status(label, self.POWEROFF)
+        finally:
+            self._clear_vnc_password(label)
 
     def shutdown(self):
         """Override shutdown to free libvirt handlers - they print errors."""
@@ -569,6 +802,17 @@ class LibVirtMachinery(Machinery):
                 self.stop(machine.label)
             except CuckooMachineError as e:
                 log.warning("Unable to shutdown machine %s, please check manually. Error: %s", machine.label, e)
+
+        # Drop any remaining in-memory VNC passwords/bindings on daemon shutdown.
+        lock = getattr(self, "_vnc_passwords_lock", None)
+        if lock is not None:
+            with lock:
+                passwords = getattr(self, "_vnc_passwords", None)
+                if passwords is not None:
+                    passwords.clear()
+                task_ids = getattr(self, "_vnc_task_ids", None)
+                if task_ids is not None:
+                    task_ids.clear()
 
         # Close connection
         with self.conn_lock:

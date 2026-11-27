@@ -128,6 +128,26 @@ def _can_manage_guac_task(viewer, task_id: int, task) -> bool:
     return can_toggle(viewer, scope)
 
 
+def _resolve_worker_vnc_connection(task_id):
+    """Resolve `(vnc_port, vnc_password)` from a distributed worker in one round-trip."""
+    from lib.tenancy.storage import guac as storage_guac
+
+    if (
+        storage_guac.worker_vnc_connection_for_task is storage_guac._default_worker_vnc_connection_for_task
+        and storage_guac.worker_vnc_port_for_task is not storage_guac._default_worker_vnc_port_for_task
+    ):
+        return (storage_guac.worker_vnc_port_for_task(task_id), None)
+    return storage_guac.worker_vnc_connection_for_task(task_id)
+
+
+def _extract_task_vnc_password(task):
+    attrs = getattr(task, "attributes", None)
+    if not isinstance(attrs, dict):
+        return None
+    raw_password = attrs.get("vnc_password")
+    return raw_password if isinstance(raw_password, str) and raw_password else None
+
+
 def _unlock_if_locked(vm_label: str) -> None:
     db = Database()
     try:
@@ -225,6 +245,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             vm_label = self.vm_label
 
             vnc_port = None
+            vnc_password = None
             worker_ip = None
             ws_user = self.scope.get("user")
             from lib.tenancy.middleware import default_viewer_resolver
@@ -249,14 +270,15 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
-                # 4. Look up VNC port server-side from libvirt
-                from lib.tenancy.storage.guac import libvirt_dsn_for_task, worker_vnc_port_for_task
+                # 4. Look up VNC port (and any per-task VNC password) server-side
+                from lib.tenancy.storage.guac import libvirt_dsn_for_task
 
                 vnc_dsn, worker_ip = await sync_to_async(libvirt_dsn_for_task)(self.guac_task_id, machinery_dsn)
                 if worker_ip:
-                    vnc_port = await sync_to_async(worker_vnc_port_for_task)(self.guac_task_id)
+                    vnc_port, vnc_password = await sync_to_async(_resolve_worker_vnc_connection)(self.guac_task_id)
                 else:
                     vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
+                    vnc_password = _extract_task_vnc_password(task)
                 if not vnc_port:
                     logger.warning(
                         "WebSocket rejected: no VNC port for VM %s", vm_label
@@ -325,6 +347,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 else:
                     guest_host = "localhost" if worker_ip else (web_cfg.guacamole.vnc_host or "localhost")
                     guest_port = vnc_port
+                    if vnc_password:
+                        guest_password = vnc_password
                     ignore_cert = "false"
                     vnc_color_depth = str(
                         getattr(web_cfg.guacamole, "vnc_color_depth", 16)

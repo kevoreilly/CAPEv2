@@ -2,6 +2,12 @@
 machines = win10-1
 interface = ens10
 dsn = qemu+ssh://ubuntu@192.168.50.121/system
+# Generate and enforce a unique 8-character ASCII VNC password on every VM
+# snapshot restore via libvirt live graphics update (QEMU QMP set_password).
+# Requires VNC password authentication enabled in domain/snapshot XML
+# (<graphics type='vnc' ... passwd='...'>) or via vnc_password in
+# /etc/libvirt/qemu.conf.
+vnc_per_task_password = no
 
 [win10-1]
 label = win10-1

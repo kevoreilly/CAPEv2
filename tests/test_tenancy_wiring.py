@@ -3562,6 +3562,84 @@ def test_tasks_machine_endpoint_authorizes_control_plane_token_and_local_admin(m
     status, body = _call(admin_req, ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True))
     assert status == 200
     assert body["machine"] == "win11_seabios_107"
+    assert "vnc_password" not in body
+
+    fake_task.attributes = {"vnc_password": "WoRkEr12"}
+    status, body = _call(good_tok_req, ViewerContext.anonymous())
+    assert status == 200
+    assert body["vnc_port"] == 5907
+    assert body["vnc_password"] == "WoRkEr12"
+
+    # Non-running tasks must never expose vnc_password via tasks_machine.
+    fake_task.status = "completed"
+    status, body = _call(good_tok_req, ViewerContext.anonymous())
+    assert status == 200
+    assert "vnc_password" not in body
+
+
+def test_worker_vnc_connection_for_task_reads_port_and_password_in_single_call(monkeypatch):
+    from lib.tenancy.storage import guac as storage_guac
+
+    calls = []
+
+    def fake_body(task_id):
+        calls.append(task_id)
+        return {"machine": "vm1", "vnc_port": 5908, "vnc_password": "AbCd1234"}
+
+    monkeypatch.setattr(storage_guac, "_worker_machine_body", fake_body)
+
+    assert storage_guac.worker_vnc_connection_for_task(42) == (5908, "AbCd1234")
+    assert calls == [42]
+    assert storage_guac.worker_vnc_port_for_task(42) == 5908
+
+
+def test_tasks_vnc_enforces_manage_and_allow_interactive_in_tenancy_middleware(db, private_task):
+    from lib.tenancy.context import reset_current_viewer, set_current_viewer
+    from lib.tenancy.hooks import _strip_untrusted_task_acl
+    from lib.tenancy.policy import PUBLIC, TENANT
+    from lib.tenancy.resources import ResourceEntitlements
+
+    # Submitter hook strips vnc_password for untrusted HTTP viewers alongside other internal-only attributes.
+    tok = set_current_viewer(_viewer(7, 1))
+    try:
+        assert _strip_untrusted_task_acl({"vnc_password": "forged", "ok": 1}) == {"ok": 1}
+    finally:
+        reset_current_viewer(tok)
+
+    task_id, _ = private_task
+    with db.session.begin():
+        set_task_acl(db.session, task_id, user_id=7, tenant_id=1, visibility=TENANT)
+
+    def tasks_vnc(request, task_id):
+        pass
+
+    req_path = f"/apiv2/tasks/vnc/{task_id}/"
+    # Same-tenant non-owner peer has can_read but NOT can_toggle -> denied.
+    peer = _viewer(99, 1)
+    assert _status(_mw(peer).process_view(_req(req_path), tasks_vnc, (), {"task_id": str(task_id)})) == 404
+
+    # Even on PUBLIC tasks, another tenant's reader cannot manage/fetch VNC credentials.
+    with db.session.begin():
+        set_task_acl(db.session, task_id, user_id=7, tenant_id=1, visibility=PUBLIC)
+    outsider = _viewer(8, 2)
+    assert _status(_mw(outsider).process_view(_req(req_path), tasks_vnc, (), {"task_id": str(task_id)})) == 404
+
+    # Owner with allow_interactive=False is blocked with 403.
+    owner = _viewer(7, 1)
+    mw_no_interactive = TenancyMiddleware(
+        lambda request: None,
+        viewer_resolver=lambda _u: owner,
+        entitlements_resolver=lambda _u: ResourceEntitlements(unrestricted=False, allow_interactive=False),
+    )
+    assert _status(mw_no_interactive.process_view(_req(req_path), tasks_vnc, (), {"task_id": str(task_id)})) == 403
+
+    # Owner with allow_interactive=True is permitted.
+    mw_interactive = TenancyMiddleware(
+        lambda request: None,
+        viewer_resolver=lambda _u: owner,
+        entitlements_resolver=lambda _u: ResourceEntitlements(unrestricted=False, allow_interactive=True),
+    )
+    assert mw_interactive.process_view(_req(req_path), tasks_vnc, (), {"task_id": str(task_id)}) is None
 
 
 def test_perform_search_files_pipeline_guards_replace_root_with_object_type_match():

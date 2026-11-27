@@ -24,6 +24,8 @@ from lib.tenancy.storage.guac import (
     local_vnc_port,
     worker_ip_for_task,
     worker_vm_for_task,
+    worker_vnc_connection_for_task,
+    worker_vnc_details_for_task,
     worker_vnc_port_for_task,
 )
 from lib.tenancy.storage.job_directory import (
@@ -82,6 +84,8 @@ __all__ = [
     "loc_from_item",
     "worker_ip_for_task",
     "worker_vm_for_task",
+    "worker_vnc_connection_for_task",
+    "worker_vnc_details_for_task",
     "worker_vnc_port_for_task",
     "local_vnc_port",
     "libvirt_dsn_for_task",

@@ -47,12 +47,4 @@ class KVM(LibVirtMachinery):
                 log.warning("Can't get iface for %s", label)
 
     def store_vnc_port(self, label: str, task_id: int):
-        xml = ET.fromstring(self._lookup(label).XMLDesc())
-        graphics = xml.find("./devices/graphics")
-        if graphics is not None:
-            port = int(graphics.get("port", -1))
-            if port > 0:
-                self.db.set_vnc_port(task_id, port)
-                return
-
-        log.warning("Can't get VNC port for %s", label)
+        self._store_vnc_details(label, task_id)

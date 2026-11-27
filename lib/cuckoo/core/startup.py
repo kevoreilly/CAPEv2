@@ -491,6 +491,7 @@ def init_tasks():
             log.info("Rescheduled task with ID %s and target %s", task.id, task.target)
         else:
             # ToDo here?
+            db.clear_vnc_password(task.id)
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID %s status to failed_analysis", task.id)
 

@@ -239,6 +239,8 @@ class TasksMixIn:
                     attributes = None
             if isinstance(attributes, dict):
                 for k, v in attributes.items():
+                    if k == "vnc_password":
+                        continue
                     task.set_attribute(k, v)
 
             # Obtain an ID without committing the caller's transaction.
@@ -809,11 +811,39 @@ class TasksMixIn:
                 log.debug("Database error setting VPN port: For task %s", task_id)
                 return
 
-            # This logic remains the same
+            # Replace any prior vnc_port token so dead-machine retries do not duplicate it.
             if task.options:
-                task.options += f",vnc_port={port}"
+                parts = [p for p in task.options.split(",") if not p.strip().startswith("vnc_port=")]
+                parts.append(f"vnc_port={port}")
+                task.options = ",".join(parts)
             else:
                 task.options = f"vnc_port={port}"
+
+    def set_vnc_password(self, task_id: int, password: str) -> bool:
+        """Persist an ephemeral per-task VNC password in Task.attributes."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return False
+        if not password:
+            return False
+        if not self.set_task_attribute(task_id, "vnc_password", password):
+            log.debug("Database error setting VNC password: For task %s", task_id)
+            return False
+        return True
+
+    def clear_vnc_password(self, task_id: int) -> None:
+        """Remove any ephemeral per-task VNC password from Task.attributes."""
+        with self.session.begin():
+            try:
+                task_id = int(task_id)
+            except (TypeError, ValueError):
+                return
+            task = self.session.get(Task, task_id)
+            if task is None or not isinstance(task.attributes, dict):
+                return
+            if "vnc_password" in task.attributes:
+                del task.attributes["vnc_password"]
 
     def _task_arch_tags_helper(self, task: Task):
         # Are there available machines that match up with a task?
@@ -842,6 +872,9 @@ class TasksMixIn:
         with self.session.begin():
             if status != TASK_DISTRIBUTED_COMPLETED:
                 task.status = status
+
+            if status != TASK_RUNNING and isinstance(task.attributes, dict) and "vnc_password" in task.attributes:
+                del task.attributes["vnc_password"]
 
             if status in (TASK_RUNNING, TASK_DISTRIBUTED):
                 task.started_on = _utcnow_naive()
@@ -933,8 +966,11 @@ class TasksMixIn:
             elif task.category == "static":
                 add = self.add_static
 
-            # Change status to recovered.
-            self.session.get(Task, task_id).status = TASK_RECOVERED
+            # Change status to recovered and scrub any ephemeral VNC password from the old task.
+            recovered_task = self.session.get(Task, task_id)
+            recovered_task.status = TASK_RECOVERED
+            if isinstance(recovered_task.attributes, dict) and "vnc_password" in recovered_task.attributes:
+                del recovered_task.attributes["vnc_password"]
 
             # Normalize tags.
             if task.tags:
@@ -965,6 +1001,8 @@ class TasksMixIn:
                 return
 
             task_attrs = dict(task.attributes) if isinstance(task.attributes, dict) else task.attributes
+            if isinstance(task_attrs, dict):
+                task_attrs.pop("vnc_password", None)
             new_task_id = None
             if task.category in ("file", "url"):
                 new_task_id = add(

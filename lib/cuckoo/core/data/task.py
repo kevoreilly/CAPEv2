@@ -169,6 +169,9 @@ class Task(Base):
             value = getattr(self, column.name)
             if isinstance(value, datetime):
                 d[column.name] = value.strftime("%Y-%m-%d %H:%M:%S")
+            elif column.name == "attributes" and isinstance(value, dict) and "vnc_password" in value:
+                # Never expose ephemeral per-task VNC credentials through general task serialization.
+                d[column.name] = {k: v for k, v in value.items() if k != "vnc_password"}
             else:
                 d[column.name] = value
 

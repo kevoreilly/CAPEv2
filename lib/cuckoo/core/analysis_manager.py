@@ -336,8 +336,26 @@ class AnalysisManager(threading.Thread):
         assert self.machinery_manager and self.machine and self.guest
 
         is_dead = False
+        machinery = self.machinery_manager.machinery
+        bind_fn = getattr(machinery, "bind_vnc_task", None)
+        bound_vnc_task = False
         try:
-            self.machinery_manager.start_machine(self.machine)
+            if callable(bind_fn):
+                bind_res = bind_fn(self.machine.label, self.task.id)
+                bound_vnc_task = True if bind_res is None else bool(bind_res)
+            try:
+                self.machinery_manager.start_machine(self.machine)
+            finally:
+                if bound_vnc_task and callable(getattr(machinery, "unbind_vnc_task", None)):
+                    machinery.unbind_vnc_task(self.machine.label)
+
+            if not bound_vnc_task and callable(getattr(machinery, "get_vnc_password", None)):
+                vnc_password = machinery.get_vnc_password(self.machine.label)
+                if vnc_password:
+                    self._db_unit(
+                        lambda: self.db.set_vnc_password(self.task.id, vnc_password),
+                        f"persist vnc_password for task {self.task.id}",
+                    )
 
             yield
 
@@ -350,11 +368,14 @@ class AnalysisManager(threading.Thread):
             # which informs the AnalysisManager that it should analyze
             # this task again with another available machine.
             self.log.error("%s", e)
+            if callable(getattr(machinery, "clear_vnc_password", None)):
+                machinery.clear_vnc_password(self.machine.label)
 
             # Remove the guest from the database, so that we can assign a
             # new guest when the task is being analyzed with another machine.
             def _forget_dead_machine():
                 self.db.guest_remove(self.guest.id)
+                self.db.clear_vnc_password(self.task.id)
                 # Re-read: after a retry the session that loaded self.task is gone.
                 self.db.assign_machine_to_task(self.db.view_task(self.task.id), None)
                 # ToDo do we really need to delete machine here?
@@ -375,6 +396,14 @@ class AnalysisManager(threading.Thread):
                     self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
                 except Exception as e:
                     self.log.error("Unexpected error stopping machine %s: %s", self.machine.label, e)
+
+                try:
+                    self._db_unit(
+                        lambda: self.db.clear_vnc_password(self.task.id),
+                        f"clear vnc_password for task {self.task.id}",
+                    )
+                except Exception as e:
+                    self.log.error("Failed to clear VNC password for task %s in database: %s", self.task.id, e)
 
                 try:
                     # Release the analysis machine, but only if the machine is not dead.
@@ -492,9 +521,12 @@ class AnalysisManager(threading.Thread):
         guest_manager = GuestManager(self.machine.name, self.machine.ip, self.machine.platform, self.task.id, self)
         self.guest_manager = guest_manager
 
+        # Read/store VNC port outside _db_unit so libvirt/SSH XMLDesc RPCs never hold a DB transaction open.
+        machinery = self.machinery_manager.machinery
+        if Config("web").guacamole.enabled and hasattr(machinery, "store_vnc_port"):
+            machinery.store_vnc_port(self.machine.label, self.task.id)
+
         def _prepare_guest_start():
-            if Config("web").guacamole.enabled and hasattr(self.machinery_manager.machinery, "store_vnc_port"):
-                self.machinery_manager.machinery.store_vnc_port(self.machine.label, self.task.id)
             clock = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
             return clock
@@ -572,6 +604,7 @@ class AnalysisManager(threading.Thread):
                 def _stop_guest():
                     self.db.guest_stop(self.guest.id)
                     self.db.delete_guac_sessions_for_task(self.task.id)
+                    self.db.clear_vnc_password(self.task.id)
 
                 try:
                     self._db_unit(_stop_guest, f"guest_stop for guest {self.guest.id}")

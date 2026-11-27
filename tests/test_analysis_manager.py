@@ -1436,6 +1436,162 @@ class TestAnalysisManager:
             am2.run_analysis_on_guest()
         fake_gm2.set_status_in_db.assert_called_once_with("failed")
 
+    def test_machine_running_persists_and_clears_vnc_password_without_mutating_options_when_guac_disabled(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        monkeypatch,
+    ):
+        import contextlib
+        from lib.cuckoo.core.guest import GuestManager
+
+        machinery_manager.machine_lock = contextlib.nullcontext()
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+
+        events = []
+        bound = {}
+
+        def fake_bind(self_m, label, task_id):
+            bound[label] = task_id
+            events.append(("bind", label, task_id))
+
+        def fake_unbind(self_m, label):
+            bound.pop(label, None)
+            events.append(("unbind", label))
+
+        def fake_start(self_m, label):
+            events.append(("start", label, bound.get(label)))
+            db.set_vnc_password(bound[label], "VnC12345")
+
+        def fake_store_vnc_port(self_m, label, task_id):
+            events.append(("store_vnc_port", label, task_id))
+
+        monkeypatch.setattr(MockMachinery, "bind_vnc_task", fake_bind, raising=False)
+        monkeypatch.setattr(MockMachinery, "unbind_vnc_task", fake_unbind, raising=False)
+        monkeypatch.setattr(MockMachinery, "start", fake_start, raising=False)
+        monkeypatch.setattr(MockMachinery, "stop", lambda self_m, label: events.append(("stop", label)), raising=False)
+        monkeypatch.setattr(MockMachinery, "store_vnc_port", fake_store_vnc_port, raising=False)
+
+        seen_guest_options = {}
+
+        def fake_start_analysis(gm_self, options):
+            events.append(("start_analysis", db.view_task(task.id).get_attribute("vnc_password")))
+            seen_guest_options.update(options)
+
+        mocker.patch.object(GuestManager, "start_analysis", autospec=True, side_effect=fake_start_analysis)
+        mocker.patch.object(GuestManager, "get_status_from_db", side_effect=["starting", "stopping"])
+        mocker.patch.object(GuestManager, "wait_for_completion")
+        mocker.patch.object(GuestManager, "set_status_in_db")
+
+        assert Config("web").guacamole.enabled is False
+        with am.machine_running():
+            # Password is already in DB before routing/auxiliary/guest startup.
+            assert db.view_task(task.id).get_attribute("vnc_password") == "VnC12345"
+            assert am.run_analysis_on_guest() is True
+
+        assert db.view_task(task.id).get_attribute("vnc_password") is None
+        assert ("store_vnc_port", machine.label, task.id) not in events
+        assert "vnc_port=" not in (db.view_task(task.id).options or "")
+        assert "vnc_password" not in seen_guest_options
+        assert "VnC12345" not in str(seen_guest_options)
+        assert events[:4] == [
+            ("bind", machine.label, task.id),
+            ("start", machine.label, task.id),
+            ("unbind", machine.label),
+            ("start_analysis", "VnC12345"),
+        ]
+
+    def test_machine_running_clears_vnc_password_when_setup_fails_before_guest_start(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        monkeypatch,
+    ):
+        import contextlib
+
+        machinery_manager.machine_lock = contextlib.nullcontext()
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+
+        monkeypatch.setattr(MockMachinery, "start", lambda self_m, label: None, raising=False)
+        monkeypatch.setattr(MockMachinery, "stop", lambda self_m, label: None, raising=False)
+        # Simulate MultiMachinery returning False when sub-machinery lacks bind_vnc_task.
+        monkeypatch.setattr(MockMachinery, "bind_vnc_task", lambda self_m, label, tid: False, raising=False)
+        monkeypatch.setattr(MockMachinery, "get_vnc_password", lambda self_m, label: "EaRlY123", raising=False)
+
+        with pytest.raises(RuntimeError, match="routing setup failed"):
+            with am.machine_running():
+                assert db.view_task(task.id).get_attribute("vnc_password") == "EaRlY123"
+                raise RuntimeError("routing setup failed")
+
+        assert db.view_task(task.id).get_attribute("vnc_password") is None
+
+    def test_perform_analysis_clears_vnc_password_on_teardown(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+    ):
+        import contextlib
+
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+        db.set_vnc_password(task.id, "TeArDoWn")
+        assert db.view_task(task.id).get_attribute("vnc_password") == "TeArDoWn"
+
+        mocker.patch.object(am, "init_storage", return_value=True)
+        mocker.patch.object(am, "category_checks", return_value=None)
+        mocker.patch.object(machinery_manager, "scale_pool")
+        mocker.patch.object(am, "machine_running", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "result_server", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "network_routing", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "run_auxiliary", return_value=contextlib.nullcontext())
+        mocker.patch.object(am, "run_analysis_on_guest", return_value=True)
+
+        assert am.perform_analysis() is True
+        assert db.view_task(task.id).get_attribute("vnc_password") is None
+
+    def test_machine_running_clears_vnc_password_on_dead_machine(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        monkeypatch,
+        tmp_cuckoo_root: pathlib.Path,
+    ):
+        from lib.cuckoo.common.exceptions import CuckooMachineError
+        from lib.cuckoo.core.analysis_manager import CuckooDeadMachine
+
+        am = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        with db.session.begin():
+            am.prepare_task_and_machine_to_start()
+        am.init_storage()
+        db.set_vnc_password(task.id, "DeAdVm12")
+
+        cleared_labels = []
+        monkeypatch.setattr(MockMachinery, "clear_vnc_password", lambda self_m, label: cleared_labels.append(label), raising=False)
+        mocker.patch.object(machinery_manager, "start_machine", side_effect=CuckooMachineError("vnc auth failed"))
+
+        with pytest.raises(CuckooDeadMachine):
+            with am.machine_running():
+                pass
+
+        assert db.view_task(task.id).get_attribute("vnc_password") is None
+        assert cleared_labels == [machine.label]
+
 
 
 

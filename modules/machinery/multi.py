@@ -95,6 +95,47 @@ class MultiMachinery(Machinery):
             machinery = self._machineries.get(machine["machinery"])
             machinery["module"].stop(label)
 
+    def _sub_machinery(self, label):
+        machine_name = self._machine_labels.get(label)
+        if not machine_name:
+            return None
+        machine = self._machines.get(machine_name)
+        if not machine:
+            return None
+        entry = self._machineries.get(machine.get("machinery"))
+        return entry["module"] if entry else None
+
+    def get_vnc_password(self, label):
+        sub = self._sub_machinery(label)
+        fn = getattr(sub, "get_vnc_password", None)
+        return fn(label) if callable(fn) else None
+
+    def clear_vnc_password(self, label):
+        sub = self._sub_machinery(label)
+        fn = getattr(sub, "clear_vnc_password", None)
+        if callable(fn):
+            fn(label)
+
+    def bind_vnc_task(self, label, task_id) -> bool:
+        sub = self._sub_machinery(label)
+        fn = getattr(sub, "bind_vnc_task", None)
+        if not callable(fn):
+            return False
+        res = fn(label, task_id)
+        return True if res is None else bool(res)
+
+    def unbind_vnc_task(self, label):
+        sub = self._sub_machinery(label)
+        fn = getattr(sub, "unbind_vnc_task", None)
+        if callable(fn):
+            fn(label)
+
+    def store_vnc_port(self, label, task_id):
+        sub = self._sub_machinery(label)
+        fn = getattr(sub, "store_vnc_port", None)
+        if callable(fn):
+            fn(label, task_id)
+
     def _status(self, label):
         machine_name = self._machine_labels.get(label)
         machine = self._machines.get(machine_name)

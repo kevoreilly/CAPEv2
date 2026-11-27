@@ -156,6 +156,15 @@ rps = 1/s
 rpm = 10/m
 mcp = no
 
+# Return live VNC connection details (including ephemeral per-task password) for a running task.
+# Disabled and authentication-gated by default so VNC credentials are never exposed over read-only APIs.
+[taskvnc]
+enabled = no
+auth_only = yes
+rps = 2/s
+rpm = 30/m
+mcp = no
+
 # Configure the ability reschedule a broken task.
 [taskresched]
 enabled = no

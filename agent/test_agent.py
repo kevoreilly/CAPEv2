@@ -1147,24 +1147,60 @@ class TestServerResilienceAndConcurrency:
         assert dest2.read_bytes() == b"exdev-payload"
         assert not os.path.exists(src_name)
 
-    def test_status_lock_prevents_terminal_clobber(self, monkeypatch):
-        class _ExitedProc:
+    def test_terminal_put_not_clobbered_by_concurrent_get(self, monkeypatch):
+        import threading
+
+        in_poll = threading.Event()
+        putter_started = threading.Event()
+        put_done = threading.Event()
+        errors = []
+
+        class _RunningProc:
             pid = 9999
 
             def poll(self):
-                return 0
+                in_poll.set()
+                putter_started.wait(timeout=5)
+                # Without _STATE_LOCK the terminal PUT lands here; with it, the PUT waits for this GET.
+                put_done.wait(timeout=0.2)
+                return None
 
         monkeypatch.setitem(agent.state, "status", agent.Status.RUNNING)
         monkeypatch.setitem(agent.state, "description", "")
-        monkeypatch.setitem(agent.state, "async_subprocess", _ExitedProc())
-        monkeypatch.setattr(agent.request, "form", {"status": "exception", "description": "boom"})
+        monkeypatch.setitem(agent.state, "async_subprocess", _RunningProc())
 
-        # Setting a terminal status clears async_subprocess so get_status does not clobber EXCEPTION with COMPLETE.
-        resp_put = agent.put_status()
-        assert resp_put.status_code == 200
-        resp_get = agent.get_status()
-        payload = json.loads(resp_get.json())
-        assert payload["status"] == "exception"
-        assert payload["description"] == "boom"
+        def _get():
+            try:
+                agent.get_status()
+            except BaseException as exc:
+                errors.append(exc)
+
+        def _put():
+            try:
+                agent.request.form = {"status": "complete", "description": "done"}
+                putter_started.set()
+                resp = agent.put_status()
+                assert resp.status_code == 200
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                put_done.set()
+
+        getter = threading.Thread(target=_get)
+        getter.start()
+        assert in_poll.wait(timeout=5)
+
+        putter = threading.Thread(target=_put)
+        putter.start()
+        getter.join(timeout=5)
+        putter.join(timeout=5)
+
+        assert not getter.is_alive()
+        assert not putter.is_alive()
+        assert errors == []
+
+        payload = json.loads(agent.get_status().json())
+        assert payload["status"] == "complete"
+        assert payload["description"] == "done"
 
 

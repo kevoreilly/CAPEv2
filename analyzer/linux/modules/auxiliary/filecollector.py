@@ -54,6 +54,7 @@ _DEFAULT_IGNORED_ROOT_DIRS = frozenset(
         # "srv"
     }
 )
+_PSEUDO_FS_ROOT_DIRS = frozenset({"proc", "sys", "dev"})
 _NOISY_CONTENT = ("sysmon", "gvfs-metadata")
 
 
@@ -233,21 +234,40 @@ class FileCollector(Auxiliary):
                     break
             self.initComplete = True
 
-    def _setup_watches(self, watcher):
+    def _setup_watches(self, watcher, root_dir="/"):
         if self._watch_roots is not None:
-            for root_dir in self._watch_roots:
-                watcher.add_watch(root_dir, _WATCH_MASK, rec=True)
+            seen_roots = set()
+            for root_entry in self._watch_roots:
+                if not os.path.isdir(root_entry):
+                    continue
+                watch_this = os.path.realpath(root_entry)
+                if watch_this in seen_roots:
+                    continue
+                seen_roots.add(watch_this)
+                watcher.add_watch(watch_this, _WATCH_MASK, rec=True)
             return
 
-        watch_this = os.path.abspath("/")
-        watcher.add_watch(watch_this, _WATCH_MASK, rec=False)
+        root_abs = os.path.realpath(root_dir)
+        watcher.add_watch(root_abs, _WATCH_MASK, rec=False)
 
-        for filename in os.listdir("/"):
-            root_entry = f"/{filename}"
-            if os.path.isdir(root_entry) and not os.path.islink(root_entry) and filename not in _DEFAULT_IGNORED_ROOT_DIRS:
-                log.info("FileCollector trying to watch dir %s", filename)
-                watch_this = os.path.abspath(root_entry)
-                watcher.add_watch(watch_this, _WATCH_MASK, rec=True)
+        seen_roots = {root_abs}
+        ignored_targets = {os.path.realpath(os.path.join(root_abs, name)) for name in _DEFAULT_IGNORED_ROOT_DIRS}
+        pseudo_prefixes = tuple(
+            os.path.realpath(os.path.join(root_abs, name)) + os.sep for name in _PSEUDO_FS_ROOT_DIRS
+        )
+
+        for filename in os.listdir(root_abs):
+            if filename in _DEFAULT_IGNORED_ROOT_DIRS:
+                continue
+            root_entry = os.path.join(root_abs, filename)
+            if not os.path.isdir(root_entry):
+                continue
+            watch_this = os.path.realpath(root_entry)
+            if watch_this in seen_roots or watch_this in ignored_targets or watch_this.startswith(pseudo_prefixes):
+                continue
+            seen_roots.add(watch_this)
+            log.info("FileCollector trying to watch dir %s", watch_this)
+            watcher.add_watch(watch_this, _WATCH_MASK, rec=True)
 
     def _process_path(self, pathname):
         try:

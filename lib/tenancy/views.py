@@ -324,13 +324,36 @@ def tasks_machine(
 
     if not authorized:
         user = getattr(request, "user", None)
-        viewer = getattr(request, "viewer", None) or viewer_resolver(user)
-        if not viewer.is_local_admin and user is not None and not getattr(user, "is_authenticated", False):
-            auth_user, denied = _authenticate_api_caller(request, user)
-            if denied is None and auth_user is not None:
+        if user is not None:
+            auth_user = user
+            if not getattr(auth_user, "is_authenticated", False):
+                try:
+                    candidate, denied = _authenticate_api_caller(request, user)
+                except (AssertionError, TypeError):
+                    candidate, denied = None, (403, "Invalid request")
+                if denied is None and candidate is not None:
+                    auth_user = candidate
+            is_auth_admin = bool(getattr(auth_user, "is_authenticated", False)) and (
+                bool(getattr(auth_user, "is_superuser", False)) or bool(getattr(auth_user, "is_staff", False))
+            )
+            if is_auth_admin:
                 viewer = viewer_resolver(auth_user)
-        if not viewer.is_local_admin:
-            return _json_response({"error": True, "error_value": "Task not found"}, status=404)
+                if viewer.is_local_admin or not multitenancy_config().enabled:
+                    authorized = True
+        else:
+            # Direct internal/unit-test calls without request.user: never accept a synthetic
+            # anonymous local_admin viewer (where user_id is None and is_superuser is False).
+            viewer = getattr(request, "viewer", None)
+            if (
+                viewer is not None
+                and bool(getattr(viewer, "is_authenticated", False))
+                and bool(getattr(viewer, "is_local_admin", False))
+                and (bool(getattr(viewer, "is_superuser", False)) or getattr(viewer, "user_id", None) is not None)
+            ):
+                authorized = True
+
+    if not authorized:
+        return _json_response({"error": True, "error_value": "Task not found"}, status=404)
 
     loader = task_loader or _default_task_loader
     task = loader(tid)
@@ -339,7 +362,7 @@ def tasks_machine(
 
     guest = getattr(task, "guest", None)
     guest_label = getattr(guest, "label", None) if guest is not None else None
-    vm_label = str(guest_label or getattr(task, "machine", None) or "")
+    vm_label = str(guest_label or "")
     if vnc_port_resolver is None:
         from lib.tenancy.storage.guac import local_vnc_port
 
@@ -532,7 +555,11 @@ def dispatch_object_storage_view(
         try:
             from django.conf import settings
 
-            if settings.configured and bool(getattr(settings, "WEB_AUTHENTICATION", False)):
+            if (
+                settings.configured
+                and bool(getattr(settings, "WEB_AUTHENTICATION", False))
+                and not bool(getattr(settings, "ANON_VIEW", False))
+            ):
                 user = getattr(request, "user", None)
                 if not getattr(user, "is_authenticated", False):
                     return None

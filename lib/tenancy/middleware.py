@@ -31,6 +31,7 @@ from lib.tenancy.policy import (
     multitenancy_config,
 )
 from lib.tenancy.resources import (
+    _policy_is_active,
     machine_name_by_label,
     ResourceEntitlements,
     resolve_user_entitlements,
@@ -220,6 +221,8 @@ def _resolve_tenant_from_user(
                         if parent_grp is None:
                             break
                         parent_pol = getattr(parent_grp, "sandbox_policy", None)
+                        if parent_pol is not None and not _policy_is_active(parent_pol):
+                            break
                         parent_tid = _resolve_policy_tenant_id(parent_grp, parent_pol)
                         if parent_tid is not None and parent_tid not in all_tids:
                             all_tids.append(parent_tid)

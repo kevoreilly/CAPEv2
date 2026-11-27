@@ -5,6 +5,7 @@ All hooks are zero-overhead no-ops when no external plugin is installed.
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import inspect
 import logging
@@ -20,6 +21,7 @@ RouteFilterHook = Callable[[list[Any], str | None], list[Any]]
 SubmissionContextFilterHook = Callable[[MutableMapping[str, Any]], MutableMapping[str, Any]]
 LoginGroupsHook = Callable[[Any, set], None]
 ReportRetrievedHook = Callable[[int], None]
+TaskCopyScopeHook = Callable[[Any, Any], Any]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []
@@ -31,6 +33,7 @@ _route_filters: list[RouteFilterHook] = []
 _submission_context_filters: list[SubmissionContextFilterHook] = []
 _login_groups_hooks: list[LoginGroupsHook] = []
 _report_retrieved_hooks: list[ReportRetrievedHook] = []
+_task_copy_scope_hooks: list[TaskCopyScopeHook] = []
 _cleanup_hooks: list[Callable[[], None]] = []
 
 
@@ -112,6 +115,23 @@ def run_login_groups_hooks(user: Any, idp_groups: set) -> None:
 def register_report_retrieved_hook(fn: ReportRetrievedHook) -> None:
     if fn not in _report_retrieved_hooks:
         _report_retrieved_hooks.append(fn)
+
+
+def register_task_copy_scope_hook(fn: TaskCopyScopeHook) -> None:
+    if fn not in _task_copy_scope_hooks:
+        _task_copy_scope_hooks.append(fn)
+
+
+@contextlib.contextmanager
+def task_copy_scope(db: Any, task_id: Any):
+    """Propagate source task scope (owner/tenant/visibility) to tasks added inside this block."""
+    if not _task_copy_scope_hooks:
+        yield
+        return
+    with contextlib.ExitStack() as stack:
+        for fn in _task_copy_scope_hooks:
+            stack.enter_context(fn(db, task_id))
+        yield
 
 
 def register_cleanup_hook(fn: Callable[[], None]) -> None:
@@ -217,6 +237,7 @@ def clear_all_hooks() -> None:
     _submission_context_filters.clear()
     _login_groups_hooks.clear()
     _report_retrieved_hooks.clear()
+    _task_copy_scope_hooks.clear()
 
 
 # --- Plugin activation -------------------------------------------------------------------------

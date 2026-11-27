@@ -32,10 +32,152 @@ def _safe_relpath(relpath: str) -> str:
     return relpath
 
 
+_UNSUPPORTED_SCOPE: Any = object()
+
+
+def _dotted_get(doc: dict[str, Any], key: str) -> tuple[bool, Any]:
+    cur: Any = doc
+    for part in key.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return False, None
+        cur = cur[part]
+    return True, cur
+
+
+def _match_field_pred(val: Any, exists: bool, expected: Any) -> bool:
+    if isinstance(expected, dict):
+        if not expected:
+            return exists and val == {}
+        for op, operand in expected.items():
+            if op == "$in":
+                if not isinstance(operand, (list, tuple, set, frozenset)) or not exists or val not in operand:
+                    return False
+            elif op == "$nin":
+                if not isinstance(operand, (list, tuple, set, frozenset)) or (exists and val in operand):
+                    return False
+            elif op == "$eq":
+                if not exists or val != operand:
+                    return False
+            elif op == "$ne":
+                if exists and val == operand:
+                    return False
+            elif op == "$exists":
+                if exists != bool(operand):
+                    return False
+            else:
+                return False
+        return True
+    return exists and val == expected
+
+
+def _match_mongo_scope(doc: dict[str, Any], pred: Any) -> bool:
+    if not isinstance(pred, dict):
+        return False
+    for key, val in pred.items():
+        if key == "$and":
+            if not isinstance(val, list) or not all(_match_mongo_scope(doc, item) for item in val):
+                return False
+        elif key == "$or":
+            if not isinstance(val, list) or not any(_match_mongo_scope(doc, item) for item in val):
+                return False
+        elif key == "$nor":
+            if not isinstance(val, list) or any(_match_mongo_scope(doc, item) for item in val):
+                return False
+        elif key.startswith("$"):
+            return False
+        else:
+            exists, actual = _dotted_get(doc, key)
+            if not _match_field_pred(actual, exists, val):
+                return False
+    return True
+
+
+def _mongo_scope_to_es_filter(pred: Any) -> Any:
+    if not isinstance(pred, dict):
+        return _UNSUPPORTED_SCOPE
+    if not pred:
+        return {"match_all": {}}
+    clauses: list[dict[str, Any]] = []
+    for key, val in pred.items():
+        if key == "$and":
+            if not isinstance(val, list):
+                return _UNSUPPORTED_SCOPE
+            sub = []
+            for item in val:
+                conv = _mongo_scope_to_es_filter(item)
+                if conv is _UNSUPPORTED_SCOPE:
+                    return _UNSUPPORTED_SCOPE
+                sub.append(conv)
+            clauses.append({"bool": {"filter": sub}})
+        elif key == "$or":
+            if not isinstance(val, list) or not val:
+                return _UNSUPPORTED_SCOPE
+            sub = []
+            for item in val:
+                conv = _mongo_scope_to_es_filter(item)
+                if conv is _UNSUPPORTED_SCOPE:
+                    return _UNSUPPORTED_SCOPE
+                sub.append(conv)
+            clauses.append({"bool": {"should": sub, "minimum_should_match": 1}})
+        elif key == "$nor":
+            if not isinstance(val, list):
+                return _UNSUPPORTED_SCOPE
+            sub = []
+            for item in val:
+                conv = _mongo_scope_to_es_filter(item)
+                if conv is _UNSUPPORTED_SCOPE:
+                    return _UNSUPPORTED_SCOPE
+                sub.append(conv)
+            clauses.append({"bool": {"must_not": sub}})
+        elif key.startswith("$"):
+            return _UNSUPPORTED_SCOPE
+        elif isinstance(val, dict):
+            if not val:
+                return _UNSUPPORTED_SCOPE
+            for op, operand in val.items():
+                if op == "$in":
+                    if not isinstance(operand, (list, tuple, set, frozenset)):
+                        return _UNSUPPORTED_SCOPE
+                    items = [x for x in operand if x is not None]
+                    if not items:
+                        return {"bool": {"must_not": [{"match_all": {}}]}}
+                    clauses.append({"terms": {key: items}})
+                elif op == "$nin":
+                    if not isinstance(operand, (list, tuple, set, frozenset)):
+                        return _UNSUPPORTED_SCOPE
+                    items = [x for x in operand if x is not None]
+                    if items:
+                        clauses.append({"bool": {"must_not": [{"terms": {key: items}}]}})
+                elif op == "$eq":
+                    if operand is None:
+                        clauses.append({"bool": {"must_not": [{"exists": {"field": key}}]}})
+                    else:
+                        clauses.append({"term": {key: operand}})
+                elif op == "$ne":
+                    if operand is None:
+                        clauses.append({"exists": {"field": key}})
+                    else:
+                        clauses.append({"bool": {"must_not": [{"term": {key: operand}}]}})
+                elif op == "$exists":
+                    clauses.append(
+                        {"exists": {"field": key}} if operand else {"bool": {"must_not": [{"exists": {"field": key}}]}}
+                    )
+                else:
+                    return _UNSUPPORTED_SCOPE
+        else:
+            if val is None:
+                clauses.append({"bool": {"must_not": [{"exists": {"field": key}}]}})
+            else:
+                clauses.append({"term": {key: val}})
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"bool": {"filter": clauses}}
+
+
 def _task_visible_for_scope(tid: int, scope: dict[str, Any]) -> bool:
     from lib.tenancy.storage.scope import _elasticsearch_enabled, _mongodb_enabled
 
-    if scope in ({"_id": {"$in": []}}, {"info.id": -1}):
+    if not isinstance(scope, dict) or scope in ({"_id": {"$in": []}}, {"info.id": -1}):
         return False
 
     if _mongodb_enabled():
@@ -43,23 +185,14 @@ def _task_visible_for_scope(tid: int, scope: dict[str, Any]) -> bool:
 
         return bool(mongo_find_one("analysis", {"$and": [{"info.id": tid}, scope]}, {"_id": 1}))
 
-    from lib.tenancy.context import get_current_viewer
-
-    viewer = get_current_viewer()
-    if viewer is None:
-        return False
-    if viewer.see_all:
-        return True
-
     if _elasticsearch_enabled():
+        es_filter = _mongo_scope_to_es_filter(scope)
+        if es_filter is _UNSUPPORTED_SCOPE:
+            return False
         try:
             from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
-            from lib.tenancy.policy import viewer_scope_es_filter
 
-            filters: list[dict[str, Any]] = [get_query_by_info_id(tid)]
-            es_filter = viewer_scope_es_filter(viewer)
-            if es_filter:
-                filters.append(es_filter)
+            filters: list[dict[str, Any]] = [get_query_by_info_id(tid), es_filter]
             res = elastic_handler.search(
                 index=get_analysis_index(),
                 body={"query": {"bool": {"filter": filters}}, "size": 1},
@@ -71,10 +204,19 @@ def _task_visible_for_scope(tid: int, scope: dict[str, Any]) -> bool:
 
     try:
         from lib.tenancy.middleware import default_task_scope_resolver
-        from lib.tenancy.policy import can_read
 
         task_scope = default_task_scope_resolver(tid)
-        return task_scope is not None and can_read(viewer, task_scope)
+        if task_scope is None:
+            return False
+        doc = {
+            "info": {
+                "id": tid,
+                "user_id": task_scope.owner_id,
+                "tenant_id": task_scope.tenant_id,
+                "visibility": task_scope.visibility,
+            }
+        }
+        return _match_mongo_scope(doc, scope)
     except Exception:
         return False
 

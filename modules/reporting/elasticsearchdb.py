@@ -39,6 +39,8 @@ logging.getLogger("elasticsearch").setLevel("ERROR")
 class ElasticSearchDB(Report):
     """Stores report in ElasticSearchDB."""
 
+    order = 9999
+
     def __init__(self):
         self.es = None
 

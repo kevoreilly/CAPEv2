@@ -980,7 +980,7 @@ def test_wrapped_validate_task_resolves_fallback_owner_for_recovered_task():
     wrap_submission_and_web_utils(web_utils_mod=fake_web_utils)
 
     fake_db = MagicMock()
-    fake_db.session.get.side_effect = lambda model, pk: SimpleNamespace(user_id=101) if pk == 77 else None
+    fake_db.session.get.side_effect = lambda model, pk: SimpleNamespace(user_id=101) if pk in (12, 77) else None
 
     viewer = ViewerContext(user_id=101, tenant_id=None)
     with (

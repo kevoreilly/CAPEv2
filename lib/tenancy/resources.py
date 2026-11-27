@@ -216,10 +216,9 @@ class ResourceEntitlements:
 def _policy_is_active(pol: Any) -> bool:
     if pol is None or not bool(getattr(pol, "active", True)):
         return False
-    if getattr(pol, "tenant_id", None) is not None:
-        tenant_obj = getattr(pol, "tenant", None)
-        if tenant_obj is not None and not bool(getattr(tenant_obj, "active", True)):
-            return False
+    tenant_obj = getattr(pol, "tenant", None)
+    if tenant_obj is not None and not bool(getattr(tenant_obj, "active", True)):
+        return False
     return True
 
 
@@ -374,7 +373,10 @@ def resolve_user_entitlements(
 
     explicit_policies = getattr(user, "sandbox_policies", None)
     if explicit_policies is not None:
-        return merge_group_policies(list(explicit_policies), unassigned_policy=effective_unassigned)
+        active_explicit = [p for p in explicit_policies if _policy_is_active(p)]
+        if not active_explicit and cfg.enabled and cfg.mode == "locked" and not unassigned_policy:
+            effective_unassigned = _get_unassigned_policy_setting(default="deny")
+        return merge_group_policies(active_explicit, unassigned_policy=effective_unassigned)
 
     policies: List[Any] = []
     try:
@@ -394,7 +396,7 @@ def resolve_user_entitlements(
                 qs = []
             for grp in qs:
                 pol = getattr(grp, "sandbox_policy", None)
-                if pol is not None and bool(getattr(pol, "active", True)):
+                if _policy_is_active(pol):
                     policies.append(pol)
     except Exception:
         if cfg.enabled:
@@ -758,7 +760,7 @@ def reconcile_idp_groups_to_django_groups(
                 return []
             from lib.tenancy.models import GroupSandboxPolicy
 
-            policies = list(GroupSandboxPolicy.objects.filter(active=True).select_related("group", "tenant"))
+            policies = list(GroupSandboxPolicy.objects.select_related("group", "tenant"))
         except Exception:
             return []
 
@@ -766,13 +768,14 @@ def reconcile_idp_groups_to_django_groups(
     unmatched_idp_managed_groups: List[Any] = []
 
     for pol in policies:
-        if not getattr(pol, "active", True):
-            continue
         pol_idp = {str(g).strip() for g in (getattr(pol, "idp_groups", None) or []) if str(g or "").strip()}
         if not pol_idp:
             continue
         grp = getattr(pol, "group", None)
         if grp is None:
+            continue
+        if not _policy_is_active(pol):
+            unmatched_idp_managed_groups.append(grp)
             continue
         if claimed & pol_idp:
             matched_groups.append(grp)

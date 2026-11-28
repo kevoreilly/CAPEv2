@@ -14,6 +14,7 @@ Environment=PYTHONPATH=.
 # Environment=GCP_SUBSCRIPTION_ID=my-subscription
 ExecStart=/usr/local/bin/uv run --no-sync python utils/gcp_pubsub_service.py
 Restart=always
+LimitNOFILE=100000
 
 [Install]
 WantedBy=multi-user.target

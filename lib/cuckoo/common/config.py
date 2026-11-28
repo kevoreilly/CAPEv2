@@ -56,7 +56,12 @@ class _BaseConfig:
     def _read_files(self, files: Iterable[str]):
         # Escape the percent signs so that ConfigParser doesn't try to do
         # interpolation of the value as well.
-        config = configparser.ConfigParser({f"ENV:{key}": val.replace("%", "%%") for key, val in os.environ.items()})
+        env_defaults = {}
+        for key, val in os.environ.items():
+            norm_key = f"ENV:{key}".lower()
+            if norm_key not in env_defaults:
+                env_defaults[norm_key] = val.replace("%", "%%")
+        config = configparser.ConfigParser(env_defaults)
 
         try:
             config.read(files)

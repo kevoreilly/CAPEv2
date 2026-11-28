@@ -125,19 +125,24 @@ class Sample(Base):
             self.source_url = source_url
 
 class SamplesMixIn:
-    def register_sample(self, obj, source_url=False):
+    def register_sample(self, obj, source_url=False, file_hashes=None):
         with self.session.begin():
             if isinstance(obj, (File, PCAP, Static)):
                 fileobj = obj if isinstance(obj, File) else File(obj.file_path)
-                file_sha256 = fileobj.calc_sha256()
+                if file_hashes:
+                    fileobj.apply_hashes(file_hashes)
+                if not fileobj._sha256:
+                    fileobj.calc_hashes(include_extended=False)
+                file_sha256 = fileobj._sha256
                 sample = None
                 # check if hash is known already
                 try:
                     # get or create
                     sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
                     if sample is None:
+                        if not (fileobj._md5 and fileobj._crc32 and fileobj._sha1 and fileobj._sha512):
+                            fileobj.calc_hashes(include_extended=False)
                         file_type = fileobj.get_type()
-                        fileobj.calc_hashes(include_extended=False)
                         with self.session.begin_nested():
                             sample = Sample(
                                 md5=fileobj.get_md5(),

@@ -23,7 +23,7 @@ from lib.cuckoo.common.colors import bold, green, red, yellow
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
+from lib.cuckoo.common.utils import SampleHashReader, sanitize_filename, store_temp_file, to_unicode
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
 
@@ -78,7 +78,12 @@ def submit_file(
         with open(file_path, "rb") as f:
             if not filename:
                 filename = os.path.basename(file_path)
-            tmp_path = store_temp_file(f, sanitize_filename(filename))
+            reader = SampleHashReader(f)
+            tmp_path = store_temp_file(reader, sanitize_filename(filename))
+        precomputed_hashes = None
+        if reader.bytes_read > 0:
+            path_key = tmp_path.decode("utf-8", "replace") if isinstance(tmp_path, bytes) else tmp_path
+            precomputed_hashes = {path_key: reader.digests()}
 
         with db.session.begin():
             # ToDo expose extra_details["errors"]
@@ -98,6 +103,7 @@ def submit_file(
                 route=route,
                 category=category,
                 attributes=attributes,
+                precomputed_hashes=precomputed_hashes,
             )
         return task_ids, extra_details
     except CuckooDemuxError as e:

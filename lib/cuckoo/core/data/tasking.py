@@ -103,6 +103,13 @@ sandbox_packages = (
     "inf",
 )
 
+def _lookup_precomputed_hashes(file_path, precomputed_hashes):
+    if not precomputed_hashes:
+        return None
+    key = file_path.decode("utf-8", "replace") if isinstance(file_path, bytes) else file_path
+    return precomputed_hashes.get(key) or precomputed_hashes.get(file_path)
+
+
 class TasksMixIn:
     def add(
         self,
@@ -128,6 +135,7 @@ class TasksMixIn:
         tags_tasks=False,
         user_id=0,
         attributes=None,
+        file_hashes=None,
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -157,13 +165,18 @@ class TasksMixIn:
         with self.session.begin():
             if isinstance(obj, (File, PCAP, Static)):
                 fileobj = obj if isinstance(obj, File) else File(obj.file_path)
-                file_sha256 = fileobj.calc_sha256()
+                if file_hashes:
+                    fileobj.apply_hashes(file_hashes)
+                if not fileobj._sha256:
+                    fileobj.calc_hashes(include_extended=False)
+                file_sha256 = fileobj._sha256
                 # check if hash is known already
                 # ToDo consider migrate to _get_or_create?
                 sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
                 if not sample:
+                    if not (fileobj._md5 and fileobj._crc32 and fileobj._sha1 and fileobj._sha512):
+                        fileobj.calc_hashes(include_extended=False)
                     file_type = fileobj.get_type()
-                    fileobj.calc_hashes(include_extended=False)
                     try:
                         with self.session.begin_nested():
                             sample = Sample(
@@ -302,6 +315,7 @@ class TasksMixIn:
         user_id=0,
         parent_sample = None,
         attributes=None,
+        file_hashes=None,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -339,7 +353,7 @@ class TasksMixIn:
             package = web_conf.url_analysis.package
 
         return self.add(
-            File(file_path),
+            File(file_path).apply_hashes(file_hashes),
             timeout=timeout,
             package=package,
             options=options,
@@ -437,6 +451,7 @@ class TasksMixIn:
         user_id=0,
         category=None,
         attributes=None,
+        precomputed_hashes=None,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -501,6 +516,7 @@ class TasksMixIn:
                 options=options,
                 package=package,
                 attributes=attributes,
+                precomputed_hashes=precomputed_hashes,
             )
             return task_ids, details
 
@@ -521,7 +537,11 @@ class TasksMixIn:
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and not any(file_path == path for path, _ in extracted_files):
-            parent_sample = self.register_sample(File(file_path), source_url=source_url)
+            parent_sample = self.register_sample(
+                File(file_path),
+                source_url=source_url,
+                file_hashes=_lookup_precomputed_hashes(file_path, precomputed_hashes),
+            )
             if conf.cuckoo.delete_archive:
                 if path_exists(file_path):
                     path_delete(file_path.decode())
@@ -543,6 +563,7 @@ class TasksMixIn:
                     platform=platform,
                     parent_sample=parent_sample,
                     attributes=attributes,
+                    precomputed_hashes=precomputed_hashes,
                 )
                 continue
             if static:
@@ -556,7 +577,7 @@ class TasksMixIn:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, platform=platform, parent_sample=parent_sample, attributes=attributes,
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, platform=platform, parent_sample=parent_sample, attributes=attributes, precomputed_hashes=precomputed_hashes,
                     )
 
             if not config and not only_extraction:
@@ -595,6 +616,7 @@ class TasksMixIn:
                 else:
                     task_machines = [machine]
 
+                file_hashes = _lookup_precomputed_hashes(file, precomputed_hashes)
                 for task_machine in task_machines:
                     task_id = self.add_path(
                         file_path=file.decode(),
@@ -617,6 +639,7 @@ class TasksMixIn:
                         user_id=user_id,
                         parent_sample=parent_sample,
                         attributes=attributes,
+                        file_hashes=file_hashes,
                     )
                     if task_id:
                         task_ids.append(task_id)
@@ -646,6 +669,7 @@ class TasksMixIn:
         tlp=None,
         user_id=0,
         attributes=None,
+        file_hashes=None,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -663,6 +687,7 @@ class TasksMixIn:
             tlp=tlp,
             user_id=user_id,
             attributes=attributes,
+            file_hashes=file_hashes,
         )
 
     def add_static(
@@ -684,6 +709,7 @@ class TasksMixIn:
         user_id=0,
         parent_sample=None,
         attributes=None,
+        precomputed_hashes=None,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
 
@@ -694,7 +720,10 @@ class TasksMixIn:
         # ToDo callback maybe or inside of the self.add
         if extracted_files and not any(file_path == path for path, _ in extracted_files):
             if not parent_sample:
-                parent_sample = self.register_sample(File(file_path))
+                parent_sample = self.register_sample(
+                    File(file_path),
+                    file_hashes=_lookup_precomputed_hashes(file_path, precomputed_hashes),
+                )
             if conf.cuckoo.delete_archive:
                 # ToDo keep as info for now
                 if path_exists(file_path):
@@ -705,7 +734,7 @@ class TasksMixIn:
         # create tasks for each file in the archive
         for file, platform in extracted_files:
             task_id = self.add(
-                Static(file.decode()),
+                Static(file.decode()).apply_hashes(_lookup_precomputed_hashes(file, precomputed_hashes)),
                 timeout=timeout,
                 package=package,
                 options=options,

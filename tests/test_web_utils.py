@@ -625,8 +625,15 @@ def test_process_new_task_files_streams_without_full_read(tmp_path, monkeypatch)
     content, stored_path, sha256 = files_out[0]
     assert content is None
     assert sha256 == expected_sha256
-    assert Path(stored_path.decode()).read_bytes() == payload
+    stored_path_str = stored_path.decode()
+    assert Path(stored_path_str).read_bytes() == payload
     assert upload.read_sizes and all(s > 0 for s in upload.read_sizes)
+    precomputed = details_out["precomputed_hashes"][stored_path_str]
+    assert set(precomputed.keys()) == {"crc32", "md5", "sha1", "sha256", "sha512"}
+    assert precomputed["sha256"] == expected_sha256
+    assert precomputed["md5"] == hashlib.md5(payload).hexdigest()
+    assert precomputed["sha1"] == hashlib.sha1(payload).hexdigest()
+    assert precomputed["sha512"] == hashlib.sha512(payload).hexdigest()
 
 
 def test_download_file_accepts_streamed_path_without_content_and_verifies_fhash(tmp_path, monkeypatch):
@@ -655,6 +662,7 @@ def test_download_file_accepts_streamed_path_without_content_and_verifies_fhash(
     monkeypatch.setattr("lib.cuckoo.common.web_utils.db", FakeDatabase())
 
     request = SubmissionRequest()
+    precomputed = {str(sample): {"sha256": expected_sha256}}
     status, result = download_file(
         request=request,
         content=None,
@@ -665,10 +673,12 @@ def test_download_file_accepts_streamed_path_without_content_and_verifies_fhash(
         errors=[],
         url=False,
         fhash=expected_sha256,
+        precomputed_hashes=precomputed,
     )
     assert status == "ok"
     assert result["task_ids"] == [301]
     assert observed["file_path"] == str(sample)
+    assert observed["precomputed_hashes"] == precomputed
 
     # Missing or empty file with content=None must still fail.
     empty_file = tmp_path / "empty.run"

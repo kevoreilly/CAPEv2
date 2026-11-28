@@ -2,9 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import binascii
 import contextlib
 import errno
 import fcntl
+import hashlib
 import logging
 import os
 import random
@@ -662,6 +664,45 @@ def datetime_to_iso(timestamp):
     @return: ISO datetime
     """
     return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S").isoformat()
+
+
+class SampleHashReader:
+    """File-like wrapper computing only the 5 SQL Sample hashes (CRC32/MD5/SHA1/SHA256/SHA512) while streaming."""
+
+    def __init__(self, stream):
+        self._stream = stream
+        self._crc = 0
+        self._md5 = hashlib.md5()
+        self._sha1 = hashlib.sha1()
+        self._sha256 = hashlib.sha256()
+        self._sha512 = hashlib.sha512()
+        self.bytes_read = 0
+
+    def read(self, size: int = -1) -> bytes:
+        chunk = self._stream.read(size)
+        if chunk:
+            self._crc = binascii.crc32(chunk, self._crc)
+            self._md5.update(chunk)
+            self._sha1.update(chunk)
+            self._sha256.update(chunk)
+            self._sha512.update(chunk)
+            self.bytes_read += len(chunk)
+        return chunk
+
+    def digests(self) -> dict:
+        return {
+            "crc32": "".join(f"{(self._crc >> i) & 0xFF:02X}" for i in (24, 16, 8, 0)),
+            "md5": self._md5.hexdigest(),
+            "sha1": self._sha1.hexdigest(),
+            "sha256": self._sha256.hexdigest(),
+            "sha512": self._sha512.hexdigest(),
+        }
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
 
 
 def store_temp_file(filedata: bytes, filename: str, path=None) -> bytes:

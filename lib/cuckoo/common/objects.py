@@ -237,6 +237,22 @@ class File:
                     break
                 yield chunk
 
+    def apply_hashes(self, hashes: dict):
+        """Populate cached hash attributes from a precomputed dict (e.g. streamed during upload)."""
+        if not hashes:
+            return self
+        for key, attr in (
+            ("crc32", "_crc32"),
+            ("md5", "_md5"),
+            ("sha1", "_sha1"),
+            ("sha256", "_sha256"),
+            ("sha512", "_sha512"),
+            ("sha3_384", "_sha3_384"),
+        ):
+            if hashes.get(key):
+                setattr(self, attr, hashes[key])
+        return self
+
     def calc_sha256(self) -> str:
         """Calculate and cache only SHA256 using streaming file_digest without running slower hashers."""
         if not self._sha256:

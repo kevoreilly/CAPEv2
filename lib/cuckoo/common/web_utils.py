@@ -35,6 +35,7 @@ from lib.cuckoo.common.path_utils import (
     path_write_file,
 )
 from lib.cuckoo.common.utils import (
+    SampleHashReader,
     generate_fake_name,
     get_cape_external_dir,
     get_ip_address,
@@ -1012,28 +1013,31 @@ def download_file(**kwargs):
             machine = None
 
         # Keep this as demux_sample_and_add_to_db in DB
-        task_ids_new, extra_details = db.demux_sample_and_add_to_db(
-            file_path=kwargs["path"],
-            package=package,
-            timeout=timeout,
-            options=kwargs["options"],
-            priority=priority,
-            machine=machine,
-            custom=custom,
-            platform=platform,
-            tags=tags,
-            memory=memory,
-            enforce_timeout=enforce_timeout,
-            clock=clock,
-            static=static,
-            tlp=tlp,
-            tags_tasks=tags_tasks,
-            route=route,
-            cape=cape,
-            user_id=kwargs.get("user_id"),
-            source_url=kwargs.get("source_url", False),
-            attributes=kwargs.get("attributes"),
-        )
+        demux_kwargs = {
+            "file_path": kwargs["path"],
+            "package": package,
+            "timeout": timeout,
+            "options": kwargs["options"],
+            "priority": priority,
+            "machine": machine,
+            "custom": custom,
+            "platform": platform,
+            "tags": tags,
+            "memory": memory,
+            "enforce_timeout": enforce_timeout,
+            "clock": clock,
+            "static": static,
+            "tlp": tlp,
+            "tags_tasks": tags_tasks,
+            "route": route,
+            "cape": cape,
+            "user_id": kwargs.get("user_id"),
+            "source_url": kwargs.get("source_url", False),
+            "attributes": kwargs.get("attributes"),
+        }
+        if kwargs.get("precomputed_hashes"):
+            demux_kwargs["precomputed_hashes"] = kwargs["precomputed_hashes"]
+        task_ids_new, extra_details = db.demux_sample_and_add_to_db(**demux_kwargs)
 
         try:
             save_script_to_storage(task_ids_new, kwargs)
@@ -1777,28 +1781,6 @@ def parse_request_arguments(request, keyword="POST"):
     )
 
 
-class _HashingReader:
-    """File-like wrapper that streams chunks while updating a hashlib object."""
-
-    def __init__(self, stream, hasher):
-        self._stream = stream
-        self._hasher = hasher
-        self.bytes_read = 0
-
-    def read(self, size: int = -1) -> bytes:
-        chunk = self._stream.read(size)
-        if chunk:
-            self._hasher.update(chunk)
-            self.bytes_read += len(chunk)
-        return chunk
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return False
-
-
 def process_new_task_files(request, samples: list, details: dict, opt_filename: str, unique: bool = False) -> tuple:
     """
     Processes new task files by validating and storing them.
@@ -1816,7 +1798,7 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
     The function performs the following steps:
         1. Checks if each sample file is empty and logs an error if so.
         2. Validates the size of each sample file against the configured maximum size.
-        3. Streams the data from each sample file to temporary storage while computing its SHA-256 hash.
+        3. Streams the data from each sample file to temporary storage while computing downstream SQL Sample hashes.
         4. Sanitizes the filename or uses the optional filename provided.
         5. Checks for duplicate file submissions if the unique flag is set.
         6. Appends the processed file reference (None for streamed content, path, and SHA-256 hash) to the list of files.
@@ -1853,11 +1835,13 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
             try:
                 with suppress(OSError, AttributeError):
                     sample.seek(0)
-                sha256_hasher = hashlib.sha256()
-                reader = _HashingReader(sample, sha256_hasher)
+                reader = SampleHashReader(sample)
                 path = store_temp_file(reader, filename)
                 if reader.bytes_read > 0:
-                    sha256 = sha256_hasher.hexdigest()
+                    sample_hashes = reader.digests()
+                    sha256 = sample_hashes["sha256"]
+                    path_key = path.decode("utf-8", "replace") if isinstance(path, bytes) else path
+                    details.setdefault("precomputed_hashes", {})[path_key] = sample_hashes
                 else:
                     sha256 = File(path).calc_sha256()
             except OSError:

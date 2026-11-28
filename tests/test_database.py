@@ -211,6 +211,68 @@ class TestDatabaseEngine:
             assert db.session.get(Task, before_id).target == "https://before.example/"
             assert db.session.get(Task, after_id).target == "https://after.example/"
 
+    def test_add_path_skips_extended_hashes_and_reuses_precomputed_hashes(
+        self, db: _Database, temp_filename: str, tmp_path, monkeypatch
+    ):
+        import io
+
+        from lib.cuckoo.common.utils import SampleHashReader
+
+        calc_calls = []
+        sha256_calls = []
+        orig_calc_hashes = tasking.File.calc_hashes
+        orig_calc_sha256 = tasking.File.calc_sha256
+
+        def spy_calc_hashes(file_self, include_extended=True):
+            calc_calls.append(include_extended)
+            return orig_calc_hashes(file_self, include_extended=include_extended)
+
+        def spy_calc_sha256(file_self):
+            sha256_calls.append(file_self.file_path)
+            return orig_calc_sha256(file_self)
+
+        monkeypatch.setattr(tasking.File, "calc_hashes", spy_calc_hashes)
+        monkeypatch.setattr(tasking.File, "calc_sha256", spy_calc_sha256)
+
+        # Direct add_path without precomputed hashes runs a single pass (no double read) and skips SHA3-384/TLSH.
+        task_id_1 = db.add_path(temp_filename)
+        assert task_id_1 is not None
+        assert calc_calls == [False]
+        assert sha256_calls == []
+
+        # Submitting with precomputed downstream hashes (streamed during upload) performs zero hashing reads in db.add().
+        new_sample = tmp_path / "streamed_new.bin"
+        payload = b"unique-streamed-sample-payload" * 16
+        new_sample.write_bytes(payload)
+        reader = SampleHashReader(io.BytesIO(payload))
+        while reader.read(1024):
+            pass
+        digests = reader.digests()
+
+        calc_calls.clear()
+        sha256_calls.clear()
+        task_id_2 = db.add_path(str(new_sample), file_hashes=digests)
+        assert task_id_2 is not None
+        assert calc_calls == []
+        assert sha256_calls == []
+
+        # Second insert of the same sample with precomputed hashes skips hashing and ssdeep completely.
+        ssdeep_calls = []
+        monkeypatch.setattr(tasking.File, "get_ssdeep", lambda _self: ssdeep_calls.append(1))
+        task_id_3 = db.add_path(str(new_sample), file_hashes=digests)
+        assert task_id_3 is not None
+        assert calc_calls == []
+        assert sha256_calls == []
+        assert ssdeep_calls == []
+
+        with db.session.begin():
+            sample_row = db.session.scalar(select(Sample).where(Sample.sha256 == digests["sha256"]))
+            assert sample_row is not None
+            assert sample_row.md5 == digests["md5"]
+            assert sample_row.crc32 == digests["crc32"]
+            assert sample_row.sha1 == digests["sha1"]
+            assert sample_row.sha512 == digests["sha512"]
+
 
     @pytest.mark.parametrize(
         "detected_platform",

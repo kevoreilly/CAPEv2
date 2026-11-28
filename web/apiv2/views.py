@@ -42,6 +42,7 @@ from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
+    SampleHashReader,
     convert_to_printable,
     create_zip,
     delete_folder,
@@ -244,7 +245,14 @@ def tasks_create_static(request):
     task_ids = []
     for sample in files:
         with sample:
-            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            with suppress(OSError, AttributeError):
+                sample.seek(0)
+            reader = SampleHashReader(sample)
+            tmp_path = store_temp_file(reader, sanitize_filename(sample.name))
+            precomputed_hashes = None
+            if reader.bytes_read > 0:
+                path_key = tmp_path.decode("utf-8", "replace") if isinstance(tmp_path, bytes) else tmp_path
+                precomputed_hashes = {path_key: reader.digests()}
             try:
                 task_id, extra_details = db.demux_sample_and_add_to_db(
                     tmp_path,
@@ -254,6 +262,7 @@ def tasks_create_static(request):
                     only_extraction=True,
                     user_id=request.user.id or 0,
                     attributes=attributes,
+                    precomputed_hashes=precomputed_hashes,
                 )
                 task_ids.extend(task_id)
                 if extra_details.get("erros"):
@@ -392,10 +401,12 @@ def tasks_create_file(request):
                     else:
                         details["error"].append({os.path.basename(tmp_path): "Failed to convert SAZ to PCAP"})
                         continue
+                path_key = tmp_path.decode("utf-8", "replace") if isinstance(tmp_path, bytes) else tmp_path
                 task_id = db.add_pcap(
                     file_path=tmp_path,
                     user_id=details["user_id"],
                     attributes=attributes,
+                    file_hashes=details.get("precomputed_hashes", {}).get(path_key),
                 )
                 details["task_ids"].append(task_id)
                 continue
@@ -405,6 +416,7 @@ def tasks_create_file(request):
                     priority=priority,
                     user_id=request.user.id or 0,
                     attributes=attributes,
+                    precomputed_hashes=details.get("precomputed_hashes"),
                 )
                 details["task_ids"].append(task_id)
                 continue

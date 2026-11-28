@@ -29,10 +29,13 @@ from lib.cuckoo.common.path_utils import (
     magic_from_file,
     path_exists,
     path_get_filename,
+    path_get_size,
+    path_is_file,
     path_mkdir,
     path_write_file,
 )
 from lib.cuckoo.common.utils import (
+    SampleHashReader,
     generate_fake_name,
     get_cape_external_dir,
     get_ip_address,
@@ -906,15 +909,26 @@ def download_file(**kwargs):
         else:
             return "error", {"error": f"Was impossible to download from {kwargs['service']}"}
 
-    if not kwargs.get("content"):
+    raw_path = kwargs.get("path", "")
+    path = raw_path if isinstance(raw_path, str) else raw_path.decode()
+    path_on_disk = bool(path and path_exists(path) and path_is_file(path) and path_get_size(path) > 0)
+
+    if not kwargs.get("content") and not path_on_disk:
         return "error", {"error": f"Error downloading file from {kwargs['service']}"}
     try:
         if kwargs.get("fhash", False):
-            retrieved_hash = hashes[len(kwargs["fhash"])](kwargs["content"]).hexdigest()
+            hash_algo = hashes[len(kwargs["fhash"])]
+            if kwargs.get("content"):
+                retrieved_hash = hash_algo(kwargs["content"]).hexdigest()
+            else:
+                hasher = hash_algo()
+                with open(path, "rb") as fh:
+                    while chunk := fh.read(1024 * 1024):
+                        hasher.update(chunk)
+                retrieved_hash = hasher.hexdigest()
             if retrieved_hash != kwargs["fhash"].lower():
                 return "error", {"error": f"Hashes mismatch, original hash: {kwargs['fhash']} - retrieved hash: {retrieved_hash}"}
 
-        path = kwargs.get("path") if isinstance(kwargs.get("path", ""), str) else kwargs.get("path").decode()
         if not path_exists(path):
             _ = path_write_file(path, kwargs["content"])
     except Exception as e:
@@ -999,28 +1013,31 @@ def download_file(**kwargs):
             machine = None
 
         # Keep this as demux_sample_and_add_to_db in DB
-        task_ids_new, extra_details = db.demux_sample_and_add_to_db(
-            file_path=kwargs["path"],
-            package=package,
-            timeout=timeout,
-            options=kwargs["options"],
-            priority=priority,
-            machine=machine,
-            custom=custom,
-            platform=platform,
-            tags=tags,
-            memory=memory,
-            enforce_timeout=enforce_timeout,
-            clock=clock,
-            static=static,
-            tlp=tlp,
-            tags_tasks=tags_tasks,
-            route=route,
-            cape=cape,
-            user_id=kwargs.get("user_id"),
-            source_url=kwargs.get("source_url", False),
-            attributes=kwargs.get("attributes"),
-        )
+        demux_kwargs = {
+            "file_path": kwargs["path"],
+            "package": package,
+            "timeout": timeout,
+            "options": kwargs["options"],
+            "priority": priority,
+            "machine": machine,
+            "custom": custom,
+            "platform": platform,
+            "tags": tags,
+            "memory": memory,
+            "enforce_timeout": enforce_timeout,
+            "clock": clock,
+            "static": static,
+            "tlp": tlp,
+            "tags_tasks": tags_tasks,
+            "route": route,
+            "cape": cape,
+            "user_id": kwargs.get("user_id"),
+            "source_url": kwargs.get("source_url", False),
+            "attributes": kwargs.get("attributes"),
+        }
+        if kwargs.get("precomputed_hashes"):
+            demux_kwargs["precomputed_hashes"] = kwargs["precomputed_hashes"]
+        task_ids_new, extra_details = db.demux_sample_and_add_to_db(**demux_kwargs)
 
         try:
             save_script_to_storage(task_ids_new, kwargs)
@@ -1781,11 +1798,10 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
     The function performs the following steps:
         1. Checks if each sample file is empty and logs an error if so.
         2. Validates the size of each sample file against the configured maximum size.
-        3. Reads the data from each sample file.
+        3. Streams the data from each sample file to temporary storage while computing downstream SQL Sample hashes.
         4. Sanitizes the filename or uses the optional filename provided.
-        5. Stores the sample file in temporary storage and calculates its SHA-256 hash.
-        6. Checks for duplicate file submissions if the unique flag is set.
-        7. Appends the processed file data, path, and SHA-256 hash to the list of files.
+        5. Checks for duplicate file submissions if the unique flag is set.
+        6. Appends the processed file reference (None for streamed content, path, and SHA-256 hash) to the list of files.
 
     Errors encountered during processing are appended to the details dictionary.
     """
@@ -1810,8 +1826,6 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
                     )
                     continue
 
-            data = sample.read()
-
             if opt_filename:
                 filename = opt_filename
             else:
@@ -1819,9 +1833,17 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
 
             # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
             try:
-                path = store_temp_file(data, filename)
-                target_file = File(path)
-                sha256 = target_file.get_sha256()
+                with suppress(OSError, AttributeError):
+                    sample.seek(0)
+                reader = SampleHashReader(sample)
+                path = store_temp_file(reader, filename)
+                if reader.bytes_read > 0:
+                    sample_hashes = reader.digests()
+                    sha256 = sample_hashes["sha256"]
+                    path_key = path.decode("utf-8", "replace") if isinstance(path, bytes) else path
+                    details.setdefault("precomputed_hashes", {})[path_key] = sample_hashes
+                else:
+                    sha256 = File(path).calc_sha256()
             except OSError:
                 details["errors"].append(
                     {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
@@ -1838,7 +1860,7 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
                 )
                 continue
 
-            list_of_files.append((data, path, sha256))
+            list_of_files.append((None, path, sha256))
 
     return list_of_files, details
 
@@ -1905,7 +1927,7 @@ def init_static_analysis_storage(task, sha256: str = "") -> bool:
             sha256 = getattr(sample, "sha256", "") or ""
         if not sha256 and target and path_exists(target):
             with suppress(Exception):
-                sha256 = File(target).get_sha256()
+                sha256 = File(target).calc_sha256()
 
     binaries_dir = os.path.join(root_dir, "storage", "binaries")
     path_mkdir(binaries_dir, exist_ok=True)

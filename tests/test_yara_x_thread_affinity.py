@@ -258,3 +258,26 @@ def test_init_yara_and_get_yara_support_filename_global(monkeypatch, tmp_path):
     assert [
         m["name"] for m in File(str(other_sample)).get_yara("binaries", externals={"filename": "target_name.bin"})
     ] == ["by_filename"]
+
+
+def test_get_yara_x_reads_matched_slices_without_loading_file_data(monkeypatch, sample):
+    """YARA-X match extraction must seek/read matched ranges instead of loading the entire file into RAM."""
+    from pathlib import Path
+
+    from lib.cuckoo.common.objects import File
+
+    monkeypatch.setattr(File, "yara_rules", {"binaries": yara_x.compile(RULE)})
+    monkeypatch.setattr(File, "yara_initialized", True)
+    monkeypatch.setattr(
+        Path,
+        "read_bytes",
+        lambda _self: (_ for _ in ()).throw(AssertionError("get_yara() must not call Path.read_bytes()")),
+    )
+
+    scanner_file = File(sample)
+    matches = scanner_file.get_yara("binaries")
+    assert len(matches) == 1
+    assert matches[0]["name"] == "marla"
+    assert matches[0]["strings"] == ["needle"]
+    assert matches[0]["addresses"] == {"a": 4}
+    assert scanner_file._file_data is None

@@ -244,7 +244,9 @@ def tasks_create_static(request):
     task_ids = []
     for sample in files:
         with sample:
-            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            with suppress(OSError, AttributeError):
+                sample.seek(0)
+            tmp_path = store_temp_file(sample, sanitize_filename(sample.name))
             try:
                 task_id, extra_details = db.demux_sample_and_add_to_db(
                     tmp_path,

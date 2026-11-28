@@ -20,14 +20,13 @@ sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.path_utils import path_delete, path_exists
+from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_is_file
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
     download_file,
     download_from_3rdparty,
     downloader_services,
-    get_file_content,
     load_vms_exits,
     load_vms_tags,
     parse_request_arguments,
@@ -613,8 +612,13 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["errors"].append({hash: "File not found on hdd for resubmission"})
                     continue
 
-                content = get_file_content(paths)
-                if not content:
+                source_path = None
+                for candidate in paths:
+                    candidate_str = candidate.decode() if isinstance(candidate, bytes) else candidate
+                    if path_exists(candidate_str) and path_is_file(candidate_str) and path_get_size(candidate_str) > 0:
+                        source_path = candidate_str
+                        break
+                if not source_path:
                     details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
                 if opt_filename:
@@ -627,8 +631,9 @@ def index(request, task_id=None, resubmit_hash=None):
                         if task and task.target:
                             original_filename = sanitize_filename(os.path.basename(task.target))
                     filename = original_filename or sanitize_filename(hash)
-                path = store_temp_file(content, filename)
-                list_of_tasks.append((content, path, hash))
+                with open(source_path, "rb") as fh:
+                    path = store_temp_file(fh, filename)
+                list_of_tasks.append((None, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
         if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "downloading_service"):

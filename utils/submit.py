@@ -58,7 +58,7 @@ def submit_file(
 
     if unique:
         with db.session.begin():
-            already_exists = db.check_file_uniq(File(file_path).get_sha256())
+            already_exists = db.check_file_uniq(File(file_path).calc_sha256())
         if already_exists:
             msg = ": Sample {0} (skipping file)".format(file_path)
             if not quiet:
@@ -78,7 +78,7 @@ def submit_file(
         with open(file_path, "rb") as f:
             if not filename:
                 filename = os.path.basename(file_path)
-            tmp_path = store_temp_file(f.read(), sanitize_filename(filename))
+            tmp_path = store_temp_file(f, sanitize_filename(filename))
 
         with db.session.begin():
             # ToDo expose extra_details["errors"]

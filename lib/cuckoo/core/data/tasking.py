@@ -156,18 +156,18 @@ class TasksMixIn:
 
         with self.session.begin():
             if isinstance(obj, (File, PCAP, Static)):
-                fileobj = File(obj.file_path)
-                file_type = fileobj.get_type()
-                file_md5 = fileobj.get_md5()
-                file_sha256 = fileobj.get_sha256()
+                fileobj = obj if isinstance(obj, File) else File(obj.file_path)
+                file_sha256 = fileobj.calc_sha256()
                 # check if hash is known already
                 # ToDo consider migrate to _get_or_create?
                 sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
                 if not sample:
+                    file_type = fileobj.get_type()
+                    fileobj.calc_hashes(include_extended=False)
                     try:
                         with self.session.begin_nested():
                             sample = Sample(
-                                md5=file_md5,
+                                md5=fileobj.get_md5(),
                                 crc32=fileobj.get_crc32(),
                                 sha1=fileobj.get_sha1(),
                                 sha256=file_sha256,

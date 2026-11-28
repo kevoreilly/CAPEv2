@@ -576,5 +576,116 @@ def test_get_running_commit_packed_refs_non_utf8_comment(tmp_path):
     assert get_running_commit(tmp_path) == sha
 
 
+def test_process_new_task_files_streams_without_full_read(tmp_path, monkeypatch):
+    """process_new_task_files must stream uploads in chunks without calling read() on the whole file."""
+    import hashlib
+    import io
+    from types import SimpleNamespace
+
+    from lib.cuckoo.common.web_utils import process_new_task_files
+
+    payload = b"ABCD" * 2048
+    expected_sha256 = hashlib.sha256(payload).hexdigest()
+
+    class ChunkOnlyUpload:
+        name = "big_sample.run"
+        size = len(payload)
+
+        def __init__(self, data: bytes):
+            self._buf = io.BytesIO(data)
+            self.read_sizes = []
+
+        def seek(self, pos: int):
+            return self._buf.seek(pos)
+
+        def read(self, size: int = -1) -> bytes:
+            if size is None or size < 0:
+                raise AssertionError("Unbounded sample.read() must not be called")
+            self.read_sizes.append(size)
+            return self._buf.read(size)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self._buf.close()
+            return False
+
+    monkeypatch.setattr("lib.cuckoo.common.utils.config.cuckoo.tmppath", str(tmp_path))
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.web_cfg.general.max_sample_size", len(payload) + 1024)
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.web_cfg.uniq_submission.enabled", False)
+
+    upload = ChunkOnlyUpload(payload)
+    request = SimpleNamespace(user=SimpleNamespace(is_staff=True))
+    details = {"errors": [], "options": ""}
+
+    files_out, details_out = process_new_task_files(request, [upload], details, opt_filename="", unique=False)
+    assert details_out["errors"] == []
+    assert len(files_out) == 1
+    content, stored_path, sha256 = files_out[0]
+    assert content is None
+    assert sha256 == expected_sha256
+    assert Path(stored_path.decode()).read_bytes() == payload
+    assert upload.read_sizes and all(s > 0 for s in upload.read_sizes)
+
+
+def test_download_file_accepts_streamed_path_without_content_and_verifies_fhash(tmp_path, monkeypatch):
+    """download_file must accept an already-stored file on disk when content=None and verify fhash via streaming."""
+    import hashlib
+
+    sample = tmp_path / "streamed.run"
+    payload = b"streamed-archive-payload" * 64
+    sample.write_bytes(payload)
+    expected_sha256 = hashlib.sha256(payload).hexdigest()
+
+    observed = {}
+
+    class FakeDatabase:
+        def identify_submission_package(self, *_args, **_kwargs):
+            return "archive", False, False
+
+        def demux_sample_and_add_to_db(self, **kwargs):
+            observed.update(kwargs)
+            return [301], {}
+
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.DYNAMIC_PLATFORM_DETERMINATION", False)
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.get_magic_type", lambda _path: "data")
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.load_vms_exits", lambda: {})
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.save_script_to_storage", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("lib.cuckoo.common.web_utils.db", FakeDatabase())
+
+    request = SubmissionRequest()
+    status, result = download_file(
+        request=request,
+        content=None,
+        path=str(sample),
+        service="tasks_create_file_API",
+        options="",
+        task_ids=[],
+        errors=[],
+        url=False,
+        fhash=expected_sha256,
+    )
+    assert status == "ok"
+    assert result["task_ids"] == [301]
+    assert observed["file_path"] == str(sample)
+
+    # Missing or empty file with content=None must still fail.
+    empty_file = tmp_path / "empty.run"
+    empty_file.write_bytes(b"")
+    err_status, _ = download_file(
+        request=request,
+        content=None,
+        path=str(empty_file),
+        service="tasks_create_file_API",
+        options="",
+        task_ids=[],
+        errors=[],
+        url=False,
+        fhash=False,
+    )
+    assert err_status == "error"
+
+
 if __name__ == "__main__":
     unittest.main()

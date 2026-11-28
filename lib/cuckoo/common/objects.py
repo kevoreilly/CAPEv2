@@ -29,7 +29,7 @@ from lib.cuckoo.common.defines import (
 )
 from lib.cuckoo.common.integrations.clamav import get_clamav
 from lib.cuckoo.common.integrations.magika import MAGIKA_ENABLED, magika_info
-from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
+from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, PE_HEADER_LIMIT, IsPEImage
 from lib.cuckoo.common.path_utils import magic_from_file, path_exists
 
 try:
@@ -205,6 +205,8 @@ class File:
         self._sha1 = None
         self._sha256 = None
         self._sha512 = None
+        self._sha3_384 = None
+        self._extended_hashes_calculated = False
         self._pefile = False
         self.file_type = None
         self._magika = None
@@ -235,38 +237,56 @@ class File:
                     break
                 yield chunk
 
-    def calc_hashes(self):
-        """Calculate all possible hashes for this file."""
+    def calc_sha256(self) -> str:
+        """Calculate and cache only SHA256 using streaming file_digest without running slower hashers."""
+        if not self._sha256:
+            with open(self.file_path, "rb") as fd:
+                self._sha256 = hashlib.file_digest(fd, "sha256").hexdigest()
+        return self._sha256
+
+    def calc_hashes(self, include_extended: bool = True):
+        """Calculate all possible hashes for this file.
+
+        Args:
+            include_extended: When True (default), also compute SHA3-384 and TLSH.
+                Set False when only SQL Sample columns (CRC32/MD5/SHA1/SHA256/SHA512) are needed.
+        """
         crc = 0
         md5 = hashlib.md5()
         sha1 = hashlib.sha1()
-        sha256 = hashlib.sha256()
+        compute_sha256 = not self._sha256
+        sha256 = hashlib.sha256() if compute_sha256 else None
         sha512 = hashlib.sha512()
-        sha3_384 = hashlib.sha3_384()
+        sha3_384 = hashlib.sha3_384() if include_extended else None
 
-        if HAVE_TLSH:
-            tlsh_hash = tlsh.Tlsh()
+        tlsh_hash = tlsh.Tlsh() if (include_extended and HAVE_TLSH) else None
 
-        for chunk in self.get_chunks():
+        for chunk in self.get_chunks(size=1024):
             crc = binascii.crc32(chunk, crc)
             md5.update(chunk)
             sha1.update(chunk)
-            sha256.update(chunk)
+            if sha256 is not None:
+                sha256.update(chunk)
             sha512.update(chunk)
-            sha3_384.update(chunk)
-            if HAVE_TLSH:
+            if sha3_384 is not None:
+                sha3_384.update(chunk)
+            if tlsh_hash is not None:
                 tlsh_hash.update(chunk)
 
         self._crc32 = "".join(f"{(crc >> i) & 0xFF:02X}" for i in (24, 16, 8, 0))
         self._md5 = md5.hexdigest()
         self._sha1 = sha1.hexdigest()
-        self._sha256 = sha256.hexdigest()
+        if sha256 is not None:
+            self._sha256 = sha256.hexdigest()
         self._sha512 = sha512.hexdigest()
-        self._sha3_384 = sha3_384.hexdigest()
-        if HAVE_TLSH:
+        if sha3_384 is not None:
+            self._sha3_384 = sha3_384.hexdigest()
+        if tlsh_hash is not None:
             with contextlib.suppress(ValueError):
                 tlsh_hash.final()
                 self._tlsh_hash = tlsh_hash.hexdigest()
+        if include_extended:
+            self._extended_hashes_calculated = True
 
     @property
     def file_data(self):
@@ -376,11 +396,23 @@ class File:
             return self.file_type
         if self.file_path:
             try:
-                if IsPEImage(self.file_data):
+                # IsPEImage only inspects up to PE_HEADER_LIMIT + 256 bytes; avoid reading multi-GB files into RAM.
+                header_size = PE_HEADER_LIMIT + 256
+                if self._file_data:
+                    header = self._file_data[:header_size]
+                elif self.path_object.is_file():
+                    with open(self.file_path, "rb") as fd:
+                        header = fd.read(header_size)
+                else:
+                    header = b""
+                if IsPEImage(header):
                     self._pefile = True
                     if HAVE_PEFILE:
                         try:
-                            self.pe = pefile.PE(data=self.file_data, fast_load=True)
+                            if self._file_data:
+                                self.pe = pefile.PE(data=self._file_data, fast_load=True)
+                            else:
+                                self.pe = pefile.PE(self.file_path_ansii, fast_load=True)
                         except pefile.PEFormatError:
                             self.file_type = "PE image for MS Windows"
                             log.debug("Unable to instantiate pefile on image: %s", self.file_path)
@@ -676,28 +708,37 @@ class File:
                     with contextlib.suppress(ValueError):
                         scanner.set_global(ext_k, ext_v)
                 yara_results = scanner.scan_file(self.file_path)
-                for match in yara_results.matching_rules:
-                    strings = []
-                    addresses = {}
-                    for yara_string in match.patterns:
-                        for x in yara_string.matches:
-                            matched_bytes = b""
-                            if self.file_data and len(self.file_data) >= x.offset + x.length:
-                                matched_bytes = self.file_data[x.offset : x.offset + x.length]
-                                if getattr(x, "xor_key", None) is not None:
-                                    matched_bytes = bytes(b ^ x.xor_key for b in matched_bytes)
-                            y_string = self._yara_encode_string(matched_bytes)
-                            if y_string not in strings:
-                                strings.append(y_string)
-                            addresses.update({yara_string.identifier.strip("$"): x.offset})
-                    results.append(
-                        {
-                            "name": match.identifier,
-                            "meta": dict(match.metadata),
-                            "strings": strings,
-                            "addresses": addresses,
-                        }
-                    )
+                file_size = len(self._file_data) if self._file_data else os.path.getsize(self.file_path)
+                with contextlib.ExitStack() as stack:
+                    fd = None
+                    if not self._file_data and yara_results.matching_rules:
+                        fd = stack.enter_context(open(self.file_path, "rb"))
+                    for match in yara_results.matching_rules:
+                        strings = []
+                        addresses = {}
+                        for yara_string in match.patterns:
+                            for x in yara_string.matches:
+                                matched_bytes = b""
+                                if x.offset >= 0 and x.length > 0 and file_size >= x.offset + x.length:
+                                    if self._file_data:
+                                        matched_bytes = self._file_data[x.offset : x.offset + x.length]
+                                    elif fd is not None:
+                                        fd.seek(x.offset)
+                                        matched_bytes = fd.read(x.length)
+                                    if getattr(x, "xor_key", None) is not None:
+                                        matched_bytes = bytes(b ^ x.xor_key for b in matched_bytes)
+                                y_string = self._yara_encode_string(matched_bytes)
+                                if y_string not in strings:
+                                    strings.append(y_string)
+                                addresses.update({yara_string.identifier.strip("$"): x.offset})
+                        results.append(
+                            {
+                                "name": match.identifier,
+                                "meta": dict(match.metadata),
+                                "strings": strings,
+                                "addresses": addresses,
+                            }
+                        )
             elif HAVE_YARA:
                 for match in rules.match(self.file_path_ansii, externals=externals):
                     strings = []
@@ -761,11 +802,9 @@ class File:
         Get TLSH.
         @return: TLSH.
         """
-        if not hasattr(self, "_tlsh_hash"):
-            return None
-        if not self._tlsh_hash:
-            self.calc_hashes()
-        return self._tlsh_hash
+        if not self._extended_hashes_calculated and self.path_object.is_file():
+            self.calc_hashes(include_extended=True)
+        return getattr(self, "_tlsh_hash", None)
 
     def get_rh_hash(self):
         if not self.pe:

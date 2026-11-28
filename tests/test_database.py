@@ -211,6 +211,31 @@ class TestDatabaseEngine:
             assert db.session.get(Task, before_id).target == "https://before.example/"
             assert db.session.get(Task, after_id).target == "https://after.example/"
 
+    def test_add_path_skips_extended_hashes_and_reuses_existing_sample_without_rehashing(
+        self, db: _Database, temp_filename: str, monkeypatch
+    ):
+        calc_calls = []
+        orig_calc_hashes = tasking.File.calc_hashes
+
+        def spy_calc_hashes(file_self, include_extended=True):
+            calc_calls.append(include_extended)
+            return orig_calc_hashes(file_self, include_extended=include_extended)
+
+        monkeypatch.setattr(tasking.File, "calc_hashes", spy_calc_hashes)
+
+        # First insert computes only SQL Sample hashes (no SHA3-384/TLSH).
+        task_id_1 = db.add_path(temp_filename)
+        assert task_id_1 is not None
+        assert calc_calls == [False]
+
+        # Second insert of the same SHA-256 finds the existing Sample and skips calc_hashes + ssdeep.
+        ssdeep_calls = []
+        monkeypatch.setattr(tasking.File, "get_ssdeep", lambda _self: ssdeep_calls.append(1))
+        task_id_2 = db.add_path(temp_filename)
+        assert task_id_2 is not None
+        assert calc_calls == [False]
+        assert ssdeep_calls == []
+
 
     @pytest.mark.parametrize(
         "detected_platform",

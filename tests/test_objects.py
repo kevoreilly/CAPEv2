@@ -296,6 +296,98 @@ class TestFiles:
     def test_predict_arch_none(self, empty_file):
         assert None is empty_file["file"].predict_arch()
 
+    def test_get_type_does_not_read_full_file_into_memory(self, tmp_path, temp_pe64, monkeypatch):
+        """File.get_type() must inspect only the PE header slice / mmap instead of calling read_bytes()."""
+        archive = tmp_path / "large.bin"
+        archive.write_bytes(b"NOT_A_PE_ARCHIVE" * 1024)
+
+        def fail_read_bytes(_self):
+            raise AssertionError("File.get_type() must not call Path.read_bytes() on the entire file")
+
+        monkeypatch.setattr(pathlib.Path, "read_bytes", fail_read_bytes)
+
+        non_pe = File(str(archive))
+        assert non_pe.get_type() is not None
+        assert non_pe._file_data is None
+        assert non_pe.pe is None
+
+        pe_file = File(temp_pe64)
+        assert pe_file.get_type() == "PE32+ executable (GUI) x86-64, for MS Windows"
+        assert pe_file._file_data is None
+        assert pe_file.pe is not None
+
+    def test_calc_sha256_and_calc_hashes_without_extended(self, tmp_path):
+        """calc_sha256() and calc_hashes(include_extended=False) skip slower extended hashers until requested."""
+        import hashlib
+
+        payload = bytes(range(256)) * 2048  # 512 KiB so TLSH has enough entropy
+        sample = tmp_path / "payload.bin"
+        sample.write_bytes(payload)
+
+        f_fast = File(str(sample))
+        assert f_fast.calc_sha256() == hashlib.sha256(payload).hexdigest()
+        assert f_fast._md5 is None
+        assert f_fast._extended_hashes_calculated is False
+
+        f_fast.calc_hashes(include_extended=False)
+        assert f_fast._md5 == hashlib.md5(payload).hexdigest()
+        assert f_fast._sha1 == hashlib.sha1(payload).hexdigest()
+        assert f_fast._sha512 == hashlib.sha512(payload).hexdigest()
+        assert f_fast._sha3_384 is None
+        assert f_fast._extended_hashes_calculated is False
+
+        f_full = File(str(sample))
+        f_full.calc_hashes(include_extended=True)
+        assert f_fast.get_crc32() == f_full.get_crc32()
+        assert f_fast.get_sha3_384() == f_full.get_sha3_384()
+        assert f_fast.get_tlsh() == f_full.get_tlsh()
+        assert f_fast._extended_hashes_calculated is True
+
+    def test_get_yara_x_reads_match_slices_without_loading_file_data(self, tmp_path, monkeypatch):
+        """YARA-X branch must seek/read matched byte slices (incl. xor_key) without calling Path.read_bytes()."""
+        from types import SimpleNamespace
+
+        from lib.cuckoo.common import objects as objects_mod
+
+        raw = b"0123" + bytes(b ^ 0x5A for b in b"secret") + b"tail"
+        sample = tmp_path / "yara_x_slice.bin"
+        sample.write_bytes(raw)
+
+        class FakeScanner:
+            def __init__(self, _rules):
+                pass
+
+            def set_global(self, _k, _v):
+                pass
+
+            def scan_file(self, _path):
+                match_obj = SimpleNamespace(offset=4, length=6, xor_key=0x5A)
+                pattern = SimpleNamespace(identifier="$s", matches=[match_obj])
+                rule = SimpleNamespace(identifier="xor_hit", metadata={"author": "test"}, patterns=[pattern])
+                return SimpleNamespace(matching_rules=[rule])
+
+        fake_yara_x = SimpleNamespace(
+            Scanner=FakeScanner,
+            CompileError=RuntimeError,
+            ScanError=RuntimeError,
+            TimeoutError=RuntimeError,
+        )
+
+        monkeypatch.setattr(objects_mod, "HAVE_YARA_X", True)
+        monkeypatch.setattr(objects_mod, "yara_x", fake_yara_x)
+        monkeypatch.setattr(File, "yara_initialized", True)
+        monkeypatch.setattr(File, "yara_rules", {"binaries": object()})
+        monkeypatch.setattr(
+            pathlib.Path,
+            "read_bytes",
+            lambda _self: (_ for _ in ()).throw(AssertionError("get_yara() must not read entire file")),
+        )
+
+        f = File(str(sample))
+        hits = f.get_yara("binaries")
+        assert hits == [{"name": "xor_hit", "meta": {"author": "test"}, "strings": ["secret"], "addresses": {"s": 4}}]
+        assert f._file_data is None
+
 
 class TestMisc:
     def test_yara_encode_string_deal_with_error(self):

@@ -44,6 +44,18 @@ def _file_sha256(file_path: str) -> str:
         return ""
 
 
+def _is_floss_supported_pe(file_path: str) -> bool:
+    """Return whether FLOSS loads file_path as a PE file, for FLOSS 3.1 and 3.2.
+
+    FLOSS 3.2.0 replaced the boolean is_supported_file_type() with get_file_type(), which
+    returns the file magic, or a truthy marker for unsupported files.
+    """
+    path = Path(file_path)
+    if hasattr(fm, "is_supported_file_type"):
+        return bool(fm.is_supported_file_type(path))
+    return fm.get_file_type(path) == fm.SUPPORTED_FILE_MAGIC_PE
+
+
 def _run_floss_analysis(
     file_path: str,
     package: str,
@@ -61,7 +73,7 @@ def _run_floss_analysis(
     results: dict = {}
     log_configured = False
     try:
-        if not fm.is_supported_file_type(Path(file_path)):
+        if not _is_floss_supported_pe(file_path):
             if package == "shellcode":
                 fileformat = "sc32"
             elif package == "shellcode_x64":
@@ -153,11 +165,10 @@ def _is_supported_floss_input(file_path: str, package: str) -> bool:
     """Cheap parent-side file-type check to avoid spawning a FLOSS child on unsupported files."""
     if package in ("shellcode", "shellcode_x64"):
         return True
-    floss_main = globals().get("fm")
-    if floss_main is None or not hasattr(floss_main, "is_supported_file_type"):
+    if globals().get("fm") is None:
         return True
     try:
-        return bool(floss_main.is_supported_file_type(Path(file_path)))
+        return _is_floss_supported_pe(file_path)
     except Exception:
         return False
 

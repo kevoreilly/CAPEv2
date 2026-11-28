@@ -301,3 +301,344 @@ def test_archive_skips_shared_libraries_and_caps_max_executables(prepare_archive
     finally:
         package.finish()
 
+
+def test_archive_stdlib_zip_tar_and_gzip_fallbacks_without_7z(monkeypatch, tmp_path):
+    import gzip
+    import io
+    import tarfile
+    from zipfile import ZipFile
+
+    monkeypatch.setattr(abstracts, "NetlogFile", Mock)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    upload = Mock()
+    monkeypatch.setattr(archive, "upload_extracted_files", upload)
+
+    # 1. ZIP fallback + zip-slip rejection
+    zip_path = tmp_path / "sample.zip"
+    with ZipFile(zip_path, "w") as zf:
+        zf.writestr("run.sh", "echo ok\n")
+        zf.writestr("../escape.sh", "echo bad\n")
+
+    pkg = archive.Archive(options={})
+    pkg.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("not installed"))
+    pkg.execute = Mock(return_value=6001)
+    try:
+        assert pkg.start(str(zip_path)) == [6001]
+        assert upload.call_args.args[1] == ["run.sh"]
+        assert not (tmp_path / "escape.sh").exists()
+    finally:
+        pkg.finish()
+
+    # 2. TAR.GZ fallback + tar-slip rejection
+    tar_path = tmp_path / "sample.tar.gz"
+    with tarfile.open(tar_path, "w:gz") as tf:
+        info = tarfile.TarInfo("run.sh")
+        data = b"echo tar\n"
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+        bad = tarfile.TarInfo("../tar_escape.sh")
+        bad.size = len(data)
+        tf.addfile(bad, io.BytesIO(data))
+
+    pkg_tar = archive.Archive(options={})
+    pkg_tar.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("not installed"))
+    pkg_tar.execute = Mock(return_value=6002)
+    try:
+        assert pkg_tar.start(str(tar_path)) == [6002]
+        assert upload.call_args.args[1] == ["run.sh"]
+        assert not (tmp_path / "tar_escape.sh").exists()
+    finally:
+        pkg_tar.finish()
+
+    # 3. Single-file gzip stream fallback
+    gz_path = tmp_path / "drop.sh.gz"
+    with gzip.open(gz_path, "wb") as gf:
+        gf.write(b"echo gz\n")
+
+    pkg_gz = archive.Archive(options={})
+    pkg_gz.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("not installed"))
+    pkg_gz.execute = Mock(return_value=6003)
+    try:
+        assert pkg_gz.start(str(gz_path)) == [6003]
+        assert upload.call_args.args[1] == ["drop.sh"]
+    finally:
+        pkg_gz.finish()
+
+
+def test_archive_explicit_extractor_disables_fallback(monkeypatch, tmp_path):
+    from zipfile import ZipFile
+
+    monkeypatch.setattr(abstracts, "NetlogFile", Mock)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr(archive, "upload_extracted_files", Mock())
+
+    zip_path = tmp_path / "sample.zip"
+    with ZipFile(zip_path, "w") as zf:
+        zf.writestr("run.sh", "echo ok\n")
+
+    pkg = archive.Archive(options={"extractor": "7z"})
+    pkg.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("not installed"))
+    with pytest.raises(archive.CuckooPackageError, match="7z"):
+        pkg.start(str(zip_path))
+
+    pkg_bad = archive.Archive(options={"extractor": "unknown"})
+    with pytest.raises(archive.CuckooPackageError, match="Unsupported extractor"):
+        pkg_bad.start(str(zip_path))
+
+
+def test_archive_recursion_without_file_util_and_single_member_unwrap(monkeypatch, tmp_path):
+    import io
+    from zipfile import ZipFile
+
+    monkeypatch.setattr(abstracts, "NetlogFile", Mock)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    upload = Mock()
+    monkeypatch.setattr(archive, "upload_extracted_files", upload)
+
+    inner = io.BytesIO()
+    with ZipFile(inner, "w") as zf:
+        zf.writestr("deep.sh", "echo deep\n")
+
+    jar_buf = io.BytesIO()
+    with ZipFile(jar_buf, "w") as jf:
+        jf.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+
+    outer = tmp_path / "outer.zip"
+    with ZipFile(outer, "w") as zf:
+        zf.writestr("inner.zip", inner.getvalue())
+        zf.writestr("app.jar", jar_buf.getvalue())
+
+    pkg = archive.Archive(options={"recursion_depth": 1})
+    pkg.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("missing"))
+    pkg.execute = Mock(return_value=7001)
+    try:
+        assert pkg.start(str(outer)) == [7001, 7001]
+        uploaded = upload.call_args.args[1]
+        assert any(name.endswith("deep.sh") for name in uploaded)
+        assert "app.jar" in uploaded
+        assert not any("MANIFEST.MF" in name for name in uploaded)
+    finally:
+        pkg.finish()
+
+    single_wrap = tmp_path / "single.zip"
+    with ZipFile(single_wrap, "w") as zf:
+        zf.writestr("inner.zip", inner.getvalue())
+
+    pkg_default = archive.Archive(options={})
+    pkg_default.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("missing"))
+    pkg_default.execute = Mock(return_value=7002)
+    try:
+        assert pkg_default.start(str(single_wrap)) == [7002]
+        assert any(name.endswith("deep.sh") for name in upload.call_args.args[1])
+    finally:
+        pkg_default.finish()
+
+    pkg_zero = archive.Archive(options={"recursion_depth": 0})
+    pkg_zero.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("missing"))
+    pkg_zero.execute = Mock(return_value=7003)
+    try:
+        assert pkg_zero.start(str(single_wrap)) == []
+        assert upload.call_args.args[1] == ["inner.zip"]
+    finally:
+        pkg_zero.finish()
+
+
+def test_wget_delegates_to_common_archive_package(monkeypatch, tmp_path):
+    from zipfile import ZipFile
+    from lib.core import packages as core_packages
+    from modules.packages import wget
+
+    monkeypatch.setattr(abstracts, "NetlogFile", Mock)
+    monkeypatch.setattr(core_packages, "NetlogFile", Mock)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr(archive, "upload_extracted_files", Mock())
+
+    zip_path = tmp_path / "file_malwr"
+    with ZipFile(zip_path, "w") as zf:
+        zf.writestr("run.sh", "echo wget\n")
+
+    monkeypatch.setattr(wget, "system", lambda _cmd: 0)
+    monkeypatch.setattr(wget, "chmod", lambda _p, _m: None)
+    monkeypatch.setattr(wget, "_fileinfo", lambda _p: "Zip archive data")
+
+    pkg = wget.Wget("http://example.invalid/a.zip", options={})
+    monkeypatch.setattr(
+        archive.Archive,
+        "get_path_app_in_path",
+        lambda self, app: (_ for _ in ()).throw(archive.CuckooPackageError("missing")),
+    )
+    monkeypatch.setattr(archive.Archive, "execute", lambda self, cmd: 8123)
+
+    orig_prepare = pkg.prepare
+
+    def patched_prepare():
+        orig_prepare()
+        pkg.target = str(zip_path)
+
+    pkg.prepare = patched_prepare
+    try:
+        assert pkg.start() == [8123]
+        assert isinstance(pkg.real_package, archive.Archive)
+    finally:
+        pkg.finish()
+        assert not Path(pkg.real_package._extraction_dir.name).exists()
+
+
+def test_archive_file_option_resolves_nested_and_extensionless_tar(monkeypatch, tmp_path):
+    import gzip
+    import io
+    import tarfile
+    from zipfile import ZipFile
+
+    monkeypatch.setattr(abstracts, "NetlogFile", Mock)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr(archive, "upload_extracted_files", Mock())
+
+    assert "arguments" in archive.Archive.option_names
+
+    # 1. Single-member nested ZIP with file= targeting inner member
+    inner = io.BytesIO()
+    with ZipFile(inner, "w") as zf:
+        zf.writestr("sub/run.sh", "echo nested\n")
+
+    outer = tmp_path / "outer.zip"
+    with ZipFile(outer, "w") as zf:
+        zf.writestr("inner.zip", inner.getvalue())
+
+    pkg = archive.Archive(options={"file": "sub/run.sh"})
+    pkg.get_path_app_in_path = Mock(side_effect=archive.CuckooPackageError("missing"))
+    cmds = []
+    pkg.execute = lambda cmd: cmds.append(cmd) or 9101
+    try:
+        assert pkg.start(str(outer)) == [9101]
+        assert len(cmds) == 1
+        assert "sub/run.sh" in cmds[0]
+    finally:
+        pkg.finish()
+
+    # 2. Extensionless tar extracted by 7z from a .gz archive is unwrapped via magic
+    tar_buf = io.BytesIO()
+    with tarfile.open(fileobj=tar_buf, mode="w") as tf:
+        info = tarfile.TarInfo("drop.sh")
+        data = b"echo tar\n"
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+
+    gz_path = tmp_path / "archive.gz"
+    with gzip.open(gz_path, "wb") as gf:
+        gf.write(tar_buf.getvalue())
+
+    def fake_7z(_bin, src, dest, _pw, _multi):
+        if src == str(gz_path):
+            (Path(dest) / "archive").write_bytes(tar_buf.getvalue())
+        else:
+            (Path(dest) / "drop.sh").write_bytes(b"echo tar\n")
+
+    monkeypatch.setattr(archive, "extract_archive", fake_7z)
+    pkg_gz = archive.Archive(options={"file": "drop.sh"})
+    pkg_gz.get_path_app_in_path = Mock(side_effect=lambda name: "/usr/bin/7z" if name == "7z" else (_ for _ in ()).throw(archive.CuckooPackageError("missing")))
+    cmds_gz = []
+    pkg_gz.execute = lambda cmd: cmds_gz.append(cmd) or 9102
+    try:
+        assert pkg_gz.start(str(gz_path)) == [9102]
+        assert len(cmds_gz) == 1
+        assert "drop.sh" in cmds_gz[0]
+    finally:
+        pkg_gz.finish()
+
+
+def test_linux_zip_utils_unrar_wrong_password_and_zip_edge_cases(monkeypatch, tmp_path):
+    from zipfile import ZipFile
+    from lib.common import zip_utils
+
+    # 1. unrar_extractor checks wrong password BEFORE partial entries and appends trailing slash
+    out_dir = tmp_path / "unrar_out"
+    seen_cmds = []
+
+    def fake_run(cmd, **kwargs):
+        seen_cmds.append(cmd)
+        if "-pbad" in cmd:
+            (out_dir / "partial_dir").mkdir(exist_ok=True)
+            return Mock(returncode=11, stdout=b"", stderr=b"Wrong password")
+        (out_dir / "run.sh").write_text("echo ok\n")
+        return Mock(returncode=0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run)
+    entries = zip_utils.unrar_extractor(
+        "/usr/bin/unrar", str(out_dir), str(tmp_path / "enc.rar"), "bad:good", try_multiple_passwords=True
+    )
+    assert seen_cmds[0][-1].endswith(os.sep)
+    assert "run.sh" in entries
+    assert not (out_dir / "partial_dir").exists()
+
+    fail_dir = tmp_path / "unrar_fail"
+
+    def fake_run_fail(cmd, **kwargs):
+        (fail_dir / "empty_subdir").mkdir(exist_ok=True)
+        return Mock(returncode=11, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run_fail)
+    with pytest.raises(archive.CuckooPackageError, match="Wrong password"):
+        zip_utils.unrar_extractor("/usr/bin/unrar", str(fail_dir), str(tmp_path / "enc.rar"), "bad")
+    assert list(fail_dir.iterdir()) == []
+
+    # 2. extract_zip does not rename source archive when extracting into a separate directory
+    src_dir = tmp_path / "src"
+    dest_dir = tmp_path / "dest"
+    src_dir.mkdir()
+    same_zip = src_dir / "sample.zip"
+    with ZipFile(same_zip, "w") as zf:
+        zf.writestr("sample.zip", b"inner")
+
+    zip_utils.extract_zip(str(same_zip), str(dest_dir), recursive=False)
+    assert same_zip.exists()
+    assert not (src_dir / "sample.zip.old").exists()
+    assert (dest_dir / "sample.zip").read_bytes() == b"inner"
+
+    # 3. extract_zip wraps OSError on conflicting file/dir entries as CuckooPackageError
+    conflict = tmp_path / "conflict.zip"
+    with ZipFile(conflict, "w") as zf:
+        zf.writestr("a", b"file-a")
+        zf.writestr("a/b", b"file-b")
+    with pytest.raises(archive.CuckooPackageError, match="Unable to extract Zip file"):
+        zip_utils.extract_zip(str(conflict), str(tmp_path / "conflict_out"), recursive=False)
+
+
+def test_archive_recursion_skips_deb_and_symlinks(prepare_archive, monkeypatch, tmp_path):
+    outside_zip = tmp_path / "outside.zip"
+    outside_zip.write_bytes(b"PK\x03\x04fake")
+
+    package, extraction, upload = prepare_archive(
+        {"pkg.deb": b"!<arch>\ndebian-binary", "run.sh": b"echo safe\n"},
+        {"recursion_depth": 1},
+    )
+    package.get_path_app_in_path.side_effect = lambda name: "/usr/bin/file" if name == "file" else "/usr/bin/7z"
+
+    orig_extract = extraction.side_effect
+    extracted_sources = []
+
+    def extract_with_symlink(binary, source, root, password, multiple_passwords):
+        extracted_sources.append(source)
+        orig_extract(binary, source, root, password, multiple_passwords)
+        (Path(root) / "escape.zip").symlink_to(outside_zip)
+
+    extraction.side_effect = extract_with_symlink
+
+    file_invocations = []
+
+    def fake_run(cmd, **kwargs):
+        file_invocations.append(cmd[-1])
+        res = Mock()
+        res.stdout = "Debian binary package, data compression xz\n" if cmd[-1].endswith(".deb") else "ASCII text\n"
+        return res
+
+    monkeypatch.setattr(archive.subprocess, "run", fake_run)
+    try:
+        assert package.start(str(tmp_path / "sample.zip")) == [4242, 4242]
+        assert len(extracted_sources) == 1
+        assert all(not p.endswith("pkg.deb") for p in file_invocations)
+        assert all(not p.endswith("escape.zip") for p in file_invocations)
+        assert sorted(upload.call_args.args[1]) == ["pkg.deb", "run.sh"]
+    finally:
+        package.finish()
+

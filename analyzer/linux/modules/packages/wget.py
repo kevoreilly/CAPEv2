@@ -7,13 +7,14 @@ import logging
 from os import chmod, system
 from subprocess import check_output
 
+from lib.common.abstracts import Package as CommonPackage
 from lib.core.packages import Package, choose_package_class
 
 log = logging.getLogger(__name__)
 
 
 def _fileinfo(target):
-    raw = check_output(["file", target])
+    raw = check_output(["file", target], text=True, errors="replace")
     # The utility has the following output format: "%filename%: %description%",
     # so we just skip everything before the actual description
     return raw[raw.index(":") + 2 :]
@@ -34,8 +35,11 @@ class Wget(Package):
         # self.target = "sh -c"
         file_info = _fileinfo(self.target)
         pkg_class = choose_package_class(file_info)
-        kwargs = {"options": self.options, "timeout": self.timeout}
-        self.real_package = pkg_class(self.target, **kwargs)
+        if issubclass(pkg_class, CommonPackage):
+            self.real_package = pkg_class(self.options)
+        else:
+            kwargs = {"options": self.options, "timeout": self.timeout}
+            self.real_package = pkg_class(self.target, **kwargs)
 
     def start(self):
         # We have nothing to do here; let the proper package do it's job
@@ -43,4 +47,14 @@ class Wget(Package):
         self.prepare()
         if not self.real_package:
             raise Exception("Invalid analysis package, aborting")
-        self.real_package.start()
+        if isinstance(self.real_package, CommonPackage):
+            return self.real_package.start(self.target)
+        return self.real_package.start()
+
+    def finish(self):
+        try:
+            if self.real_package:
+                return self.real_package.finish()
+            return True
+        finally:
+            super().finish()

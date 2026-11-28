@@ -71,11 +71,15 @@ def mock_archive_package(monkeypatch):
 
     mock_constants = types.ModuleType("lib.common.constants")
     for opt in [
+        "OPT_APPDATA",
         "OPT_ARGUMENTS",
+        "OPT_CURDIR",
         "OPT_DLLLOADER",
+        "OPT_EXTRACTOR",
         "OPT_FILE",
         "OPT_FREE",
         "OPT_FUNCTION",
+        "OPT_JSON_CONFIG",
         "OPT_MULTI_PASSWORD",
         "OPT_PASSWORD",
         "OPT_RECURSION_DEPTH",
@@ -87,6 +91,7 @@ def mock_archive_package(monkeypatch):
         mock_constants.OPT_PASSWORD,
         mock_constants.OPT_RECURSION_DEPTH,
         mock_constants.OPT_MAX_EXECUTABLES,
+        mock_constants.OPT_EXTRACTOR,
     )
     mock_constants.DLL_OPTIONS = (
         mock_constants.OPT_ARGUMENTS,
@@ -102,6 +107,14 @@ def mock_archive_package(monkeypatch):
 
     mock_exceptions.CuckooPackageError = CuckooPackageError
     monkeypatch.setitem(sys.modules, "lib.common.exceptions", mock_exceptions)
+
+    mock_hashing = types.ModuleType("lib.common.hashing")
+    mock_hashing.hash_file = lambda fn, p: "deadbeef"
+    monkeypatch.setitem(sys.modules, "lib.common.hashing", mock_hashing)
+
+    mock_results = types.ModuleType("lib.common.results")
+    mock_results.upload_to_host = MagicMock()
+    monkeypatch.setitem(sys.modules, "lib.common.results", mock_results)
 
     mock_abstracts = types.ModuleType("lib.common.abstracts")
 
@@ -120,14 +133,23 @@ def mock_archive_package(monkeypatch):
     mock_abstracts.Package = MockPackage
     monkeypatch.setitem(sys.modules, "lib.common.abstracts", mock_abstracts)
 
-    mock_zip_utils = types.ModuleType("lib.common.zip_utils")
-    mock_zip_utils.attempt_multiple_passwords = MagicMock()
-    mock_zip_utils.extract_archive = MagicMock()
-    mock_zip_utils.get_file_names = lambda path, pswd: []
-    mock_zip_utils.get_interesting_files = lambda files: files
-    mock_zip_utils.upload_extracted_files = MagicMock()
-    mock_zip_utils.winrar_extractor = MagicMock()
-    monkeypatch.setitem(sys.modules, "lib.common.zip_utils", mock_zip_utils)
+    zip_utils_spec = importlib.util.spec_from_file_location(
+        "lib.common.zip_utils",
+        os.path.join(os.path.dirname(__file__), "../analyzer/windows/lib/common/zip_utils.py"),
+    )
+    real_zip_utils = importlib.util.module_from_spec(zip_utils_spec)
+    zip_utils_spec.loader.exec_module(real_zip_utils)
+    monkeypatch.setitem(sys.modules, "lib.common.zip_utils", real_zip_utils)
+
+    mock_lib_core = types.ModuleType("lib.core")
+    monkeypatch.setitem(sys.modules, "lib.core", mock_lib_core)
+    compound_spec = importlib.util.spec_from_file_location(
+        "lib.core.compound",
+        os.path.join(os.path.dirname(__file__), "../analyzer/windows/lib/core/compound.py"),
+    )
+    real_compound = importlib.util.module_from_spec(compound_spec)
+    compound_spec.loader.exec_module(real_compound)
+    monkeypatch.setitem(sys.modules, "lib.core.compound", real_compound)
 
     mock_modules_packages = types.ModuleType("modules.packages")
     mock_modules_packages_dll = types.ModuleType("modules.packages.dll")
@@ -568,6 +590,286 @@ def test_windows_archive_caps_max_executables(mock_archive_package, tmp_path, mo
     pids = archive_pkg.start(str(tmp_path / "many.zip"))
     assert pids == [101, 102]
     assert archive_pkg.execute_interesting_file.call_count == 2
+
+
+def test_windows_archive_stdlib_zip_tar_gz_and_pinned_extractor(mock_archive_package, tmp_path, monkeypatch):
+    import gzip
+    import io
+    import tarfile
+    import zipfile
+    from unittest.mock import MagicMock
+
+    Archive, CuckooPackageError = mock_archive_package
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(Archive.start.__globals__, "upload_extracted_files", MagicMock())
+
+    # 1. ZIP works out of the box when 7z.exe and WinRAR.exe are absent
+    zip_path = tmp_path / "sample.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("payload.exe", b"MZ\x90\x00")
+        zf.writestr("../escape.exe", b"MZ-BAD")
+
+    pkg = Archive(options={"OPT_CURDIR": str(tmp_path / "out_zip")}, config=MagicMock())
+    pkg.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    pkg.execute_files = MagicMock(return_value=[5001])
+
+    assert pkg.start(str(zip_path)) == [5001]
+    assert (tmp_path / "out_zip" / "payload.exe").read_bytes() == b"MZ\x90\x00"
+    assert not (tmp_path / "escape.exe").exists()
+
+    # 2. TAR.GZ works out of the box when 7z/WinRAR are absent
+    tar_path = tmp_path / "sample.tar.gz"
+    with tarfile.open(tar_path, "w:gz") as tf:
+        info = tarfile.TarInfo("drop.exe")
+        payload = b"MZ\x90\x00"
+        info.size = len(payload)
+        tf.addfile(info, io.BytesIO(payload))
+        bad_info = tarfile.TarInfo("../tar_escape.exe")
+        bad_info.size = len(payload)
+        tf.addfile(bad_info, io.BytesIO(payload))
+
+    pkg_tar = Archive(options={"OPT_CURDIR": str(tmp_path / "out_tar")}, config=MagicMock())
+    pkg_tar.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    pkg_tar.execute_files = MagicMock(return_value=[5002])
+
+    assert pkg_tar.start(str(tar_path)) == [5002]
+    assert (tmp_path / "out_tar" / "drop.exe").read_bytes() == b"MZ\x90\x00"
+    assert not (tmp_path / "tar_escape.exe").exists()
+
+    # 3. Single-file gzip stream works via tarfile/stream fallback
+    gz_path = tmp_path / "single.exe.gz"
+    with gzip.open(gz_path, "wb") as gf:
+        gf.write(b"MZ-SINGLE")
+
+    pkg_gz = Archive(options={"OPT_CURDIR": str(tmp_path / "out_gz")}, config=MagicMock())
+    pkg_gz.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    pkg_gz.execute_files = MagicMock(return_value=[5003])
+
+    assert pkg_gz.start(str(gz_path)) == [5003]
+    assert (tmp_path / "out_gz" / "single.exe").read_bytes() == b"MZ-SINGLE"
+
+    # 4. Explicit extractor=winrar does NOT fall back to zipfile when WinRAR is missing
+    pkg_pin = Archive(
+        options={"OPT_CURDIR": str(tmp_path / "out_pin"), "OPT_EXTRACTOR": "winrar"},
+        config=MagicMock(),
+    )
+    pkg_pin.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("Unable to find any WinRAR.exe executable"))
+    with pytest.raises(CuckooPackageError, match="WinRAR.exe"):
+        pkg_pin.start(str(zip_path))
+
+    # 5. Unsupported extractor raises immediately
+    pkg_bad = Archive(options={"OPT_EXTRACTOR": "nonexistent"}, config=MagicMock())
+    with pytest.raises(CuckooPackageError, match="Unsupported extractor"):
+        pkg_bad.start(str(zip_path))
+
+
+def test_windows_archive_compound_manifest_and_staging_isolation(mock_archive_package, tmp_path, monkeypatch):
+    import json
+    import zipfile
+    from unittest.mock import MagicMock
+
+    Archive, CuckooPackageError = mock_archive_package
+    monkeypatch.chdir(tmp_path)
+    upload_mock = MagicMock()
+    monkeypatch.setitem(Archive.start.__globals__, "upload_extracted_files", upload_mock)
+
+    # Pre-populate APPDATA with an unrelated executable to verify staging isolates archive members
+    appdata_dir = tmp_path / "appdata"
+    appdata_dir.mkdir()
+    (appdata_dir / "preexisting.exe").write_bytes(b"MZ-PREEXISTING")
+    monkeypatch.setenv("APPDATA", str(appdata_dir))
+
+    dest_exe_dir = tmp_path / "moved_bin"
+    dest_folder_dir = tmp_path / "moved_folder"
+    monkeypatch.setenv("CAPE_TEST_DEST", str(dest_exe_dir))
+    monkeypatch.setenv("CAPE_TEST_DIR", str(dest_folder_dir))
+
+    # 1. Zero-config __configuration.json auto-detection + path_to_extract moves
+    compound_zip = tmp_path / "compound.zip"
+    cfg = {
+        "path_to_extract": {
+            "a.exe": "$CAPE_TEST_DEST",
+            "folder_b": "$CAPE_TEST_DIR",
+            "../outside.txt": "$CAPE_TEST_DIR",
+        },
+        "target_file": "a.exe",
+    }
+    with zipfile.ZipFile(compound_zip, "w") as zf:
+        zf.writestr("__configuration.json", json.dumps(cfg))
+        zf.writestr("a.exe", b"MZ-TARGET")
+        zf.writestr("folder_b/helper.dll", b"MZ-HELPER")
+
+    pkg = Archive(options={"OPT_APPDATA": "yes"}, config=MagicMock())
+    pkg.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    executed = []
+
+    def fake_exec(root, name, path):
+        executed.append((root, name, path, pkg.options.get("OPT_CURDIR")))
+        return 7001
+
+    pkg.execute_interesting_file = fake_exec
+    assert pkg.start(str(compound_zip)) == [7001]
+    assert (dest_exe_dir / "a.exe").read_bytes() == b"MZ-TARGET"
+    assert (dest_folder_dir / "folder_b" / "helper.dll").read_bytes() == b"MZ-HELPER"
+    assert executed == [(str(appdata_dir), "a.exe", str(dest_exe_dir / "a.exe"), str(dest_exe_dir))]
+    uploaded_names = upload_mock.call_args.args[1]
+    assert "preexisting.exe" not in uploaded_names
+    assert "a.exe" in uploaded_names
+
+    # 2. Explicit OPT_FILE overrides target_file in __configuration.json
+    pkg_override = Archive(
+        options={"OPT_CURDIR": str(tmp_path / "override_root"), "OPT_FILE": "other.exe"},
+        config=MagicMock(),
+    )
+    override_zip = tmp_path / "override.zip"
+    with zipfile.ZipFile(override_zip, "w") as zf:
+        zf.writestr("__configuration.json", json.dumps({"target_file": "a.exe"}))
+        zf.writestr("a.exe", b"MZ-A")
+        zf.writestr("other.exe", b"MZ-OTHER")
+    pkg_override.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    seen = []
+    pkg_override.execute_interesting_file = lambda root, name, path: seen.append((name, path)) or 7002
+    assert pkg_override.start(str(override_zip)) == [7002]
+    assert seen == [("other.exe", str(tmp_path / "override_root" / "other.exe"))]
+
+    # 3. Relative target_file whose containing folder is moved before it raises CuckooPackageError
+    bad_order_zip = tmp_path / "bad_order.zip"
+    bad_cfg = {
+        "path_to_extract": {"sub": "$CAPE_TEST_DIR"},
+        "target_file": "sub/nested.dll",
+    }
+    with zipfile.ZipFile(bad_order_zip, "w") as zf:
+        zf.writestr("__configuration.json", json.dumps(bad_cfg))
+        zf.writestr("sub/nested.dll", b"MZ-DLL")
+
+    pkg_bad_order = Archive(options={"OPT_CURDIR": str(tmp_path / "bad_order_root")}, config=MagicMock())
+    pkg_bad_order.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    with pytest.raises(CuckooPackageError, match="Error getting the correct path"):
+        pkg_bad_order.start(str(bad_order_zip))
+
+    # 4. Invalid JSON in __configuration.json raises CuckooPackageError
+    bad_json_zip = tmp_path / "bad_json.zip"
+    with zipfile.ZipFile(bad_json_zip, "w") as zf:
+        zf.writestr("__configuration.json", "{not valid json")
+        zf.writestr("a.exe", b"MZ")
+
+    pkg_bad_json = Archive(options={"OPT_CURDIR": str(tmp_path / "bad_json_root")}, config=MagicMock())
+    pkg_bad_json.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    with pytest.raises(CuckooPackageError, match="JSON decode error"):
+        pkg_bad_json.start(str(bad_json_zip))
+
+
+def test_windows_archive_recursion_without_diec_skips_docx_and_unwraps_single_nested(
+    mock_archive_package, tmp_path, monkeypatch
+):
+    import io
+    import zipfile
+    from unittest.mock import MagicMock
+
+    Archive, CuckooPackageError = mock_archive_package
+    monkeypatch.chdir(tmp_path)
+    upload_mock = MagicMock()
+    monkeypatch.setitem(Archive.start.__globals__, "upload_extracted_files", upload_mock)
+
+    # Nested ZIP + a .docx (ZIP-backed document that MUST NOT be unpacked)
+    inner_buf = io.BytesIO()
+    with zipfile.ZipFile(inner_buf, "w") as inner:
+        inner.writestr("deep.exe", b"MZ-DEEP")
+
+    docx_buf = io.BytesIO()
+    with zipfile.ZipFile(docx_buf, "w") as docx:
+        docx.writestr("[Content_Types].xml", "<Types/>")
+
+    outer_zip = tmp_path / "outer.zip"
+    with zipfile.ZipFile(outer_zip, "w") as outer:
+        outer.writestr("inner.zip", inner_buf.getvalue())
+        outer.writestr("lure.docx", docx_buf.getvalue())
+
+    # 1. recursion_depth=1 without diec.exe unpacks inner.zip but keeps lure.docx intact
+    pkg = Archive(
+        options={"OPT_CURDIR": str(tmp_path / "rec_out"), "OPT_RECURSION_DEPTH": 1},
+        config=MagicMock(),
+    )
+    pkg.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    pkg.execute_files = MagicMock(return_value=[8001])
+
+    assert pkg.start(str(outer_zip)) == [8001]
+    uploaded = upload_mock.call_args.args[1]
+    assert any(name.endswith("deep.exe") for name in uploaded)
+    assert "lure.docx" in uploaded
+    assert not any(name.endswith("[Content_Types].xml") for name in uploaded)
+
+    # 2. Default (unset recursion_depth) unwraps single-member nested .zip
+    single_wrap = tmp_path / "single_wrap.zip"
+    with zipfile.ZipFile(single_wrap, "w") as outer:
+        outer.writestr("inner.zip", inner_buf.getvalue())
+
+    pkg_default = Archive(options={"OPT_CURDIR": str(tmp_path / "single_out")}, config=MagicMock())
+    pkg_default.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    pkg_default.execute_files = MagicMock(return_value=[8002])
+    upload_mock.reset_mock()
+    assert pkg_default.start(str(single_wrap)) == [8002]
+    assert any(name.endswith("deep.exe") for name in upload_mock.call_args.args[1])
+
+    # 3. Explicit recursion_depth=0 disables even single-member unwrapping
+    pkg_zero = Archive(
+        options={"OPT_CURDIR": str(tmp_path / "zero_out"), "OPT_RECURSION_DEPTH": 0},
+        config=MagicMock(),
+    )
+    pkg_zero.get_path_app_in_path = MagicMock(side_effect=CuckooPackageError("missing"))
+    pkg_zero.execute_files = MagicMock(return_value=[8003])
+    upload_mock.reset_mock()
+    assert pkg_zero.start(str(single_wrap)) == [8003]
+    assert upload_mock.call_args.args[1] == ["inner.zip"]
+
+
+def test_windows_winrar_extractor_reports_wrong_password(monkeypatch, tmp_path):
+    import importlib.util
+    import sys
+    import types
+    from unittest.mock import MagicMock
+
+    for name in [
+        "lib",
+        "lib.common",
+        "lib.common.constants",
+        "lib.common.exceptions",
+        "lib.common.hashing",
+        "lib.common.results",
+    ]:
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+
+    sys.modules["lib.common.constants"].OPT_MULTI_PASSWORD = "enable_multi_password"
+
+    class CuckooPackageError(Exception):
+        pass
+
+    sys.modules["lib.common.exceptions"].CuckooPackageError = CuckooPackageError
+    sys.modules["lib.common.hashing"].hash_file = lambda fn, p: "deadbeef"
+    sys.modules["lib.common.results"].upload_to_host = MagicMock()
+
+    spec = importlib.util.spec_from_file_location(
+        "windows_zip_utils_winrar",
+        os.path.join(os.path.dirname(__file__), "../analyzer/windows/lib/common/zip_utils.py"),
+    )
+    zip_utils = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(zip_utils)
+
+    res = MagicMock(returncode=11, stdout=b"", stderr=b"Wrong password")
+    out_dir = tmp_path / "out"
+    seen_cmds = []
+
+    def fake_run(cmd, **kwargs):
+        seen_cmds.append(cmd)
+        (out_dir / "partial_subdir").mkdir(parents=True, exist_ok=True)
+        return res
+
+    monkeypatch.setattr(zip_utils.subprocess, "run", fake_run)
+
+    with pytest.raises(CuckooPackageError, match="Wrong password"):
+        zip_utils.winrar_extractor("C:\\WinRAR.exe", str(out_dir), str(tmp_path / "enc.rar"), "bad")
+    assert seen_cmds[0][-1].endswith(os.sep)
+    assert list(out_dir.iterdir()) == []
 
 def test_pipe_forwarder_socket_connect_error(monkeypatch):
     import ctypes

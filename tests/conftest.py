@@ -10,8 +10,6 @@ import lib.cuckoo.core.database
 from lib.cuckoo.common.config import ConfigMeta
 from lib.cuckoo.core.database import Database, init_database, reset_database_FOR_TESTING_ONLY
 
-collect_ignore = ["zip_compound"]
-
 
 @pytest.fixture
 def db():

@@ -421,6 +421,40 @@ class TestDatabaseEngine:
                 detected_platform
             }
 
+    def test_file_option_routes_to_archive_package(
+        self,
+        db: _Database,
+        temp_filename: str,
+        monkeypatch,
+    ):
+        seen_packages = []
+
+        def fake_demux(target_path, package, options, platform=""):
+            seen_packages.append(package)
+            return [(target_path, "windows")], []
+
+        monkeypatch.setattr(tasking, "demux_sample", fake_demux)
+        monkeypatch.setattr(
+            tasking.TasksMixIn,
+            "_identify_aux_func",
+            lambda _self, _f, _p, check_shellcode=True: ("exe", "exe"),
+        )
+
+        with db.session.begin():
+            task_ids, _ = db.demux_sample_and_add_to_db(
+                file_path=temp_filename,
+                options="file=payload.exe",
+            )
+            other_ids, _ = db.demux_sample_and_add_to_db(
+                file_path=temp_filename,
+                options="other_file=payload.exe",
+            )
+
+        assert seen_packages == ["archive", "exe"]
+        with db.session.begin():
+            assert db.session.get(Task, task_ids[0]).package == "archive"
+            assert db.session.get(Task, other_ids[0]).package == "exe"
+
     def test_error_exists(self, db: _Database):
         err_msg = "A" * 1024
         with db.session.begin():

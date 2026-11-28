@@ -1,3 +1,4 @@
+{% load analysis_tags %}
 <section id="suri_tls">
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
@@ -22,38 +23,22 @@
                     <tr>
                         <td>{{tls.timestamp}}</td>
                         <td>{{tls.srcip}}
-                            <a href="https://www.virustotal.com/en/ip-address/{{tls.srcip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{tls.srcip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{tls.srcip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if tls.moloch_src_ip_url %}
-                            <a href={{tls.moloch_src_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" tls.srcip "ip" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" tls.srcip %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" tls.srcip %}{% endif %}
+                            {% if tls.moloch_src_ip_url %}{% ext_lookup "mlch" tls.moloch_src_ip_url %}{% endif %}
                         </td>
                         <td>{{tls.srcport}}
-                            {% if tls.moloch_src_port_url %}
-                            <a href={{tls.moloch_src_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if tls.moloch_src_port_url %}{% ext_lookup "mlch" tls.moloch_src_port_url %}{% endif %}
                         </td>
                         <td>{{tls.dstip}}
-                           <a href="https://www.virustotal.com/en/ip-address/{{tls.dstip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{tls.dstip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{tls.dstip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if tls.moloch_dst_ip_url %}
-                            <a href={{tls.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" tls.dstip "ip" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" tls.dstip %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" tls.dstip %}{% endif %}
+                            {% if tls.moloch_dst_ip_url %}{% ext_lookup "mlch" tls.moloch_dst_ip_url %}{% endif %}
                         </td>
                         <td>{{tls.dstport}}
-                            {% if tls.moloch_dst_port_url %}
-                            <a href={{tls.moloch_dst_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if tls.moloch_dst_port_url %}{% ext_lookup "mlch" tls.moloch_dst_port_url %}{% endif %}
                         </td>
                         <td>{{tls.subject}}</td>
                         <td>{{tls.issuerdn}}</td>

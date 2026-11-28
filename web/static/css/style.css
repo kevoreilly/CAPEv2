@@ -725,3 +725,185 @@ footer a:hover,
         padding-left: 20px;
     }
 }
+
+/* External service icon links & Threat Intelligence badges */
+.ext-svc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.35rem;
+    margin-left: 0.2rem;
+    border-radius: 0.25rem;
+    background-color: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #93c5fd;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    vertical-align: middle;
+    white-space: nowrap;
+    word-break: normal;
+    user-select: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.ext-svc-btn:hover,
+.ext-svc-btn:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #fff;
+}
+
+.ext-svc-svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.ext-svc-vt {
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.35);
+    background-color: rgba(59, 130, 246, 0.12);
+}
+.ext-svc-vt:hover,
+.ext-svc-vt:focus {
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.7);
+    background-color: rgba(59, 130, 246, 0.25);
+}
+
+.ext-svc-tf {
+    color: #fb923c;
+    border-color: rgba(251, 146, 60, 0.4);
+    background-color: rgba(249, 115, 22, 0.14);
+}
+.ext-svc-tf:hover,
+.ext-svc-tf:focus {
+    color: #fdba74;
+    border-color: rgba(251, 146, 60, 0.75);
+    background-color: rgba(249, 115, 22, 0.28);
+}
+
+.ext-svc-et {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.35);
+    background-color: rgba(245, 158, 11, 0.12);
+}
+.ext-svc-et:hover,
+.ext-svc-et:focus {
+    color: #fde68a;
+    border-color: rgba(251, 191, 36, 0.7);
+    background-color: rgba(245, 158, 11, 0.25);
+}
+
+.ext-svc-pt {
+    color: #2dd4bf;
+    border-color: rgba(45, 212, 191, 0.35);
+    background-color: rgba(20, 184, 166, 0.12);
+}
+.ext-svc-pt:hover,
+.ext-svc-pt:focus {
+    color: #5eead4;
+    border-color: rgba(45, 212, 191, 0.7);
+    background-color: rgba(20, 184, 166, 0.25);
+}
+
+.ext-svc-mwdb {
+    color: #facc15;
+    border-color: rgba(250, 204, 21, 0.35);
+    background-color: rgba(234, 179, 8, 0.14);
+}
+.ext-svc-mwdb:hover,
+.ext-svc-mwdb:focus {
+    color: #fde047;
+    border-color: rgba(250, 204, 21, 0.7);
+    background-color: rgba(234, 179, 8, 0.28);
+}
+
+.ext-svc-bazaar {
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.35);
+    background-color: rgba(14, 165, 233, 0.14);
+}
+.ext-svc-bazaar:hover,
+.ext-svc-bazaar:focus {
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.7);
+    background-color: rgba(14, 165, 233, 0.28);
+}
+
+.ext-svc-malpedia {
+    color: #c084fc;
+    border-color: rgba(192, 132, 252, 0.35);
+    background-color: rgba(168, 85, 247, 0.14);
+}
+.ext-svc-malpedia:hover,
+.ext-svc-malpedia:focus {
+    color: #d8b4fe;
+    border-color: rgba(192, 132, 252, 0.7);
+    background-color: rgba(168, 85, 247, 0.28);
+}
+
+.ext-svc-mlch {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.35);
+    background-color: rgba(16, 185, 129, 0.12);
+}
+.ext-svc-mlch:hover,
+.ext-svc-mlch:focus {
+    color: #6ee7b7;
+    border-color: rgba(52, 211, 153, 0.7);
+    background-color: rgba(16, 185, 129, 0.25);
+}
+
+.ti-badges-wrap {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    vertical-align: middle;
+    word-break: normal;
+}
+
+.ti-pill {
+    display: inline-flex;
+    align-items: stretch;
+    vertical-align: middle;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    border: 1px solid rgba(220, 53, 69, 0.65);
+    white-space: nowrap;
+    word-break: normal;
+    line-height: 1.15;
+}
+
+.ti-pill-tag {
+    background-color: #dc3545;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.18rem 0.45rem;
+    display: inline-flex;
+    align-items: center;
+}
+
+.ti-pill-link {
+    background-color: rgba(249, 115, 22, 0.2);
+    color: #fb923c !important;
+    padding: 0.15rem 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid rgba(220, 53, 69, 0.55);
+    user-select: none;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ti-pill-link:hover,
+.ti-pill-link:focus {
+    background-color: rgba(249, 115, 22, 0.38);
+    color: #fff !important;
+}

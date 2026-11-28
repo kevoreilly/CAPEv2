@@ -83,6 +83,7 @@ yara = yes
 suricata = yes
 virustotal = no
 clamav = no
+threatintelligence = no
 
 # ... but this mechanism may still be switched on
 [procmemory]

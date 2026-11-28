@@ -1,3 +1,4 @@
+{% load analysis_tags %}
 <section id="suri_alerts">
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
@@ -24,57 +25,33 @@
                     <tr>
                         <td>{{alert.timestamp}}</td>
                         <td>{{alert.srcip}}
-                            <a href="https://www.virustotal.com/en/ip-address/{{alert.srcip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                                <a href="https://threatintel.proofpoint.com/search?q={{alert.srcip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{alert.srcip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if alert.moloch_src_ip_url %}
-                                <a href={{alert.moloch_src_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" alert.srcip "ip" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" alert.srcip %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" alert.srcip %}{% endif %}
+                            {% if alert.moloch_src_ip_url %}{% ext_lookup "mlch" alert.moloch_src_ip_url %}{% endif %}
                         </td>
                         <td>{{alert.srcport}}
-                            {% if alert.moloch_src_port_url %}
-                                <a href={{alert.moloch_src_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if alert.moloch_src_port_url %}{% ext_lookup "mlch" alert.moloch_src_port_url %}{% endif %}
                         </td>
                         <td>{{alert.dstip}}
-                            <a href="https://www.virustotal.com/en/ip-address/{{alert.dstip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                                <a href="https://threatintel.proofpoint.com/search?q={{alert.dstip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{alert.dstip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if alert.moloch_dst_ip_url %}
-                                <a href={{alert.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% ext_lookup "vt" alert.dstip "ip" %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" alert.dstip %}{% endif %}
+                            {% if config.display_pt_portal %}{% ext_lookup "pt" alert.dstip %}{% endif %}
+                            {% if alert.moloch_dst_ip_url %}{% ext_lookup "mlch" alert.moloch_dst_ip_url %}{% endif %}
                         </td>
                         <td>{{alert.dstport}}
-                            {% if alert.moloch_dst_port_url %}
-                                <a href={{alert.moloch_dst_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if alert.moloch_dst_port_url %}{% ext_lookup "mlch" alert.moloch_dst_port_url %}{% endif %}
                         </td>
                         <td>{{alert.protocol}}</td>
                         <td>{{alert.gid}}</td>
                         <td>{{alert.sid}}
-                            {% if config.display_et_portal %}
-                                <a href="https://threatintel.proofpoint.com/search?q={{alert.sid}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if alert.moloch_sid_url %}
-                                <a href={{alert.moloch_sid_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" alert.sid %}{% endif %}
+                            {% if alert.moloch_sid_url %}{% ext_lookup "mlch" alert.moloch_sid_url %}{% endif %}
                         </td>
                         <td>{{alert.rev}}</td>
                         <td>{{alert.signature}}
-                            {% if config.display_et_portal %}
-                                <a href="https://threatintel.proofpoint.com/search?q={{alert.signature}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if alert.moloch_msg_url %}
-                                <a href={{alert.moloch_msg_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
+                            {% if config.display_et_portal %}{% ext_lookup "et" alert.signature %}{% endif %}
+                            {% if alert.moloch_msg_url %}{% ext_lookup "mlch" alert.moloch_msg_url %}{% endif %}
                         </td>
                         <td>{{alert.category}}</td>
                         <td>{{alert.severity}}</td>
